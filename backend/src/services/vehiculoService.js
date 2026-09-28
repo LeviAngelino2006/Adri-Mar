@@ -152,14 +152,31 @@ async function actualizarVehiculo(id, datos) {
   return vehiculo;
 }
 
+class YaDadoDeBajaError extends Error {}
+
+async function darDeBajaVehiculo(id) {
+  const actual = await obtenerVehiculo(id);
+
+  if (actual.estado === 'DADO_DE_BAJA') {
+    throw new YaDadoDeBajaError();
+  }
+
+  return prisma.vehiculo.update({
+    where: { id: actual.id },
+    data: { estado: 'DADO_DE_BAJA', fechaBaja: new Date() },
+  });
+}
+
 module.exports = {
   crearVehiculo,
   listarVehiculos,
   obtenerVehiculo,
   actualizarVehiculo,
+  darDeBajaVehiculo,
   ValidacionError,
   NoEncontradoError,
   DadoDeBajaError,
+  YaDadoDeBajaError,
   DOMINIO_REGEX,
   ESTADOS_VALIDOS,
 };

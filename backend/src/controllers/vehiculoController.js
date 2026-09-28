@@ -68,4 +68,19 @@ async function actualizar(req, res) {
   }
 }
 
-module.exports = { crear, listar, obtener, actualizar };
+async function darDeBaja(req, res) {
+  try {
+    const vehiculo = await vehiculoService.darDeBajaVehiculo(req.params.id);
+    return res.json({ vehiculo });
+  } catch (err) {
+    if (err instanceof vehiculoService.NoEncontradoError) {
+      return res.status(404).json({ error: 'Vehículo no encontrado' });
+    }
+    if (err instanceof vehiculoService.YaDadoDeBajaError) {
+      return res.status(409).json({ error: 'El vehículo ya está dado de baja' });
+    }
+    throw err;
+  }
+}
+
+module.exports = { crear, listar, obtener, actualizar, darDeBaja };
