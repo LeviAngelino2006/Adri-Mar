@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import Layout from '../components/Layout';
 
 const ESTADOS = [
   { value: '', label: 'Activos (Operativo / En taller)' },
@@ -63,8 +64,8 @@ function FlotaVehiculos() {
   }
 
   return (
-    <main>
-      <p>
+    <Layout>
+      <p className="page-back-link">
         <Link to="/">Volver</Link>
       </p>
       <h1>Flota de vehículos</h1>
@@ -186,7 +187,7 @@ function FlotaVehiculos() {
           </div>
         </section>
       )}
-    </main>
+    </Layout>
   );
 }
 

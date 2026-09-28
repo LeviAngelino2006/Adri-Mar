@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { PERFILES } from '../constants/perfiles';
+import Layout from '../components/Layout';
 
 const FORM_INICIAL = {
   nombre: '',
@@ -43,8 +44,8 @@ function RegistrarUsuario() {
   }
 
   return (
-    <main>
-      <p>
+    <Layout>
+      <p className="page-back-link">
         <Link to="/">Volver</Link>
       </p>
       <h1>Registrar usuario</h1>
@@ -98,7 +99,7 @@ function RegistrarUsuario() {
           {enviando ? 'Guardando…' : 'Guardar'}
         </button>
       </form>
-    </main>
+    </Layout>
   );
 }
 

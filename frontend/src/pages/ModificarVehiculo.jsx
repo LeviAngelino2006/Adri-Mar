@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
+import Layout from '../components/Layout';
 
 const CAMPOS = ['dominio', 'numeroInterno', 'marca', 'modelo', 'anio', 'asientos', 'kilometraje'];
 
@@ -55,12 +56,25 @@ function ModificarVehiculo() {
     }
   }
 
-  if (cargando) return <p>Cargando…</p>;
-  if (errorCarga) return <p role="alert">{errorCarga}</p>;
+  if (cargando) {
+    return (
+      <Layout>
+        <p>Cargando…</p>
+      </Layout>
+    );
+  }
+
+  if (errorCarga) {
+    return (
+      <Layout>
+        <p role="alert">{errorCarga}</p>
+      </Layout>
+    );
+  }
 
   return (
-    <main>
-      <p>
+    <Layout>
+      <p className="page-back-link">
         <Link to="/vehiculos">Volver a la flota</Link>
       </p>
       <h1>Modificar vehículo</h1>
@@ -126,7 +140,7 @@ function ModificarVehiculo() {
           Cancelar
         </button>
       </form>
-    </main>
+    </Layout>
   );
 }
 
