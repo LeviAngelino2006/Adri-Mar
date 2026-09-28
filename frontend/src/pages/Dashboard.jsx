@@ -3,11 +3,11 @@ import { useAuth } from '../context/AuthContext';
 
 const FUNCIONES = [
   { label: 'Gestionar usuarios', perfiles: ['ADMINISTRADOR'], to: '/usuarios/nuevo' },
-  { label: 'Gestionar flota de vehículos', perfiles: ['ADMINISTRADOR'], to: null },
+  { label: 'Registrar vehículo', perfiles: ['ADMINISTRADOR'], to: '/vehiculos/nuevo' },
   {
     label: 'Consultar flota de vehículos',
     perfiles: ['ADMINISTRADOR', 'PERSONAL_TALLER'],
-    to: null,
+    to: '/vehiculos',
   },
 ];
 
