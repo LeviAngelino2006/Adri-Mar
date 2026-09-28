@@ -1,10 +1,14 @@
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const FUNCIONES = [
-  { label: 'Gestionar usuarios', perfiles: ['ADMINISTRADOR'] },
-  { label: 'Gestionar flota de vehículos', perfiles: ['ADMINISTRADOR'] },
-  { label: 'Consultar flota de vehículos', perfiles: ['ADMINISTRADOR', 'PERSONAL_TALLER'] },
+  { label: 'Gestionar usuarios', perfiles: ['ADMINISTRADOR'], to: '/usuarios/nuevo' },
+  { label: 'Gestionar flota de vehículos', perfiles: ['ADMINISTRADOR'], to: null },
+  {
+    label: 'Consultar flota de vehículos',
+    perfiles: ['ADMINISTRADOR', 'PERSONAL_TALLER'],
+    to: null,
+  },
 ];
 
 function Dashboard() {
@@ -26,7 +30,7 @@ function Dashboard() {
       </p>
       <ul>
         {funcionesHabilitadas.map((f) => (
-          <li key={f.label}>{f.label}</li>
+          <li key={f.label}>{f.to ? <Link to={f.to}>{f.label}</Link> : f.label}</li>
         ))}
       </ul>
       <button onClick={handleLogout}>Cerrar sesión</button>
