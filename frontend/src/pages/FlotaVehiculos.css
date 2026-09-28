@@ -1,0 +1,225 @@
+.flota-filtros {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+@media (min-width: 640px) {
+  .flota-filtros {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: var(--space-4);
+  }
+
+  .flota-filtros .form-field {
+    flex: 1;
+    margin-bottom: 0;
+  }
+}
+
+.flota-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  padding: var(--space-6) 0;
+}
+
+.flota-empty {
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+/* Tabla (escritorio) */
+.flota-table-wrap {
+  display: none;
+}
+
+.flota-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.flota-table th,
+.flota-table td {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.flota-table thead th {
+  background-color: var(--brand-50);
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.flota-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.flota-table tbody tr.is-selected {
+  background-color: var(--brand-50);
+}
+
+.flota-row-btn {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  min-height: auto;
+  color: var(--brand-600);
+  font-weight: 600;
+}
+
+.flota-row-btn:hover {
+  background-color: transparent;
+  text-decoration: underline;
+}
+
+/* Tarjetas (mobile) */
+.flota-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.flota-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  text-align: left;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.flota-card.is-selected {
+  border-color: var(--brand-500);
+  box-shadow: var(--shadow-md);
+}
+
+.flota-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.flota-card-dominio {
+  font-weight: 700;
+  font-size: 1.0625rem;
+  color: var(--color-text);
+}
+
+.flota-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+}
+
+@media (min-width: 768px) {
+  .flota-table-wrap {
+    display: block;
+    overflow-x: auto;
+    margin-bottom: var(--space-6);
+  }
+
+  .flota-cards {
+    display: none;
+  }
+}
+
+/* Ficha de detalle */
+.flota-detalle {
+  margin-top: var(--space-2);
+}
+
+.flota-detalle-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.flota-detalle-header h2 {
+  margin: 0;
+}
+
+.flota-detalle-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-1) var(--space-4);
+  margin: 0 0 var(--space-4);
+}
+
+.flota-detalle-list dt {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  margin-top: var(--space-3);
+}
+
+.flota-detalle-list dt:first-child {
+  margin-top: 0;
+}
+
+.flota-detalle-list dd {
+  margin: 0 0 0 0;
+  color: var(--color-text);
+}
+
+@media (min-width: 640px) {
+  .flota-detalle-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.flota-detalle-actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.flota-confirm-baja {
+  background-color: var(--state-error-bg);
+  border: 1px solid var(--state-error-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.flota-confirm-baja p {
+  margin: 0;
+  color: var(--state-error-text);
+}
+
+.flota-confirm-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.flota-detalle-footer {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-4);
+}

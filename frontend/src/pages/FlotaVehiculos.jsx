@@ -3,6 +3,14 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
+import Card from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
+import Button from '../components/ui/Button';
+import FormField from '../components/ui/FormField';
+import Alert from '../components/ui/Alert';
+import Spinner from '../components/ui/Spinner';
+import { ESTADOS_VEHICULO } from '../constants/estadosVehiculo';
+import './FlotaVehiculos.css';
 
 const ESTADOS = [
   { value: '', label: 'Activos (Operativo / En taller)' },
@@ -70,64 +78,110 @@ function FlotaVehiculos() {
       </p>
       <h1>Flota de vehículos</h1>
 
-      <form onSubmit={(e) => e.preventDefault()}>
-        <label htmlFor="busqueda">Buscar por dominio, interno o marca</label>
-        <input
-          id="busqueda"
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-        />
+      <form className="flota-filtros" onSubmit={(e) => e.preventDefault()}>
+        <FormField id="busqueda" label="Buscar por dominio, interno o marca">
+          <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+        </FormField>
 
-        <label htmlFor="estado">Estado</label>
-        <select id="estado" value={estado} onChange={(e) => setEstado(e.target.value)}>
-          {ESTADOS.map((e) => (
-            <option key={e.value} value={e.value}>
-              {e.label}
-            </option>
-          ))}
-        </select>
+        <FormField id="estado" label="Estado">
+          <select value={estado} onChange={(e) => setEstado(e.target.value)}>
+            {ESTADOS.map((e) => (
+              <option key={e.value} value={e.value}>
+                {e.label}
+              </option>
+            ))}
+          </select>
+        </FormField>
       </form>
 
-      {mensajeBaja && <p role="status">{mensajeBaja}</p>}
-      {errorBaja && <p role="alert">{errorBaja}</p>}
+      {mensajeBaja && <Alert variant="success">{mensajeBaja}</Alert>}
+      {errorBaja && <Alert variant="error">{errorBaja}</Alert>}
 
-      {cargando && <p>Cargando…</p>}
-      {!cargando && vehiculos.length === 0 && <p>No se encontraron vehículos</p>}
+      {cargando && (
+        <div className="flota-loading">
+          <Spinner label="Cargando vehículos" />
+          <span>Cargando vehículos…</span>
+        </div>
+      )}
+
+      {!cargando && vehiculos.length === 0 && (
+        <Card className="flota-empty">No se encontraron vehículos</Card>
+      )}
+
       {!cargando && vehiculos.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Dominio</th>
-              <th>Interno</th>
-              <th>Marca</th>
-              <th>Modelo</th>
-              <th>Kilometraje</th>
-              <th>Estado</th>
-            </tr>
-          </thead>
-          <tbody>
+        <>
+          <div className="flota-table-wrap">
+            <table className="flota-table">
+              <thead>
+                <tr>
+                  <th>Dominio</th>
+                  <th>Interno</th>
+                  <th>Marca</th>
+                  <th>Modelo</th>
+                  <th>Kilometraje</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vehiculos.map((v) => (
+                  <tr key={v.id} className={seleccionado?.id === v.id ? 'is-selected' : undefined}>
+                    <td>
+                      <button type="button" className="flota-row-btn" onClick={() => seleccionar(v)}>
+                        {v.dominio}
+                      </button>
+                    </td>
+                    <td>{v.numeroInterno}</td>
+                    <td>{v.marca}</td>
+                    <td>{v.modelo}</td>
+                    <td>{v.kilometraje}</td>
+                    <td>
+                      <Badge variant={ESTADOS_VEHICULO[v.estado].variant}>
+                        {ESTADOS_VEHICULO[v.estado].label}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flota-cards">
             {vehiculos.map((v) => (
-              <tr key={v.id}>
-                <td>
-                  <button type="button" onClick={() => seleccionar(v)}>
-                    {v.dominio}
-                  </button>
-                </td>
-                <td>{v.numeroInterno}</td>
-                <td>{v.marca}</td>
-                <td>{v.modelo}</td>
-                <td>{v.kilometraje}</td>
-                <td>{v.estado}</td>
-              </tr>
+              <button
+                type="button"
+                key={v.id}
+                className={`flota-card${seleccionado?.id === v.id ? ' is-selected' : ''}`}
+                onClick={() => seleccionar(v)}
+              >
+                <div className="flota-card-header">
+                  <span className="flota-card-dominio">{v.dominio}</span>
+                  <Badge variant={ESTADOS_VEHICULO[v.estado].variant}>
+                    {ESTADOS_VEHICULO[v.estado].label}
+                  </Badge>
+                </div>
+                <div className="flota-card-body">
+                  <span>Interno {v.numeroInterno}</span>
+                  <span>
+                    {v.marca} {v.modelo}
+                  </span>
+                  <span>{v.kilometraje} km</span>
+                </div>
+              </button>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </>
       )}
 
       {seleccionado && (
-        <section aria-label="Ficha del vehículo">
-          <h2>Ficha del vehículo</h2>
-          <dl>
+        <Card className="flota-detalle" role="region" aria-label="Ficha del vehículo">
+          <div className="flota-detalle-header">
+            <h2>Ficha del vehículo</h2>
+            <Badge variant={ESTADOS_VEHICULO[seleccionado.estado].variant}>
+              {ESTADOS_VEHICULO[seleccionado.estado].label}
+            </Badge>
+          </div>
+
+          <dl className="flota-detalle-list">
             <dt>Dominio</dt>
             <dd>{seleccionado.dominio}</dd>
             <dt>Número de interno</dt>
@@ -142,8 +196,6 @@ function FlotaVehiculos() {
             <dd>{seleccionado.asientos}</dd>
             <dt>Kilometraje</dt>
             <dd>{seleccionado.kilometraje}</dd>
-            <dt>Estado</dt>
-            <dd>{seleccionado.estado}</dd>
             {seleccionado.fechaBaja && (
               <>
                 <dt>Fecha de baja</dt>
@@ -155,37 +207,41 @@ function FlotaVehiculos() {
           </dl>
 
           {usuario.perfil === 'ADMINISTRADOR' && seleccionado.estado !== 'DADO_DE_BAJA' && (
-            <>
-              <Link to={`/vehiculos/${seleccionado.id}/editar`}>Editar</Link>{' '}
+            <div className="flota-detalle-actions">
+              <Link to={`/vehiculos/${seleccionado.id}/editar`} className="btn btn-secondary">
+                Editar
+              </Link>
               {!confirmandoBaja && (
-                <button type="button" onClick={() => setConfirmandoBaja(true)}>
+                <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
                   Dar de baja
-                </button>
+                </Button>
               )}
-            </>
-          )}
-
-          {confirmandoBaja && (
-            <div role="alertdialog">
-              <p>
-                ¿Confirma dar de baja el vehículo de dominio <strong>{seleccionado.dominio}</strong>
-                {' '}(interno <strong>{seleccionado.numeroInterno}</strong>)?
-              </p>
-              <button type="button" onClick={confirmarBaja}>
-                Confirmar baja
-              </button>
-              <button type="button" onClick={() => setConfirmandoBaja(false)}>
-                Cancelar
-              </button>
             </div>
           )}
 
-          <div>
-            <button type="button" onClick={() => setSeleccionado(null)}>
+          {confirmandoBaja && (
+            <div className="flota-confirm-baja" role="alertdialog" aria-label="Confirmar baja de vehículo">
+              <p>
+                ¿Confirma dar de baja el vehículo de dominio <strong>{seleccionado.dominio}</strong>{' '}
+                (interno <strong>{seleccionado.numeroInterno}</strong>)?
+              </p>
+              <div className="flota-confirm-actions">
+                <Button variant="danger" onClick={confirmarBaja}>
+                  Confirmar baja
+                </Button>
+                <Button variant="secondary" onClick={() => setConfirmandoBaja(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="flota-detalle-footer">
+            <Button variant="secondary" onClick={() => setSeleccionado(null)}>
               Cerrar ficha
-            </button>
+            </Button>
           </div>
-        </section>
+        </Card>
       )}
     </Layout>
   );
