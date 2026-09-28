@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Perfil {
+  ADMINISTRADOR
+  PERSONAL_TALLER
+  LOGISTICA
+  GERENCIA_GENERAL
+  CHOFER
+}
+
+enum EstadoVehiculo {
+  OPERATIVO
+  EN_TALLER
+  DADO_DE_BAJA
+}
+
+model Usuario {
+  id             Int      @id @default(autoincrement())
+  nombre         String
+  apellido       String
+  nombreUsuario  String   @unique @map("nombre_usuario")
+  contrasenaHash String   @map("contrasena_hash")
+  perfil         Perfil
+  activo         Boolean  @default(true)
+  creadoEn       DateTime @default(now()) @map("creado_en")
+
+  @@map("usuarios")
+}
+
+model Vehiculo {
+  id            Int            @id @default(autoincrement())
+  dominio       String         @unique
+  numeroInterno String         @map("numero_interno")
+  marca         String
+  modelo        String
+  anio          Int
+  asientos      Int
+  kilometraje   Int
+  estado        EstadoVehiculo @default(OPERATIVO)
+  fechaBaja     DateTime?      @map("fecha_baja")
+  creadoEn      DateTime       @default(now()) @map("creado_en")
+
+  @@map("vehiculos")
+}
