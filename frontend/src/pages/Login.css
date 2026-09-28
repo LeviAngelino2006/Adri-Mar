@@ -1,0 +1,25 @@
+.login-page {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background-color: var(--brand-50);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-logo {
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  margin: 0 auto var(--space-6);
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: var(--space-2);
+}
