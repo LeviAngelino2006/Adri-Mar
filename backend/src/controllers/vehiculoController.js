@@ -23,7 +23,8 @@ async function crear(req, res) {
 }
 
 async function listar(req, res) {
-  const vehiculos = await vehiculoService.listarVehiculos();
+  const { estado, busqueda } = req.query;
+  const vehiculos = await vehiculoService.listarVehiculos({ estado, busqueda });
   return res.json({ vehiculos });
 }
 

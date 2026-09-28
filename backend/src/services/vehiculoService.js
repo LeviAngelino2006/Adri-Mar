@@ -84,11 +84,35 @@ async function crearVehiculo(datos) {
   return vehiculo;
 }
 
-async function listarVehiculos() {
-  return prisma.vehiculo.findMany({
-    where: { estado: { not: 'DADO_DE_BAJA' } },
-    orderBy: { creadoEn: 'desc' },
-  });
+const ESTADOS_VALIDOS = ['OPERATIVO', 'EN_TALLER', 'DADO_DE_BAJA'];
+
+async function listarVehiculos({ estado, busqueda } = {}) {
+  const where = {};
+
+  if (estado && estado !== 'TODOS') {
+    if (ESTADOS_VALIDOS.includes(estado)) {
+      where.estado = estado;
+    }
+  } else if (!estado) {
+    where.estado = { not: 'DADO_DE_BAJA' };
+  }
+  // estado === 'TODOS' -> sin filtro de estado
+
+  if (busqueda) {
+    where.OR = [
+      { dominio: { contains: busqueda } },
+      { numeroInterno: { contains: busqueda } },
+      { marca: { contains: busqueda } },
+    ];
+  }
+
+  return prisma.vehiculo.findMany({ where, orderBy: { creadoEn: 'desc' } });
 }
 
-module.exports = { crearVehiculo, listarVehiculos, ValidacionError, DOMINIO_REGEX };
+module.exports = {
+  crearVehiculo,
+  listarVehiculos,
+  ValidacionError,
+  DOMINIO_REGEX,
+  ESTADOS_VALIDOS,
+};
