@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import RegistrarUsuario from './pages/RegistrarUsuario';
 import RegistrarVehiculo from './pages/RegistrarVehiculo';
+import ModificarVehiculo from './pages/ModificarVehiculo';
 import FlotaVehiculos from './pages/FlotaVehiculos';
 import './App.css';
 
@@ -43,6 +44,14 @@ function App() {
             element={
               <ProtectedRoute perfiles={['ADMINISTRADOR', 'PERSONAL_TALLER']}>
                 <FlotaVehiculos />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/vehiculos/:id/editar"
+            element={
+              <ProtectedRoute perfiles={['ADMINISTRADOR']}>
+                <ModificarVehiculo />
               </ProtectedRoute>
             }
           />

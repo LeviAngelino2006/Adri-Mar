@@ -11,5 +11,12 @@ router.get(
   autorizar('ADMINISTRADOR', 'PERSONAL_TALLER'),
   vehiculoController.listar
 );
+router.get(
+  '/:id',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'PERSONAL_TALLER'),
+  vehiculoController.obtener
+);
+router.put('/:id', autenticar, autorizar('ADMINISTRADOR'), vehiculoController.actualizar);
 
 module.exports = router;
