@@ -109,10 +109,57 @@ async function listarVehiculos({ estado, busqueda } = {}) {
   return prisma.vehiculo.findMany({ where, orderBy: { creadoEn: 'desc' } });
 }
 
+class NoEncontradoError extends Error {}
+class DadoDeBajaError extends Error {}
+
+async function obtenerVehiculo(id) {
+  const vehiculo = await prisma.vehiculo.findUnique({ where: { id: Number(id) } });
+  if (!vehiculo) {
+    throw new NoEncontradoError();
+  }
+  return vehiculo;
+}
+
+async function actualizarVehiculo(id, datos) {
+  const actual = await obtenerVehiculo(id);
+
+  if (actual.estado === 'DADO_DE_BAJA') {
+    throw new DadoDeBajaError();
+  }
+
+  const datosValidados = validarDatos(datos);
+
+  const otroConMismoDominio = await prisma.vehiculo.findUnique({
+    where: { dominio: datosValidados.dominio },
+  });
+  if (otroConMismoDominio && otroConMismoDominio.id !== actual.id) {
+    throw new ValidacionError({ dominio: 'Ese dominio ya está registrado' });
+  }
+
+  let vehiculo;
+  try {
+    vehiculo = await prisma.vehiculo.update({
+      where: { id: actual.id },
+      data: datosValidados,
+    });
+  } catch (err) {
+    if (err.code === 'P2002') {
+      throw new ValidacionError({ dominio: 'Ese dominio ya está registrado' });
+    }
+    throw err;
+  }
+
+  return vehiculo;
+}
+
 module.exports = {
   crearVehiculo,
   listarVehiculos,
+  obtenerVehiculo,
+  actualizarVehiculo,
   ValidacionError,
+  NoEncontradoError,
+  DadoDeBajaError,
   DOMINIO_REGEX,
   ESTADOS_VALIDOS,
 };

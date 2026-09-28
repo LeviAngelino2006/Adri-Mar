@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const ESTADOS = [
   { value: '', label: 'Activos (Operativo / En taller)' },
@@ -11,6 +12,7 @@ const ESTADOS = [
 ];
 
 function FlotaVehiculos() {
+  const { usuario } = useAuth();
   const [vehiculos, setVehiculos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [estado, setEstado] = useState('');
@@ -117,6 +119,9 @@ function FlotaVehiculos() {
             <dt>Registrado el</dt>
             <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
           </dl>
+          {usuario.perfil === 'ADMINISTRADOR' && seleccionado.estado !== 'DADO_DE_BAJA' && (
+            <Link to={`/vehiculos/${seleccionado.id}/editar`}>Editar</Link>
+          )}
           <button type="button" onClick={() => setSeleccionado(null)}>
             Cerrar ficha
           </button>
