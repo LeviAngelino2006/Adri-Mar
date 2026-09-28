@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
 import Layout from '../components/Layout';
+import Card from '../components/ui/Card';
+import FormField from '../components/ui/FormField';
+import Button from '../components/ui/Button';
+import Alert from '../components/ui/Alert';
+import Spinner from '../components/ui/Spinner';
 
 const CAMPOS = ['dominio', 'numeroInterno', 'marca', 'modelo', 'anio', 'asientos', 'kilometraje'];
 
@@ -59,7 +64,10 @@ function ModificarVehiculo() {
   if (cargando) {
     return (
       <Layout>
-        <p>Cargando…</p>
+        <div className="loading-state">
+          <Spinner label="Cargando vehículo" />
+          <span>Cargando…</span>
+        </div>
       </Layout>
     );
   }
@@ -67,7 +75,7 @@ function ModificarVehiculo() {
   if (errorCarga) {
     return (
       <Layout>
-        <p role="alert">{errorCarga}</p>
+        <Alert variant="error">{errorCarga}</Alert>
       </Layout>
     );
   }
@@ -78,68 +86,52 @@ function ModificarVehiculo() {
         <Link to="/vehiculos">Volver a la flota</Link>
       </p>
       <h1>Modificar vehículo</h1>
-      <form onSubmit={handleSubmit} noValidate>
-        <div>
-          <label htmlFor="dominio">Dominio</label>
-          <input id="dominio" name="dominio" value={form.dominio} onChange={handleChange} />
-          {errores.dominio && <p role="alert">{errores.dominio}</p>}
-        </div>
-        <div>
-          <label htmlFor="numeroInterno">Número de interno</label>
-          <input
-            id="numeroInterno"
-            name="numeroInterno"
-            value={form.numeroInterno}
-            onChange={handleChange}
-          />
-          {errores.numeroInterno && <p role="alert">{errores.numeroInterno}</p>}
-        </div>
-        <div>
-          <label htmlFor="marca">Marca</label>
-          <input id="marca" name="marca" value={form.marca} onChange={handleChange} />
-          {errores.marca && <p role="alert">{errores.marca}</p>}
-        </div>
-        <div>
-          <label htmlFor="modelo">Modelo</label>
-          <input id="modelo" name="modelo" value={form.modelo} onChange={handleChange} />
-          {errores.modelo && <p role="alert">{errores.modelo}</p>}
-        </div>
-        <div>
-          <label htmlFor="anio">Año</label>
-          <input id="anio" name="anio" type="number" value={form.anio} onChange={handleChange} />
-          {errores.anio && <p role="alert">{errores.anio}</p>}
-        </div>
-        <div>
-          <label htmlFor="asientos">Cantidad de asientos</label>
-          <input
-            id="asientos"
-            name="asientos"
-            type="number"
-            value={form.asientos}
-            onChange={handleChange}
-          />
-          {errores.asientos && <p role="alert">{errores.asientos}</p>}
-        </div>
-        <div>
-          <label htmlFor="kilometraje">Kilometraje actual</label>
-          <input
-            id="kilometraje"
-            name="kilometraje"
-            type="number"
-            value={form.kilometraje}
-            onChange={handleChange}
-          />
-          {errores.kilometraje && <p role="alert">{errores.kilometraje}</p>}
-        </div>
-        {errores.general && <p role="alert">{errores.general}</p>}
-        {mensaje && <p role="status">{mensaje}</p>}
-        <button type="submit" disabled={enviando}>
-          {enviando ? 'Guardando…' : 'Guardar'}
-        </button>
-        <button type="button" onClick={() => navigate('/vehiculos')}>
-          Cancelar
-        </button>
-      </form>
+
+      <Card className="form-card">
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="form-grid">
+            <FormField id="dominio" label="Dominio" error={errores.dominio}>
+              <input name="dominio" value={form.dominio} onChange={handleChange} />
+            </FormField>
+
+            <FormField id="numeroInterno" label="Número de interno" error={errores.numeroInterno}>
+              <input name="numeroInterno" value={form.numeroInterno} onChange={handleChange} />
+            </FormField>
+
+            <FormField id="marca" label="Marca" error={errores.marca}>
+              <input name="marca" value={form.marca} onChange={handleChange} />
+            </FormField>
+
+            <FormField id="modelo" label="Modelo" error={errores.modelo}>
+              <input name="modelo" value={form.modelo} onChange={handleChange} />
+            </FormField>
+
+            <FormField id="anio" label="Año" error={errores.anio}>
+              <input name="anio" type="number" value={form.anio} onChange={handleChange} />
+            </FormField>
+
+            <FormField id="asientos" label="Cantidad de asientos" error={errores.asientos}>
+              <input name="asientos" type="number" value={form.asientos} onChange={handleChange} />
+            </FormField>
+
+            <FormField id="kilometraje" label="Kilometraje actual" error={errores.kilometraje}>
+              <input name="kilometraje" type="number" value={form.kilometraje} onChange={handleChange} />
+            </FormField>
+          </div>
+
+          {errores.general && <Alert variant="error">{errores.general}</Alert>}
+          {mensaje && <Alert variant="success">{mensaje}</Alert>}
+
+          <div className="form-actions">
+            <Button type="submit" variant="primary" loading={enviando}>
+              {enviando ? 'Guardando…' : 'Guardar'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => navigate('/vehiculos')}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </Card>
     </Layout>
   );
 }

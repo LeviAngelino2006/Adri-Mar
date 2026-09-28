@@ -98,7 +98,7 @@ function FlotaVehiculos() {
       {errorBaja && <Alert variant="error">{errorBaja}</Alert>}
 
       {cargando && (
-        <div className="flota-loading">
+        <div className="loading-state">
           <Spinner label="Cargando vehículos" />
           <span>Cargando vehículos…</span>
         </div>
