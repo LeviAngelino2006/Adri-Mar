@@ -39,7 +39,7 @@ function Layout({ children }) {
             aria-controls="layout-nav"
             onClick={() => setMenuAbierto((abierto) => !abierto)}
           >
-            <span className="sr-only">Abrir menú</span>
+            <span className="sr-only">{menuAbierto ? 'Cerrar menú' : 'Abrir menú'}</span>
             <span aria-hidden="true">☰</span>
           </button>
 

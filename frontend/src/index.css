@@ -16,11 +16,11 @@
   --color-surface: #ffffff;
 
   /* Estados (vehículos, alertas) */
-  --state-success-text: #15803d;
+  --state-success-text: #166534;
   --state-success-bg: #dcfce7;
   --state-success-border: #86efac;
 
-  --state-warning-text: #b45309;
+  --state-warning-text: #92400e;
   --state-warning-bg: #fef3c7;
   --state-warning-border: #fcd34d;
 
@@ -155,6 +155,7 @@ textarea {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-3);
+  min-height: 44px;
   width: 100%;
 }
 
