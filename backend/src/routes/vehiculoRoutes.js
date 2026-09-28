@@ -18,5 +18,11 @@ router.get(
   vehiculoController.obtener
 );
 router.put('/:id', autenticar, autorizar('ADMINISTRADOR'), vehiculoController.actualizar);
+router.patch(
+  '/:id/baja',
+  autenticar,
+  autorizar('ADMINISTRADOR'),
+  vehiculoController.darDeBaja
+);
 
 module.exports = router;

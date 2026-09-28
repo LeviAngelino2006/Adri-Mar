@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -18,19 +18,49 @@ function FlotaVehiculos() {
   const [estado, setEstado] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [seleccionado, setSeleccionado] = useState(null);
+  const [confirmandoBaja, setConfirmandoBaja] = useState(false);
+  const [mensajeBaja, setMensajeBaja] = useState('');
+  const [errorBaja, setErrorBaja] = useState('');
 
-  useEffect(() => {
+  const cargarVehiculos = useCallback(() => {
     setCargando(true);
-    setSeleccionado(null);
     const params = {};
     if (estado) params.estado = estado;
     if (busqueda) params.busqueda = busqueda;
 
-    api
+    return api
       .get('/vehiculos', { params })
       .then(({ data }) => setVehiculos(data.vehiculos))
       .finally(() => setCargando(false));
   }, [estado, busqueda]);
+
+  useEffect(() => {
+    setSeleccionado(null);
+    setConfirmandoBaja(false);
+    setMensajeBaja('');
+    cargarVehiculos();
+  }, [cargarVehiculos]);
+
+  function seleccionar(v) {
+    setSeleccionado(v);
+    setConfirmandoBaja(false);
+    setMensajeBaja('');
+    setErrorBaja('');
+  }
+
+  async function confirmarBaja() {
+    setErrorBaja('');
+    try {
+      await api.patch(`/vehiculos/${seleccionado.id}/baja`);
+      setMensajeBaja('Vehículo dado de baja correctamente.');
+      setConfirmandoBaja(false);
+      setSeleccionado(null);
+      cargarVehiculos();
+    } catch (err) {
+      setErrorBaja(err.response?.data?.error || 'No se pudo dar de baja el vehículo');
+      setConfirmandoBaja(false);
+    }
+  }
 
   return (
     <main>
@@ -57,6 +87,9 @@ function FlotaVehiculos() {
         </select>
       </form>
 
+      {mensajeBaja && <p role="status">{mensajeBaja}</p>}
+      {errorBaja && <p role="alert">{errorBaja}</p>}
+
       {cargando && <p>Cargando…</p>}
       {!cargando && vehiculos.length === 0 && <p>No se encontraron vehículos</p>}
       {!cargando && vehiculos.length > 0 && (
@@ -75,7 +108,7 @@ function FlotaVehiculos() {
             {vehiculos.map((v) => (
               <tr key={v.id}>
                 <td>
-                  <button type="button" onClick={() => setSeleccionado(v)}>
+                  <button type="button" onClick={() => seleccionar(v)}>
                     {v.dominio}
                   </button>
                 </td>
@@ -119,12 +152,38 @@ function FlotaVehiculos() {
             <dt>Registrado el</dt>
             <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
           </dl>
+
           {usuario.perfil === 'ADMINISTRADOR' && seleccionado.estado !== 'DADO_DE_BAJA' && (
-            <Link to={`/vehiculos/${seleccionado.id}/editar`}>Editar</Link>
+            <>
+              <Link to={`/vehiculos/${seleccionado.id}/editar`}>Editar</Link>{' '}
+              {!confirmandoBaja && (
+                <button type="button" onClick={() => setConfirmandoBaja(true)}>
+                  Dar de baja
+                </button>
+              )}
+            </>
           )}
-          <button type="button" onClick={() => setSeleccionado(null)}>
-            Cerrar ficha
-          </button>
+
+          {confirmandoBaja && (
+            <div role="alertdialog">
+              <p>
+                ¿Confirma dar de baja el vehículo de dominio <strong>{seleccionado.dominio}</strong>
+                {' '}(interno <strong>{seleccionado.numeroInterno}</strong>)?
+              </p>
+              <button type="button" onClick={confirmarBaja}>
+                Confirmar baja
+              </button>
+              <button type="button" onClick={() => setConfirmandoBaja(false)}>
+                Cancelar
+              </button>
+            </div>
+          )}
+
+          <div>
+            <button type="button" onClick={() => setSeleccionado(null)}>
+              Cerrar ficha
+            </button>
+          </div>
         </section>
       )}
     </main>
