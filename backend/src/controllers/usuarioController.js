@@ -29,4 +29,29 @@ async function listar(req, res) {
   return res.json({ usuarios });
 }
 
-module.exports = { crear, listar };
+async function actualizar(req, res) {
+  const { nombre, apellido, nombreUsuario, perfil, dni, email, telefono } = req.body;
+
+  try {
+    const usuario = await usuarioService.actualizarUsuario(req.params.id, {
+      nombre,
+      apellido,
+      nombreUsuario,
+      perfil,
+      dni,
+      email,
+      telefono,
+    });
+    return res.json({ usuario });
+  } catch (err) {
+    if (err instanceof usuarioService.NoEncontradoError) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    if (err instanceof usuarioService.ValidacionError) {
+      return res.status(400).json({ errores: err.errores });
+    }
+    throw err;
+  }
+}
+
+module.exports = { crear, listar, actualizar };

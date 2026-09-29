@@ -126,6 +126,25 @@
   font-size: 0.875rem;
 }
 
+.usuarios-editar-btn {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  min-height: auto;
+  color: var(--brand-600);
+  font-weight: 600;
+}
+
+.usuarios-editar-btn:hover {
+  background-color: transparent;
+  text-decoration: underline;
+}
+
+.usuarios-card-editar {
+  width: 100%;
+  margin-top: var(--space-3);
+}
+
 @media (min-width: 768px) {
   .usuarios-table-wrap {
     display: block;

@@ -6,5 +6,6 @@ const router = Router();
 
 router.post('/', autenticar, autorizar('ADMINISTRADOR'), usuarioController.crear);
 router.get('/', autenticar, autorizar('ADMINISTRADOR'), usuarioController.listar);
+router.put('/:id', autenticar, autorizar('ADMINISTRADOR'), usuarioController.actualizar);
 
 module.exports = router;
