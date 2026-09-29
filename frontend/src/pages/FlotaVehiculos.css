@@ -74,18 +74,22 @@
   border-bottom: none;
 }
 
-.flota-row-btn {
-  background-color: transparent;
-  border: none;
-  padding: 0;
-  min-height: auto;
-  color: var(--brand-600);
-  font-weight: 600;
+.flota-row {
+  cursor: pointer;
 }
 
-.flota-row-btn:hover {
-  background-color: transparent;
-  text-decoration: underline;
+.flota-row:hover {
+  background-color: var(--brand-50);
+}
+
+.flota-row:focus-visible {
+  outline: 2px solid var(--brand-600);
+  outline-offset: -2px;
+}
+
+.flota-row-dominio {
+  color: var(--brand-600);
+  font-weight: 700;
 }
 
 /* Tarjetas (mobile) */

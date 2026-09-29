@@ -8,8 +8,17 @@ import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
 import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import { PERFILES, PERFIL_COLORS } from '../constants/perfiles';
 import './Usuarios.css';
+
+const ICONO_ALERTA = (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 9v4" />
+    <path d="M12 17h.01" />
+    <path d="M10.3 3.9L2.5 17a1.8 1.8 0 0 0 1.6 2.7h15.8a1.8 1.8 0 0 0 1.6-2.7L13.7 3.9a1.8 1.8 0 0 0-3.2 0z" />
+  </svg>
+);
 
 const FORM_INICIAL = {
   nombre: '',
@@ -34,12 +43,15 @@ function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
+  const [seleccionado, setSeleccionado] = useState(null);
+  const [confirmandoBaja, setConfirmandoBaja] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+  const [errorBaja, setErrorBaja] = useState('');
 
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editando, setEditando] = useState(null);
   const [form, setForm] = useState(FORM_INICIAL);
   const [errores, setErrores] = useState({});
-  const [mensaje, setMensaje] = useState('');
   const [enviando, setEnviando] = useState(false);
 
   const cargarUsuarios = useCallback(() => {
@@ -54,6 +66,9 @@ function Usuarios() {
   }, [busqueda]);
 
   useEffect(() => {
+    setSeleccionado(null);
+    setConfirmandoBaja(false);
+    setMensaje('');
     cargarUsuarios();
   }, [cargarUsuarios]);
 
@@ -63,11 +78,38 @@ function Usuarios() {
     return () => clearTimeout(t);
   }, [mensaje]);
 
-  function abrirForm() {
+  function seleccionar(u) {
+    setMostrarForm(false);
+    setSeleccionado(u);
+    setConfirmandoBaja(false);
+    setMensaje('');
+    setErrorBaja('');
+  }
+
+  function cerrarFicha() {
+    setSeleccionado(null);
+    setConfirmandoBaja(false);
+  }
+
+  async function confirmarBaja() {
+    setErrorBaja('');
+    try {
+      await api.patch(`/usuarios/${seleccionado.id}/baja`);
+      setMensaje('Usuario dado de baja correctamente.');
+      setConfirmandoBaja(false);
+      setSeleccionado(null);
+      cargarUsuarios();
+    } catch (err) {
+      setErrorBaja(err.response?.data?.error || 'No se pudo dar de baja el usuario');
+      setConfirmandoBaja(false);
+    }
+  }
+
+  function abrirNuevo() {
     setEditando(null);
     setForm(FORM_INICIAL);
     setErrores({});
-    setMensaje('');
+    setSeleccionado(null);
     setMostrarForm(true);
   }
 
@@ -84,7 +126,7 @@ function Usuarios() {
       perfil: u.perfil,
     });
     setErrores({});
-    setMensaje('');
+    setSeleccionado(null);
     setMostrarForm(true);
   }
 
@@ -100,7 +142,6 @@ function Usuarios() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setMensaje('');
     setErrores({});
     setEnviando(true);
     try {
@@ -129,16 +170,17 @@ function Usuarios() {
     <Layout>
       <div className="usuarios-header">
         <h1>Gestionar usuarios</h1>
-        {!mostrarForm && (
-          <Button variant="primary" onClick={abrirForm}>
+        {!mostrarForm && !seleccionado && (
+          <Button variant="primary" onClick={abrirNuevo}>
             + Nuevo usuario
           </Button>
         )}
       </div>
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
+      {errorBaja && <Alert variant="error">{errorBaja}</Alert>}
 
-      {mostrarForm ? (
+      {mostrarForm && (
         <Card className="form-card">
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
@@ -200,7 +242,9 @@ function Usuarios() {
             </div>
           </form>
         </Card>
-      ) : (
+      )}
+
+      {!mostrarForm && !seleccionado && (
         <>
           <div className="usuarios-filtros">
             <FormField id="busqueda" label="Buscar por nombre o usuario">
@@ -232,14 +276,24 @@ function Usuarios() {
                       <th>Usuario</th>
                       <th>Perfil</th>
                       <th>Estado</th>
-                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
                     {usuarios.map((u) => {
                       const colores = PERFIL_COLORS[u.perfil] || {};
                       return (
-                        <tr key={u.id}>
+                        <tr
+                          key={u.id}
+                          className="usuarios-row"
+                          tabIndex={0}
+                          onClick={() => seleccionar(u)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              seleccionar(u);
+                            }
+                          }}
+                        >
                           <td>
                             <div className="usuarios-nombre">
                               <span
@@ -263,11 +317,6 @@ function Usuarios() {
                               {u.activo ? 'Activo' : 'Inactivo'}
                             </Badge>
                           </td>
-                          <td>
-                            <button type="button" className="usuarios-editar-btn" onClick={() => abrirEditar(u)}>
-                              Editar
-                            </button>
-                          </td>
                         </tr>
                       );
                     })}
@@ -279,7 +328,7 @@ function Usuarios() {
                 {usuarios.map((u) => {
                   const colores = PERFIL_COLORS[u.perfil] || {};
                   return (
-                    <Card className="usuarios-card" key={u.id}>
+                    <button type="button" className="usuarios-card" key={u.id} onClick={() => seleccionar(u)}>
                       <div className="usuarios-card-header">
                         <span
                           className="usuarios-avatar"
@@ -303,10 +352,7 @@ function Usuarios() {
                         <span>{u.email || '—'}</span>
                         <span>{u.telefono || '—'}</span>
                       </div>
-                      <Button variant="secondary" className="usuarios-card-editar" onClick={() => abrirEditar(u)}>
-                        Editar
-                      </Button>
-                    </Card>
+                    </button>
                   );
                 })}
               </div>
@@ -314,6 +360,68 @@ function Usuarios() {
           )}
         </>
       )}
+
+      {!mostrarForm && seleccionado && (
+        <Card className="usuarios-detalle" role="region" aria-label="Ficha del usuario">
+          <button type="button" className="back-link" onClick={cerrarFicha}>
+            ← Volver al listado
+          </button>
+
+          <div className="usuarios-detalle-header">
+            <h2>
+              {seleccionado.nombre} {seleccionado.apellido}
+            </h2>
+            <Badge variant={seleccionado.activo ? 'success' : 'neutral'}>
+              {seleccionado.activo ? 'Activo' : 'Inactivo'}
+            </Badge>
+          </div>
+
+          <dl className="usuarios-detalle-list">
+            <dt>DNI</dt>
+            <dd>{seleccionado.dni || '—'}</dd>
+            <dt>Email</dt>
+            <dd>{seleccionado.email || '—'}</dd>
+            <dt>Teléfono</dt>
+            <dd>{seleccionado.telefono || '—'}</dd>
+            <dt>Nombre de usuario</dt>
+            <dd>{seleccionado.nombreUsuario}</dd>
+            <dt>Perfil</dt>
+            <dd>{perfilLabel(seleccionado.perfil)}</dd>
+            <dt>Registrado el</dt>
+            <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
+          </dl>
+
+          {seleccionado.activo && (
+            <div className="usuarios-detalle-actions">
+              <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                Editar
+              </Button>
+              <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
+                Dar de baja
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
+
+      <ConfirmModal
+        open={confirmandoBaja}
+        tone="danger"
+        icon={ICONO_ALERTA}
+        title="Dar de baja el usuario"
+        description={
+          seleccionado && (
+            <>
+              Vas a dar de baja a <strong>{seleccionado.nombre} {seleccionado.apellido}</strong> (usuario{' '}
+              <strong>{seleccionado.nombreUsuario}</strong>). No va a poder iniciar sesión y esta acción no se puede
+              deshacer desde acá.
+            </>
+          )
+        }
+        confirmLabel="Dar de baja"
+        onConfirm={confirmarBaja}
+        onCancel={() => setConfirmandoBaja(false)}
+      />
     </Layout>
   );
 }

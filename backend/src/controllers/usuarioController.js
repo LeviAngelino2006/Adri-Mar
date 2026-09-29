@@ -54,4 +54,19 @@ async function actualizar(req, res) {
   }
 }
 
-module.exports = { crear, listar, actualizar };
+async function darDeBaja(req, res) {
+  try {
+    const usuario = await usuarioService.darDeBajaUsuario(req.params.id);
+    return res.json({ usuario });
+  } catch (err) {
+    if (err instanceof usuarioService.NoEncontradoError) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    if (err instanceof usuarioService.YaInactivoError) {
+      return res.status(409).json({ error: 'El usuario ya está inactivo' });
+    }
+    throw err;
+  }
+}
+
+module.exports = { crear, listar, actualizar, darDeBaja };
