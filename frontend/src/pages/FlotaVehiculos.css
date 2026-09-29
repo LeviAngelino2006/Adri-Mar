@@ -4,7 +4,7 @@
   justify-content: space-between;
   gap: var(--space-4);
   flex-wrap: wrap;
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-6);
 }
 
 .flota-header h1 {
@@ -200,22 +200,3 @@
   margin-bottom: var(--space-4);
 }
 
-.flota-confirm-baja {
-  background-color: var(--state-error-bg);
-  border: 1px solid var(--state-error-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  margin-bottom: var(--space-4);
-}
-
-.flota-confirm-baja p {
-  margin: 0;
-  color: var(--state-error-text);
-}
-
-.flota-confirm-actions {
-  display: flex;
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-  flex-wrap: wrap;
-}
