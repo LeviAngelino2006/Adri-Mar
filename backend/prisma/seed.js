@@ -34,6 +34,17 @@ async function main() {
   });
 
   console.log(`Administrador inicial listo: ${admin.nombreUsuario}`);
+
+  const TIPOS_VEHICULO = ['Colectivo', 'Trafi'];
+  for (const descripcion of TIPOS_VEHICULO) {
+    await prisma.tipoVehiculo.upsert({
+      where: { descripcion },
+      update: {},
+      create: { descripcion },
+    });
+  }
+
+  console.log(`Tipos de vehículo listos: ${TIPOS_VEHICULO.join(', ')}`);
 }
 
 main()

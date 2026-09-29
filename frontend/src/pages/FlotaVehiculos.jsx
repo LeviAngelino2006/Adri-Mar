@@ -37,11 +37,13 @@ const FORM_INICIAL = {
   anio: '',
   asientos: '',
   kilometraje: '',
+  tipoVehiculoId: '',
 };
 
 function FlotaVehiculos() {
   const { usuario } = useAuth();
   const [vehiculos, setVehiculos] = useState([]);
+  const [tiposVehiculo, setTiposVehiculo] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [estado, setEstado] = useState('');
   const [busqueda, setBusqueda] = useState('');
@@ -74,6 +76,10 @@ function FlotaVehiculos() {
     setMensaje('');
     cargarVehiculos();
   }, [cargarVehiculos]);
+
+  useEffect(() => {
+    api.get('/tipos-vehiculo').then(({ data }) => setTiposVehiculo(data.tiposVehiculo));
+  }, []);
 
   useEffect(() => {
     if (!mensaje) return;
@@ -126,6 +132,7 @@ function FlotaVehiculos() {
       anio: v.anio,
       asientos: v.asientos,
       kilometraje: v.kilometraje,
+      tipoVehiculoId: v.tipoVehiculoId,
     });
     setErroresForm({});
     setSeleccionado(null);
@@ -208,6 +215,17 @@ function FlotaVehiculos() {
                 <input name="modelo" value={form.modelo} onChange={handleFormChange} />
               </FormField>
 
+              <FormField id="tipoVehiculoId" label="Tipo de vehículo" error={erroresForm.tipoVehiculoId}>
+                <select name="tipoVehiculoId" value={form.tipoVehiculoId} onChange={handleFormChange}>
+                  <option value="">Seleccionar…</option>
+                  {tiposVehiculo.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.descripcion}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+
               <FormField id="anio" label="Año" error={erroresForm.anio}>
                 <input name="anio" type="number" value={form.anio} onChange={handleFormChange} />
               </FormField>
@@ -274,6 +292,7 @@ function FlotaVehiculos() {
                       <th>Interno</th>
                       <th>Marca</th>
                       <th>Modelo</th>
+                      <th>Tipo</th>
                       <th>Kilometraje</th>
                       <th>Estado</th>
                     </tr>
@@ -296,6 +315,7 @@ function FlotaVehiculos() {
                         <td>{v.numeroInterno}</td>
                         <td>{v.marca}</td>
                         <td>{v.modelo}</td>
+                        <td>{v.tipoVehiculo.descripcion}</td>
                         <td>{v.kilometraje}</td>
                         <td>
                           <EstadoDot color={ESTADOS_VEHICULO[v.estado].dot}>
@@ -322,6 +342,7 @@ function FlotaVehiculos() {
                       <span>
                         {v.marca} {v.modelo}
                       </span>
+                      <span>{v.tipoVehiculo.descripcion}</span>
                       <span>{v.kilometraje} km</span>
                     </div>
                   </button>
@@ -354,6 +375,8 @@ function FlotaVehiculos() {
             <dd>{seleccionado.marca}</dd>
             <dt>Modelo</dt>
             <dd>{seleccionado.modelo}</dd>
+            <dt>Tipo de vehículo</dt>
+            <dd>{seleccionado.tipoVehiculo.descripcion}</dd>
             <dt>Año</dt>
             <dd>{seleccionado.anio}</dd>
             <dt>Cantidad de asientos</dt>
