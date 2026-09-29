@@ -1,0 +1,27 @@
+.estado-dot-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.estado-dot-label-sm {
+  font-size: 0.875rem;
+}
+
+.estado-dot-label-md {
+  font-size: 0.9375rem;
+}
+
+.estado-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.estado-dot-label-md .estado-dot {
+  width: 8px;
+  height: 8px;
+}
