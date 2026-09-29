@@ -36,6 +36,7 @@ function Usuarios() {
   const [busqueda, setBusqueda] = useState('');
 
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [editando, setEditando] = useState(null);
   const [form, setForm] = useState(FORM_INICIAL);
   const [errores, setErrores] = useState({});
   const [mensaje, setMensaje] = useState('');
@@ -63,7 +64,25 @@ function Usuarios() {
   }, [mensaje]);
 
   function abrirForm() {
+    setEditando(null);
     setForm(FORM_INICIAL);
+    setErrores({});
+    setMensaje('');
+    setMostrarForm(true);
+  }
+
+  function abrirEditar(u) {
+    setEditando(u);
+    setForm({
+      nombre: u.nombre,
+      apellido: u.apellido,
+      dni: u.dni || '',
+      email: u.email || '',
+      telefono: u.telefono || '',
+      nombreUsuario: u.nombreUsuario,
+      contrasena: '',
+      perfil: u.perfil,
+    });
     setErrores({});
     setMensaje('');
     setMostrarForm(true);
@@ -71,6 +90,7 @@ function Usuarios() {
 
   function cerrarForm() {
     setMostrarForm(false);
+    setEditando(null);
   }
 
   function handleChange(e) {
@@ -84,15 +104,21 @@ function Usuarios() {
     setErrores({});
     setEnviando(true);
     try {
-      await api.post('/usuarios', form);
+      if (editando) {
+        await api.put(`/usuarios/${editando.id}`, form);
+        setMensaje('Cambios guardados correctamente.');
+      } else {
+        await api.post('/usuarios', form);
+        setMensaje('Usuario creado correctamente.');
+      }
       setMostrarForm(false);
-      setMensaje('Usuario creado correctamente.');
+      setEditando(null);
       cargarUsuarios();
     } catch (err) {
       if (err.response?.status === 400 && err.response.data.errores) {
         setErrores(err.response.data.errores);
       } else {
-        setErrores({ general: 'No se pudo registrar el usuario' });
+        setErrores({ general: editando ? 'No se pudieron guardar los cambios' : 'No se pudo registrar el usuario' });
       }
     } finally {
       setEnviando(false);
@@ -117,7 +143,7 @@ function Usuarios() {
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
           </button>
-          <h2>Nuevo usuario</h2>
+          <h2>{editando ? 'Editar usuario' : 'Nuevo usuario'}</h2>
           <form onSubmit={handleSubmit} noValidate>
             <div className="form-grid">
               <FormField id="nombre" label="Nombre" error={errores.nombre}>
@@ -144,9 +170,11 @@ function Usuarios() {
                 <input name="nombreUsuario" value={form.nombreUsuario} onChange={handleChange} />
               </FormField>
 
-              <FormField id="contrasena" label="Contraseña" error={errores.contrasena}>
-                <input name="contrasena" type="password" value={form.contrasena} onChange={handleChange} />
-              </FormField>
+              {!editando && (
+                <FormField id="contrasena" label="Contraseña" error={errores.contrasena}>
+                  <input name="contrasena" type="password" value={form.contrasena} onChange={handleChange} />
+                </FormField>
+              )}
 
               <FormField id="perfil" label="Perfil" error={errores.perfil}>
                 <select name="perfil" value={form.perfil} onChange={handleChange}>
@@ -204,6 +232,7 @@ function Usuarios() {
                       <th>Usuario</th>
                       <th>Perfil</th>
                       <th>Estado</th>
+                      <th></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -233,6 +262,11 @@ function Usuarios() {
                             <Badge variant={u.activo ? 'success' : 'neutral'}>
                               {u.activo ? 'Activo' : 'Inactivo'}
                             </Badge>
+                          </td>
+                          <td>
+                            <button type="button" className="usuarios-editar-btn" onClick={() => abrirEditar(u)}>
+                              Editar
+                            </button>
                           </td>
                         </tr>
                       );
@@ -269,6 +303,9 @@ function Usuarios() {
                         <span>{u.email || '—'}</span>
                         <span>{u.telefono || '—'}</span>
                       </div>
+                      <Button variant="secondary" className="usuarios-card-editar" onClick={() => abrirEditar(u)}>
+                        Editar
+                      </Button>
                     </Card>
                   );
                 })}

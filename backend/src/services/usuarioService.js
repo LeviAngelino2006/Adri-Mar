@@ -20,17 +20,19 @@ class ValidacionError extends Error {
 const DNI_REGEX = /^\d{7,8}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function validarDatos({ nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono }) {
+function validarDatos({ nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono }, { requireContrasena = true } = {}) {
   const errores = {};
 
   if (!nombre) errores.nombre = 'El nombre es obligatorio';
   if (!apellido) errores.apellido = 'El apellido es obligatorio';
   if (!nombreUsuario) errores.nombreUsuario = 'El nombre de usuario es obligatorio';
 
-  if (!contrasena) {
-    errores.contrasena = 'La contraseña es obligatoria';
-  } else if (contrasena.length < 8) {
-    errores.contrasena = 'La contraseña debe tener al menos 8 caracteres';
+  if (requireContrasena) {
+    if (!contrasena) {
+      errores.contrasena = 'La contraseña es obligatoria';
+    } else if (contrasena.length < 8) {
+      errores.contrasena = 'La contraseña debe tener al menos 8 caracteres';
+    }
   }
 
   if (!perfil) {
@@ -114,6 +116,50 @@ async function crearUsuario({ nombre, apellido, nombreUsuario, contrasena, perfi
   };
 }
 
+class NoEncontradoError extends Error {}
+
+async function obtenerUsuario(id) {
+  const usuario = await prisma.usuario.findUnique({ where: { id: Number(id) } });
+  if (!usuario) {
+    throw new NoEncontradoError();
+  }
+  return usuario;
+}
+
+async function actualizarUsuario(id, { nombre, apellido, nombreUsuario, perfil, dni, email, telefono }) {
+  const actual = await obtenerUsuario(id);
+
+  const datosContacto = validarDatos(
+    { nombre, apellido, nombreUsuario, perfil, dni, email, telefono },
+    { requireContrasena: false }
+  );
+
+  let usuario;
+  try {
+    usuario = await prisma.usuario.update({
+      where: { id: actual.id },
+      data: { nombre, apellido, nombreUsuario, perfil, ...datosContacto },
+    });
+  } catch (err) {
+    if (err.code === 'P2002') {
+      throw new ValidacionError(errorDuplicado(err));
+    }
+    throw err;
+  }
+
+  return {
+    id: usuario.id,
+    nombre: usuario.nombre,
+    apellido: usuario.apellido,
+    nombreUsuario: usuario.nombreUsuario,
+    perfil: usuario.perfil,
+    dni: usuario.dni,
+    email: usuario.email,
+    telefono: usuario.telefono,
+    activo: usuario.activo,
+  };
+}
+
 const ORDEN_PERFILES = [
   'ADMINISTRADOR',
   'GERENCIA_GENERAL',
@@ -156,4 +202,11 @@ async function listarUsuarios({ busqueda } = {}) {
   });
 }
 
-module.exports = { crearUsuario, listarUsuarios, ValidacionError, PERFILES_VALIDOS };
+module.exports = {
+  crearUsuario,
+  listarUsuarios,
+  actualizarUsuario,
+  ValidacionError,
+  NoEncontradoError,
+  PERFILES_VALIDOS,
+};
