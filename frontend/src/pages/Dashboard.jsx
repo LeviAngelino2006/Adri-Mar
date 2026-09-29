@@ -6,30 +6,21 @@ import Card from '../components/ui/Card';
 import './Dashboard.css';
 
 const PUEDE_VER_FLOTA = ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'];
-const PUEDE_VER_USUARIOS = ['ADMINISTRADOR', 'ENCARGADO'];
 
 function Dashboard() {
   const { usuario } = useAuth();
   const [vehiculos, setVehiculos] = useState(null);
-  const [usuarios, setUsuarios] = useState(null);
 
   const verFlota = PUEDE_VER_FLOTA.includes(usuario.perfil);
-  const verUsuarios = PUEDE_VER_USUARIOS.includes(usuario.perfil);
 
   useEffect(() => {
     if (!verFlota) return;
     api.get('/vehiculos', { params: { estado: 'TODOS' } }).then(({ data }) => setVehiculos(data.vehiculos));
   }, [verFlota]);
 
-  useEffect(() => {
-    if (!verUsuarios) return;
-    api.get('/usuarios').then(({ data }) => setUsuarios(data.usuarios));
-  }, [verUsuarios]);
-
   const kpiOperativos = vehiculos?.filter((v) => v.estado === 'OPERATIVO').length;
   const kpiTaller = vehiculos?.filter((v) => v.estado === 'EN_TALLER').length;
   const kpiBaja = vehiculos?.filter((v) => v.estado === 'DADO_DE_BAJA').length;
-  const kpiUsuarios = usuarios?.filter((u) => u.activo).length;
 
   return (
     <Layout>
@@ -38,42 +29,29 @@ function Dashboard() {
         Hola, {usuario.nombre} {usuario.apellido}
       </p>
 
-      {(verFlota || verUsuarios) && (
+      {verFlota && (
         <div className="dashboard-kpis">
-          {verFlota && (
-            <>
-              <Card className="dashboard-kpi">
-                <span className="dashboard-kpi-label">
-                  <span className="dashboard-kpi-dot dashboard-kpi-dot-success" />
-                  Operativos
-                </span>
-                <span className="dashboard-kpi-value">{kpiOperativos ?? '—'}</span>
-              </Card>
-              <Card className="dashboard-kpi">
-                <span className="dashboard-kpi-label">
-                  <span className="dashboard-kpi-dot dashboard-kpi-dot-warning" />
-                  En taller
-                </span>
-                <span className="dashboard-kpi-value">{kpiTaller ?? '—'}</span>
-              </Card>
-              <Card className="dashboard-kpi">
-                <span className="dashboard-kpi-label">
-                  <span className="dashboard-kpi-dot dashboard-kpi-dot-neutral" />
-                  Dados de baja
-                </span>
-                <span className="dashboard-kpi-value">{kpiBaja ?? '—'}</span>
-              </Card>
-            </>
-          )}
-          {verUsuarios && (
-            <Card className="dashboard-kpi">
-              <span className="dashboard-kpi-label">
-                <span className="dashboard-kpi-dot dashboard-kpi-dot-brand" />
-                Usuarios activos
-              </span>
-              <span className="dashboard-kpi-value">{kpiUsuarios ?? '—'}</span>
-            </Card>
-          )}
+          <Card className="dashboard-kpi">
+            <span className="dashboard-kpi-label">
+              <span className="dashboard-kpi-dot dashboard-kpi-dot-success" />
+              Operativos
+            </span>
+            <span className="dashboard-kpi-value">{kpiOperativos ?? '—'}</span>
+          </Card>
+          <Card className="dashboard-kpi">
+            <span className="dashboard-kpi-label">
+              <span className="dashboard-kpi-dot dashboard-kpi-dot-warning" />
+              En taller
+            </span>
+            <span className="dashboard-kpi-value">{kpiTaller ?? '—'}</span>
+          </Card>
+          <Card className="dashboard-kpi">
+            <span className="dashboard-kpi-label">
+              <span className="dashboard-kpi-dot dashboard-kpi-dot-neutral" />
+              Dados de baja
+            </span>
+            <span className="dashboard-kpi-value">{kpiBaja ?? '—'}</span>
+          </Card>
         </div>
       )}
 
