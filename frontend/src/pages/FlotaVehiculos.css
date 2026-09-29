@@ -1,3 +1,16 @@
+.flota-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+
+.flota-header h1 {
+  margin: 0;
+}
+
 .flota-filtros {
   display: flex;
   flex-direction: column;
@@ -61,10 +74,6 @@
   border-bottom: none;
 }
 
-.flota-table tbody tr.is-selected {
-  background-color: var(--brand-50);
-}
-
 .flota-row-btn {
   background-color: transparent;
   border: none;
@@ -99,7 +108,7 @@
   box-shadow: var(--shadow-sm);
 }
 
-.flota-card.is-selected {
+.flota-card:hover {
   border-color: var(--brand-500);
   box-shadow: var(--shadow-md);
 }
@@ -209,9 +218,4 @@
   gap: var(--space-3);
   margin-top: var(--space-3);
   flex-wrap: wrap;
-}
-
-.flota-detalle-footer {
-  border-top: 1px solid var(--color-border);
-  padding-top: var(--space-4);
 }

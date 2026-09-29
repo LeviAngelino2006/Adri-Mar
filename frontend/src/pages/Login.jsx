@@ -5,7 +5,7 @@ import Card from '../components/ui/Card';
 import FormField from '../components/ui/FormField';
 import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
-import logo from '../assets/logo-adrimar.jpg';
+import logo from '../assets/logo-adrimar.png';
 import './Login.css';
 
 function Login() {

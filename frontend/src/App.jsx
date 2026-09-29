@@ -3,9 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import RegistrarUsuario from './pages/RegistrarUsuario';
-import RegistrarVehiculo from './pages/RegistrarVehiculo';
-import ModificarVehiculo from './pages/ModificarVehiculo';
+import Usuarios from './pages/Usuarios';
 import FlotaVehiculos from './pages/FlotaVehiculos';
 import './App.css';
 
@@ -24,18 +22,10 @@ function App() {
             }
           />
           <Route
-            path="/usuarios/nuevo"
+            path="/usuarios"
             element={
               <ProtectedRoute perfiles={['ADMINISTRADOR']}>
-                <RegistrarUsuario />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/vehiculos/nuevo"
-            element={
-              <ProtectedRoute perfiles={['ADMINISTRADOR']}>
-                <RegistrarVehiculo />
+                <Usuarios />
               </ProtectedRoute>
             }
           />
@@ -44,14 +34,6 @@ function App() {
             element={
               <ProtectedRoute perfiles={['ADMINISTRADOR', 'PERSONAL_TALLER']}>
                 <FlotaVehiculos />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/vehiculos/:id/editar"
-            element={
-              <ProtectedRoute perfiles={['ADMINISTRADOR']}>
-                <ModificarVehiculo />
               </ProtectedRoute>
             }
           />
