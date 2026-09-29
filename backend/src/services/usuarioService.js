@@ -73,8 +73,9 @@ const MENSAJES_DUPLICADO = [
 ];
 
 function errorDuplicado(err) {
-  // MySQL entrega el nombre del índice (string) en vez de un array de columnas,
-  // así que buscamos por coincidencia de texto en lugar de indexar target[0].
+  // Según el motor, Prisma entrega target como array de columnas o como
+  // string con el nombre del índice, así que buscamos por coincidencia de
+  // texto en lugar de indexar target[0].
   const target = err.meta?.target;
   const targetStr = Array.isArray(target) ? target.join(',') : String(target || '');
   const match = MENSAJES_DUPLICADO.find(([campo]) => targetStr.includes(campo));
