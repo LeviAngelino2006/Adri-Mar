@@ -14,6 +14,9 @@ import './Usuarios.css';
 const FORM_INICIAL = {
   nombre: '',
   apellido: '',
+  dni: '',
+  email: '',
+  telefono: '',
   nombreUsuario: '',
   contrasena: '',
   perfil: '',
@@ -125,6 +128,18 @@ function Usuarios() {
                 <input name="apellido" value={form.apellido} onChange={handleChange} />
               </FormField>
 
+              <FormField id="dni" label="DNI" error={errores.dni}>
+                <input name="dni" value={form.dni} onChange={handleChange} />
+              </FormField>
+
+              <FormField id="email" label="Email" error={errores.email}>
+                <input name="email" type="email" value={form.email} onChange={handleChange} />
+              </FormField>
+
+              <FormField id="telefono" label="Teléfono" error={errores.telefono} hint="Opcional">
+                <input name="telefono" type="tel" value={form.telefono} onChange={handleChange} />
+              </FormField>
+
               <FormField id="nombreUsuario" label="Nombre de usuario" error={errores.nombreUsuario}>
                 <input name="nombreUsuario" value={form.nombreUsuario} onChange={handleChange} />
               </FormField>
@@ -183,6 +198,9 @@ function Usuarios() {
                   <thead>
                     <tr>
                       <th>Nombre</th>
+                      <th>DNI</th>
+                      <th>Email</th>
+                      <th>Teléfono</th>
                       <th>Usuario</th>
                       <th>Perfil</th>
                       <th>Estado</th>
@@ -206,6 +224,9 @@ function Usuarios() {
                               </span>
                             </div>
                           </td>
+                          <td>{u.dni || '—'}</td>
+                          <td>{u.email || '—'}</td>
+                          <td>{u.telefono || '—'}</td>
                           <td>{u.nombreUsuario}</td>
                           <td>{perfilLabel(u.perfil)}</td>
                           <td>
@@ -243,6 +264,11 @@ function Usuarios() {
                         </Badge>
                       </div>
                       <div className="usuarios-card-perfil">{perfilLabel(u.perfil)}</div>
+                      <div className="usuarios-card-contacto">
+                        <span>DNI: {u.dni || '—'}</span>
+                        <span>{u.email || '—'}</span>
+                        <span>{u.telefono || '—'}</span>
+                      </div>
                     </Card>
                   );
                 })}

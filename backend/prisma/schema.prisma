@@ -28,6 +28,9 @@ model Usuario {
   nombreUsuario  String   @unique @map("nombre_usuario")
   contrasenaHash String   @map("contrasena_hash")
   perfil         Perfil
+  dni            String?  @unique
+  email          String?  @unique
+  telefono       String?
   activo         Boolean  @default(true)
   creadoEn       DateTime @default(now()) @map("creado_en")
 

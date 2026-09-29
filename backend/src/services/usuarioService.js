@@ -17,7 +17,10 @@ class ValidacionError extends Error {
   }
 }
 
-function validarDatos({ nombre, apellido, nombreUsuario, contrasena, perfil }) {
+const DNI_REGEX = /^\d{7,8}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validarDatos({ nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono }) {
   const errores = {};
 
   if (!nombre) errores.nombre = 'El nombre es obligatorio';
@@ -36,13 +39,48 @@ function validarDatos({ nombre, apellido, nombreUsuario, contrasena, perfil }) {
     errores.perfil = 'El perfil elegido no es válido';
   }
 
+  const dniNormalizado = (dni || '').trim();
+  if (!dniNormalizado) {
+    errores.dni = 'El DNI es obligatorio';
+  } else if (!DNI_REGEX.test(dniNormalizado)) {
+    errores.dni = 'El DNI debe tener 7 u 8 dígitos';
+  }
+
+  const emailNormalizado = (email || '').trim().toLowerCase();
+  if (!emailNormalizado) {
+    errores.email = 'El email es obligatorio';
+  } else if (!EMAIL_REGEX.test(emailNormalizado)) {
+    errores.email = 'El email no tiene un formato válido';
+  }
+
   if (Object.keys(errores).length > 0) {
     throw new ValidacionError(errores);
   }
+
+  return {
+    dni: dniNormalizado,
+    email: emailNormalizado,
+    telefono: (telefono || '').trim() || null,
+  };
 }
 
-async function crearUsuario({ nombre, apellido, nombreUsuario, contrasena, perfil }) {
-  validarDatos({ nombre, apellido, nombreUsuario, contrasena, perfil });
+const MENSAJES_DUPLICADO = [
+  ['dni', { dni: 'Ese DNI ya está registrado' }],
+  ['email', { email: 'Ese email ya está registrado' }],
+  ['nombre_usuario', { nombreUsuario: 'Ese nombre de usuario ya existe' }],
+];
+
+function errorDuplicado(err) {
+  // MySQL entrega el nombre del índice (string) en vez de un array de columnas,
+  // así que buscamos por coincidencia de texto en lugar de indexar target[0].
+  const target = err.meta?.target;
+  const targetStr = Array.isArray(target) ? target.join(',') : String(target || '');
+  const match = MENSAJES_DUPLICADO.find(([campo]) => targetStr.includes(campo));
+  return match ? match[1] : { general: 'Ese registro ya existe' };
+}
+
+async function crearUsuario({ nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono }) {
+  const datosContacto = validarDatos({ nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono });
 
   const existente = await prisma.usuario.findUnique({ where: { nombreUsuario } });
   if (existente) {
@@ -54,11 +92,11 @@ async function crearUsuario({ nombre, apellido, nombreUsuario, contrasena, perfi
   let usuario;
   try {
     usuario = await prisma.usuario.create({
-      data: { nombre, apellido, nombreUsuario, contrasenaHash, perfil },
+      data: { nombre, apellido, nombreUsuario, contrasenaHash, perfil, ...datosContacto },
     });
   } catch (err) {
     if (err.code === 'P2002') {
-      throw new ValidacionError({ nombreUsuario: 'Ese nombre de usuario ya existe' });
+      throw new ValidacionError(errorDuplicado(err));
     }
     throw err;
   }
@@ -69,6 +107,9 @@ async function crearUsuario({ nombre, apellido, nombreUsuario, contrasena, perfi
     apellido: usuario.apellido,
     nombreUsuario: usuario.nombreUsuario,
     perfil: usuario.perfil,
+    dni: usuario.dni,
+    email: usuario.email,
+    telefono: usuario.telefono,
     activo: usuario.activo,
   };
 }
@@ -100,6 +141,9 @@ async function listarUsuarios({ busqueda } = {}) {
       apellido: true,
       nombreUsuario: true,
       perfil: true,
+      dni: true,
+      email: true,
+      telefono: true,
       activo: true,
       creadoEn: true,
     },
