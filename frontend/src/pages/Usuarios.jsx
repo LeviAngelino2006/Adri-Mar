@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
-import Badge from '../components/ui/Badge';
+import EstadoDot from '../components/ui/EstadoDot';
 import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
@@ -37,6 +37,10 @@ function initials(nombre, apellido) {
 
 function perfilLabel(perfil) {
   return PERFILES.find((p) => p.value === perfil)?.label ?? perfil;
+}
+
+function estadoDotColor(activo) {
+  return activo ? '#16a34a' : '#94a3b8';
 }
 
 function Usuarios() {
@@ -313,9 +317,9 @@ function Usuarios() {
                           <td>{u.nombreUsuario}</td>
                           <td>{perfilLabel(u.perfil)}</td>
                           <td>
-                            <Badge variant={u.activo ? 'success' : 'neutral'}>
+                            <EstadoDot color={estadoDotColor(u.activo)}>
                               {u.activo ? 'Activo' : 'Inactivo'}
-                            </Badge>
+                            </EstadoDot>
                           </td>
                         </tr>
                       );
@@ -342,9 +346,9 @@ function Usuarios() {
                           </span>
                           <span className="usuarios-card-usuario">{u.nombreUsuario}</span>
                         </div>
-                        <Badge variant={u.activo ? 'success' : 'neutral'}>
+                        <EstadoDot color={estadoDotColor(u.activo)}>
                           {u.activo ? 'Activo' : 'Inactivo'}
-                        </Badge>
+                        </EstadoDot>
                       </div>
                       <div className="usuarios-card-perfil">{perfilLabel(u.perfil)}</div>
                       <div className="usuarios-card-contacto">
@@ -371,9 +375,9 @@ function Usuarios() {
             <h2>
               {seleccionado.nombre} {seleccionado.apellido}
             </h2>
-            <Badge variant={seleccionado.activo ? 'success' : 'neutral'}>
+            <EstadoDot color={estadoDotColor(seleccionado.activo)} size="md">
               {seleccionado.activo ? 'Activo' : 'Inactivo'}
-            </Badge>
+            </EstadoDot>
           </div>
 
           <dl className="usuarios-detalle-list">

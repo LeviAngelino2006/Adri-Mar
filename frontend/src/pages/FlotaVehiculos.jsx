@@ -3,7 +3,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
-import Badge from '../components/ui/Badge';
+import EstadoDot from '../components/ui/EstadoDot';
 import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
@@ -298,9 +298,9 @@ function FlotaVehiculos() {
                         <td>{v.modelo}</td>
                         <td>{v.kilometraje}</td>
                         <td>
-                          <Badge variant={ESTADOS_VEHICULO[v.estado].variant}>
+                          <EstadoDot color={ESTADOS_VEHICULO[v.estado].dot}>
                             {ESTADOS_VEHICULO[v.estado].label}
-                          </Badge>
+                          </EstadoDot>
                         </td>
                       </tr>
                     ))}
@@ -313,9 +313,9 @@ function FlotaVehiculos() {
                   <button type="button" key={v.id} className="flota-card" onClick={() => seleccionar(v)}>
                     <div className="flota-card-header">
                       <span className="flota-card-dominio">{v.dominio}</span>
-                      <Badge variant={ESTADOS_VEHICULO[v.estado].variant}>
+                      <EstadoDot color={ESTADOS_VEHICULO[v.estado].dot}>
                         {ESTADOS_VEHICULO[v.estado].label}
-                      </Badge>
+                      </EstadoDot>
                     </div>
                     <div className="flota-card-body">
                       <span>Interno {v.numeroInterno}</span>
@@ -340,9 +340,9 @@ function FlotaVehiculos() {
 
           <div className="flota-detalle-header">
             <h2>Vehículo {seleccionado.dominio}</h2>
-            <Badge variant={ESTADOS_VEHICULO[seleccionado.estado].variant}>
+            <EstadoDot color={ESTADOS_VEHICULO[seleccionado.estado].dot} size="md">
               {ESTADOS_VEHICULO[seleccionado.estado].label}
-            </Badge>
+            </EstadoDot>
           </div>
 
           <dl className="flota-detalle-list">
