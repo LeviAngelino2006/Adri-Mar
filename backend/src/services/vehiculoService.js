@@ -10,7 +10,16 @@ class ValidacionError extends Error {
 // Patente argentina: formato viejo (ABC123) o formato Mercosur (AB123CD).
 const DOMINIO_REGEX = /^([A-Z]{3}[0-9]{3}|[A-Z]{2}[0-9]{3}[A-Z]{2})$/;
 
-function validarDatos({ dominio, numeroInterno, marca, modelo, anio, asientos, kilometraje }) {
+function validarDatos({
+  dominio,
+  numeroInterno,
+  marca,
+  modelo,
+  anio,
+  asientos,
+  kilometraje,
+  tipoVehiculoId,
+}) {
   const errores = {};
 
   const dominioNormalizado = (dominio || '').trim().toUpperCase();
@@ -23,6 +32,13 @@ function validarDatos({ dominio, numeroInterno, marca, modelo, anio, asientos, k
   if (!numeroInterno) errores.numeroInterno = 'El número de interno es obligatorio';
   if (!marca) errores.marca = 'La marca es obligatoria';
   if (!modelo) errores.modelo = 'El modelo es obligatorio';
+
+  const tipoVehiculoIdNumero = Number(tipoVehiculoId);
+  if (tipoVehiculoId === undefined || tipoVehiculoId === null || tipoVehiculoId === '') {
+    errores.tipoVehiculoId = 'El tipo de vehículo es obligatorio';
+  } else if (!Number.isInteger(tipoVehiculoIdNumero) || tipoVehiculoIdNumero <= 0) {
+    errores.tipoVehiculoId = 'El tipo de vehículo no es válido';
+  }
 
   const anioNumero = Number(anio);
   const anioActual = new Date().getFullYear();
@@ -58,11 +74,20 @@ function validarDatos({ dominio, numeroInterno, marca, modelo, anio, asientos, k
     anio: anioNumero,
     asientos: asientosNumero,
     kilometraje: kilometrajeNumero,
+    tipoVehiculoId: tipoVehiculoIdNumero,
   };
+}
+
+async function validarTipoVehiculo(tipoVehiculoId, errores) {
+  const tipo = await prisma.tipoVehiculo.findUnique({ where: { id: tipoVehiculoId } });
+  if (!tipo) {
+    throw new ValidacionError({ ...errores, tipoVehiculoId: 'El tipo de vehículo no existe' });
+  }
 }
 
 async function crearVehiculo(datos) {
   const datosValidados = validarDatos(datos);
+  await validarTipoVehiculo(datosValidados.tipoVehiculoId, {});
 
   const existente = await prisma.vehiculo.findUnique({
     where: { dominio: datosValidados.dominio },
@@ -73,7 +98,10 @@ async function crearVehiculo(datos) {
 
   let vehiculo;
   try {
-    vehiculo = await prisma.vehiculo.create({ data: datosValidados });
+    vehiculo = await prisma.vehiculo.create({
+      data: datosValidados,
+      include: { tipoVehiculo: true },
+    });
   } catch (err) {
     if (err.code === 'P2002') {
       throw new ValidacionError({ dominio: 'Ese dominio ya está registrado' });
@@ -100,20 +128,31 @@ async function listarVehiculos({ estado, busqueda } = {}) {
 
   if (busqueda) {
     where.OR = [
-      { dominio: { contains: busqueda } },
-      { numeroInterno: { contains: busqueda } },
-      { marca: { contains: busqueda } },
+      { dominio: { contains: busqueda, mode: 'insensitive' } },
+      { numeroInterno: { contains: busqueda, mode: 'insensitive' } },
+      { marca: { contains: busqueda, mode: 'insensitive' } },
     ];
   }
 
-  return prisma.vehiculo.findMany({ where, orderBy: { creadoEn: 'desc' } });
+  return prisma.vehiculo.findMany({
+    where,
+    orderBy: { creadoEn: 'desc' },
+    include: { tipoVehiculo: true },
+  });
+}
+
+async function listarTiposVehiculo() {
+  return prisma.tipoVehiculo.findMany({ orderBy: { descripcion: 'asc' } });
 }
 
 class NoEncontradoError extends Error {}
 class DadoDeBajaError extends Error {}
 
 async function obtenerVehiculo(id) {
-  const vehiculo = await prisma.vehiculo.findUnique({ where: { id: Number(id) } });
+  const vehiculo = await prisma.vehiculo.findUnique({
+    where: { id: Number(id) },
+    include: { tipoVehiculo: true },
+  });
   if (!vehiculo) {
     throw new NoEncontradoError();
   }
@@ -128,6 +167,7 @@ async function actualizarVehiculo(id, datos) {
   }
 
   const datosValidados = validarDatos(datos);
+  await validarTipoVehiculo(datosValidados.tipoVehiculoId, {});
 
   const otroConMismoDominio = await prisma.vehiculo.findUnique({
     where: { dominio: datosValidados.dominio },
@@ -141,6 +181,7 @@ async function actualizarVehiculo(id, datos) {
     vehiculo = await prisma.vehiculo.update({
       where: { id: actual.id },
       data: datosValidados,
+      include: { tipoVehiculo: true },
     });
   } catch (err) {
     if (err.code === 'P2002') {
@@ -170,6 +211,7 @@ async function darDeBajaVehiculo(id) {
 module.exports = {
   crearVehiculo,
   listarVehiculos,
+  listarTiposVehiculo,
   obtenerVehiculo,
   actualizarVehiculo,
   darDeBajaVehiculo,

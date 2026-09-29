@@ -38,18 +38,28 @@ model Usuario {
   @@map("usuarios")
 }
 
+model TipoVehiculo {
+  id          Int        @id @default(autoincrement()) @map("id_tipovehiculo")
+  descripcion String     @unique
+  vehiculos   Vehiculo[]
+
+  @@map("tipos_vehiculo")
+}
+
 model Vehiculo {
-  id            Int            @id @default(autoincrement())
-  dominio       String         @unique
-  numeroInterno String         @map("numero_interno")
-  marca         String
-  modelo        String
-  anio          Int
-  asientos      Int
-  kilometraje   Int
-  estado        EstadoVehiculo @default(OPERATIVO)
-  fechaBaja     DateTime?      @map("fecha_baja")
-  creadoEn      DateTime       @default(now()) @map("creado_en")
+  id             Int            @id @default(autoincrement())
+  dominio        String         @unique
+  numeroInterno  String         @map("numero_interno")
+  marca          String
+  modelo         String
+  anio           Int
+  asientos       Int
+  kilometraje    Int
+  estado         EstadoVehiculo @default(OPERATIVO)
+  tipoVehiculoId Int            @map("tipo_vehiculo_id")
+  tipoVehiculo   TipoVehiculo   @relation(fields: [tipoVehiculoId], references: [id])
+  fechaBaja      DateTime?      @map("fecha_baja")
+  creadoEn       DateTime       @default(now()) @map("creado_en")
 
   @@map("vehiculos")
 }

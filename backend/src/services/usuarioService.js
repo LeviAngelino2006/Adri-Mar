@@ -189,9 +189,9 @@ async function listarUsuarios({ busqueda } = {}) {
 
   if (busqueda) {
     where.OR = [
-      { nombre: { contains: busqueda } },
-      { apellido: { contains: busqueda } },
-      { nombreUsuario: { contains: busqueda } },
+      { nombre: { contains: busqueda, mode: 'insensitive' } },
+      { apellido: { contains: busqueda, mode: 'insensitive' } },
+      { nombreUsuario: { contains: busqueda, mode: 'insensitive' } },
     ];
   }
 

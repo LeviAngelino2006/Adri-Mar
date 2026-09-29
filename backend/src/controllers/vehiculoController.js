@@ -1,7 +1,8 @@
 const vehiculoService = require('../services/vehiculoService');
 
 async function crear(req, res) {
-  const { dominio, numeroInterno, marca, modelo, anio, asientos, kilometraje } = req.body;
+  const { dominio, numeroInterno, marca, modelo, anio, asientos, kilometraje, tipoVehiculoId } =
+    req.body;
 
   try {
     const vehiculo = await vehiculoService.crearVehiculo({
@@ -12,6 +13,7 @@ async function crear(req, res) {
       anio,
       asientos,
       kilometraje,
+      tipoVehiculoId,
     });
     return res.status(201).json({ vehiculo });
   } catch (err) {
@@ -28,6 +30,11 @@ async function listar(req, res) {
   return res.json({ vehiculos });
 }
 
+async function listarTipos(req, res) {
+  const tiposVehiculo = await vehiculoService.listarTiposVehiculo();
+  return res.json({ tiposVehiculo });
+}
+
 async function obtener(req, res) {
   try {
     const vehiculo = await vehiculoService.obtenerVehiculo(req.params.id);
@@ -41,7 +48,8 @@ async function obtener(req, res) {
 }
 
 async function actualizar(req, res) {
-  const { dominio, numeroInterno, marca, modelo, anio, asientos, kilometraje } = req.body;
+  const { dominio, numeroInterno, marca, modelo, anio, asientos, kilometraje, tipoVehiculoId } =
+    req.body;
 
   try {
     const vehiculo = await vehiculoService.actualizarVehiculo(req.params.id, {
@@ -52,6 +60,7 @@ async function actualizar(req, res) {
       anio,
       asientos,
       kilometraje,
+      tipoVehiculoId,
     });
     return res.json({ vehiculo });
   } catch (err) {
@@ -83,4 +92,4 @@ async function darDeBaja(req, res) {
   }
 }
 
-module.exports = { crear, listar, obtener, actualizar, darDeBaja };
+module.exports = { crear, listar, listarTipos, obtener, actualizar, darDeBaja };
