@@ -21,6 +21,14 @@ async function obtenerPerfilPorDescripcion(descripcion) {
   return perfil;
 }
 
+async function obtenerEstadoUsuarioPorDescripcion(descripcion) {
+  const estado = await prisma.estadoUsuario.findUnique({ where: { descripcion } });
+  if (!estado) {
+    throw new Error(`Estado de usuario "${descripcion}" no configurado`);
+  }
+  return estado;
+}
+
 function serializarUsuario(usuario) {
   return {
     id: usuario.id,
@@ -31,7 +39,7 @@ function serializarUsuario(usuario) {
     dni: usuario.dni,
     email: usuario.email,
     telefono: usuario.telefono,
-    activo: usuario.activo,
+    activo: usuario.estadoUsuario.descripcion === 'ACTIVO',
   };
 }
 
@@ -111,6 +119,7 @@ async function crearUsuario(
   }
 
   const perfilRow = await obtenerPerfilPorDescripcion(perfil);
+  const estadoActivo = await obtenerEstadoUsuarioPorDescripcion('ACTIVO');
 
   const existente = await prisma.usuario.findUnique({ where: { nombreUsuario } });
   if (existente) {
@@ -122,8 +131,16 @@ async function crearUsuario(
   let usuario;
   try {
     usuario = await prisma.usuario.create({
-      data: { nombre, apellido, nombreUsuario, contrasenaHash, perfilId: perfilRow.id, ...datosContacto },
-      include: { perfil: true },
+      data: {
+        nombre,
+        apellido,
+        nombreUsuario,
+        contrasenaHash,
+        perfilId: perfilRow.id,
+        estadoUsuarioId: estadoActivo.id,
+        ...datosContacto,
+      },
+      include: { perfil: true, estadoUsuario: true },
     });
   } catch (err) {
     if (err.code === 'P2002') {
@@ -140,7 +157,7 @@ class NoEncontradoError extends Error {}
 async function obtenerUsuario(id) {
   const usuario = await prisma.usuario.findUnique({
     where: { id: Number(id) },
-    include: { perfil: true },
+    include: { perfil: true, estadoUsuario: true },
   });
   if (!usuario) {
     throw new NoEncontradoError();
@@ -176,7 +193,7 @@ async function actualizarUsuario(
     usuario = await prisma.usuario.update({
       where: { id: actual.id },
       data: { nombre, apellido, nombreUsuario, perfilId: perfilRow.id, ...datosContacto },
-      include: { perfil: true },
+      include: { perfil: true, estadoUsuario: true },
     });
   } catch (err) {
     if (err.code === 'P2002') {
@@ -197,14 +214,16 @@ async function darDeBajaUsuario(id, { perfilSolicitante } = {}) {
     throw new PermisoDenegadoError();
   }
 
-  if (!actual.activo) {
+  if (actual.estadoUsuario.descripcion !== 'ACTIVO') {
     throw new YaInactivoError();
   }
 
+  const estadoInactivo = await obtenerEstadoUsuarioPorDescripcion('INACTIVO');
+
   const usuario = await prisma.usuario.update({
     where: { id: actual.id },
-    data: { activo: false },
-    include: { perfil: true },
+    data: { estadoUsuarioId: estadoInactivo.id },
+    include: { perfil: true, estadoUsuario: true },
   });
 
   return serializarUsuario(usuario);
@@ -229,7 +248,7 @@ async function listarUsuarios({ busqueda } = {}, { perfilSolicitante } = {}) {
 
   const usuarios = await prisma.usuario.findMany({
     where,
-    include: { perfil: true },
+    include: { perfil: true, estadoUsuario: true },
   });
 
   return usuarios

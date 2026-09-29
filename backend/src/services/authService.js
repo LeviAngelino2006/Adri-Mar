@@ -7,10 +7,10 @@ class CredencialesInvalidasError extends Error {}
 async function login(nombreUsuario, contrasena) {
   const usuario = await prisma.usuario.findUnique({
     where: { nombreUsuario },
-    include: { perfil: true },
+    include: { perfil: true, estadoUsuario: true },
   });
 
-  if (!usuario || !usuario.activo) {
+  if (!usuario || usuario.estadoUsuario.descripcion !== 'ACTIVO') {
     throw new CredencialesInvalidasError();
   }
 

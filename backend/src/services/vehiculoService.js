@@ -85,6 +85,32 @@ async function validarTipoVehiculo(tipoVehiculoId, errores) {
   }
 }
 
+async function obtenerEstadoVehiculoPorDescripcion(descripcion) {
+  const estado = await prisma.estadoVehiculo.findUnique({ where: { descripcion } });
+  if (!estado) {
+    throw new Error(`Estado de vehículo "${descripcion}" no configurado`);
+  }
+  return estado;
+}
+
+function serializarVehiculo(vehiculo) {
+  return {
+    id: vehiculo.id,
+    dominio: vehiculo.dominio,
+    numeroInterno: vehiculo.numeroInterno,
+    marca: vehiculo.marca,
+    modelo: vehiculo.modelo,
+    anio: vehiculo.anio,
+    asientos: vehiculo.asientos,
+    kilometraje: vehiculo.kilometraje,
+    estado: vehiculo.estadoVehiculo.descripcion,
+    tipoVehiculoId: vehiculo.tipoVehiculoId,
+    tipoVehiculo: vehiculo.tipoVehiculo,
+    fechaBaja: vehiculo.fechaBaja,
+    creadoEn: vehiculo.creadoEn,
+  };
+}
+
 async function crearVehiculo(datos) {
   const datosValidados = validarDatos(datos);
   await validarTipoVehiculo(datosValidados.tipoVehiculoId, {});
@@ -96,11 +122,13 @@ async function crearVehiculo(datos) {
     throw new ValidacionError({ dominio: 'Ese dominio ya está registrado' });
   }
 
+  const estadoOperativo = await obtenerEstadoVehiculoPorDescripcion('OPERATIVO');
+
   let vehiculo;
   try {
     vehiculo = await prisma.vehiculo.create({
-      data: datosValidados,
-      include: { tipoVehiculo: true },
+      data: { ...datosValidados, estadoVehiculoId: estadoOperativo.id },
+      include: { tipoVehiculo: true, estadoVehiculo: true },
     });
   } catch (err) {
     if (err.code === 'P2002') {
@@ -109,7 +137,7 @@ async function crearVehiculo(datos) {
     throw err;
   }
 
-  return vehiculo;
+  return serializarVehiculo(vehiculo);
 }
 
 const ESTADOS_VALIDOS = ['OPERATIVO', 'EN_TALLER', 'DADO_DE_BAJA'];
@@ -119,10 +147,10 @@ async function listarVehiculos({ estado, busqueda } = {}) {
 
   if (estado && estado !== 'TODOS') {
     if (ESTADOS_VALIDOS.includes(estado)) {
-      where.estado = estado;
+      where.estadoVehiculo = { descripcion: estado };
     }
   } else if (!estado) {
-    where.estado = { not: 'DADO_DE_BAJA' };
+    where.estadoVehiculo = { descripcion: { not: 'DADO_DE_BAJA' } };
   }
   // estado === 'TODOS' -> sin filtro de estado
 
@@ -134,11 +162,13 @@ async function listarVehiculos({ estado, busqueda } = {}) {
     ];
   }
 
-  return prisma.vehiculo.findMany({
+  const vehiculos = await prisma.vehiculo.findMany({
     where,
     orderBy: { creadoEn: 'desc' },
-    include: { tipoVehiculo: true },
+    include: { tipoVehiculo: true, estadoVehiculo: true },
   });
+
+  return vehiculos.map(serializarVehiculo);
 }
 
 async function listarTiposVehiculo() {
@@ -151,12 +181,12 @@ class DadoDeBajaError extends Error {}
 async function obtenerVehiculo(id) {
   const vehiculo = await prisma.vehiculo.findUnique({
     where: { id: Number(id) },
-    include: { tipoVehiculo: true },
+    include: { tipoVehiculo: true, estadoVehiculo: true },
   });
   if (!vehiculo) {
     throw new NoEncontradoError();
   }
-  return vehiculo;
+  return serializarVehiculo(vehiculo);
 }
 
 async function actualizarVehiculo(id, datos) {
@@ -181,7 +211,7 @@ async function actualizarVehiculo(id, datos) {
     vehiculo = await prisma.vehiculo.update({
       where: { id: actual.id },
       data: datosValidados,
-      include: { tipoVehiculo: true },
+      include: { tipoVehiculo: true, estadoVehiculo: true },
     });
   } catch (err) {
     if (err.code === 'P2002') {
@@ -190,7 +220,7 @@ async function actualizarVehiculo(id, datos) {
     throw err;
   }
 
-  return vehiculo;
+  return serializarVehiculo(vehiculo);
 }
 
 class YaDadoDeBajaError extends Error {}
@@ -202,10 +232,15 @@ async function darDeBajaVehiculo(id) {
     throw new YaDadoDeBajaError();
   }
 
-  return prisma.vehiculo.update({
+  const estadoDadoDeBaja = await obtenerEstadoVehiculoPorDescripcion('DADO_DE_BAJA');
+
+  const vehiculo = await prisma.vehiculo.update({
     where: { id: actual.id },
-    data: { estado: 'DADO_DE_BAJA', fechaBaja: new Date() },
+    data: { estadoVehiculoId: estadoDadoDeBaja.id, fechaBaja: new Date() },
+    include: { tipoVehiculo: true, estadoVehiculo: true },
   });
+
+  return serializarVehiculo(vehiculo);
 }
 
 module.exports = {

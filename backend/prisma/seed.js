@@ -30,8 +30,22 @@ async function main() {
 
   console.log(`Perfiles listos: ${PERFILES.join(', ')}`);
 
+  const ESTADOS_USUARIO = ['ACTIVO', 'INACTIVO'];
+  for (const descripcion of ESTADOS_USUARIO) {
+    await prisma.estadoUsuario.upsert({
+      where: { descripcion },
+      update: {},
+      create: { descripcion },
+    });
+  }
+
+  console.log(`Estados de usuario listos: ${ESTADOS_USUARIO.join(', ')}`);
+
   const perfilAdministrador = await prisma.perfil.findUnique({
     where: { descripcion: 'ADMINISTRADOR' },
+  });
+  const estadoActivo = await prisma.estadoUsuario.findUnique({
+    where: { descripcion: 'ACTIVO' },
   });
 
   const contrasenaHash = await bcrypt.hash(ADMIN_PASSWORD, SALT_ROUNDS);
@@ -45,6 +59,7 @@ async function main() {
       nombreUsuario: ADMIN_USERNAME,
       contrasenaHash,
       perfilId: perfilAdministrador.id,
+      estadoUsuarioId: estadoActivo.id,
     },
   });
 
@@ -60,6 +75,17 @@ async function main() {
   }
 
   console.log(`Tipos de vehículo listos: ${TIPOS_VEHICULO.join(', ')}`);
+
+  const ESTADOS_VEHICULO = ['OPERATIVO', 'EN_TALLER', 'DADO_DE_BAJA'];
+  for (const descripcion of ESTADOS_VEHICULO) {
+    await prisma.estadoVehiculo.upsert({
+      where: { descripcion },
+      update: {},
+      create: { descripcion },
+    });
+  }
+
+  console.log(`Estados de vehículo listos: ${ESTADOS_VEHICULO.join(', ')}`);
 }
 
 main()
