@@ -73,4 +73,43 @@ async function crearUsuario({ nombre, apellido, nombreUsuario, contrasena, perfi
   };
 }
 
-module.exports = { crearUsuario, ValidacionError, PERFILES_VALIDOS };
+const ORDEN_PERFILES = [
+  'ADMINISTRADOR',
+  'GERENCIA_GENERAL',
+  'LOGISTICA',
+  'PERSONAL_TALLER',
+  'CHOFER',
+];
+
+async function listarUsuarios({ busqueda } = {}) {
+  const where = {};
+
+  if (busqueda) {
+    where.OR = [
+      { nombre: { contains: busqueda } },
+      { apellido: { contains: busqueda } },
+      { nombreUsuario: { contains: busqueda } },
+    ];
+  }
+
+  const usuarios = await prisma.usuario.findMany({
+    where,
+    select: {
+      id: true,
+      nombre: true,
+      apellido: true,
+      nombreUsuario: true,
+      perfil: true,
+      activo: true,
+      creadoEn: true,
+    },
+  });
+
+  return usuarios.sort((a, b) => {
+    const ordenPerfil = ORDEN_PERFILES.indexOf(a.perfil) - ORDEN_PERFILES.indexOf(b.perfil);
+    if (ordenPerfil !== 0) return ordenPerfil;
+    return a.nombre.localeCompare(b.nombre);
+  });
+}
+
+module.exports = { crearUsuario, listarUsuarios, ValidacionError, PERFILES_VALIDOS };

@@ -1,0 +1,129 @@
+.usuarios-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+
+.usuarios-header h1 {
+  margin: 0;
+}
+
+.usuarios-filtros {
+  margin-bottom: var(--space-4);
+  max-width: 320px;
+}
+
+.usuarios-filtros .form-field {
+  margin-bottom: 0;
+}
+
+.usuarios-empty {
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.usuarios-avatar {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Tabla (escritorio) */
+.usuarios-table-wrap {
+  display: none;
+}
+
+.usuarios-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.usuarios-table th,
+.usuarios-table td {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.usuarios-table thead th {
+  background-color: var(--brand-50);
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.usuarios-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.usuarios-nombre {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* Tarjetas (mobile) */
+.usuarios-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.usuarios-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.usuarios-card-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.usuarios-card-nombre {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.usuarios-card-usuario {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.usuarios-card-perfil {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+}
+
+@media (min-width: 768px) {
+  .usuarios-table-wrap {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .usuarios-cards {
+    display: none;
+  }
+}

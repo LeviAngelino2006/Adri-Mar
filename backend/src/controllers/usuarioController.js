@@ -20,4 +20,10 @@ async function crear(req, res) {
   }
 }
 
-module.exports = { crear };
+async function listar(req, res) {
+  const { busqueda } = req.query;
+  const usuarios = await usuarioService.listarUsuarios({ busqueda });
+  return res.json({ usuarios });
+}
+
+module.exports = { crear, listar };
