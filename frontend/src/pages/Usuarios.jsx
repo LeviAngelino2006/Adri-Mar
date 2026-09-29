@@ -7,6 +7,7 @@ import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
 import Spinner from '../components/ui/Spinner';
+import Toast from '../components/ui/Toast';
 import { PERFILES, PERFIL_COLORS } from '../constants/perfiles';
 import './Usuarios.css';
 
@@ -51,6 +52,12 @@ function Usuarios() {
   useEffect(() => {
     cargarUsuarios();
   }, [cargarUsuarios]);
+
+  useEffect(() => {
+    if (!mensaje) return;
+    const t = setTimeout(() => setMensaje(''), 3500);
+    return () => clearTimeout(t);
+  }, [mensaje]);
 
   function abrirForm() {
     setForm(FORM_INICIAL);
@@ -100,7 +107,7 @@ function Usuarios() {
         )}
       </div>
 
-      {mensaje && !mostrarForm && <Alert variant="success">{mensaje}</Alert>}
+      {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
 
       {mostrarForm ? (
         <Card className="form-card">

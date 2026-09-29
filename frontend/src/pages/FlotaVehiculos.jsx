@@ -8,8 +8,18 @@ import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
 import Spinner from '../components/ui/Spinner';
+import Toast from '../components/ui/Toast';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import { ESTADOS_VEHICULO } from '../constants/estadosVehiculo';
 import './FlotaVehiculos.css';
+
+const ICONO_ALERTA = (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 9v4" />
+    <path d="M12 17h.01" />
+    <path d="M10.3 3.9L2.5 17a1.8 1.8 0 0 0 1.6 2.7h15.8a1.8 1.8 0 0 0 1.6-2.7L13.7 3.9a1.8 1.8 0 0 0-3.2 0z" />
+  </svg>
+);
 
 const ESTADOS = [
   { value: '', label: 'Activos (Operativo / En taller)' },
@@ -64,6 +74,12 @@ function FlotaVehiculos() {
     setMensaje('');
     cargarVehiculos();
   }, [cargarVehiculos]);
+
+  useEffect(() => {
+    if (!mensaje) return;
+    const t = setTimeout(() => setMensaje(''), 3500);
+    return () => clearTimeout(t);
+  }, [mensaje]);
 
   function seleccionar(v) {
     setMostrarForm(false);
@@ -165,7 +181,7 @@ function FlotaVehiculos() {
         )}
       </div>
 
-      {mensaje && !mostrarForm && <Alert variant="success">{mensaje}</Alert>}
+      {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
       {errorBaja && <Alert variant="error">{errorBaja}</Alert>}
 
       {mostrarForm && (
@@ -352,32 +368,31 @@ function FlotaVehiculos() {
               <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
                 Editar
               </Button>
-              {!confirmandoBaja && (
-                <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
-                  Dar de baja
-                </Button>
-              )}
-            </div>
-          )}
-
-          {confirmandoBaja && (
-            <div className="flota-confirm-baja" role="alertdialog" aria-label="Confirmar baja de vehículo">
-              <p>
-                ¿Confirma dar de baja el vehículo de dominio <strong>{seleccionado.dominio}</strong>{' '}
-                (interno <strong>{seleccionado.numeroInterno}</strong>)?
-              </p>
-              <div className="flota-confirm-actions">
-                <Button variant="danger" onClick={confirmarBaja}>
-                  Confirmar baja
-                </Button>
-                <Button variant="secondary" onClick={() => setConfirmandoBaja(false)}>
-                  Cancelar
-                </Button>
-              </div>
+              <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
+                Dar de baja
+              </Button>
             </div>
           )}
         </Card>
       )}
+
+      <ConfirmModal
+        open={confirmandoBaja}
+        tone="danger"
+        icon={ICONO_ALERTA}
+        title="Dar de baja el vehículo"
+        description={
+          seleccionado && (
+            <>
+              Vas a dar de baja el vehículo de dominio <strong>{seleccionado.dominio}</strong> (interno{' '}
+              <strong>{seleccionado.numeroInterno}</strong>). Esta acción no se puede deshacer.
+            </>
+          )
+        }
+        confirmLabel="Dar de baja"
+        onConfirm={confirmarBaja}
+        onCancel={() => setConfirmandoBaja(false)}
+      />
     </Layout>
   );
 }

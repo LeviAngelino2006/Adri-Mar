@@ -3,8 +3,17 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { PERFILES } from '../constants/perfiles';
 import { getNavItemsHabilitados } from '../constants/navegacion';
+import ConfirmModal from './ui/ConfirmModal';
 import logo from '../assets/logo-adrimar.png';
 import './Layout.css';
+
+const ICONO_LOGOUT = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <path d="M16 17l5-5-5-5" />
+    <path d="M21 12H9" />
+  </svg>
+);
 
 const ICONS = {
   dashboard: (
@@ -41,6 +50,7 @@ function Layout({ children }) {
   const { usuario, logout } = useAuth();
   const navigate = useNavigate();
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [confirmandoLogout, setConfirmandoLogout] = useState(false);
 
   const navItems = getNavItemsHabilitados(usuario.perfil);
   const perfilLabel = PERFILES.find((p) => p.value === usuario.perfil)?.label ?? usuario.perfil;
@@ -50,6 +60,7 @@ function Layout({ children }) {
   }
 
   function handleLogout() {
+    setConfirmandoLogout(false);
     cerrarMenu();
     logout();
     navigate('/login', { replace: true });
@@ -105,17 +116,29 @@ function Layout({ children }) {
             </span>
             <span className="layout-user-perfil">{perfilLabel}</span>
           </span>
-          <button type="button" className="layout-logout" onClick={handleLogout} aria-label="Cerrar sesión">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <path d="M16 17l5-5-5-5" />
-              <path d="M21 12H9" />
-            </svg>
+          <button
+            type="button"
+            className="layout-logout"
+            onClick={() => setConfirmandoLogout(true)}
+            aria-label="Cerrar sesión"
+          >
+            {ICONO_LOGOUT}
           </button>
         </div>
       </aside>
 
       <main className="layout-content">{children}</main>
+
+      <ConfirmModal
+        open={confirmandoLogout}
+        tone="brand"
+        icon={ICONO_LOGOUT}
+        title="Cerrar sesión"
+        description="¿Seguro que querés cerrar tu sesión?"
+        confirmLabel="Cerrar sesión"
+        onConfirm={handleLogout}
+        onCancel={() => setConfirmandoLogout(false)}
+      />
     </div>
   );
 }
