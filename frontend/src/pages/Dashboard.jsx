@@ -5,7 +5,8 @@ import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import './Dashboard.css';
 
-const PUEDE_VER_FLOTA = ['ADMINISTRADOR', 'PERSONAL_TALLER'];
+const PUEDE_VER_FLOTA = ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'];
+const PUEDE_VER_USUARIOS = ['ADMINISTRADOR', 'ENCARGADO'];
 
 function Dashboard() {
   const { usuario } = useAuth();
@@ -13,7 +14,7 @@ function Dashboard() {
   const [usuarios, setUsuarios] = useState(null);
 
   const verFlota = PUEDE_VER_FLOTA.includes(usuario.perfil);
-  const verUsuarios = usuario.perfil === 'ADMINISTRADOR';
+  const verUsuarios = PUEDE_VER_USUARIOS.includes(usuario.perfil);
 
   useEffect(() => {
     if (!verFlota) return;

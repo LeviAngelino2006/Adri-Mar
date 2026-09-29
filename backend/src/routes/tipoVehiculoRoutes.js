@@ -7,7 +7,7 @@ const router = Router();
 router.get(
   '/',
   autenticar,
-  autorizar('ADMINISTRADOR', 'PERSONAL_TALLER'),
+  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
   vehiculoController.listarTipos
 );
 

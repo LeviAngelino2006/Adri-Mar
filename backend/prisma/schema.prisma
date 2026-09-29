@@ -8,18 +8,18 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-enum Perfil {
-  ADMINISTRADOR
-  PERSONAL_TALLER
-  LOGISTICA
-  GERENCIA_GENERAL
-  CHOFER
-}
-
 enum EstadoVehiculo {
   OPERATIVO
   EN_TALLER
   DADO_DE_BAJA
+}
+
+model Perfil {
+  id          Int       @id @default(autoincrement()) @map("id_perfil")
+  descripcion String    @unique
+  usuarios    Usuario[]
+
+  @@map("perfiles")
 }
 
 model Usuario {
@@ -28,7 +28,8 @@ model Usuario {
   apellido       String
   nombreUsuario  String   @unique @map("nombre_usuario")
   contrasenaHash String   @map("contrasena_hash")
-  perfil         Perfil
+  perfilId       Int      @map("perfil_id")
+  perfil         Perfil   @relation(fields: [perfilId], references: [id])
   dni            String?  @unique
   email          String?  @unique
   telefono       String?

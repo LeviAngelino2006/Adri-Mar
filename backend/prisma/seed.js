@@ -19,6 +19,21 @@ async function main() {
     );
   }
 
+  const PERFILES = ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER', 'CHOFER'];
+  for (const descripcion of PERFILES) {
+    await prisma.perfil.upsert({
+      where: { descripcion },
+      update: {},
+      create: { descripcion },
+    });
+  }
+
+  console.log(`Perfiles listos: ${PERFILES.join(', ')}`);
+
+  const perfilAdministrador = await prisma.perfil.findUnique({
+    where: { descripcion: 'ADMINISTRADOR' },
+  });
+
   const contrasenaHash = await bcrypt.hash(ADMIN_PASSWORD, SALT_ROUNDS);
 
   const admin = await prisma.usuario.upsert({
@@ -29,7 +44,7 @@ async function main() {
       apellido: ADMIN_APELLIDO,
       nombreUsuario: ADMIN_USERNAME,
       contrasenaHash,
-      perfil: 'ADMINISTRADOR',
+      perfilId: perfilAdministrador.id,
     },
   });
 

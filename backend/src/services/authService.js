@@ -5,7 +5,10 @@ const { generarToken } = require('./tokenService');
 class CredencialesInvalidasError extends Error {}
 
 async function login(nombreUsuario, contrasena) {
-  const usuario = await prisma.usuario.findUnique({ where: { nombreUsuario } });
+  const usuario = await prisma.usuario.findUnique({
+    where: { nombreUsuario },
+    include: { perfil: true },
+  });
 
   if (!usuario || !usuario.activo) {
     throw new CredencialesInvalidasError();
@@ -17,7 +20,8 @@ async function login(nombreUsuario, contrasena) {
     throw new CredencialesInvalidasError();
   }
 
-  const token = generarToken(usuario);
+  const perfil = usuario.perfil.descripcion;
+  const token = generarToken({ id: usuario.id, nombreUsuario: usuario.nombreUsuario, perfil });
 
   return {
     token,
@@ -26,7 +30,7 @@ async function login(nombreUsuario, contrasena) {
       nombre: usuario.nombre,
       apellido: usuario.apellido,
       nombreUsuario: usuario.nombreUsuario,
-      perfil: usuario.perfil,
+      perfil,
     },
   };
 }

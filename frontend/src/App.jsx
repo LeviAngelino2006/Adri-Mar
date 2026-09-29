@@ -24,7 +24,7 @@ function App() {
           <Route
             path="/usuarios"
             element={
-              <ProtectedRoute perfiles={['ADMINISTRADOR']}>
+              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO']}>
                 <Usuarios />
               </ProtectedRoute>
             }
@@ -32,7 +32,7 @@ function App() {
           <Route
             path="/vehiculos"
             element={
-              <ProtectedRoute perfiles={['ADMINISTRADOR', 'PERSONAL_TALLER']}>
+              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER']}>
                 <FlotaVehiculos />
               </ProtectedRoute>
             }

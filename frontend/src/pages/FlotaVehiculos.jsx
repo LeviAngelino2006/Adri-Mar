@@ -40,8 +40,11 @@ const FORM_INICIAL = {
   tipoVehiculoId: '',
 };
 
+const PUEDE_GESTIONAR_FLOTA = ['ADMINISTRADOR', 'ENCARGADO'];
+
 function FlotaVehiculos() {
   const { usuario } = useAuth();
+  const puedeGestionar = PUEDE_GESTIONAR_FLOTA.includes(usuario.perfil);
   const [vehiculos, setVehiculos] = useState([]);
   const [tiposVehiculo, setTiposVehiculo] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -181,7 +184,7 @@ function FlotaVehiculos() {
     <Layout>
       <div className="flota-header">
         <h1>Flota de vehículos</h1>
-        {!mostrarForm && !seleccionado && (
+        {!mostrarForm && !seleccionado && puedeGestionar && (
           <Button variant="primary" onClick={abrirNuevo}>
             + Nuevo vehículo
           </Button>
@@ -393,7 +396,7 @@ function FlotaVehiculos() {
             <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
           </dl>
 
-          {usuario.perfil === 'ADMINISTRADOR' && seleccionado.estado !== 'DADO_DE_BAJA' && (
+          {puedeGestionar && seleccionado.estado !== 'DADO_DE_BAJA' && (
             <div className="flota-detalle-actions">
               <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
                 Editar

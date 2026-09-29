@@ -2,19 +2,37 @@ const bcrypt = require('bcrypt');
 const prisma = require('./prismaClient');
 
 const SALT_ROUNDS = 10;
-const PERFILES_VALIDOS = [
-  'ADMINISTRADOR',
-  'PERSONAL_TALLER',
-  'LOGISTICA',
-  'GERENCIA_GENERAL',
-  'CHOFER',
-];
+const PERFILES_VALIDOS = ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER', 'CHOFER'];
 
 class ValidacionError extends Error {
   constructor(errores) {
     super('Datos inválidos');
     this.errores = errores;
   }
+}
+
+class PermisoDenegadoError extends Error {}
+
+async function obtenerPerfilPorDescripcion(descripcion) {
+  const perfil = await prisma.perfil.findUnique({ where: { descripcion } });
+  if (!perfil) {
+    throw new ValidacionError({ perfil: 'El perfil elegido no es válido' });
+  }
+  return perfil;
+}
+
+function serializarUsuario(usuario) {
+  return {
+    id: usuario.id,
+    nombre: usuario.nombre,
+    apellido: usuario.apellido,
+    nombreUsuario: usuario.nombreUsuario,
+    perfil: usuario.perfil.descripcion,
+    dni: usuario.dni,
+    email: usuario.email,
+    telefono: usuario.telefono,
+    activo: usuario.activo,
+  };
 }
 
 const DNI_REGEX = /^\d{7,8}$/;
@@ -82,8 +100,17 @@ function errorDuplicado(err) {
   return match ? match[1] : { general: 'Ese registro ya existe' };
 }
 
-async function crearUsuario({ nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono }) {
+async function crearUsuario(
+  { nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono },
+  { perfilSolicitante } = {}
+) {
   const datosContacto = validarDatos({ nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono });
+
+  if (perfilSolicitante === 'ENCARGADO' && perfil === 'ADMINISTRADOR') {
+    throw new PermisoDenegadoError();
+  }
+
+  const perfilRow = await obtenerPerfilPorDescripcion(perfil);
 
   const existente = await prisma.usuario.findUnique({ where: { nombreUsuario } });
   if (existente) {
@@ -95,7 +122,8 @@ async function crearUsuario({ nombre, apellido, nombreUsuario, contrasena, perfi
   let usuario;
   try {
     usuario = await prisma.usuario.create({
-      data: { nombre, apellido, nombreUsuario, contrasenaHash, perfil, ...datosContacto },
+      data: { nombre, apellido, nombreUsuario, contrasenaHash, perfilId: perfilRow.id, ...datosContacto },
+      include: { perfil: true },
     });
   } catch (err) {
     if (err.code === 'P2002') {
@@ -104,42 +132,51 @@ async function crearUsuario({ nombre, apellido, nombreUsuario, contrasena, perfi
     throw err;
   }
 
-  return {
-    id: usuario.id,
-    nombre: usuario.nombre,
-    apellido: usuario.apellido,
-    nombreUsuario: usuario.nombreUsuario,
-    perfil: usuario.perfil,
-    dni: usuario.dni,
-    email: usuario.email,
-    telefono: usuario.telefono,
-    activo: usuario.activo,
-  };
+  return serializarUsuario(usuario);
 }
 
 class NoEncontradoError extends Error {}
 
 async function obtenerUsuario(id) {
-  const usuario = await prisma.usuario.findUnique({ where: { id: Number(id) } });
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: Number(id) },
+    include: { perfil: true },
+  });
   if (!usuario) {
     throw new NoEncontradoError();
   }
   return usuario;
 }
 
-async function actualizarUsuario(id, { nombre, apellido, nombreUsuario, perfil, dni, email, telefono }) {
+async function actualizarUsuario(
+  id,
+  { nombre, apellido, nombreUsuario, perfil, dni, email, telefono },
+  { perfilSolicitante } = {}
+) {
   const actual = await obtenerUsuario(id);
+
+  if (perfilSolicitante === 'ENCARGADO') {
+    if (actual.perfil.descripcion === 'ADMINISTRADOR') {
+      throw new PermisoDenegadoError();
+    }
+    if (perfil === 'ADMINISTRADOR') {
+      throw new PermisoDenegadoError();
+    }
+  }
 
   const datosContacto = validarDatos(
     { nombre, apellido, nombreUsuario, perfil, dni, email, telefono },
     { requireContrasena: false }
   );
 
+  const perfilRow = await obtenerPerfilPorDescripcion(perfil);
+
   let usuario;
   try {
     usuario = await prisma.usuario.update({
       where: { id: actual.id },
-      data: { nombre, apellido, nombreUsuario, perfil, ...datosContacto },
+      data: { nombre, apellido, nombreUsuario, perfilId: perfilRow.id, ...datosContacto },
+      include: { perfil: true },
     });
   } catch (err) {
     if (err.code === 'P2002') {
@@ -148,43 +185,34 @@ async function actualizarUsuario(id, { nombre, apellido, nombreUsuario, perfil, 
     throw err;
   }
 
-  return {
-    id: usuario.id,
-    nombre: usuario.nombre,
-    apellido: usuario.apellido,
-    nombreUsuario: usuario.nombreUsuario,
-    perfil: usuario.perfil,
-    dni: usuario.dni,
-    email: usuario.email,
-    telefono: usuario.telefono,
-    activo: usuario.activo,
-  };
+  return serializarUsuario(usuario);
 }
 
 class YaInactivoError extends Error {}
 
-async function darDeBajaUsuario(id) {
+async function darDeBajaUsuario(id, { perfilSolicitante } = {}) {
   const actual = await obtenerUsuario(id);
+
+  if (perfilSolicitante === 'ENCARGADO' && actual.perfil.descripcion === 'ADMINISTRADOR') {
+    throw new PermisoDenegadoError();
+  }
 
   if (!actual.activo) {
     throw new YaInactivoError();
   }
 
-  return prisma.usuario.update({
+  const usuario = await prisma.usuario.update({
     where: { id: actual.id },
     data: { activo: false },
+    include: { perfil: true },
   });
+
+  return serializarUsuario(usuario);
 }
 
-const ORDEN_PERFILES = [
-  'ADMINISTRADOR',
-  'GERENCIA_GENERAL',
-  'LOGISTICA',
-  'PERSONAL_TALLER',
-  'CHOFER',
-];
+const ORDEN_PERFILES = ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER', 'CHOFER'];
 
-async function listarUsuarios({ busqueda } = {}) {
+async function listarUsuarios({ busqueda } = {}, { perfilSolicitante } = {}) {
   const where = {};
 
   if (busqueda) {
@@ -195,27 +223,22 @@ async function listarUsuarios({ busqueda } = {}) {
     ];
   }
 
+  if (perfilSolicitante === 'ENCARGADO') {
+    where.perfil = { descripcion: { not: 'ADMINISTRADOR' } };
+  }
+
   const usuarios = await prisma.usuario.findMany({
     where,
-    select: {
-      id: true,
-      nombre: true,
-      apellido: true,
-      nombreUsuario: true,
-      perfil: true,
-      dni: true,
-      email: true,
-      telefono: true,
-      activo: true,
-      creadoEn: true,
-    },
+    include: { perfil: true },
   });
 
-  return usuarios.sort((a, b) => {
-    const ordenPerfil = ORDEN_PERFILES.indexOf(a.perfil) - ORDEN_PERFILES.indexOf(b.perfil);
-    if (ordenPerfil !== 0) return ordenPerfil;
-    return a.nombre.localeCompare(b.nombre);
-  });
+  return usuarios
+    .map((u) => ({ ...serializarUsuario(u), creadoEn: u.creadoEn }))
+    .sort((a, b) => {
+      const ordenPerfil = ORDEN_PERFILES.indexOf(a.perfil) - ORDEN_PERFILES.indexOf(b.perfil);
+      if (ordenPerfil !== 0) return ordenPerfil;
+      return a.nombre.localeCompare(b.nombre);
+    });
 }
 
 module.exports = {
@@ -226,5 +249,6 @@ module.exports = {
   ValidacionError,
   NoEncontradoError,
   YaInactivoError,
+  PermisoDenegadoError,
   PERFILES_VALIDOS,
 };

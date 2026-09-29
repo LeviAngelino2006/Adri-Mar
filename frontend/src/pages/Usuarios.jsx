@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import EstadoDot from '../components/ui/EstadoDot';
@@ -44,6 +45,11 @@ function estadoDotColor(activo) {
 }
 
 function Usuarios() {
+  const { usuario: usuarioActual } = useAuth();
+  const perfilesDisponibles =
+    usuarioActual.perfil === 'ENCARGADO'
+      ? PERFILES.filter((p) => p.value !== 'ADMINISTRADOR')
+      : PERFILES;
   const [usuarios, setUsuarios] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
@@ -225,7 +231,7 @@ function Usuarios() {
               <FormField id="perfil" label="Perfil" error={errores.perfil}>
                 <select name="perfil" value={form.perfil} onChange={handleChange}>
                   <option value="">Seleccionar…</option>
-                  {PERFILES.map((p) => (
+                  {perfilesDisponibles.map((p) => (
                     <option key={p.value} value={p.value}>
                       {p.label}
                     </option>

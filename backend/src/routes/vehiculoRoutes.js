@@ -4,24 +4,34 @@ const { autenticar, autorizar } = require('../middlewares/auth');
 
 const router = Router();
 
-router.post('/', autenticar, autorizar('ADMINISTRADOR'), vehiculoController.crear);
+router.post(
+  '/',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  vehiculoController.crear
+);
 router.get(
   '/',
   autenticar,
-  autorizar('ADMINISTRADOR', 'PERSONAL_TALLER'),
+  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
   vehiculoController.listar
 );
 router.get(
   '/:id',
   autenticar,
-  autorizar('ADMINISTRADOR', 'PERSONAL_TALLER'),
+  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
   vehiculoController.obtener
 );
-router.put('/:id', autenticar, autorizar('ADMINISTRADOR'), vehiculoController.actualizar);
+router.put(
+  '/:id',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  vehiculoController.actualizar
+);
 router.patch(
   '/:id/baja',
   autenticar,
-  autorizar('ADMINISTRADOR'),
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
   vehiculoController.darDeBaja
 );
 
