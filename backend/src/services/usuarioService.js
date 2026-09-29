@@ -160,6 +160,21 @@ async function actualizarUsuario(id, { nombre, apellido, nombreUsuario, perfil, 
   };
 }
 
+class YaInactivoError extends Error {}
+
+async function darDeBajaUsuario(id) {
+  const actual = await obtenerUsuario(id);
+
+  if (!actual.activo) {
+    throw new YaInactivoError();
+  }
+
+  return prisma.usuario.update({
+    where: { id: actual.id },
+    data: { activo: false },
+  });
+}
+
 const ORDEN_PERFILES = [
   'ADMINISTRADOR',
   'GERENCIA_GENERAL',
@@ -206,7 +221,9 @@ module.exports = {
   crearUsuario,
   listarUsuarios,
   actualizarUsuario,
+  darDeBajaUsuario,
   ValidacionError,
   NoEncontradoError,
+  YaInactivoError,
   PERFILES_VALIDOS,
 };

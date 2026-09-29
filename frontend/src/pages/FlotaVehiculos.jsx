@@ -280,12 +280,19 @@ function FlotaVehiculos() {
                   </thead>
                   <tbody>
                     {vehiculos.map((v) => (
-                      <tr key={v.id}>
-                        <td>
-                          <button type="button" className="flota-row-btn" onClick={() => seleccionar(v)}>
-                            {v.dominio}
-                          </button>
-                        </td>
+                      <tr
+                        key={v.id}
+                        className="flota-row"
+                        tabIndex={0}
+                        onClick={() => seleccionar(v)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            seleccionar(v);
+                          }
+                        }}
+                      >
+                        <td className="flota-row-dominio">{v.dominio}</td>
                         <td>{v.numeroInterno}</td>
                         <td>{v.marca}</td>
                         <td>{v.modelo}</td>
