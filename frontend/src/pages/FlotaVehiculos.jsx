@@ -42,6 +42,32 @@ const FORM_INICIAL = {
 
 const PUEDE_GESTIONAR_FLOTA = ['ADMINISTRADOR', 'ENCARGADO'];
 
+const ICONO_COLECTIVO = (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="5" width="18" height="11" rx="2" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+    <line x1="9" y1="5" x2="9" y2="10" />
+    <line x1="15" y1="5" x2="15" y2="10" />
+    <circle cx="7.5" cy="18.5" r="1.6" />
+    <circle cx="16.5" cy="18.5" r="1.6" />
+  </svg>
+);
+
+const ICONO_COMBI = (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 16V9a1 1 0 0 1 1-1h9l4 3.5V16" />
+    <line x1="13" y1="8" x2="13" y2="16" />
+    <circle cx="7" cy="18.3" r="1.6" />
+    <circle cx="16" cy="18.3" r="1.6" />
+  </svg>
+);
+
+function ordenarPorInterno(vehiculos) {
+  return [...vehiculos].sort(
+    (a, b) => (parseInt(a.numeroInterno, 10) || 0) - (parseInt(b.numeroInterno, 10) || 0)
+  );
+}
+
 function FlotaVehiculos() {
   const { usuario } = useAuth();
   const puedeGestionar = PUEDE_GESTIONAR_FLOTA.includes(usuario.perfil);
@@ -291,17 +317,16 @@ function FlotaVehiculos() {
                 <table className="flota-table">
                   <thead>
                     <tr>
-                      <th>Dominio</th>
                       <th>Interno</th>
-                      <th>Marca</th>
-                      <th>Modelo</th>
+                      <th>Dominio</th>
+                      <th>Marca / Modelo</th>
                       <th>Tipo</th>
                       <th>Kilometraje</th>
                       <th>Estado</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {vehiculos.map((v) => (
+                    {ordenarPorInterno(vehiculos).map((v) => (
                       <tr
                         key={v.id}
                         className="flota-row"
@@ -314,10 +339,11 @@ function FlotaVehiculos() {
                           }
                         }}
                       >
-                        <td className="flota-row-dominio">{v.dominio}</td>
                         <td>{v.numeroInterno}</td>
-                        <td>{v.marca}</td>
-                        <td>{v.modelo}</td>
+                        <td className="flota-row-dominio">{v.dominio}</td>
+                        <td>
+                          {v.marca} {v.modelo}
+                        </td>
                         <td>{v.tipoVehiculo.descripcion}</td>
                         <td>{v.kilometraje}</td>
                         <td>
@@ -332,21 +358,26 @@ function FlotaVehiculos() {
               </div>
 
               <div className="flota-cards">
-                {vehiculos.map((v) => (
+                {ordenarPorInterno(vehiculos).map((v) => (
                   <button type="button" key={v.id} className="flota-card" onClick={() => seleccionar(v)}>
-                    <div className="flota-card-header">
-                      <span className="flota-card-dominio">{v.dominio}</span>
-                      <EstadoDot color={ESTADOS_VEHICULO[v.estado].dot}>
-                        {ESTADOS_VEHICULO[v.estado].label}
-                      </EstadoDot>
+                    <div className="flota-card-icon">
+                      {v.tipoVehiculo.descripcion === 'Colectivo' ? ICONO_COLECTIVO : ICONO_COMBI}
                     </div>
-                    <div className="flota-card-body">
-                      <span>Interno {v.numeroInterno}</span>
-                      <span>
-                        {v.marca} {v.modelo}
-                      </span>
-                      <span>{v.tipoVehiculo.descripcion}</span>
-                      <span>{v.kilometraje} km</span>
+                    <div className="flota-card-content">
+                      <div className="flota-card-top">
+                        <span className="flota-card-dominio">
+                          {v.numeroInterno} - {v.dominio}
+                        </span>
+                        <EstadoDot color={ESTADOS_VEHICULO[v.estado].dot}>
+                          {ESTADOS_VEHICULO[v.estado].label}
+                        </EstadoDot>
+                      </div>
+                      <div className="flota-card-body">
+                        <span>
+                          {v.marca} {v.modelo}
+                        </span>
+                        <span>{v.kilometraje} km</span>
+                      </div>
                     </div>
                   </button>
                 ))}

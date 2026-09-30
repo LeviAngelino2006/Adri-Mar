@@ -1,26 +1,10 @@
-import { useEffect, useState } from 'react';
-import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import './Dashboard.css';
 
-const PUEDE_VER_FLOTA = ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'];
-
 function Dashboard() {
   const { usuario } = useAuth();
-  const [vehiculos, setVehiculos] = useState(null);
-
-  const verFlota = PUEDE_VER_FLOTA.includes(usuario.perfil);
-
-  useEffect(() => {
-    if (!verFlota) return;
-    api.get('/vehiculos', { params: { estado: 'TODOS' } }).then(({ data }) => setVehiculos(data.vehiculos));
-  }, [verFlota]);
-
-  const kpiOperativos = vehiculos?.filter((v) => v.estado === 'OPERATIVO').length;
-  const kpiTaller = vehiculos?.filter((v) => v.estado === 'EN_TALLER').length;
-  const kpiBaja = vehiculos?.filter((v) => v.estado === 'DADO_DE_BAJA').length;
 
   return (
     <Layout>
@@ -28,32 +12,6 @@ function Dashboard() {
       <p className="dashboard-greeting">
         Hola, {usuario.nombre} {usuario.apellido}
       </p>
-
-      {verFlota && (
-        <div className="dashboard-kpis">
-          <Card className="dashboard-kpi">
-            <span className="dashboard-kpi-label">
-              <span className="dashboard-kpi-dot dashboard-kpi-dot-success" />
-              Operativos
-            </span>
-            <span className="dashboard-kpi-value">{kpiOperativos ?? '—'}</span>
-          </Card>
-          <Card className="dashboard-kpi">
-            <span className="dashboard-kpi-label">
-              <span className="dashboard-kpi-dot dashboard-kpi-dot-warning" />
-              En taller
-            </span>
-            <span className="dashboard-kpi-value">{kpiTaller ?? '—'}</span>
-          </Card>
-          <Card className="dashboard-kpi">
-            <span className="dashboard-kpi-label">
-              <span className="dashboard-kpi-dot dashboard-kpi-dot-neutral" />
-              Dados de baja
-            </span>
-            <span className="dashboard-kpi-value">{kpiBaja ?? '—'}</span>
-          </Card>
-        </div>
-      )}
 
       <div className="dashboard-panels">
         <Card className="dashboard-panel">

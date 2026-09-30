@@ -44,6 +44,12 @@ function estadoDotColor(activo) {
   return activo ? '#16a34a' : '#94a3b8';
 }
 
+function ordenarPorPerfil(usuarios) {
+  return [...usuarios].sort(
+    (a, b) => PERFILES.findIndex((p) => p.value === a.perfil) - PERFILES.findIndex((p) => p.value === b.perfil)
+  );
+}
+
 function Usuarios() {
   const { usuario: usuarioActual } = useAuth();
   const perfilesDisponibles =
@@ -280,16 +286,12 @@ function Usuarios() {
                   <thead>
                     <tr>
                       <th>Nombre</th>
-                      <th>DNI</th>
-                      <th>Email</th>
-                      <th>Teléfono</th>
-                      <th>Usuario</th>
                       <th>Perfil</th>
                       <th>Estado</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {usuarios.map((u) => {
+                    {ordenarPorPerfil(usuarios).map((u) => {
                       const colores = PERFIL_COLORS[u.perfil] || {};
                       return (
                         <tr
@@ -317,10 +319,6 @@ function Usuarios() {
                               </span>
                             </div>
                           </td>
-                          <td>{u.dni || '—'}</td>
-                          <td>{u.email || '—'}</td>
-                          <td>{u.telefono || '—'}</td>
-                          <td>{u.nombreUsuario}</td>
                           <td>{perfilLabel(u.perfil)}</td>
                           <td>
                             <EstadoDot color={estadoDotColor(u.activo)}>
@@ -335,33 +333,25 @@ function Usuarios() {
               </div>
 
               <div className="usuarios-cards">
-                {usuarios.map((u) => {
+                {ordenarPorPerfil(usuarios).map((u) => {
                   const colores = PERFIL_COLORS[u.perfil] || {};
                   return (
                     <button type="button" className="usuarios-card" key={u.id} onClick={() => seleccionar(u)}>
-                      <div className="usuarios-card-header">
-                        <span
-                          className="usuarios-avatar"
-                          style={{ backgroundColor: colores.bg, color: colores.text }}
-                        >
-                          {initials(u.nombre, u.apellido)}
+                      <span
+                        className="usuarios-avatar"
+                        style={{ backgroundColor: colores.bg, color: colores.text }}
+                      >
+                        {initials(u.nombre, u.apellido)}
+                      </span>
+                      <div className="usuarios-card-info">
+                        <span className="usuarios-card-nombre">
+                          {u.nombre} {u.apellido}
                         </span>
-                        <div className="usuarios-card-info">
-                          <span className="usuarios-card-nombre">
-                            {u.nombre} {u.apellido}
-                          </span>
-                          <span className="usuarios-card-usuario">{u.nombreUsuario}</span>
-                        </div>
-                        <EstadoDot color={estadoDotColor(u.activo)}>
-                          {u.activo ? 'Activo' : 'Inactivo'}
-                        </EstadoDot>
+                        <span className="usuarios-card-perfil-sub">{perfilLabel(u.perfil)}</span>
                       </div>
-                      <div className="usuarios-card-perfil">{perfilLabel(u.perfil)}</div>
-                      <div className="usuarios-card-contacto">
-                        <span>DNI: {u.dni || '—'}</span>
-                        <span>{u.email || '—'}</span>
-                        <span>{u.telefono || '—'}</span>
-                      </div>
+                      <EstadoDot color={estadoDotColor(u.activo)}>
+                        {u.activo ? 'Activo' : 'Inactivo'}
+                      </EstadoDot>
                     </button>
                   );
                 })}

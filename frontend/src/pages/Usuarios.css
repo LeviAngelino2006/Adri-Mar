@@ -101,7 +101,8 @@
 
 .usuarios-card {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
   text-align: left;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -113,12 +114,6 @@
 .usuarios-card:hover {
   border-color: var(--brand-500);
   box-shadow: var(--shadow-md);
-}
-
-.usuarios-card-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
 }
 
 .usuarios-card-info {
@@ -133,26 +128,9 @@
   color: var(--color-text);
 }
 
-.usuarios-card-usuario {
-  font-size: 0.875rem;
+.usuarios-card-perfil-sub {
+  font-size: 0.8125rem;
   color: var(--color-text-secondary);
-}
-
-.usuarios-card-perfil {
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  font-size: 0.9375rem;
-}
-
-.usuarios-card-contacto {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin-top: var(--space-2);
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
 }
 
 @media (min-width: 768px) {
