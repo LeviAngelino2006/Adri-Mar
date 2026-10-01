@@ -401,30 +401,48 @@ function FlotaVehiculos() {
           </div>
 
           <dl className="flota-detalle-list">
-            <dt>Dominio</dt>
-            <dd>{seleccionado.dominio}</dd>
-            <dt>Número de interno</dt>
-            <dd>{seleccionado.numeroInterno}</dd>
-            <dt>Marca</dt>
-            <dd>{seleccionado.marca}</dd>
-            <dt>Modelo</dt>
-            <dd>{seleccionado.modelo}</dd>
-            <dt>Tipo de vehículo</dt>
-            <dd>{seleccionado.tipoVehiculo.descripcion}</dd>
-            <dt>Año</dt>
-            <dd>{seleccionado.anio}</dd>
-            <dt>Cantidad de asientos</dt>
-            <dd>{seleccionado.asientos}</dd>
-            <dt>Kilometraje</dt>
-            <dd>{seleccionado.kilometraje}</dd>
+            <div className="detalle-item">
+              <dt>Dominio</dt>
+              <dd>{seleccionado.dominio}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Número de interno</dt>
+              <dd>{seleccionado.numeroInterno}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Marca</dt>
+              <dd>{seleccionado.marca}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Modelo</dt>
+              <dd>{seleccionado.modelo}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Tipo de vehículo</dt>
+              <dd>{seleccionado.tipoVehiculo.descripcion}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Año</dt>
+              <dd>{seleccionado.anio}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Cantidad de asientos</dt>
+              <dd>{seleccionado.asientos}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Kilometraje</dt>
+              <dd>{seleccionado.kilometraje}</dd>
+            </div>
             {seleccionado.fechaBaja && (
-              <>
+              <div className="detalle-item">
                 <dt>Fecha de baja</dt>
                 <dd>{new Date(seleccionado.fechaBaja).toLocaleDateString()}</dd>
-              </>
+              </div>
             )}
-            <dt>Registrado el</dt>
-            <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
+            <div className="detalle-item">
+              <dt>Registrado el</dt>
+              <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
+            </div>
           </dl>
 
           {puedeGestionar && seleccionado.estado !== 'DADO_DE_BAJA' && (

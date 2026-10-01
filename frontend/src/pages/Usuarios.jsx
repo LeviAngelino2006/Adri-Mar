@@ -377,18 +377,30 @@ function Usuarios() {
           </div>
 
           <dl className="usuarios-detalle-list">
-            <dt>DNI</dt>
-            <dd>{seleccionado.dni || '—'}</dd>
-            <dt>Email</dt>
-            <dd>{seleccionado.email || '—'}</dd>
-            <dt>Teléfono</dt>
-            <dd>{seleccionado.telefono || '—'}</dd>
-            <dt>Nombre de usuario</dt>
-            <dd>{seleccionado.nombreUsuario}</dd>
-            <dt>Perfil</dt>
-            <dd>{perfilLabel(seleccionado.perfil)}</dd>
-            <dt>Registrado el</dt>
-            <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
+            <div className="detalle-item">
+              <dt>DNI</dt>
+              <dd>{seleccionado.dni || '—'}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Email</dt>
+              <dd>{seleccionado.email || '—'}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Teléfono</dt>
+              <dd>{seleccionado.telefono || '—'}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Nombre de usuario</dt>
+              <dd>{seleccionado.nombreUsuario}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Perfil</dt>
+              <dd>{perfilLabel(seleccionado.perfil)}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Registrado el</dt>
+              <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
+            </div>
           </dl>
 
           {seleccionado.activo && (

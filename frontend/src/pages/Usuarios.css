@@ -165,29 +165,38 @@
 .usuarios-detalle-list {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-1) var(--space-4);
+  gap: var(--space-4) var(--space-6);
   margin: 0 0 var(--space-4);
+}
+
+.usuarios-detalle-list .detalle-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .usuarios-detalle-list dt {
   font-weight: 600;
   color: var(--color-text-secondary);
   font-size: 0.875rem;
-  margin-top: var(--space-3);
-}
-
-.usuarios-detalle-list dt:first-child {
-  margin-top: 0;
+  margin: 0;
 }
 
 .usuarios-detalle-list dd {
   margin: 0;
   color: var(--color-text);
+  font-size: 1rem;
 }
 
 @media (min-width: 640px) {
   .usuarios-detalle-list {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .usuarios-detalle-list {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
