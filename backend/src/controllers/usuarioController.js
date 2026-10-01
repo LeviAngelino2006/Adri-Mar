@@ -1,11 +1,12 @@
 const usuarioService = require('../services/usuarioService');
 
 async function crear(req, res) {
-  const { nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono } = req.body;
+  const { nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono, habilitadoParaConducir } =
+    req.body;
 
   try {
     const usuario = await usuarioService.crearUsuario(
-      { nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono },
+      { nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono, habilitadoParaConducir },
       { perfilSolicitante: req.usuario.perfil }
     );
     return res.status(201).json({ usuario });
@@ -30,12 +31,12 @@ async function listar(req, res) {
 }
 
 async function actualizar(req, res) {
-  const { nombre, apellido, nombreUsuario, perfil, dni, email, telefono } = req.body;
+  const { nombre, apellido, nombreUsuario, perfil, dni, email, telefono, habilitadoParaConducir } = req.body;
 
   try {
     const usuario = await usuarioService.actualizarUsuario(
       req.params.id,
-      { nombre, apellido, nombreUsuario, perfil, dni, email, telefono },
+      { nombre, apellido, nombreUsuario, perfil, dni, email, telefono, habilitadoParaConducir },
       { perfilSolicitante: req.usuario.perfil }
     );
     return res.json({ usuario });

@@ -40,7 +40,15 @@ function serializarUsuario(usuario) {
     email: usuario.email,
     telefono: usuario.telefono,
     activo: usuario.estadoUsuario.descripcion === 'ACTIVO',
+    habilitadoParaConducir: usuario.habilitadoParaConducir,
   };
+}
+
+function calcularHabilitadoParaConducir(habilitadoParaConducir, perfil) {
+  if (typeof habilitadoParaConducir === 'boolean') {
+    return habilitadoParaConducir;
+  }
+  return perfil === 'CHOFER';
 }
 
 const DNI_REGEX = /^\d{7,8}$/;
@@ -109,7 +117,7 @@ function errorDuplicado(err) {
 }
 
 async function crearUsuario(
-  { nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono },
+  { nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono, habilitadoParaConducir },
   { perfilSolicitante } = {}
 ) {
   const datosContacto = validarDatos({ nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono });
@@ -138,6 +146,7 @@ async function crearUsuario(
         contrasenaHash,
         perfilId: perfilRow.id,
         estadoUsuarioId: estadoActivo.id,
+        habilitadoParaConducir: calcularHabilitadoParaConducir(habilitadoParaConducir, perfil),
         ...datosContacto,
       },
       include: { perfil: true, estadoUsuario: true },
@@ -167,7 +176,7 @@ async function obtenerUsuario(id) {
 
 async function actualizarUsuario(
   id,
-  { nombre, apellido, nombreUsuario, perfil, dni, email, telefono },
+  { nombre, apellido, nombreUsuario, perfil, dni, email, telefono, habilitadoParaConducir },
   { perfilSolicitante } = {}
 ) {
   const actual = await obtenerUsuario(id);
@@ -192,7 +201,15 @@ async function actualizarUsuario(
   try {
     usuario = await prisma.usuario.update({
       where: { id: actual.id },
-      data: { nombre, apellido, nombreUsuario, perfilId: perfilRow.id, ...datosContacto },
+      data: {
+        nombre,
+        apellido,
+        nombreUsuario,
+        perfilId: perfilRow.id,
+        habilitadoParaConducir:
+          typeof habilitadoParaConducir === 'boolean' ? habilitadoParaConducir : undefined,
+        ...datosContacto,
+      },
       include: { perfil: true, estadoUsuario: true },
     });
   } catch (err) {

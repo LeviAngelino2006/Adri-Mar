@@ -25,19 +25,20 @@ model EstadoUsuario {
 }
 
 model Usuario {
-  id              Int           @id @default(autoincrement())
-  nombre          String
-  apellido        String
-  nombreUsuario   String        @unique @map("nombre_usuario")
-  contrasenaHash  String        @map("contrasena_hash")
-  perfilId        Int           @map("perfil_id")
-  perfil          Perfil        @relation(fields: [perfilId], references: [id])
-  dni             String?       @unique
-  email           String?       @unique
-  telefono        String?
-  estadoUsuarioId Int           @map("estado_usuario_id")
-  estadoUsuario   EstadoUsuario @relation(fields: [estadoUsuarioId], references: [id])
-  creadoEn        DateTime      @default(now()) @map("creado_en")
+  id                     Int           @id @default(autoincrement())
+  nombre                 String
+  apellido               String
+  nombreUsuario          String        @unique @map("nombre_usuario")
+  contrasenaHash         String        @map("contrasena_hash")
+  perfilId               Int           @map("perfil_id")
+  perfil                 Perfil        @relation(fields: [perfilId], references: [id])
+  dni                    String?       @unique
+  email                  String?       @unique
+  telefono               String?
+  estadoUsuarioId        Int           @map("estado_usuario_id")
+  estadoUsuario          EstadoUsuario @relation(fields: [estadoUsuarioId], references: [id])
+  habilitadoParaConducir Boolean       @default(false) @map("habilitado_para_conducir")
+  creadoEn               DateTime      @default(now()) @map("creado_en")
 
   @@map("usuarios")
 }

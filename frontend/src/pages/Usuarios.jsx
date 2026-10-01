@@ -30,6 +30,7 @@ const FORM_INICIAL = {
   nombreUsuario: '',
   contrasena: '',
   perfil: '',
+  habilitadoParaConducir: false,
 };
 
 function initials(nombre, apellido) {
@@ -140,6 +141,7 @@ function Usuarios() {
       nombreUsuario: u.nombreUsuario,
       contrasena: '',
       perfil: u.perfil,
+      habilitadoParaConducir: u.habilitadoParaConducir,
     });
     setErrores({});
     setSeleccionado(null);
@@ -152,8 +154,14 @@ function Usuarios() {
   }
 
   function handleChange(e) {
-    const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: value }));
+    const { name, value, type, checked } = e.target;
+
+    if (name === 'perfil' && !editando) {
+      setForm((f) => ({ ...f, perfil: value, habilitadoParaConducir: value === 'CHOFER' }));
+      return;
+    }
+
+    setForm((f) => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
   }
 
   async function handleSubmit(e) {
@@ -244,6 +252,22 @@ function Usuarios() {
                   ))}
                 </select>
               </FormField>
+
+              <div className="form-field checkbox-field">
+                <label htmlFor="habilitadoParaConducir" className="checkbox-field-label">
+                  <input
+                    type="checkbox"
+                    id="habilitadoParaConducir"
+                    name="habilitadoParaConducir"
+                    checked={form.habilitadoParaConducir}
+                    onChange={handleChange}
+                  />
+                  Habilitado para conducir
+                </label>
+                <p className="form-field-hint">
+                  Se marca por defecto para el perfil Chofer, pero se puede cambiar para cualquier perfil.
+                </p>
+              </div>
             </div>
 
             {errores.general && <Alert variant="error">{errores.general}</Alert>}
@@ -396,6 +420,10 @@ function Usuarios() {
             <div className="detalle-item">
               <dt>Perfil</dt>
               <dd>{perfilLabel(seleccionado.perfil)}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Habilitado para conducir</dt>
+              <dd>{seleccionado.habilitadoParaConducir ? 'Sí' : 'No'}</dd>
             </div>
             <div className="detalle-item">
               <dt>Registrado el</dt>
