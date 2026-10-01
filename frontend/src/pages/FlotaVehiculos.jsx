@@ -22,10 +22,10 @@ const ICONO_ALERTA = (
 );
 
 const ESTADOS = [
-  { value: '', label: 'Activos (Operativo / En taller)' },
-  { value: 'OPERATIVO', label: 'Operativo' },
+  { value: '', label: 'Activos' },
+  { value: 'OPERATIVO', label: 'Operativos' },
   { value: 'EN_TALLER', label: 'En taller' },
-  { value: 'DADO_DE_BAJA', label: 'Dado de baja' },
+  { value: 'DADO_DE_BAJA', label: 'Dados de baja' },
   { value: 'TODOS', label: 'Todos' },
 ];
 
