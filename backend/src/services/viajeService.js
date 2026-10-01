@@ -132,7 +132,7 @@ async function validarVehiculo(vehiculoId) {
   return vehiculo;
 }
 
-async function existeSolapamiento({ campo, id, fechaInicio, fechaFin }) {
+async function existeSolapamiento({ campo, id, fechaInicio, fechaFin, excluirViajeId }) {
   const estadoProgramado = await obtenerEstadoViajePorDescripcion('PROGRAMADO');
 
   const conflicto = await prisma.viaje.findFirst({
@@ -141,10 +141,55 @@ async function existeSolapamiento({ campo, id, fechaInicio, fechaFin }) {
       estadoViajeId: estadoProgramado.id,
       fechaInicio: { lt: fechaFin },
       fechaFin: { gt: fechaInicio },
+      ...(excluirViajeId ? { id: { not: excluirViajeId } } : {}),
     },
   });
 
   return Boolean(conflicto);
+}
+
+// Validaciones comunes al alta y a la edición: datos bien formados, chofer y
+// vehículo habilitados, y sin solapamiento. En la edición hay que excluir el
+// propio viaje de la búsqueda de solapamiento (si no, siempre "chocaría"
+// contra su propio horario original).
+async function validarYArmarDatos(
+  { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados },
+  { excluirViajeId } = {}
+) {
+  const datos = validarDatos({ choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados });
+
+  await validarChofer(datos.choferId);
+  await validarVehiculo(datos.vehiculoId);
+
+  // TODO: validar umbral de mantenimiento preventivo cuando exista la tabla de planes (SCRUM-34)
+
+  const choferSolapado = await existeSolapamiento({
+    campo: 'choferId',
+    id: datos.choferId,
+    fechaInicio: datos.fechaInicio,
+    fechaFin: datos.fechaFin,
+    excluirViajeId,
+  });
+  if (choferSolapado) {
+    throw new ValidacionError({
+      choferId: 'El chofer ya tiene un viaje programado que se superpone con este horario',
+    });
+  }
+
+  const vehiculoSolapado = await existeSolapamiento({
+    campo: 'vehiculoId',
+    id: datos.vehiculoId,
+    fechaInicio: datos.fechaInicio,
+    fechaFin: datos.fechaFin,
+    excluirViajeId,
+  });
+  if (vehiculoSolapado) {
+    throw new ValidacionError({
+      vehiculoId: 'El vehículo ya tiene un viaje programado que se superpone con este horario',
+    });
+  }
+
+  return datos;
 }
 
 function serializarViaje(viaje) {
@@ -177,36 +222,7 @@ function serializarViaje(viaje) {
 }
 
 async function crearViaje({ choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados }) {
-  const datos = validarDatos({ choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados });
-
-  await validarChofer(datos.choferId);
-  await validarVehiculo(datos.vehiculoId);
-
-  // TODO: validar umbral de mantenimiento preventivo cuando exista la tabla de planes (SCRUM-34)
-
-  const choferSolapado = await existeSolapamiento({
-    campo: 'choferId',
-    id: datos.choferId,
-    fechaInicio: datos.fechaInicio,
-    fechaFin: datos.fechaFin,
-  });
-  if (choferSolapado) {
-    throw new ValidacionError({
-      choferId: 'El chofer ya tiene un viaje programado que se superpone con este horario',
-    });
-  }
-
-  const vehiculoSolapado = await existeSolapamiento({
-    campo: 'vehiculoId',
-    id: datos.vehiculoId,
-    fechaInicio: datos.fechaInicio,
-    fechaFin: datos.fechaFin,
-  });
-  if (vehiculoSolapado) {
-    throw new ValidacionError({
-      vehiculoId: 'El vehículo ya tiene un viaje programado que se superpone con este horario',
-    });
-  }
+  const datos = await validarYArmarDatos({ choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados });
 
   const estadoProgramado = await obtenerEstadoViajePorDescripcion('PROGRAMADO');
 
@@ -219,6 +235,78 @@ async function crearViaje({ choferId, vehiculoId, fechaInicio, fechaFin, kilomet
       kilometrosEstimados: datos.kilometrosEstimados,
       estadoViajeId: estadoProgramado.id,
     },
+    include: { chofer: true, vehiculo: true, estadoViaje: true },
+  });
+
+  return serializarViaje(viaje);
+}
+
+class NoEncontradoError extends Error {}
+
+// Estado distinto de PROGRAMADO: no se puede ni editar ni cancelar (salvo el
+// caso de "ya cancelado", que tiene su propio error más específico abajo).
+class EstadoNoEditableError extends Error {
+  constructor(estadoActual) {
+    super(`El viaje está en estado ${estadoActual}`);
+    this.estadoActual = estadoActual;
+  }
+}
+
+class YaCanceladoError extends Error {}
+
+async function obtenerViaje(id) {
+  const viaje = await prisma.viaje.findUnique({
+    where: { id: Number(id) },
+    include: { chofer: true, vehiculo: true, estadoViaje: true },
+  });
+  if (!viaje) {
+    throw new NoEncontradoError();
+  }
+  return viaje;
+}
+
+async function actualizarViaje(id, { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados }) {
+  const actual = await obtenerViaje(id);
+
+  if (actual.estadoViaje.descripcion !== 'PROGRAMADO') {
+    throw new EstadoNoEditableError(actual.estadoViaje.descripcion);
+  }
+
+  const datos = await validarYArmarDatos(
+    { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados },
+    { excluirViajeId: actual.id }
+  );
+
+  const viaje = await prisma.viaje.update({
+    where: { id: actual.id },
+    data: {
+      choferId: datos.choferId,
+      vehiculoId: datos.vehiculoId,
+      fechaInicio: datos.fechaInicio,
+      fechaFin: datos.fechaFin,
+      kilometrosEstimados: datos.kilometrosEstimados,
+    },
+    include: { chofer: true, vehiculo: true, estadoViaje: true },
+  });
+
+  return serializarViaje(viaje);
+}
+
+async function cancelarViaje(id) {
+  const actual = await obtenerViaje(id);
+
+  if (actual.estadoViaje.descripcion === 'CANCELADO') {
+    throw new YaCanceladoError();
+  }
+  if (actual.estadoViaje.descripcion !== 'PROGRAMADO') {
+    throw new EstadoNoEditableError(actual.estadoViaje.descripcion);
+  }
+
+  const estadoCancelado = await obtenerEstadoViajePorDescripcion('CANCELADO');
+
+  const viaje = await prisma.viaje.update({
+    where: { id: actual.id },
+    data: { estadoViajeId: estadoCancelado.id },
     include: { chofer: true, vehiculo: true, estadoViaje: true },
   });
 
@@ -284,6 +372,11 @@ async function listarViajes({ estado, choferId, vehiculoId, fechaDesde, fechaHas
 module.exports = {
   crearViaje,
   listarViajes,
+  actualizarViaje,
+  cancelarViaje,
   ValidacionError,
+  NoEncontradoError,
+  EstadoNoEditableError,
+  YaCanceladoError,
   ESTADOS_VIAJE_VALIDOS,
 };

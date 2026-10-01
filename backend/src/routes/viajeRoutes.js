@@ -11,5 +11,12 @@ router.get(
   autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
   viajeController.listar
 );
+router.put('/:id', autenticar, autorizar('ADMINISTRADOR', 'ENCARGADO'), viajeController.actualizar);
+router.patch(
+  '/:id/cancelar',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  viajeController.cancelar
+);
 
 module.exports = router;
