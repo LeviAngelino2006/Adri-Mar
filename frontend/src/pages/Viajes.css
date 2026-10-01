@@ -1,0 +1,115 @@
+.viajes-listado-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-6);
+}
+
+.viajes-listado-header h1 {
+  margin: 0;
+}
+
+.viajes-listado-filtros {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+@media (min-width: 900px) {
+  .viajes-listado-filtros {
+    flex-direction: row;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .viajes-listado-filtros .form-field {
+    flex: 1;
+    min-width: 160px;
+    margin-bottom: 0;
+  }
+}
+
+.viajes-listado-empty {
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+/* Tabla (escritorio) */
+.viajes-listado-table-wrap {
+  display: none;
+}
+
+.viajes-listado-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.viajes-listado-table th,
+.viajes-listado-table td {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.viajes-listado-table thead th {
+  background-color: var(--brand-50);
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.viajes-listado-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Tarjetas (mobile) */
+.viajes-listado-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.viajes-listado-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.viajes-listado-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.viajes-listado-card-chofer {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+@media (min-width: 768px) {
+  .viajes-listado-table-wrap {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .viajes-listado-cards {
+    display: none;
+  }
+}

@@ -20,4 +20,10 @@ async function crear(req, res) {
   }
 }
 
-module.exports = { crear };
+async function listar(req, res) {
+  const { estado, choferId, vehiculoId, fechaDesde, fechaHasta } = req.query;
+  const viajes = await viajeService.listarViajes({ estado, choferId, vehiculoId, fechaDesde, fechaHasta });
+  return res.json({ viajes });
+}
+
+module.exports = { crear, listar };

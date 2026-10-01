@@ -17,6 +17,12 @@ export const NAV_ITEMS = [
     perfiles: ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'],
   },
   {
+    label: 'Viajes',
+    to: '/viajes',
+    icon: 'viaje',
+    perfiles: ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'],
+  },
+  {
     label: 'Programar viaje',
     to: '/viajes/nuevo',
     icon: 'viaje',
