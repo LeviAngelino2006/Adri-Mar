@@ -86,6 +86,17 @@ async function main() {
   }
 
   console.log(`Estados de vehículo listos: ${ESTADOS_VEHICULO.join(', ')}`);
+
+  const ESTADOS_VIAJE = ['PROGRAMADO', 'FINALIZADO', 'CANCELADO'];
+  for (const descripcion of ESTADOS_VIAJE) {
+    await prisma.estadoViaje.upsert({
+      where: { descripcion },
+      update: {},
+      create: { descripcion },
+    });
+  }
+
+  console.log(`Estados de viaje listos: ${ESTADOS_VIAJE.join(', ')}`);
 }
 
 main()

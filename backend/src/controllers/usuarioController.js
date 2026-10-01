@@ -74,4 +74,9 @@ async function darDeBaja(req, res) {
   }
 }
 
-module.exports = { crear, listar, actualizar, darDeBaja };
+async function listarDisponiblesParaConducir(req, res) {
+  const usuarios = await usuarioService.listarDisponiblesParaConducir();
+  return res.json({ usuarios });
+}
+
+module.exports = { crear, listar, actualizar, darDeBaja, listarDisponiblesParaConducir };

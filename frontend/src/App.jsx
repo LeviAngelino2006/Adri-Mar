@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Usuarios from './pages/Usuarios';
 import FlotaVehiculos from './pages/FlotaVehiculos';
+import ProgramarViaje from './pages/ProgramarViaje';
 import './App.css';
 
 function App() {
@@ -34,6 +35,14 @@ function App() {
             element={
               <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER']}>
                 <FlotaVehiculos />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/viajes/nuevo"
+            element={
+              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO']}>
+                <ProgramarViaje />
               </ProtectedRoute>
             }
           />

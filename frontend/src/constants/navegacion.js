@@ -16,6 +16,12 @@ export const NAV_ITEMS = [
     icon: 'flota',
     perfiles: ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'],
   },
+  {
+    label: 'Programar viaje',
+    to: '/viajes/nuevo',
+    icon: 'viaje',
+    perfiles: ['ADMINISTRADOR', 'ENCARGADO'],
+  },
 ];
 
 export function getNavItemsHabilitados(perfil) {

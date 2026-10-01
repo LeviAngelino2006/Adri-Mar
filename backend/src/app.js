@@ -4,6 +4,7 @@ const authRoutes = require('./routes/authRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
 const vehiculoRoutes = require('./routes/vehiculoRoutes');
 const tipoVehiculoRoutes = require('./routes/tipoVehiculoRoutes');
+const viajeRoutes = require('./routes/viajeRoutes');
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/vehiculos', vehiculoRoutes);
 app.use('/api/tipos-vehiculo', tipoVehiculoRoutes);
+app.use('/api/viajes', viajeRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Recurso no encontrado' });

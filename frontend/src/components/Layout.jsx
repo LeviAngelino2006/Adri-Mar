@@ -40,6 +40,13 @@ const ICONS = {
       <circle cx="17" cy="18.5" r="1.6" />
     </svg>
   ),
+  viaje: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="5.5" cy="18.5" r="2" />
+      <circle cx="18.5" cy="5.5" r="2" />
+      <path d="M7.2 17.2L16.8 7.6" strokeDasharray="2.5 2.5" />
+    </svg>
+  ),
 };
 
 function initials(nombre, apellido) {

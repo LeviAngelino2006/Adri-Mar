@@ -277,11 +277,25 @@ async function listarUsuarios({ busqueda } = {}, { perfilSolicitante } = {}) {
     });
 }
 
+async function listarDisponiblesParaConducir() {
+  const usuarios = await prisma.usuario.findMany({
+    where: {
+      habilitadoParaConducir: true,
+      estadoUsuario: { descripcion: 'ACTIVO' },
+    },
+    include: { perfil: true, estadoUsuario: true },
+    orderBy: [{ nombre: 'asc' }, { apellido: 'asc' }],
+  });
+
+  return usuarios.map(serializarUsuario);
+}
+
 module.exports = {
   crearUsuario,
   listarUsuarios,
   actualizarUsuario,
   darDeBajaUsuario,
+  listarDisponiblesParaConducir,
   ValidacionError,
   NoEncontradoError,
   YaInactivoError,

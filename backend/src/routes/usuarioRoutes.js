@@ -6,6 +6,12 @@ const router = Router();
 
 router.post('/', autenticar, autorizar('ADMINISTRADOR', 'ENCARGADO'), usuarioController.crear);
 router.get('/', autenticar, autorizar('ADMINISTRADOR', 'ENCARGADO'), usuarioController.listar);
+router.get(
+  '/disponibles-chofer',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  usuarioController.listarDisponiblesParaConducir
+);
 router.put('/:id', autenticar, autorizar('ADMINISTRADOR', 'ENCARGADO'), usuarioController.actualizar);
 router.patch(
   '/:id/baja',
