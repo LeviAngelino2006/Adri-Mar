@@ -208,14 +208,16 @@ function FlotaVehiculos() {
 
   return (
     <Layout>
-      <div className="flota-header">
-        <h1>Flota de vehículos</h1>
-        {!mostrarForm && !seleccionado && puedeGestionar && (
-          <Button variant="primary" onClick={abrirNuevo}>
-            + Nuevo vehículo
-          </Button>
-        )}
-      </div>
+      {!mostrarForm && !seleccionado && (
+        <div className="flota-header">
+          <h1>Flota de vehículos</h1>
+          {puedeGestionar && (
+            <Button variant="primary" onClick={abrirNuevo}>
+              + Nuevo vehículo
+            </Button>
+          )}
+        </div>
+      )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
       {errorBaja && <Alert variant="error">{errorBaja}</Alert>}
@@ -225,7 +227,7 @@ function FlotaVehiculos() {
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
           </button>
-          <h2>{editando ? 'Editar vehículo' : 'Nuevo vehículo'}</h2>
+          <h1>{editando ? 'Editar vehículo' : 'Nuevo vehículo'}</h1>
           <form onSubmit={handleSubmitForm} noValidate>
             <div className="form-grid">
               <FormField id="dominio" label="Dominio" error={erroresForm.dominio}>
@@ -394,7 +396,7 @@ function FlotaVehiculos() {
           </button>
 
           <div className="flota-detalle-header">
-            <h2>Vehículo {seleccionado.dominio}</h2>
+            <h1>Vehículo {seleccionado.dominio}</h1>
             <EstadoDot color={ESTADOS_VEHICULO[seleccionado.estado].dot} size="md">
               {ESTADOS_VEHICULO[seleccionado.estado].label}
             </EstadoDot>

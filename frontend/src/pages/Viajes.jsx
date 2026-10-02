@@ -228,14 +228,16 @@ function Viajes() {
 
   return (
     <Layout>
-      <div className="viajes-listado-header">
-        <h1>Viajes</h1>
-        {!mostrarForm && !seleccionado && puedeGestionar && (
-          <Button variant="primary" onClick={abrirNuevo}>
-            + Programar viaje
-          </Button>
-        )}
-      </div>
+      {!mostrarForm && !seleccionado && (
+        <div className="viajes-listado-header">
+          <h1>Viajes</h1>
+          {puedeGestionar && (
+            <Button variant="primary" onClick={abrirNuevo}>
+              + Programar viaje
+            </Button>
+          )}
+        </div>
+      )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
       {errorCancelar && <Alert variant="error">{errorCancelar}</Alert>}
@@ -245,7 +247,7 @@ function Viajes() {
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
           </button>
-          <h2>{editando ? 'Editar viaje' : 'Programar viaje'}</h2>
+          <h1>{editando ? 'Editar viaje' : 'Programar viaje'}</h1>
           <ViajeForm
             valoresIniciales={editando ? viajeAValoresForm(editando) : undefined}
             onSubmit={handleGuardarForm}
@@ -382,7 +384,7 @@ function Viajes() {
           </button>
 
           <div className="viajes-detalle-header">
-            <h2>Viaje de {nombreChofer(seleccionado.chofer)}</h2>
+            <h1>Viaje de {nombreChofer(seleccionado.chofer)}</h1>
             <EstadoDot color={ESTADOS_VIAJE[seleccionado.estado].dot} size="md">
               {ESTADOS_VIAJE[seleccionado.estado].label}
             </EstadoDot>

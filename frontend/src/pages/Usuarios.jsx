@@ -210,14 +210,14 @@ function Usuarios() {
 
   return (
     <Layout>
-      <div className="usuarios-header">
-        <h1>Gestionar usuarios</h1>
-        {!mostrarForm && !seleccionado && (
+      {!mostrarForm && !seleccionado && (
+        <div className="usuarios-header">
+          <h1>Gestionar usuarios</h1>
           <Button variant="primary" onClick={abrirNuevo}>
             + Nuevo usuario
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
       {errorBaja && <Alert variant="error">{errorBaja}</Alert>}
@@ -227,7 +227,7 @@ function Usuarios() {
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
           </button>
-          <h2>{editando ? 'Editar usuario' : 'Nuevo usuario'}</h2>
+          <h1>{editando ? 'Editar usuario' : 'Nuevo usuario'}</h1>
           <form onSubmit={handleSubmit} noValidate>
             <div className="form-grid">
               <FormField id="nombre" label="Nombre" error={errores.nombre}>
@@ -410,9 +410,9 @@ function Usuarios() {
           </button>
 
           <div className="usuarios-detalle-header">
-            <h2>
+            <h1>
               {seleccionado.nombre} {seleccionado.apellido}
-            </h2>
+            </h1>
             <EstadoDot color={estadoDotColor(seleccionado.activo)} size="md">
               {seleccionado.activo ? 'Activo' : 'Inactivo'}
             </EstadoDot>
