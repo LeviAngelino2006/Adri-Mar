@@ -10,6 +10,15 @@ const SOLO_FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const CORDOBA_UTC_OFFSET = '-03:00';
 const TIENE_OFFSET_REGEX = /(Z|[+-]\d{2}:\d{2})$/;
 
+const FORMATO_FECHA_HORA_CORDOBA = new Intl.DateTimeFormat('es-AR', {
+  timeZone: 'America/Argentina/Cordoba',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
 // Interpreta un string de fecha/hora SIN offset (como el que manda un
 // <input type="datetime-local">, p. ej. "2026-12-16T23:30") como hora de
 // Córdoba, en vez de dejar que Node lo interprete según la zona horaria del
@@ -217,6 +226,10 @@ function serializarViaje(viaje) {
     fechaInicio: viaje.fechaInicio,
     fechaFin: viaje.fechaFin,
     kilometrosEstimados: viaje.kilometrosEstimados,
+    kmRealizados:
+      viaje.odometroInicial != null && viaje.odometroFinal != null
+        ? viaje.odometroFinal - viaje.odometroInicial
+        : null,
     estado: viaje.estadoViaje.descripcion,
     creadoEn: viaje.creadoEn,
   };
@@ -254,6 +267,21 @@ class EstadoNoEditableError extends Error {
 }
 
 class YaCanceladoError extends Error {}
+
+// Se dispara al intentar finalizar un viaje cuando existe otro viaje
+// PROGRAMADO del mismo vehículo con fecha de inicio anterior: ese viaje más
+// viejo tiene que resolverse (finalizar o cancelar) primero, porque si no el
+// odómetro inicial que se capture para el viaje actual no refleja el
+// kilometraje real del vehículo en ese momento.
+class OrdenFinalizacionError extends Error {
+  constructor(viajeAnterior) {
+    const fecha = FORMATO_FECHA_HORA_CORDOBA.format(viajeAnterior.fechaInicio);
+    super(
+      `No se puede finalizar: hay un viaje anterior pendiente de este vehículo (iniciado el ${fecha}) que debe finalizarse o cancelarse primero`
+    );
+    this.fechaInicioViajeAnterior = viajeAnterior.fechaInicio;
+  }
+}
 
 async function obtenerViaje(id) {
   const viaje = await prisma.viaje.findUnique({
@@ -332,6 +360,24 @@ function validarOdometroFinal(odometroFinal, kilometrajeActual) {
   return odometroFinalNumero;
 }
 
+// Busca, entre los viajes PROGRAMADOS del mismo vehículo, el más antiguo con
+// fecha de inicio anterior a la del viaje que se quiere finalizar. Los
+// CANCELADOS no cuentan: nunca sucedieron, así que no necesitan odómetro y no
+// bloquean nada.
+async function obtenerViajeProgramadoAnterior(vehiculoId, fechaInicio, excluirViajeId) {
+  const estadoProgramado = await obtenerEstadoViajePorDescripcion('PROGRAMADO');
+
+  return prisma.viaje.findFirst({
+    where: {
+      vehiculoId,
+      estadoViajeId: estadoProgramado.id,
+      fechaInicio: { lt: fechaInicio },
+      id: { not: excluirViajeId },
+    },
+    orderBy: { fechaInicio: 'asc' },
+  });
+}
+
 async function finalizarViaje(id, { odometroFinal }) {
   const actual = await obtenerViaje(id);
 
@@ -339,9 +385,19 @@ async function finalizarViaje(id, { odometroFinal }) {
     throw new EstadoNoEditableError(actual.estadoViaje.descripcion);
   }
 
+  const viajeAnterior = await obtenerViajeProgramadoAnterior(actual.vehiculoId, actual.fechaInicio, actual.id);
+  if (viajeAnterior) {
+    throw new OrdenFinalizacionError(viajeAnterior);
+  }
+
   // El odómetro final se valida contra el kilometraje ACTUAL del vehículo (no
   // contra kilometrosEstimados del viaje, que es una estimación aparte).
   const odometroFinalNumero = validarOdometroFinal(odometroFinal, actual.vehiculo.kilometraje);
+
+  // El odómetro inicial de ESTE viaje es el kilometraje del vehículo justo
+  // antes de aplicar esta actualización (gracias a la validación de orden de
+  // arriba, siempre va a ser el kilometraje real en ese momento).
+  const odometroInicialNumero = actual.vehiculo.kilometraje;
 
   const estadoFinalizado = await obtenerEstadoViajePorDescripcion('FINALIZADO');
 
@@ -357,7 +413,11 @@ async function finalizarViaje(id, { odometroFinal }) {
     }),
     prisma.viaje.update({
       where: { id: actual.id },
-      data: { estadoViajeId: estadoFinalizado.id },
+      data: {
+        estadoViajeId: estadoFinalizado.id,
+        odometroInicial: odometroInicialNumero,
+        odometroFinal: odometroFinalNumero,
+      },
       include: { chofer: true, vehiculo: true, estadoViaje: true },
     }),
   ]);
@@ -431,5 +491,6 @@ module.exports = {
   NoEncontradoError,
   EstadoNoEditableError,
   YaCanceladoError,
+  OrdenFinalizacionError,
   ESTADOS_VIAJE_VALIDOS,
 };

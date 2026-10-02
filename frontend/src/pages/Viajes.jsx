@@ -401,6 +401,12 @@ function Viajes() {
                 <dt>Kilometraje actual del vehículo</dt>
                 <dd>{seleccionado.vehiculo.kilometraje} km</dd>
               </div>
+              {seleccionado.estado === 'FINALIZADO' && seleccionado.kmRealizados != null && (
+                <div className="detalle-item">
+                  <dt>Km realizados</dt>
+                  <dd>{seleccionado.kmRealizados} km</dd>
+                </div>
+              )}
             </dl>
 
             {puedeGestionar && seleccionado.estado === 'PROGRAMADO' && (

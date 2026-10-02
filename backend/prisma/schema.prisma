@@ -97,6 +97,8 @@ model Viaje {
   fechaInicio         DateTime    @map("fecha_inicio")
   fechaFin            DateTime    @map("fecha_fin")
   kilometrosEstimados Int         @map("kilometros_estimados")
+  odometroInicial     Int?        @map("odometro_inicial")
+  odometroFinal       Int?        @map("odometro_final")
   estadoViajeId       Int         @map("estado_viaje_id")
   estadoViaje         EstadoViaje @relation(fields: [estadoViajeId], references: [id])
   creadoEn            DateTime    @default(now()) @map("creado_en")

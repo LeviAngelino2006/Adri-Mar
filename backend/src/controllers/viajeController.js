@@ -110,6 +110,9 @@ async function finalizar(req, res) {
         error: `No se puede finalizar un viaje en estado ${etiqueta}. Solo se pueden finalizar viajes Programados.`,
       });
     }
+    if (err instanceof viajeService.OrdenFinalizacionError) {
+      return res.status(409).json({ error: err.message });
+    }
     if (err instanceof viajeService.ValidacionError) {
       return res.status(400).json({ errores: err.errores });
     }
