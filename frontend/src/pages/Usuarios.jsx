@@ -204,6 +204,10 @@ function Usuarios() {
     }
   }
 
+  // El switch solo se fuerza/bloquea por perfil en el ALTA. En edición es
+  // siempre editable a mano, sin recalcularse (comportamiento sin cambios).
+  const switchBloqueado = !editando && form.perfil === 'CHOFER';
+
   return (
     <Layout>
       <div className="usuarios-header">
@@ -267,39 +271,21 @@ function Usuarios() {
                 </select>
               </FormField>
 
-              {editando ? (
-                <div className="form-field checkbox-field">
-                  <label htmlFor="habilitadoParaConducir" className="checkbox-field-label">
-                    <input
-                      type="checkbox"
-                      id="habilitadoParaConducir"
-                      name="habilitadoParaConducir"
-                      checked={form.habilitadoParaConducir}
-                      onChange={handleChange}
-                    />
-                    Habilitado para conducir
-                  </label>
-                  <p className="form-field-hint">
-                    Se marca por defecto para el perfil Chofer, pero se puede cambiar para cualquier perfil.
-                  </p>
-                </div>
-              ) : (
-                <div className="form-field switch-field">
-                  <label
-                    htmlFor="habilitadoParaConducir"
-                    className={`switch-field-label ${form.perfil === 'CHOFER' ? 'switch-field-label-disabled' : ''}`.trim()}
-                  >
-                    <Switch
-                      id="habilitadoParaConducir"
-                      name="habilitadoParaConducir"
-                      checked={form.habilitadoParaConducir}
-                      disabled={form.perfil === 'CHOFER'}
-                      onChange={handleChange}
-                    />
-                    Habilitado para conducir
-                  </label>
-                </div>
-              )}
+              <div className="form-field switch-field">
+                <label
+                  htmlFor="habilitadoParaConducir"
+                  className={`switch-field-label ${switchBloqueado ? 'switch-field-label-disabled' : ''}`.trim()}
+                >
+                  <Switch
+                    id="habilitadoParaConducir"
+                    name="habilitadoParaConducir"
+                    checked={form.habilitadoParaConducir}
+                    disabled={switchBloqueado}
+                    onChange={handleChange}
+                  />
+                  Habilitado para conducir
+                </label>
+              </div>
             </div>
 
             {errores.general && <Alert variant="error">{errores.general}</Alert>}
