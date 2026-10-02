@@ -20,6 +20,15 @@ const ICONO_VIAJE = (
   </svg>
 );
 
+const ICONO_CALENDARIO = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+    <line x1="8" y1="3" x2="8" y2="7" />
+    <line x1="16" y1="3" x2="16" y2="7" />
+  </svg>
+);
+
 function ProximosViajes() {
   const [viajes, setViajes] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -60,15 +69,16 @@ function ProximosViajes() {
           <ul className="proximos-viajes-lista">
             {visibles.map((v) => (
               <li key={v.id} className="proximos-viajes-item">
-                <div className="proximos-viajes-header">
+                <div className="proximos-viajes-icono">{ICONO_CALENDARIO}</div>
+                <div className="proximos-viajes-info">
                   <span className="proximos-viajes-vehiculo">{nombreVehiculo(v.vehiculo)}</span>
-                  <span className="proximos-viajes-dia-relativo">{etiquetaDiaRelativo(v.fechaInicio)}</span>
-                </div>
-                <span className="proximos-viajes-marca-modelo">
-                  {v.vehiculo.marca} {v.vehiculo.modelo}
-                </span>
-                <div className="proximos-viajes-detalle">
+                  <span className="proximos-viajes-marca-modelo">
+                    {v.vehiculo.marca} {v.vehiculo.modelo}
+                  </span>
                   <span className="proximos-viajes-horario">{formatearHorarioCompacto(v.fechaInicio, v.fechaFin)}</span>
+                </div>
+                <div className="proximos-viajes-meta">
+                  <span className="proximos-viajes-dia-relativo">{etiquetaDiaRelativo(v.fechaInicio)}</span>
                   <span className="proximos-viajes-km">{v.kilometrosEstimados} km estimados</span>
                 </div>
               </li>

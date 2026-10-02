@@ -10,7 +10,6 @@
 .proximos-viajes-lista {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
   list-style: none;
   margin: 0 0 var(--space-4);
   padding: 0;
@@ -18,45 +17,59 @@
 
 .proximos-viajes-item {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
-  background-color: var(--brand-50);
-  border-radius: var(--radius-md);
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
   font-size: 0.875rem;
   color: var(--color-text-secondary);
 }
 
-.proximos-viajes-header {
+.proximos-viajes-item + .proximos-viajes-item {
+  border-top: 1px solid var(--color-border);
+}
+
+.proximos-viajes-icono {
+  flex-shrink: 0;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background-color: var(--brand-50);
+  color: var(--brand-600);
+}
+
+.proximos-viajes-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .proximos-viajes-vehiculo {
   font-weight: 600;
   color: var(--color-text);
-  min-width: 180px;
-}
-
-.proximos-viajes-dia-relativo {
-  flex-shrink: 0;
-  font-weight: 600;
-  font-size: 0.8125rem;
-  color: var(--brand-600);
 }
 
 .proximos-viajes-marca-modelo {
   color: var(--color-text-secondary);
 }
 
-.proximos-viajes-detalle {
+.proximos-viajes-meta {
+  flex-shrink: 0;
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+}
+
+.proximos-viajes-dia-relativo {
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--brand-600);
 }
 
 .dashboard-panel h2 {
