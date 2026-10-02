@@ -6,8 +6,14 @@ import EstadoDot from '../components/ui/EstadoDot';
 import FormField from '../components/ui/FormField';
 import Spinner from '../components/ui/Spinner';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
-import { formatearFechaHora, nombreVehiculo } from '../utils/viajeFormato';
+import { formatearRangoCompacto, nombreVehiculo } from '../utils/viajeFormato';
 import './Viajes.css';
+
+const ICONO_FILTRO = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="4 4 20 4 14 12.5 14 19 10 21 10 12.5 4 4" />
+  </svg>
+);
 
 const ESTADOS_FILTRO = [
   { value: '', label: 'Todos' },
@@ -26,6 +32,8 @@ function MisViajes() {
   const [viajes, setViajes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const filtrosActivos = Object.values(filtros).filter(Boolean).length;
 
   const cargarViajes = useCallback(() => {
     setCargando(true);
@@ -55,25 +63,40 @@ function MisViajes() {
         <h1>Mis viajes</h1>
       </div>
 
-      <form className="viajes-listado-filtros" onSubmit={(e) => e.preventDefault()}>
-        <FormField id="estado" label="Estado">
-          <select name="estado" value={filtros.estado} onChange={handleFiltroChange}>
-            {ESTADOS_FILTRO.map((e) => (
-              <option key={e.value} value={e.value}>
-                {e.label}
-              </option>
-            ))}
-          </select>
-        </FormField>
+      <div className="viajes-listado-toolbar">
+        <button
+          type="button"
+          className="filtros-toggle-btn"
+          aria-expanded={mostrarFiltros}
+          onClick={() => setMostrarFiltros((m) => !m)}
+        >
+          {ICONO_FILTRO}
+          Filtros
+          {filtrosActivos > 0 && <span className="filtros-toggle-badge">{filtrosActivos}</span>}
+        </button>
+      </div>
 
-        <FormField id="fechaDesde" label="Desde">
-          <input type="date" name="fechaDesde" value={filtros.fechaDesde} onChange={handleFiltroChange} />
-        </FormField>
+      {mostrarFiltros && (
+        <form className="viajes-listado-filtros" onSubmit={(e) => e.preventDefault()}>
+          <FormField id="estado" label="Estado">
+            <select name="estado" value={filtros.estado} onChange={handleFiltroChange}>
+              {ESTADOS_FILTRO.map((e) => (
+                <option key={e.value} value={e.value}>
+                  {e.label}
+                </option>
+              ))}
+            </select>
+          </FormField>
 
-        <FormField id="fechaHasta" label="Hasta">
-          <input type="date" name="fechaHasta" value={filtros.fechaHasta} onChange={handleFiltroChange} />
-        </FormField>
-      </form>
+          <FormField id="fechaDesde" label="Desde">
+            <input type="date" name="fechaDesde" value={filtros.fechaDesde} onChange={handleFiltroChange} />
+          </FormField>
+
+          <FormField id="fechaHasta" label="Hasta">
+            <input type="date" name="fechaHasta" value={filtros.fechaHasta} onChange={handleFiltroChange} />
+          </FormField>
+        </form>
+      )}
 
       {cargando && (
         <div className="loading-state">
@@ -87,53 +110,24 @@ function MisViajes() {
       )}
 
       {!cargando && viajes.length > 0 && (
-        <>
-          <div className="viajes-listado-table-wrap">
-            <table className="viajes-listado-table">
-              <thead>
-                <tr>
-                  <th>Vehículo</th>
-                  <th>Inicio</th>
-                  <th>Fin</th>
-                  <th>Km estimados</th>
-                  <th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {viajes.map((v) => (
-                  <tr key={v.id}>
-                    <td>
-                      {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
-                    </td>
-                    <td>{formatearFechaHora(v.fechaInicio)}</td>
-                    <td>{formatearFechaHora(v.fechaFin)}</td>
-                    <td>{v.kilometrosEstimados}</td>
-                    <td>
-                      <EstadoDot color={ESTADOS_VIAJE[v.estado].dot}>{ESTADOS_VIAJE[v.estado].label}</EstadoDot>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="viajes-listado-cards">
-            {viajes.map((v) => (
-              <Card key={v.id} className="viajes-listado-card">
-                <div className="viajes-listado-card-top">
-                  <span className="viajes-listado-card-chofer">
-                    {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
-                  </span>
-                  <EstadoDot color={ESTADOS_VIAJE[v.estado].dot}>{ESTADOS_VIAJE[v.estado].label}</EstadoDot>
-                </div>
-                <span>
-                  {formatearFechaHora(v.fechaInicio)} → {formatearFechaHora(v.fechaFin)}
+        <div className="viajes-listado-cards">
+          {viajes.map((v) => (
+            <div key={v.id} className="viajes-listado-card">
+              <div className="viajes-listado-card-header">
+                <span className="viajes-listado-card-titulo">
+                  {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
                 </span>
+                <EstadoDot color={ESTADOS_VIAJE[v.estado].dot} size="md">
+                  {ESTADOS_VIAJE[v.estado].label}
+                </EstadoDot>
+              </div>
+              <div className="viajes-listado-card-detalle">
+                <span>{formatearRangoCompacto(v.fechaInicio, v.fechaFin)}</span>
                 <span>{v.kilometrosEstimados} km estimados</span>
-              </Card>
-            ))}
-          </div>
-        </>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </Layout>
   );

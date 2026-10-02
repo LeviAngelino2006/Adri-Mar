@@ -27,21 +27,36 @@
   color: var(--color-text-secondary);
 }
 
+.proximos-viajes-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
 .proximos-viajes-vehiculo {
   font-weight: 600;
   color: var(--color-text);
+  min-width: 180px;
 }
 
-.dashboard-panels {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-6);
+.proximos-viajes-dia-relativo {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--brand-600);
 }
 
-@media (min-width: 900px) {
-  .dashboard-panels {
-    grid-template-columns: 1.1fr 1fr;
-  }
+.proximos-viajes-marca-modelo {
+  color: var(--color-text-secondary);
+}
+
+.proximos-viajes-detalle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
 .dashboard-panel h2 {

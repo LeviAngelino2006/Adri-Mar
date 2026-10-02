@@ -13,8 +13,14 @@ import ConfirmModal from '../components/ui/ConfirmModal';
 import ViajeForm from '../components/ViajeForm';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { aInputCordoba } from '../utils/fechaCordoba';
-import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { formatearFechaHora, formatearRangoCompacto, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import './Viajes.css';
+
+const ICONO_FILTRO = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="4 4 20 4 14 12.5 14 19 10 21 10 12.5 4 4" />
+  </svg>
+);
 
 const ICONO_ALERTA = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -73,6 +79,8 @@ function Viajes() {
   const [viajes, setViajes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const filtrosActivos = Object.values(filtros).filter(Boolean).length;
   const [opcionesChofer, setOpcionesChofer] = useState([]);
   const [opcionesVehiculo, setOpcionesVehiculo] = useState([]);
   const [mensaje, setMensaje] = useState('');
@@ -262,47 +270,62 @@ function Viajes() {
 
       {!mostrarForm && !seleccionado && (
         <>
-          <form className="viajes-listado-filtros" onSubmit={(e) => e.preventDefault()}>
-            <FormField id="estado" label="Estado">
-              <select name="estado" value={filtros.estado} onChange={handleFiltroChange}>
-                {ESTADOS_FILTRO.map((e) => (
-                  <option key={e.value} value={e.value}>
-                    {e.label}
-                  </option>
-                ))}
-              </select>
-            </FormField>
+          <div className="viajes-listado-toolbar">
+            <button
+              type="button"
+              className="filtros-toggle-btn"
+              aria-expanded={mostrarFiltros}
+              onClick={() => setMostrarFiltros((m) => !m)}
+            >
+              {ICONO_FILTRO}
+              Filtros
+              {filtrosActivos > 0 && <span className="filtros-toggle-badge">{filtrosActivos}</span>}
+            </button>
+          </div>
 
-            <FormField id="choferId" label="Chofer">
-              <select name="choferId" value={filtros.choferId} onChange={handleFiltroChange}>
-                <option value="">Todos</option>
-                {opcionesChofer.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {nombreChofer(c)}
-                  </option>
-                ))}
-              </select>
-            </FormField>
+          {mostrarFiltros && (
+            <form className="viajes-listado-filtros" onSubmit={(e) => e.preventDefault()}>
+              <FormField id="estado" label="Estado">
+                <select name="estado" value={filtros.estado} onChange={handleFiltroChange}>
+                  {ESTADOS_FILTRO.map((e) => (
+                    <option key={e.value} value={e.value}>
+                      {e.label}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
 
-            <FormField id="vehiculoId" label="Vehículo">
-              <select name="vehiculoId" value={filtros.vehiculoId} onChange={handleFiltroChange}>
-                <option value="">Todos</option>
-                {opcionesVehiculo.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {nombreVehiculo(v)}
-                  </option>
-                ))}
-              </select>
-            </FormField>
+              <FormField id="choferId" label="Chofer">
+                <select name="choferId" value={filtros.choferId} onChange={handleFiltroChange}>
+                  <option value="">Todos</option>
+                  {opcionesChofer.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {nombreChofer(c)}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
 
-            <FormField id="fechaDesde" label="Desde">
-              <input type="date" name="fechaDesde" value={filtros.fechaDesde} onChange={handleFiltroChange} />
-            </FormField>
+              <FormField id="vehiculoId" label="Vehículo">
+                <select name="vehiculoId" value={filtros.vehiculoId} onChange={handleFiltroChange}>
+                  <option value="">Todos</option>
+                  {opcionesVehiculo.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {nombreVehiculo(v)}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
 
-            <FormField id="fechaHasta" label="Hasta">
-              <input type="date" name="fechaHasta" value={filtros.fechaHasta} onChange={handleFiltroChange} />
-            </FormField>
-          </form>
+              <FormField id="fechaDesde" label="Desde">
+                <input type="date" name="fechaDesde" value={filtros.fechaDesde} onChange={handleFiltroChange} />
+              </FormField>
+
+              <FormField id="fechaHasta" label="Hasta">
+                <input type="date" name="fechaHasta" value={filtros.fechaHasta} onChange={handleFiltroChange} />
+              </FormField>
+            </form>
+          )}
 
           {cargando && (
             <div className="loading-state">
@@ -314,67 +337,25 @@ function Viajes() {
           {!cargando && viajes.length === 0 && <Card className="viajes-listado-empty">No se encontraron viajes</Card>}
 
           {!cargando && viajes.length > 0 && (
-            <>
-              <div className="viajes-listado-table-wrap">
-                <table className="viajes-listado-table">
-                  <thead>
-                    <tr>
-                      <th>Chofer</th>
-                      <th>Vehículo</th>
-                      <th>Inicio</th>
-                      <th>Fin</th>
-                      <th>Km estimados</th>
-                      <th>Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {viajes.map((v) => (
-                      <tr
-                        key={v.id}
-                        className="viajes-listado-row"
-                        tabIndex={0}
-                        onClick={() => seleccionar(v)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            seleccionar(v);
-                          }
-                        }}
-                      >
-                        <td>{nombreChofer(v.chofer)}</td>
-                        <td>
-                          {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
-                        </td>
-                        <td>{formatearFechaHora(v.fechaInicio)}</td>
-                        <td>{formatearFechaHora(v.fechaFin)}</td>
-                        <td>{v.kilometrosEstimados}</td>
-                        <td>
-                          <EstadoDot color={ESTADOS_VIAJE[v.estado].dot}>{ESTADOS_VIAJE[v.estado].label}</EstadoDot>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="viajes-listado-cards">
-                {viajes.map((v) => (
-                  <button type="button" key={v.id} className="viajes-listado-card" onClick={() => seleccionar(v)}>
-                    <div className="viajes-listado-card-top">
-                      <span className="viajes-listado-card-chofer">{nombreChofer(v.chofer)}</span>
-                      <EstadoDot color={ESTADOS_VIAJE[v.estado].dot}>{ESTADOS_VIAJE[v.estado].label}</EstadoDot>
-                    </div>
-                    <span>
-                      {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
-                    </span>
-                    <span>
-                      {formatearFechaHora(v.fechaInicio)} → {formatearFechaHora(v.fechaFin)}
-                    </span>
+            <div className="viajes-listado-cards">
+              {viajes.map((v) => (
+                <button type="button" key={v.id} className="viajes-listado-card" onClick={() => seleccionar(v)}>
+                  <div className="viajes-listado-card-header">
+                    <span className="viajes-listado-card-titulo">{nombreChofer(v.chofer)}</span>
+                    <EstadoDot color={ESTADOS_VIAJE[v.estado].dot} size="md">
+                      {ESTADOS_VIAJE[v.estado].label}
+                    </EstadoDot>
+                  </div>
+                  <span className="viajes-listado-card-vehiculo">
+                    {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
+                  </span>
+                  <div className="viajes-listado-card-detalle">
+                    <span>{formatearRangoCompacto(v.fechaInicio, v.fechaFin)}</span>
                     <span>{v.kilometrosEstimados} km estimados</span>
-                  </button>
-                ))}
-              </div>
-            </>
+                  </div>
+                </button>
+              ))}
+            </div>
           )}
         </>
       )}

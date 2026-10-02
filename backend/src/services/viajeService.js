@@ -415,7 +415,7 @@ async function listarViajes({ estado, choferId, vehiculoId, fechaDesde, fechaHas
   const viajes = await prisma.viaje.findMany({
     where,
     include: { chofer: true, vehiculo: true, estadoViaje: true },
-    orderBy: { fechaInicio: 'asc' },
+    orderBy: { fechaInicio: 'desc' },
   });
 
   return viajes.map(serializarViaje);

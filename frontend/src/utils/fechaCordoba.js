@@ -33,3 +33,36 @@ const FORMATEADOR_FECHA_CORDOBA = new Intl.DateTimeFormat('en-CA', {
 export function hoyEnCordoba() {
   return FORMATEADOR_FECHA_CORDOBA.format(new Date());
 }
+
+// Fecha calendario ("YYYY-MM-DD") en hora de Córdoba de cualquier instante
+// (no solo "hoy"), reusando el mismo formateador para no duplicar el cálculo
+// de zona horaria.
+export function fechaCordobaISO(fechaIso) {
+  return FORMATEADOR_FECHA_CORDOBA.format(new Date(fechaIso));
+}
+
+// Diferencia en días de calendario (Córdoba) entre dos instantes cualquiera.
+// Compara los componentes Y-M-D como UTC puro (no instantes), así el
+// resultado no se ve afectado por la hora del día de cada extremo.
+export function diferenciaDiasCordoba(fechaDesde, fechaHasta) {
+  const [anio1, mes1, dia1] = fechaCordobaISO(fechaDesde).split('-').map(Number);
+  const [anio2, mes2, dia2] = fechaCordobaISO(fechaHasta).split('-').map(Number);
+  const utc1 = Date.UTC(anio1, mes1 - 1, dia1);
+  const utc2 = Date.UTC(anio2, mes2 - 1, dia2);
+  return Math.round((utc2 - utc1) / (24 * 60 * 60 * 1000));
+}
+
+// Diferencia en días de calendario (Córdoba) entre una fecha y "hoy".
+export function diasDesdeHoyEnCordoba(fechaIso) {
+  return diferenciaDiasCordoba(new Date(), fechaIso);
+}
+
+// Badge de día relativo ("Hoy"/"Mañana"/"En N días") para listados de
+// viajes próximos. No distingue días pasados porque estos helpers solo se
+// usan con viajes ya filtrados a partir de hoy.
+export function etiquetaDiaRelativo(fechaIso) {
+  const dias = diasDesdeHoyEnCordoba(fechaIso);
+  if (dias <= 0) return 'Hoy';
+  if (dias === 1) return 'Mañana';
+  return `En ${dias} días`;
+}
