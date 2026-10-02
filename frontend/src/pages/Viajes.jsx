@@ -243,19 +243,21 @@ function Viajes() {
       {errorCancelar && <Alert variant="error">{errorCancelar}</Alert>}
 
       {mostrarForm && (
-        <Card className="form-card">
+        <>
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
           </button>
           <h1>{editando ? 'Editar viaje' : 'Programar viaje'}</h1>
-          <ViajeForm
-            valoresIniciales={editando ? viajeAValoresForm(editando) : undefined}
-            onSubmit={handleGuardarForm}
-            textoBoton={editando ? 'Guardar cambios' : 'Programar viaje'}
-            textoEnviando={editando ? 'Guardando…' : 'Programando…'}
-            onCancelar={cerrarForm}
-          />
-        </Card>
+          <Card className="form-card">
+            <ViajeForm
+              valoresIniciales={editando ? viajeAValoresForm(editando) : undefined}
+              onSubmit={handleGuardarForm}
+              textoBoton={editando ? 'Guardar cambios' : 'Programar viaje'}
+              textoEnviando={editando ? 'Guardando…' : 'Programando…'}
+              onCancelar={cerrarForm}
+            />
+          </Card>
+        </>
       )}
 
       {!mostrarForm && !seleccionado && (
@@ -378,7 +380,7 @@ function Viajes() {
       )}
 
       {!mostrarForm && seleccionado && (
-        <Card className="viajes-detalle" role="region" aria-label="Ficha del viaje">
+        <>
           <button type="button" className="back-link" onClick={cerrarFicha}>
             ← Volver al listado
           </button>
@@ -390,49 +392,51 @@ function Viajes() {
             </EstadoDot>
           </div>
 
-          <dl className="viajes-detalle-list">
-            <div className="detalle-item">
-              <dt>Chofer</dt>
-              <dd>{nombreChofer(seleccionado.chofer)}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Vehículo</dt>
-              <dd>
-                {nombreVehiculo(seleccionado.vehiculo)} ({seleccionado.vehiculo.marca} {seleccionado.vehiculo.modelo})
-              </dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Fecha y hora de inicio</dt>
-              <dd>{formatearFechaHora(seleccionado.fechaInicio)}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Fecha y hora de fin</dt>
-              <dd>{formatearFechaHora(seleccionado.fechaFin)}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Kilómetros estimados</dt>
-              <dd>{seleccionado.kilometrosEstimados}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Kilometraje actual del vehículo</dt>
-              <dd>{seleccionado.vehiculo.kilometraje} km</dd>
-            </div>
-          </dl>
+          <Card className="viajes-detalle" role="region" aria-label="Ficha del viaje">
+            <dl className="viajes-detalle-list">
+              <div className="detalle-item">
+                <dt>Chofer</dt>
+                <dd>{nombreChofer(seleccionado.chofer)}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Vehículo</dt>
+                <dd>
+                  {nombreVehiculo(seleccionado.vehiculo)} ({seleccionado.vehiculo.marca} {seleccionado.vehiculo.modelo})
+                </dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Fecha y hora de inicio</dt>
+                <dd>{formatearFechaHora(seleccionado.fechaInicio)}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Fecha y hora de fin</dt>
+                <dd>{formatearFechaHora(seleccionado.fechaFin)}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Kilómetros estimados</dt>
+                <dd>{seleccionado.kilometrosEstimados}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Kilometraje actual del vehículo</dt>
+                <dd>{seleccionado.vehiculo.kilometraje} km</dd>
+              </div>
+            </dl>
 
-          {puedeGestionar && seleccionado.estado === 'PROGRAMADO' && (
-            <div className="viajes-detalle-actions">
-              <Button variant="primary" onClick={() => pedirFinalizacion(seleccionado)}>
-                Finalizar
-              </Button>
-              <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                Editar
-              </Button>
-              <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
-                Cancelar
-              </Button>
-            </div>
-          )}
-        </Card>
+            {puedeGestionar && seleccionado.estado === 'PROGRAMADO' && (
+              <div className="viajes-detalle-actions">
+                <Button variant="primary" onClick={() => pedirFinalizacion(seleccionado)}>
+                  Finalizar
+                </Button>
+                <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                  Editar
+                </Button>
+                <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
+                  Cancelar
+                </Button>
+              </div>
+            )}
+          </Card>
+        </>
       )}
 
       <ConfirmModal

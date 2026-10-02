@@ -223,83 +223,85 @@ function Usuarios() {
       {errorBaja && <Alert variant="error">{errorBaja}</Alert>}
 
       {mostrarForm && (
-        <Card className="form-card">
+        <>
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
           </button>
           <h1>{editando ? 'Editar usuario' : 'Nuevo usuario'}</h1>
-          <form onSubmit={handleSubmit} noValidate>
-            <div className="form-grid">
-              <FormField id="nombre" label="Nombre" error={errores.nombre}>
-                <input name="nombre" value={form.nombre} onChange={handleChange} />
-              </FormField>
-
-              <FormField id="apellido" label="Apellido" error={errores.apellido}>
-                <input name="apellido" value={form.apellido} onChange={handleChange} />
-              </FormField>
-
-              <FormField id="dni" label="DNI" error={errores.dni}>
-                <input name="dni" value={form.dni} onChange={handleChange} />
-              </FormField>
-
-              <FormField id="email" label="Email" error={errores.email}>
-                <input name="email" type="email" value={form.email} onChange={handleChange} />
-              </FormField>
-
-              <FormField id="telefono" label="Teléfono" error={errores.telefono} hint="Opcional">
-                <input name="telefono" type="tel" value={form.telefono} onChange={handleChange} />
-              </FormField>
-
-              <FormField id="nombreUsuario" label="Nombre de usuario" error={errores.nombreUsuario}>
-                <input name="nombreUsuario" value={form.nombreUsuario} onChange={handleChange} />
-              </FormField>
-
-              {!editando && (
-                <FormField id="contrasena" label="Contraseña" error={errores.contrasena}>
-                  <input name="contrasena" type="password" value={form.contrasena} onChange={handleChange} />
+          <Card className="form-card">
+            <form onSubmit={handleSubmit} noValidate>
+              <div className="form-grid">
+                <FormField id="nombre" label="Nombre" error={errores.nombre}>
+                  <input name="nombre" value={form.nombre} onChange={handleChange} />
                 </FormField>
-              )}
 
-              <FormField id="perfil" label="Perfil" error={errores.perfil}>
-                <select name="perfil" value={form.perfil} onChange={handleChange}>
-                  <option value="">Seleccionar…</option>
-                  {perfilesDisponibles.map((p) => (
-                    <option key={p.value} value={p.value}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
+                <FormField id="apellido" label="Apellido" error={errores.apellido}>
+                  <input name="apellido" value={form.apellido} onChange={handleChange} />
+                </FormField>
 
-              <div className="form-field switch-field">
-                <label
-                  htmlFor="habilitadoParaConducir"
-                  className={`switch-field-label ${switchBloqueado ? 'switch-field-label-disabled' : ''}`.trim()}
-                >
-                  <Switch
-                    id="habilitadoParaConducir"
-                    name="habilitadoParaConducir"
-                    checked={form.habilitadoParaConducir}
-                    disabled={switchBloqueado}
-                    onChange={handleChange}
-                  />
-                  Habilitado para conducir
-                </label>
+                <FormField id="dni" label="DNI" error={errores.dni}>
+                  <input name="dni" value={form.dni} onChange={handleChange} />
+                </FormField>
+
+                <FormField id="email" label="Email" error={errores.email}>
+                  <input name="email" type="email" value={form.email} onChange={handleChange} />
+                </FormField>
+
+                <FormField id="telefono" label="Teléfono" error={errores.telefono} hint="Opcional">
+                  <input name="telefono" type="tel" value={form.telefono} onChange={handleChange} />
+                </FormField>
+
+                <FormField id="nombreUsuario" label="Nombre de usuario" error={errores.nombreUsuario}>
+                  <input name="nombreUsuario" value={form.nombreUsuario} onChange={handleChange} />
+                </FormField>
+
+                {!editando && (
+                  <FormField id="contrasena" label="Contraseña" error={errores.contrasena}>
+                    <input name="contrasena" type="password" value={form.contrasena} onChange={handleChange} />
+                  </FormField>
+                )}
+
+                <FormField id="perfil" label="Perfil" error={errores.perfil}>
+                  <select name="perfil" value={form.perfil} onChange={handleChange}>
+                    <option value="">Seleccionar…</option>
+                    {perfilesDisponibles.map((p) => (
+                      <option key={p.value} value={p.value}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+
+                <div className="form-field switch-field">
+                  <label
+                    htmlFor="habilitadoParaConducir"
+                    className={`switch-field-label ${switchBloqueado ? 'switch-field-label-disabled' : ''}`.trim()}
+                  >
+                    <Switch
+                      id="habilitadoParaConducir"
+                      name="habilitadoParaConducir"
+                      checked={form.habilitadoParaConducir}
+                      disabled={switchBloqueado}
+                      onChange={handleChange}
+                    />
+                    Habilitado para conducir
+                  </label>
+                </div>
               </div>
-            </div>
 
-            {errores.general && <Alert variant="error">{errores.general}</Alert>}
+              {errores.general && <Alert variant="error">{errores.general}</Alert>}
 
-            <div className="form-actions">
-              <Button type="submit" variant="primary" loading={enviando}>
-                {enviando ? 'Guardando…' : 'Guardar'}
-              </Button>
-              <Button type="button" variant="secondary" onClick={cerrarForm}>
-                Cancelar
-              </Button>
-            </div>
-          </form>
-        </Card>
+              <div className="form-actions">
+                <Button type="submit" variant="primary" loading={enviando}>
+                  {enviando ? 'Guardando…' : 'Guardar'}
+                </Button>
+                <Button type="button" variant="secondary" onClick={cerrarForm}>
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </>
       )}
 
       {!mostrarForm && !seleccionado && (
@@ -404,7 +406,7 @@ function Usuarios() {
       )}
 
       {!mostrarForm && seleccionado && (
-        <Card className="usuarios-detalle" role="region" aria-label="Ficha del usuario">
+        <>
           <button type="button" className="back-link" onClick={cerrarFicha}>
             ← Volver al listado
           </button>
@@ -418,48 +420,50 @@ function Usuarios() {
             </EstadoDot>
           </div>
 
-          <dl className="usuarios-detalle-list">
-            <div className="detalle-item">
-              <dt>DNI</dt>
-              <dd>{seleccionado.dni || '—'}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Email</dt>
-              <dd>{seleccionado.email || '—'}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Teléfono</dt>
-              <dd>{seleccionado.telefono || '—'}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Nombre de usuario</dt>
-              <dd>{seleccionado.nombreUsuario}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Perfil</dt>
-              <dd>{perfilLabel(seleccionado.perfil)}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Habilitado para conducir</dt>
-              <dd>{seleccionado.habilitadoParaConducir ? 'Sí' : 'No'}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Registrado el</dt>
-              <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
-            </div>
-          </dl>
+          <Card className="usuarios-detalle" role="region" aria-label="Ficha del usuario">
+            <dl className="usuarios-detalle-list">
+              <div className="detalle-item">
+                <dt>DNI</dt>
+                <dd>{seleccionado.dni || '—'}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Email</dt>
+                <dd>{seleccionado.email || '—'}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Teléfono</dt>
+                <dd>{seleccionado.telefono || '—'}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Nombre de usuario</dt>
+                <dd>{seleccionado.nombreUsuario}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Perfil</dt>
+                <dd>{perfilLabel(seleccionado.perfil)}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Habilitado para conducir</dt>
+                <dd>{seleccionado.habilitadoParaConducir ? 'Sí' : 'No'}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Registrado el</dt>
+                <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
+              </div>
+            </dl>
 
-          {seleccionado.activo && (
-            <div className="usuarios-detalle-actions">
-              <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                Editar
-              </Button>
-              <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
-                Dar de baja
-              </Button>
-            </div>
-          )}
-        </Card>
+            {seleccionado.activo && (
+              <div className="usuarios-detalle-actions">
+                <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                  Editar
+                </Button>
+                <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
+                  Dar de baja
+                </Button>
+              </div>
+            )}
+          </Card>
+        </>
       )}
 
       <ConfirmModal

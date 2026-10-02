@@ -223,65 +223,67 @@ function FlotaVehiculos() {
       {errorBaja && <Alert variant="error">{errorBaja}</Alert>}
 
       {mostrarForm && (
-        <Card className="form-card">
+        <>
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
           </button>
           <h1>{editando ? 'Editar vehículo' : 'Nuevo vehículo'}</h1>
-          <form onSubmit={handleSubmitForm} noValidate>
-            <div className="form-grid">
-              <FormField id="dominio" label="Dominio" error={erroresForm.dominio}>
-                <input name="dominio" value={form.dominio} onChange={handleFormChange} />
-              </FormField>
+          <Card className="form-card">
+            <form onSubmit={handleSubmitForm} noValidate>
+              <div className="form-grid">
+                <FormField id="dominio" label="Dominio" error={erroresForm.dominio}>
+                  <input name="dominio" value={form.dominio} onChange={handleFormChange} />
+                </FormField>
 
-              <FormField id="numeroInterno" label="Número de interno" error={erroresForm.numeroInterno}>
-                <input name="numeroInterno" value={form.numeroInterno} onChange={handleFormChange} />
-              </FormField>
+                <FormField id="numeroInterno" label="Número de interno" error={erroresForm.numeroInterno}>
+                  <input name="numeroInterno" value={form.numeroInterno} onChange={handleFormChange} />
+                </FormField>
 
-              <FormField id="marca" label="Marca" error={erroresForm.marca}>
-                <input name="marca" value={form.marca} onChange={handleFormChange} />
-              </FormField>
+                <FormField id="marca" label="Marca" error={erroresForm.marca}>
+                  <input name="marca" value={form.marca} onChange={handleFormChange} />
+                </FormField>
 
-              <FormField id="modelo" label="Modelo" error={erroresForm.modelo}>
-                <input name="modelo" value={form.modelo} onChange={handleFormChange} />
-              </FormField>
+                <FormField id="modelo" label="Modelo" error={erroresForm.modelo}>
+                  <input name="modelo" value={form.modelo} onChange={handleFormChange} />
+                </FormField>
 
-              <FormField id="tipoVehiculoId" label="Tipo de vehículo" error={erroresForm.tipoVehiculoId}>
-                <select name="tipoVehiculoId" value={form.tipoVehiculoId} onChange={handleFormChange}>
-                  <option value="">Seleccionar…</option>
-                  {tiposVehiculo.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.descripcion}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
+                <FormField id="tipoVehiculoId" label="Tipo de vehículo" error={erroresForm.tipoVehiculoId}>
+                  <select name="tipoVehiculoId" value={form.tipoVehiculoId} onChange={handleFormChange}>
+                    <option value="">Seleccionar…</option>
+                    {tiposVehiculo.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.descripcion}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
 
-              <FormField id="anio" label="Año" error={erroresForm.anio}>
-                <input name="anio" type="number" value={form.anio} onChange={handleFormChange} />
-              </FormField>
+                <FormField id="anio" label="Año" error={erroresForm.anio}>
+                  <input name="anio" type="number" value={form.anio} onChange={handleFormChange} />
+                </FormField>
 
-              <FormField id="asientos" label="Cantidad de asientos" error={erroresForm.asientos}>
-                <input name="asientos" type="number" value={form.asientos} onChange={handleFormChange} />
-              </FormField>
+                <FormField id="asientos" label="Cantidad de asientos" error={erroresForm.asientos}>
+                  <input name="asientos" type="number" value={form.asientos} onChange={handleFormChange} />
+                </FormField>
 
-              <FormField id="kilometraje" label="Kilometraje actual" error={erroresForm.kilometraje}>
-                <input name="kilometraje" type="number" value={form.kilometraje} onChange={handleFormChange} />
-              </FormField>
-            </div>
+                <FormField id="kilometraje" label="Kilometraje actual" error={erroresForm.kilometraje}>
+                  <input name="kilometraje" type="number" value={form.kilometraje} onChange={handleFormChange} />
+                </FormField>
+              </div>
 
-            {erroresForm.general && <Alert variant="error">{erroresForm.general}</Alert>}
+              {erroresForm.general && <Alert variant="error">{erroresForm.general}</Alert>}
 
-            <div className="form-actions">
-              <Button type="submit" variant="primary" loading={enviandoForm}>
-                {enviandoForm ? 'Guardando…' : 'Guardar'}
-              </Button>
-              <Button type="button" variant="secondary" onClick={cerrarForm}>
-                Cancelar
-              </Button>
-            </div>
-          </form>
-        </Card>
+              <div className="form-actions">
+                <Button type="submit" variant="primary" loading={enviandoForm}>
+                  {enviandoForm ? 'Guardando…' : 'Guardar'}
+                </Button>
+                <Button type="button" variant="secondary" onClick={cerrarForm}>
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </>
       )}
 
       {!mostrarForm && !seleccionado && (
@@ -390,7 +392,7 @@ function FlotaVehiculos() {
       )}
 
       {!mostrarForm && seleccionado && (
-        <Card className="flota-detalle" role="region" aria-label="Ficha del vehículo">
+        <>
           <button type="button" className="back-link" onClick={cerrarFicha}>
             ← Volver al listado
           </button>
@@ -402,62 +404,64 @@ function FlotaVehiculos() {
             </EstadoDot>
           </div>
 
-          <dl className="flota-detalle-list">
-            <div className="detalle-item">
-              <dt>Dominio</dt>
-              <dd>{seleccionado.dominio}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Número de interno</dt>
-              <dd>{seleccionado.numeroInterno}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Marca</dt>
-              <dd>{seleccionado.marca}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Modelo</dt>
-              <dd>{seleccionado.modelo}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Tipo de vehículo</dt>
-              <dd>{seleccionado.tipoVehiculo.descripcion}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Año</dt>
-              <dd>{seleccionado.anio}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Cantidad de asientos</dt>
-              <dd>{seleccionado.asientos}</dd>
-            </div>
-            <div className="detalle-item">
-              <dt>Kilometraje</dt>
-              <dd>{seleccionado.kilometraje}</dd>
-            </div>
-            {seleccionado.fechaBaja && (
+          <Card className="flota-detalle" role="region" aria-label="Ficha del vehículo">
+            <dl className="flota-detalle-list">
               <div className="detalle-item">
-                <dt>Fecha de baja</dt>
-                <dd>{new Date(seleccionado.fechaBaja).toLocaleDateString()}</dd>
+                <dt>Dominio</dt>
+                <dd>{seleccionado.dominio}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Número de interno</dt>
+                <dd>{seleccionado.numeroInterno}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Marca</dt>
+                <dd>{seleccionado.marca}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Modelo</dt>
+                <dd>{seleccionado.modelo}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Tipo de vehículo</dt>
+                <dd>{seleccionado.tipoVehiculo.descripcion}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Año</dt>
+                <dd>{seleccionado.anio}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Cantidad de asientos</dt>
+                <dd>{seleccionado.asientos}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Kilometraje</dt>
+                <dd>{seleccionado.kilometraje}</dd>
+              </div>
+              {seleccionado.fechaBaja && (
+                <div className="detalle-item">
+                  <dt>Fecha de baja</dt>
+                  <dd>{new Date(seleccionado.fechaBaja).toLocaleDateString()}</dd>
+                </div>
+              )}
+              <div className="detalle-item">
+                <dt>Registrado el</dt>
+                <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
+              </div>
+            </dl>
+
+            {puedeGestionar && seleccionado.estado !== 'DADO_DE_BAJA' && (
+              <div className="flota-detalle-actions">
+                <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                  Editar
+                </Button>
+                <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
+                  Dar de baja
+                </Button>
               </div>
             )}
-            <div className="detalle-item">
-              <dt>Registrado el</dt>
-              <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
-            </div>
-          </dl>
-
-          {puedeGestionar && seleccionado.estado !== 'DADO_DE_BAJA' && (
-            <div className="flota-detalle-actions">
-              <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                Editar
-              </Button>
-              <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
-                Dar de baja
-              </Button>
-            </div>
-          )}
-        </Card>
+          </Card>
+        </>
       )}
 
       <ConfirmModal
