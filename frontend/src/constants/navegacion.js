@@ -9,10 +9,19 @@ function porPerfil(...perfiles) {
 export const NAV_ITEMS = [
   { label: 'Dashboard', to: '/', end: true, icon: 'dashboard', visible: porPerfil(...TODOS_LOS_PERFILES) },
   {
-    label: 'Usuarios',
-    to: '/usuarios',
-    icon: 'usuarios',
-    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO'),
+    // El perfil no importa acá: lo que define si alguien puede tener viajes
+    // asignados es habilitadoParaConducir, que es independiente del perfil
+    // (ver SCRUM-30: un Encargado habilitado para conducir también entra).
+    label: 'Mis viajes',
+    to: '/mis-viajes',
+    icon: 'misViajes',
+    visible: (usuario) => usuario.habilitadoParaConducir === true,
+  },
+  {
+    label: 'Viajes',
+    to: '/viajes',
+    icon: 'viajes',
+    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
   },
   {
     label: 'Flota de vehículos',
@@ -21,19 +30,10 @@ export const NAV_ITEMS = [
     visible: porPerfil('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
   },
   {
-    label: 'Viajes',
-    to: '/viajes',
-    icon: 'viaje',
-    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
-  },
-  {
-    // El perfil no importa acá: lo que define si alguien puede tener viajes
-    // asignados es habilitadoParaConducir, que es independiente del perfil
-    // (ver SCRUM-30: un Encargado habilitado para conducir también entra).
-    label: 'Mis viajes',
-    to: '/mis-viajes',
-    icon: 'viaje',
-    visible: (usuario) => usuario.habilitadoParaConducir === true,
+    label: 'Usuarios',
+    to: '/usuarios',
+    icon: 'usuarios',
+    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO'),
   },
 ];
 

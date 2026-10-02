@@ -17,34 +17,29 @@ const ICONO_LOGOUT = (
 
 const ICONS = {
   dashboard: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="7" rx="1.5" />
-      <rect x="14" y="3" width="7" height="7" rx="1.5" />
-      <rect x="3" y="14" width="7" height="7" rx="1.5" />
-      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M20 11h-6c-.55 0-1 .45-1 1v8c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-8c0-.55-.45-1-1-1m-1 8h-4v-6h4zm-9-4H4c-.55 0-1 .45-1 1v4c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-4c0-.55-.45-1-1-1m-1 4H5v-2h4zM20 3h-6c-.55 0-1 .45-1 1v4c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1m-1 4h-4V5h4zm-9-4H4c-.55 0-1 .45-1 1v8c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1m-1 8H5V5h4z" />
     </svg>
   ),
   usuarios: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="9" cy="8" r="3" />
-      <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
-      <circle cx="17" cy="8" r="2.4" />
-      <path d="M15.5 14.2c2.6.4 4.5 2.7 4.5 5.8" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 20c0-1.742-1.67-3.223-4-3.773M15 20c0-2.21-2.686-4-6-4s-6 1.79-6 4m12-7a4 4 0 0 0 0-8m-6 8a4 4 0 1 1 0-8a4 4 0 0 1 0 8" />
     </svg>
   ),
   flota: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2.5" y="6" width="19" height="10" rx="2" />
-      <path d="M2.5 11h19" />
-      <circle cx="7" cy="18.5" r="1.6" />
-      <circle cx="17" cy="18.5" r="1.6" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M21 6.021c.003-.146-.007-1.465-1.3-2.735C18.427 2.036 17.143 2 17 2H6.996c-.239 0-1.493.063-2.708 1.302C3.036 4.578 3 5.859 3 6v3H2v3h1v6c0 .734.406 1.373 1 1.721V21a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1h10v1a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1.277A1.99 1.99 0 0 0 21 18v-6h1V9h-1zM9 4h6v2H9zM6.5 18a1.5 1.5 0 1 1 .001-3.001A1.5 1.5 0 0 1 6.5 18m4.5-5H5V8h6zm6.5 5a1.5 1.5 0 1 1 .001-3.001A1.5 1.5 0 0 1 17.5 18m1.5-5h-6V8h6z" />
     </svg>
   ),
-  viaje: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="5.5" cy="18.5" r="2" />
-      <circle cx="18.5" cy="5.5" r="2" />
-      <path d="M7.2 17.2L16.8 7.6" strokeDasharray="2.5 2.5" />
+  viajes: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M5 10s3-1.81 3-5c0-1.65-1.35-3-3-3S2 3.35 2 5c0 3.19 3 5 3 5m0-6.5c.83 0 1.5.67 1.5 1.5S5.83 6.5 5 6.5S3.5 5.83 3.5 5S4.17 3.5 5 3.5M19 14c-1.65 0-3 1.35-3 3c0 3.19 3 5 3 5s3-1.81 3-5c0-1.65-1.35-3-3-3m0 4.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5s1.5.67 1.5 1.5s-.67 1.5-1.5 1.5" />
+      <path d="M4 17.5A2.5 2.5 0 0 1 6.5 15h7c1.93 0 3.5-1.57 3.5-3.5S15.43 8 13.5 8H8v2h5.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-7C4.02 13 2 15.02 2 17.5S4.02 22 6.5 22H16v-2H6.5A2.5 2.5 0 0 1 4 17.5" />
+    </svg>
+  ),
+  misViajes: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17 6h-1V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H7c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2v.5c0 .28.22.5.5.5h1c.28 0 .5-.22.5-.5V21h6v.5c0 .28.22.5.5.5h1c.28 0 .5-.22.5-.5V21c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2m-7-2h4v2h-4zM7 19V8h10v11z" />
     </svg>
   ),
 };
