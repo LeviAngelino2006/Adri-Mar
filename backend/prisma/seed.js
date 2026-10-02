@@ -87,7 +87,7 @@ async function main() {
 
   console.log(`Estados de vehículo listos: ${ESTADOS_VEHICULO.join(', ')}`);
 
-  const ESTADOS_VIAJE = ['PROGRAMADO', 'FINALIZADO', 'CANCELADO'];
+  const ESTADOS_VIAJE = ['PROGRAMADO', 'EN_VIAJE', 'FINALIZADO', 'CANCELADO'];
   for (const descripcion of ESTADOS_VIAJE) {
     await prisma.estadoViaje.upsert({
       where: { descripcion },
@@ -97,6 +97,27 @@ async function main() {
   }
 
   console.log(`Estados de viaje listos: ${ESTADOS_VIAJE.join(', ')}`);
+
+  // MANTENIMIENTO no se usa todavía (queda previsto para el futuro módulo de
+  // mantenimiento preventivo), pero se siembra ya para no necesitar otra
+  // migración cuando llegue ese momento.
+  const ORIGENES_LECTURA = [
+    'ALTA_VEHICULO',
+    'INICIO_VIAJE',
+    'FIN_VIAJE',
+    'MANUAL',
+    'CORRECCION',
+    'MANTENIMIENTO',
+  ];
+  for (const descripcion of ORIGENES_LECTURA) {
+    await prisma.origenLectura.upsert({
+      where: { descripcion },
+      update: {},
+      create: { descripcion },
+    });
+  }
+
+  console.log(`Orígenes de lectura listos: ${ORIGENES_LECTURA.join(', ')}`);
 }
 
 main()
