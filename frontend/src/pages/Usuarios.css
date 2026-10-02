@@ -32,6 +32,18 @@
   flex: 0 0 auto;
 }
 
+.switch-field-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.switch-field-label-disabled {
+  cursor: not-allowed;
+}
+
 .usuarios-filtros .form-field {
   margin-bottom: 0;
 }

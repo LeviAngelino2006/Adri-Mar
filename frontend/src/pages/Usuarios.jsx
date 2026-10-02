@@ -5,6 +5,7 @@ import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import EstadoDot from '../components/ui/EstadoDot';
 import Button from '../components/ui/Button';
+import Switch from '../components/ui/Switch';
 import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
 import Spinner from '../components/ui/Spinner';
@@ -157,7 +158,20 @@ function Usuarios() {
     const { name, value, type, checked } = e.target;
 
     if (name === 'perfil' && !editando) {
-      setForm((f) => ({ ...f, perfil: value, habilitadoParaConducir: value === 'CHOFER' }));
+      setForm((f) => {
+        const eraChofer = f.perfil === 'CHOFER';
+        const esChofer = value === 'CHOFER';
+        // Chofer fuerza el switch en true; salir de Chofer lo resetea a
+        // false; entre dos perfiles no-Chofer el valor tildado a mano no se
+        // toca (ver SCRUM-148/149 y la tarea de bloqueo condicional).
+        let habilitadoParaConducir = f.habilitadoParaConducir;
+        if (esChofer) {
+          habilitadoParaConducir = true;
+        } else if (eraChofer) {
+          habilitadoParaConducir = false;
+        }
+        return { ...f, perfil: value, habilitadoParaConducir };
+      });
       return;
     }
 
@@ -253,21 +267,39 @@ function Usuarios() {
                 </select>
               </FormField>
 
-              <div className="form-field checkbox-field">
-                <label htmlFor="habilitadoParaConducir" className="checkbox-field-label">
-                  <input
-                    type="checkbox"
-                    id="habilitadoParaConducir"
-                    name="habilitadoParaConducir"
-                    checked={form.habilitadoParaConducir}
-                    onChange={handleChange}
-                  />
-                  Habilitado para conducir
-                </label>
-                <p className="form-field-hint">
-                  Se marca por defecto para el perfil Chofer, pero se puede cambiar para cualquier perfil.
-                </p>
-              </div>
+              {editando ? (
+                <div className="form-field checkbox-field">
+                  <label htmlFor="habilitadoParaConducir" className="checkbox-field-label">
+                    <input
+                      type="checkbox"
+                      id="habilitadoParaConducir"
+                      name="habilitadoParaConducir"
+                      checked={form.habilitadoParaConducir}
+                      onChange={handleChange}
+                    />
+                    Habilitado para conducir
+                  </label>
+                  <p className="form-field-hint">
+                    Se marca por defecto para el perfil Chofer, pero se puede cambiar para cualquier perfil.
+                  </p>
+                </div>
+              ) : (
+                <div className="form-field switch-field">
+                  <label
+                    htmlFor="habilitadoParaConducir"
+                    className={`switch-field-label ${form.perfil === 'CHOFER' ? 'switch-field-label-disabled' : ''}`.trim()}
+                  >
+                    <Switch
+                      id="habilitadoParaConducir"
+                      name="habilitadoParaConducir"
+                      checked={form.habilitadoParaConducir}
+                      disabled={form.perfil === 'CHOFER'}
+                      onChange={handleChange}
+                    />
+                    Habilitado para conducir
+                  </label>
+                </div>
+              )}
             </div>
 
             {errores.general && <Alert variant="error">{errores.general}</Alert>}

@@ -1,0 +1,58 @@
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 22px;
+}
+
+.switch-input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.switch-track {
+  width: 40px;
+  height: 22px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 999px;
+  background-color: var(--color-border);
+  transition: background-color 0.2s ease;
+}
+
+.switch-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease;
+}
+
+.switch-input:checked + .switch-track {
+  background-color: var(--brand-600);
+}
+
+.switch-input:checked + .switch-track .switch-thumb {
+  transform: translateX(18px);
+}
+
+.switch-input:focus-visible + .switch-track {
+  outline: 2px solid var(--brand-600);
+  outline-offset: 2px;
+}
+
+.switch-disabled .switch-input {
+  cursor: not-allowed;
+}
+
+.switch-disabled .switch-track {
+  opacity: 0.55;
+}
