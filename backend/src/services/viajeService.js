@@ -211,6 +211,7 @@ function serializarViaje(viaje) {
           numeroInterno: viaje.vehiculo.numeroInterno,
           marca: viaje.vehiculo.marca,
           modelo: viaje.vehiculo.modelo,
+          kilometraje: viaje.vehiculo.kilometraje,
         }
       : undefined,
     fechaInicio: viaje.fechaInicio,
@@ -313,6 +314,57 @@ async function cancelarViaje(id) {
   return serializarViaje(viaje);
 }
 
+function validarOdometroFinal(odometroFinal, kilometrajeActual) {
+  const odometroFinalNumero = Number(odometroFinal);
+
+  if (odometroFinal === undefined || odometroFinal === null || odometroFinal === '') {
+    throw new ValidacionError({ odometroFinal: 'El odómetro final es obligatorio' });
+  }
+  if (!Number.isInteger(odometroFinalNumero) || odometroFinalNumero < 0) {
+    throw new ValidacionError({ odometroFinal: 'El odómetro final debe ser un número mayor o igual a 0' });
+  }
+  if (odometroFinalNumero < kilometrajeActual) {
+    throw new ValidacionError({
+      odometroFinal: `El odómetro final no puede ser menor al kilometraje actual del vehículo (${kilometrajeActual} km)`,
+    });
+  }
+
+  return odometroFinalNumero;
+}
+
+async function finalizarViaje(id, { odometroFinal }) {
+  const actual = await obtenerViaje(id);
+
+  if (actual.estadoViaje.descripcion !== 'PROGRAMADO') {
+    throw new EstadoNoEditableError(actual.estadoViaje.descripcion);
+  }
+
+  // El odómetro final se valida contra el kilometraje ACTUAL del vehículo (no
+  // contra kilometrosEstimados del viaje, que es una estimación aparte).
+  const odometroFinalNumero = validarOdometroFinal(odometroFinal, actual.vehiculo.kilometraje);
+
+  const estadoFinalizado = await obtenerEstadoViajePorDescripcion('FINALIZADO');
+
+  // El vehículo se actualiza ANTES que el viaje, dentro de la misma
+  // transacción: así el "include: { vehiculo: true }" del update del viaje
+  // ya lee el kilometraje nuevo (misma transacción = lecturas ven las
+  // escrituras previas de esa transacción), y la respuesta serializada queda
+  // consistente sin tener que parchear el objeto a mano.
+  const [, viajeFinalizado] = await prisma.$transaction([
+    prisma.vehiculo.update({
+      where: { id: actual.vehiculoId },
+      data: { kilometraje: odometroFinalNumero },
+    }),
+    prisma.viaje.update({
+      where: { id: actual.id },
+      data: { estadoViajeId: estadoFinalizado.id },
+      include: { chofer: true, vehiculo: true, estadoViaje: true },
+    }),
+  ]);
+
+  return serializarViaje(viajeFinalizado);
+}
+
 function parsearFechaDesde(valor) {
   if (!valor) return null;
   // Si viene solo la fecha (sin hora), el inicio del día se calcula en hora
@@ -374,6 +426,7 @@ module.exports = {
   listarViajes,
   actualizarViaje,
   cancelarViaje,
+  finalizarViaje,
   ValidacionError,
   NoEncontradoError,
   EstadoNoEditableError,

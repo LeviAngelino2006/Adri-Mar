@@ -18,5 +18,11 @@ router.patch(
   autorizar('ADMINISTRADOR', 'ENCARGADO'),
   viajeController.cancelar
 );
+router.patch(
+  '/:id/finalizar',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  viajeController.finalizar
+);
 
 module.exports = router;

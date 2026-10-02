@@ -23,11 +23,20 @@
   font-size: 1.0625rem;
 }
 
-.confirm-modal p {
+.confirm-modal-description {
   margin: 0 0 var(--space-6);
   color: var(--color-text-secondary);
   font-size: 0.9375rem;
   line-height: 1.5;
+}
+
+.confirm-modal-description p {
+  margin: 0 0 var(--space-4);
+}
+
+.confirm-modal-description .form-field {
+  margin-bottom: var(--space-3);
+  text-align: left;
 }
 
 .confirm-modal-icon {

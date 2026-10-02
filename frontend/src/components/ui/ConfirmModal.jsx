@@ -25,7 +25,7 @@ function ConfirmModal({
       >
         <div className={`confirm-modal-icon confirm-modal-icon-${tone}`}>{icon}</div>
         <h3>{title}</h3>
-        <p>{description}</p>
+        <div className="confirm-modal-description">{description}</div>
         <div className="confirm-modal-actions">
           <Button variant="secondary" onClick={onCancel}>
             {cancelLabel}

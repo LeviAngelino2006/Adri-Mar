@@ -80,4 +80,27 @@ async function cancelar(req, res) {
   }
 }
 
-module.exports = { crear, listar, actualizar, cancelar };
+async function finalizar(req, res) {
+  const { odometroFinal } = req.body;
+
+  try {
+    const viaje = await viajeService.finalizarViaje(req.params.id, { odometroFinal });
+    return res.json({ viaje });
+  } catch (err) {
+    if (err instanceof viajeService.NoEncontradoError) {
+      return res.status(404).json({ error: 'Viaje no encontrado' });
+    }
+    if (err instanceof viajeService.EstadoNoEditableError) {
+      const etiqueta = ETIQUETA_ESTADO[err.estadoActual] || err.estadoActual;
+      return res.status(409).json({
+        error: `No se puede finalizar un viaje en estado ${etiqueta}. Solo se pueden finalizar viajes Programados.`,
+      });
+    }
+    if (err instanceof viajeService.ValidacionError) {
+      return res.status(400).json({ errores: err.errores });
+    }
+    throw err;
+  }
+}
+
+module.exports = { crear, listar, actualizar, cancelar, finalizar };

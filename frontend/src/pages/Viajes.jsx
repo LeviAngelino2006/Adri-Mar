@@ -23,6 +23,13 @@ const ICONO_ALERTA = (
   </svg>
 );
 
+const ICONO_FINALIZAR = (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M8.5 12.5l2.5 2.5 4.5-5" />
+  </svg>
+);
+
 const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
 
 const ESTADOS_FILTRO = [
@@ -94,6 +101,11 @@ function Viajes() {
   const [editando, setEditando] = useState(null);
   const [cancelando, setCancelando] = useState(null);
   const [errorCancelar, setErrorCancelar] = useState('');
+
+  const [finalizando, setFinalizando] = useState(null);
+  const [odometroFinal, setOdometroFinal] = useState('');
+  const [erroresFinalizar, setErroresFinalizar] = useState({});
+  const [enviandoFinalizar, setEnviandoFinalizar] = useState(false);
 
   // Las opciones de los selects de chofer/vehículo salen de los viajes ya
   // programados (se cargan una sola vez, sin filtros) en vez de pedirle la
@@ -173,6 +185,34 @@ function Viajes() {
     } catch (err) {
       setErrorCancelar(err.response?.data?.error || 'No se pudo cancelar el viaje');
       setCancelando(null);
+    }
+  }
+
+  function pedirFinalizacion(viaje) {
+    setErrorCancelar('');
+    setOdometroFinal('');
+    setErroresFinalizar({});
+    setFinalizando(viaje);
+  }
+
+  async function confirmarFinalizacion() {
+    setErroresFinalizar({});
+    setEnviandoFinalizar(true);
+    try {
+      await api.patch(`/viajes/${finalizando.id}/finalizar`, { odometroFinal });
+      setMensaje('Viaje finalizado correctamente. Se actualizó el kilometraje del vehículo.');
+      setFinalizando(null);
+      cargarViajes();
+    } catch (err) {
+      if (err.response?.status === 400 && err.response.data.errores) {
+        setErroresFinalizar(err.response.data.errores);
+      } else if (err.response?.status === 409) {
+        setErroresFinalizar({ general: err.response.data.error });
+      } else {
+        setErroresFinalizar({ general: 'No se pudo finalizar el viaje' });
+      }
+    } finally {
+      setEnviandoFinalizar(false);
     }
   }
 
@@ -288,6 +328,9 @@ function Viajes() {
                       <td>
                         {v.estado === 'PROGRAMADO' && (
                           <div className="viajes-listado-acciones">
+                            <Button variant="primary" onClick={() => pedirFinalizacion(v)}>
+                              Finalizar
+                            </Button>
                             <Button variant="secondary" onClick={() => abrirEditar(v)}>
                               Editar
                             </Button>
@@ -320,6 +363,9 @@ function Viajes() {
                 <span>{v.kilometrosEstimados} km estimados</span>
                 {puedeGestionar && v.estado === 'PROGRAMADO' && (
                   <div className="viajes-listado-acciones">
+                    <Button variant="primary" onClick={() => pedirFinalizacion(v)}>
+                      Finalizar
+                    </Button>
                     <Button variant="secondary" onClick={() => abrirEditar(v)}>
                       Editar
                     </Button>
@@ -351,6 +397,37 @@ function Viajes() {
         confirmLabel="Cancelar viaje"
         onConfirm={confirmarCancelacion}
         onCancel={() => setCancelando(null)}
+      />
+
+      <ConfirmModal
+        open={Boolean(finalizando)}
+        tone="brand"
+        icon={ICONO_FINALIZAR}
+        title="Finalizar el viaje"
+        description={
+          finalizando && (
+            <div className="finalizar-viaje-modal">
+              <p>
+                Chofer <strong>{nombreChofer(finalizando.chofer)}</strong>, vehículo{' '}
+                <strong>{nombreVehiculo(finalizando.vehiculo)}</strong>.
+                <br />
+                Kilometraje actual del vehículo: <strong>{finalizando.vehiculo.kilometraje} km</strong>.
+              </p>
+              <FormField id="odometroFinal" label="Odómetro final (km)" error={erroresFinalizar.odometroFinal}>
+                <input
+                  type="number"
+                  min={finalizando.vehiculo.kilometraje}
+                  value={odometroFinal}
+                  onChange={(e) => setOdometroFinal(e.target.value)}
+                />
+              </FormField>
+              {erroresFinalizar.general && <Alert variant="error">{erroresFinalizar.general}</Alert>}
+            </div>
+          )
+        }
+        confirmLabel={enviandoFinalizar ? 'Finalizando…' : 'Finalizar viaje'}
+        onConfirm={confirmarFinalizacion}
+        onCancel={() => setFinalizando(null)}
       />
     </Layout>
   );
