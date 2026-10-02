@@ -18,3 +18,18 @@ export function aInputCordoba(fechaIso) {
   const min = pad(instanteCordoba.getUTCMinutes());
   return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 }
+
+// Fecha de hoy ("YYYY-MM-DD") en hora de Córdoba, sin importar la zona
+// horaria del navegador de quien esté mirando la pantalla. Mismo criterio de
+// zona horaria que aFechaCordoba() en el backend: se usa para pedirle a la
+// API viajes cuyo fechaInicio sea a partir de "hoy" en Córdoba, no en UTC.
+const FORMATEADOR_FECHA_CORDOBA = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Argentina/Cordoba',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+export function hoyEnCordoba() {
+  return FORMATEADOR_FECHA_CORDOBA.format(new Date());
+}
