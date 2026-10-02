@@ -7,6 +7,7 @@ import Usuarios from './pages/Usuarios';
 import FlotaVehiculos from './pages/FlotaVehiculos';
 import ProgramarViaje from './pages/ProgramarViaje';
 import Viajes from './pages/Viajes';
+import MisViajes from './pages/MisViajes';
 import './App.css';
 
 function App() {
@@ -52,6 +53,14 @@ function App() {
             element={
               <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO']}>
                 <ProgramarViaje />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mis-viajes"
+            element={
+              <ProtectedRoute>
+                <MisViajes />
               </ProtectedRoute>
             }
           />

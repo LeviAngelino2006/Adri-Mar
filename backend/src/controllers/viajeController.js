@@ -32,6 +32,20 @@ async function listar(req, res) {
   return res.json({ viajes });
 }
 
+// Viajes del usuario autenticado como chofer. El choferId SIEMPRE sale del
+// JWT (req.usuario.id), nunca de la query string: un usuario no puede pedir
+// los viajes de otro cambiando un parámetro.
+async function misViajes(req, res) {
+  const { estado, fechaDesde, fechaHasta } = req.query;
+  const viajes = await viajeService.listarViajes({
+    estado,
+    choferId: req.usuario.id,
+    fechaDesde,
+    fechaHasta,
+  });
+  return res.json({ viajes });
+}
+
 async function actualizar(req, res) {
   const { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados } = req.body;
 
@@ -103,4 +117,4 @@ async function finalizar(req, res) {
   }
 }
 
-module.exports = { crear, listar, actualizar, cancelar, finalizar };
+module.exports = { crear, listar, misViajes, actualizar, cancelar, finalizar };

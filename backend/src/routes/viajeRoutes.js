@@ -11,6 +11,10 @@ router.get(
   autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
   viajeController.listar
 );
+// Sin autorizar(...) a propósito: cualquier usuario autenticado puede
+// consultar SUS PROPIOS viajes como chofer, sin importar su perfil (ver
+// nota de diseño de SCRUM-30 en el reporte).
+router.get('/mis-viajes', autenticar, viajeController.misViajes);
 router.put('/:id', autenticar, autorizar('ADMINISTRADOR', 'ENCARGADO'), viajeController.actualizar);
 router.patch(
   '/:id/cancelar',

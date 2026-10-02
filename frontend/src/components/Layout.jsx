@@ -59,7 +59,7 @@ function Layout({ children }) {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [confirmandoLogout, setConfirmandoLogout] = useState(false);
 
-  const navItems = getNavItemsHabilitados(usuario.perfil);
+  const navItems = getNavItemsHabilitados(usuario);
   const perfilLabel = PERFILES.find((p) => p.value === usuario.perfil)?.label ?? usuario.perfil;
 
   function cerrarMenu() {

@@ -21,7 +21,12 @@ async function login(nombreUsuario, contrasena) {
   }
 
   const perfil = usuario.perfil.descripcion;
-  const token = generarToken({ id: usuario.id, nombreUsuario: usuario.nombreUsuario, perfil });
+  const token = generarToken({
+    id: usuario.id,
+    nombreUsuario: usuario.nombreUsuario,
+    perfil,
+    habilitadoParaConducir: usuario.habilitadoParaConducir,
+  });
 
   return {
     token,
@@ -31,6 +36,7 @@ async function login(nombreUsuario, contrasena) {
       apellido: usuario.apellido,
       nombreUsuario: usuario.nombreUsuario,
       perfil,
+      habilitadoParaConducir: usuario.habilitadoParaConducir,
     },
   };
 }

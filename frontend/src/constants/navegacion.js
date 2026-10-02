@@ -2,34 +2,47 @@ import { PERFILES } from './perfiles';
 
 const TODOS_LOS_PERFILES = PERFILES.map((p) => p.value);
 
+function porPerfil(...perfiles) {
+  return (usuario) => perfiles.includes(usuario.perfil);
+}
+
 export const NAV_ITEMS = [
-  { label: 'Dashboard', to: '/', end: true, icon: 'dashboard', perfiles: TODOS_LOS_PERFILES },
+  { label: 'Dashboard', to: '/', end: true, icon: 'dashboard', visible: porPerfil(...TODOS_LOS_PERFILES) },
   {
     label: 'Usuarios',
     to: '/usuarios',
     icon: 'usuarios',
-    perfiles: ['ADMINISTRADOR', 'ENCARGADO'],
+    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO'),
   },
   {
     label: 'Flota de vehículos',
     to: '/vehiculos',
     icon: 'flota',
-    perfiles: ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'],
+    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
   },
   {
     label: 'Viajes',
     to: '/viajes',
     icon: 'viaje',
-    perfiles: ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'],
+    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
   },
   {
     label: 'Programar viaje',
     to: '/viajes/nuevo',
     icon: 'viaje',
-    perfiles: ['ADMINISTRADOR', 'ENCARGADO'],
+    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO'),
+  },
+  {
+    // El perfil no importa acá: lo que define si alguien puede tener viajes
+    // asignados es habilitadoParaConducir, que es independiente del perfil
+    // (ver SCRUM-30: un Encargado habilitado para conducir también entra).
+    label: 'Mis viajes',
+    to: '/mis-viajes',
+    icon: 'viaje',
+    visible: (usuario) => usuario.habilitadoParaConducir === true,
   },
 ];
 
-export function getNavItemsHabilitados(perfil) {
-  return NAV_ITEMS.filter((item) => item.perfiles.includes(perfil));
+export function getNavItemsHabilitados(usuario) {
+  return NAV_ITEMS.filter((item) => item.visible(usuario));
 }

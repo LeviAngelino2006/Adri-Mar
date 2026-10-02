@@ -14,6 +14,7 @@ function generarToken(usuario) {
     id: usuario.id,
     nombreUsuario: usuario.nombreUsuario,
     perfil: usuario.perfil,
+    habilitadoParaConducir: usuario.habilitadoParaConducir,
   };
 
   const ttlMinutos = ttlMinutosParaPerfil(usuario.perfil);
