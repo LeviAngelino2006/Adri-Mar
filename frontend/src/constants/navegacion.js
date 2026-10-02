@@ -27,12 +27,6 @@ export const NAV_ITEMS = [
     visible: porPerfil('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
   },
   {
-    label: 'Programar viaje',
-    to: '/viajes/nuevo',
-    icon: 'viaje',
-    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO'),
-  },
-  {
     // El perfil no importa acá: lo que define si alguien puede tener viajes
     // asignados es habilitadoParaConducir, que es independiente del perfil
     // (ver SCRUM-30: un Encargado habilitado para conducir también entra).

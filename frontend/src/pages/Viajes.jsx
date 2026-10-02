@@ -76,8 +76,11 @@ function Viajes() {
   const [opcionesChofer, setOpcionesChofer] = useState([]);
   const [opcionesVehiculo, setOpcionesVehiculo] = useState([]);
   const [mensaje, setMensaje] = useState('');
+  const [seleccionado, setSeleccionado] = useState(null);
 
+  const [mostrarForm, setMostrarForm] = useState(false);
   const [editando, setEditando] = useState(null);
+
   const [cancelando, setCancelando] = useState(null);
   const [errorCancelar, setErrorCancelar] = useState('');
 
@@ -133,18 +136,44 @@ function Viajes() {
     setFiltros((f) => ({ ...f, [name]: value }));
   }
 
+  function seleccionar(viaje) {
+    setMostrarForm(false);
+    setSeleccionado(viaje);
+    setErrorCancelar('');
+  }
+
+  function cerrarFicha() {
+    setSeleccionado(null);
+  }
+
+  function abrirNuevo() {
+    setErrorCancelar('');
+    setEditando(null);
+    setSeleccionado(null);
+    setMostrarForm(true);
+  }
+
   function abrirEditar(viaje) {
     setErrorCancelar('');
     setEditando(viaje);
+    setSeleccionado(null);
+    setMostrarForm(true);
   }
 
-  function cerrarEditar() {
+  function cerrarForm() {
+    setMostrarForm(false);
     setEditando(null);
   }
 
-  async function handleGuardarEdicion(datos) {
-    await api.put(`/viajes/${editando.id}`, datos);
-    setMensaje('Viaje modificado correctamente.');
+  async function handleGuardarForm(datos) {
+    if (editando) {
+      await api.put(`/viajes/${editando.id}`, datos);
+      setMensaje('Viaje modificado correctamente.');
+    } else {
+      await api.post('/viajes', datos);
+      setMensaje('Viaje programado correctamente.');
+    }
+    setMostrarForm(false);
     setEditando(null);
     cargarViajes();
   }
@@ -160,6 +189,7 @@ function Viajes() {
       await api.patch(`/viajes/${cancelando.id}/cancelar`);
       setMensaje('Viaje cancelado correctamente.');
       setCancelando(null);
+      setSeleccionado(null);
       cargarViajes();
     } catch (err) {
       setErrorCancelar(err.response?.data?.error || 'No se pudo cancelar el viaje');
@@ -181,6 +211,7 @@ function Viajes() {
       await api.patch(`/viajes/${finalizando.id}/finalizar`, { odometroFinal });
       setMensaje('Viaje finalizado correctamente. Se actualizó el kilometraje del vehículo.');
       setFinalizando(null);
+      setSeleccionado(null);
       cargarViajes();
     } catch (err) {
       if (err.response?.status === 400 && err.response.data.errores) {
@@ -195,168 +226,211 @@ function Viajes() {
     }
   }
 
-  if (editando) {
-    return (
-      <Layout>
-        <Card className="form-card">
-          <button type="button" className="back-link" onClick={cerrarEditar}>
-            ← Volver al listado
-          </button>
-          <h2>Editar viaje</h2>
-          <ViajeForm
-            valoresIniciales={viajeAValoresForm(editando)}
-            onSubmit={handleGuardarEdicion}
-            textoBoton="Guardar cambios"
-            textoEnviando="Guardando…"
-            onCancelar={cerrarEditar}
-          />
-        </Card>
-      </Layout>
-    );
-  }
-
   return (
     <Layout>
       <div className="viajes-listado-header">
         <h1>Viajes</h1>
+        {!mostrarForm && !seleccionado && puedeGestionar && (
+          <Button variant="primary" onClick={abrirNuevo}>
+            + Programar viaje
+          </Button>
+        )}
       </div>
 
-      {mensaje && <Toast>{mensaje}</Toast>}
+      {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
       {errorCancelar && <Alert variant="error">{errorCancelar}</Alert>}
 
-      <form className="viajes-listado-filtros" onSubmit={(e) => e.preventDefault()}>
-        <FormField id="estado" label="Estado">
-          <select name="estado" value={filtros.estado} onChange={handleFiltroChange}>
-            {ESTADOS_FILTRO.map((e) => (
-              <option key={e.value} value={e.value}>
-                {e.label}
-              </option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField id="choferId" label="Chofer">
-          <select name="choferId" value={filtros.choferId} onChange={handleFiltroChange}>
-            <option value="">Todos</option>
-            {opcionesChofer.map((c) => (
-              <option key={c.id} value={c.id}>
-                {nombreChofer(c)}
-              </option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField id="vehiculoId" label="Vehículo">
-          <select name="vehiculoId" value={filtros.vehiculoId} onChange={handleFiltroChange}>
-            <option value="">Todos</option>
-            {opcionesVehiculo.map((v) => (
-              <option key={v.id} value={v.id}>
-                {nombreVehiculo(v)}
-              </option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField id="fechaDesde" label="Desde">
-          <input type="date" name="fechaDesde" value={filtros.fechaDesde} onChange={handleFiltroChange} />
-        </FormField>
-
-        <FormField id="fechaHasta" label="Hasta">
-          <input type="date" name="fechaHasta" value={filtros.fechaHasta} onChange={handleFiltroChange} />
-        </FormField>
-      </form>
-
-      {cargando && (
-        <div className="loading-state">
-          <Spinner label="Cargando viajes" />
-          <span>Cargando viajes…</span>
-        </div>
+      {mostrarForm && (
+        <Card className="form-card">
+          <button type="button" className="back-link" onClick={cerrarForm}>
+            ← Volver al listado
+          </button>
+          <h2>{editando ? 'Editar viaje' : 'Programar viaje'}</h2>
+          <ViajeForm
+            valoresIniciales={editando ? viajeAValoresForm(editando) : undefined}
+            onSubmit={handleGuardarForm}
+            textoBoton={editando ? 'Guardar cambios' : 'Programar viaje'}
+            textoEnviando={editando ? 'Guardando…' : 'Programando…'}
+            onCancelar={cerrarForm}
+          />
+        </Card>
       )}
 
-      {!cargando && viajes.length === 0 && <Card className="viajes-listado-empty">No se encontraron viajes</Card>}
-
-      {!cargando && viajes.length > 0 && (
+      {!mostrarForm && !seleccionado && (
         <>
-          <div className="viajes-listado-table-wrap">
-            <table className="viajes-listado-table">
-              <thead>
-                <tr>
-                  <th>Chofer</th>
-                  <th>Vehículo</th>
-                  <th>Inicio</th>
-                  <th>Fin</th>
-                  <th>Km estimados</th>
-                  <th>Estado</th>
-                  {puedeGestionar && <th>Acciones</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {viajes.map((v) => (
-                  <tr key={v.id}>
-                    <td>{nombreChofer(v.chofer)}</td>
-                    <td>
-                      {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
-                    </td>
-                    <td>{formatearFechaHora(v.fechaInicio)}</td>
-                    <td>{formatearFechaHora(v.fechaFin)}</td>
-                    <td>{v.kilometrosEstimados}</td>
-                    <td>
-                      <EstadoDot color={ESTADOS_VIAJE[v.estado].dot}>{ESTADOS_VIAJE[v.estado].label}</EstadoDot>
-                    </td>
-                    {puedeGestionar && (
-                      <td>
-                        {v.estado === 'PROGRAMADO' && (
-                          <div className="viajes-listado-acciones">
-                            <Button variant="primary" onClick={() => pedirFinalizacion(v)}>
-                              Finalizar
-                            </Button>
-                            <Button variant="secondary" onClick={() => abrirEditar(v)}>
-                              Editar
-                            </Button>
-                            <Button variant="danger" onClick={() => pedirCancelacion(v)}>
-                              Cancelar
-                            </Button>
-                          </div>
-                        )}
-                      </td>
-                    )}
-                  </tr>
+          <form className="viajes-listado-filtros" onSubmit={(e) => e.preventDefault()}>
+            <FormField id="estado" label="Estado">
+              <select name="estado" value={filtros.estado} onChange={handleFiltroChange}>
+                {ESTADOS_FILTRO.map((e) => (
+                  <option key={e.value} value={e.value}>
+                    {e.label}
+                  </option>
                 ))}
-              </tbody>
-            </table>
+              </select>
+            </FormField>
+
+            <FormField id="choferId" label="Chofer">
+              <select name="choferId" value={filtros.choferId} onChange={handleFiltroChange}>
+                <option value="">Todos</option>
+                {opcionesChofer.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {nombreChofer(c)}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <FormField id="vehiculoId" label="Vehículo">
+              <select name="vehiculoId" value={filtros.vehiculoId} onChange={handleFiltroChange}>
+                <option value="">Todos</option>
+                {opcionesVehiculo.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {nombreVehiculo(v)}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <FormField id="fechaDesde" label="Desde">
+              <input type="date" name="fechaDesde" value={filtros.fechaDesde} onChange={handleFiltroChange} />
+            </FormField>
+
+            <FormField id="fechaHasta" label="Hasta">
+              <input type="date" name="fechaHasta" value={filtros.fechaHasta} onChange={handleFiltroChange} />
+            </FormField>
+          </form>
+
+          {cargando && (
+            <div className="loading-state">
+              <Spinner label="Cargando viajes" />
+              <span>Cargando viajes…</span>
+            </div>
+          )}
+
+          {!cargando && viajes.length === 0 && <Card className="viajes-listado-empty">No se encontraron viajes</Card>}
+
+          {!cargando && viajes.length > 0 && (
+            <>
+              <div className="viajes-listado-table-wrap">
+                <table className="viajes-listado-table">
+                  <thead>
+                    <tr>
+                      <th>Chofer</th>
+                      <th>Vehículo</th>
+                      <th>Inicio</th>
+                      <th>Fin</th>
+                      <th>Km estimados</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viajes.map((v) => (
+                      <tr
+                        key={v.id}
+                        className="viajes-listado-row"
+                        tabIndex={0}
+                        onClick={() => seleccionar(v)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            seleccionar(v);
+                          }
+                        }}
+                      >
+                        <td>{nombreChofer(v.chofer)}</td>
+                        <td>
+                          {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
+                        </td>
+                        <td>{formatearFechaHora(v.fechaInicio)}</td>
+                        <td>{formatearFechaHora(v.fechaFin)}</td>
+                        <td>{v.kilometrosEstimados}</td>
+                        <td>
+                          <EstadoDot color={ESTADOS_VIAJE[v.estado].dot}>{ESTADOS_VIAJE[v.estado].label}</EstadoDot>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="viajes-listado-cards">
+                {viajes.map((v) => (
+                  <button type="button" key={v.id} className="viajes-listado-card" onClick={() => seleccionar(v)}>
+                    <div className="viajes-listado-card-top">
+                      <span className="viajes-listado-card-chofer">{nombreChofer(v.chofer)}</span>
+                      <EstadoDot color={ESTADOS_VIAJE[v.estado].dot}>{ESTADOS_VIAJE[v.estado].label}</EstadoDot>
+                    </div>
+                    <span>
+                      {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
+                    </span>
+                    <span>
+                      {formatearFechaHora(v.fechaInicio)} → {formatearFechaHora(v.fechaFin)}
+                    </span>
+                    <span>{v.kilometrosEstimados} km estimados</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {!mostrarForm && seleccionado && (
+        <Card className="viajes-detalle" role="region" aria-label="Ficha del viaje">
+          <button type="button" className="back-link" onClick={cerrarFicha}>
+            ← Volver al listado
+          </button>
+
+          <div className="viajes-detalle-header">
+            <h2>Viaje de {nombreChofer(seleccionado.chofer)}</h2>
+            <EstadoDot color={ESTADOS_VIAJE[seleccionado.estado].dot} size="md">
+              {ESTADOS_VIAJE[seleccionado.estado].label}
+            </EstadoDot>
           </div>
 
-          <div className="viajes-listado-cards">
-            {viajes.map((v) => (
-              <Card key={v.id} className="viajes-listado-card">
-                <div className="viajes-listado-card-top">
-                  <span className="viajes-listado-card-chofer">{nombreChofer(v.chofer)}</span>
-                  <EstadoDot color={ESTADOS_VIAJE[v.estado].dot}>{ESTADOS_VIAJE[v.estado].label}</EstadoDot>
-                </div>
-                <span>
-                  {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
-                </span>
-                <span>
-                  {formatearFechaHora(v.fechaInicio)} → {formatearFechaHora(v.fechaFin)}
-                </span>
-                <span>{v.kilometrosEstimados} km estimados</span>
-                {puedeGestionar && v.estado === 'PROGRAMADO' && (
-                  <div className="viajes-listado-acciones">
-                    <Button variant="primary" onClick={() => pedirFinalizacion(v)}>
-                      Finalizar
-                    </Button>
-                    <Button variant="secondary" onClick={() => abrirEditar(v)}>
-                      Editar
-                    </Button>
-                    <Button variant="danger" onClick={() => pedirCancelacion(v)}>
-                      Cancelar
-                    </Button>
-                  </div>
-                )}
-              </Card>
-            ))}
-          </div>
-        </>
+          <dl className="viajes-detalle-list">
+            <div className="detalle-item">
+              <dt>Chofer</dt>
+              <dd>{nombreChofer(seleccionado.chofer)}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Vehículo</dt>
+              <dd>
+                {nombreVehiculo(seleccionado.vehiculo)} ({seleccionado.vehiculo.marca} {seleccionado.vehiculo.modelo})
+              </dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Fecha y hora de inicio</dt>
+              <dd>{formatearFechaHora(seleccionado.fechaInicio)}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Fecha y hora de fin</dt>
+              <dd>{formatearFechaHora(seleccionado.fechaFin)}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Kilómetros estimados</dt>
+              <dd>{seleccionado.kilometrosEstimados}</dd>
+            </div>
+            <div className="detalle-item">
+              <dt>Kilometraje actual del vehículo</dt>
+              <dd>{seleccionado.vehiculo.kilometraje} km</dd>
+            </div>
+          </dl>
+
+          {puedeGestionar && seleccionado.estado === 'PROGRAMADO' && (
+            <div className="viajes-detalle-actions">
+              <Button variant="primary" onClick={() => pedirFinalizacion(seleccionado)}>
+                Finalizar
+              </Button>
+              <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                Editar
+              </Button>
+              <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
+                Cancelar
+              </Button>
+            </div>
+          )}
+        </Card>
       )}
 
       <ConfirmModal
