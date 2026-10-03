@@ -1,23 +1,40 @@
 const prisma = require('./prismaClient');
+const lecturaOdometroService = require('./lecturaOdometroService');
 
 const ESTADO_VEHICULO_HABILITADO = 'OPERATIVO';
-const ESTADOS_VIAJE_VALIDOS = ['PROGRAMADO', 'FINALIZADO', 'CANCELADO'];
+const ESTADOS_VIAJE_VALIDOS = ['PROGRAMADO', 'EN_VIAJE', 'FINALIZADO', 'CANCELADO'];
 const SOLO_FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+// Gestores: pueden Comenzar/Finalizar cualquier viaje. El chofer asignado
+// también puede, sobre SU PROPIO viaje, sin importar su perfil (cualquier
+// usuario habilitado para conducir puede ser chofer, SCRUM-27) — por eso no
+// alcanza con el `autorizar(...)` de rol que usan el resto de las rutas de
+// gestión; este chequeo necesita el viaje cargado (conocer el choferId), así
+// que vive acá en el service en vez de a nivel de ruta. Editar/Cancelar NO
+// usan este helper: siguen siendo exclusivos de gestor.
+const PERFILES_GESTORES_VIAJE = ['ADMINISTRADOR', 'ENCARGADO'];
+
+function puedeOperarViaje(usuarioSolicitante, viaje) {
+  return PERFILES_GESTORES_VIAJE.includes(usuarioSolicitante.perfil) || viaje.choferId === usuarioSolicitante.id;
+}
+
+class PermisoDenegadoError extends Error {}
+
+// Se dispara al intentar Comenzar un viaje cuando el vehículo o el chofer ya
+// tienen otro viaje En viaje en curso. El chequeo de acá adentro es best
+// effort para dar un mensaje claro en el camino feliz; la garantía dura
+// contra la carrera entre dos requests simultáneos es el índice único
+// parcial de la base (Paso 1) — si esta validación pasa pero el INSERT/UPDATE
+// igual choca contra ese índice, se captura el código 23505 (P2002 en
+// Prisma) y se relanza como este mismo error, nunca como un error crudo de
+// Postgres.
+class ViajeEnCursoError extends Error {}
 
 // Adri-mar opera únicamente en Córdoba, Argentina, que no tiene horario de
 // verano (UTC-3 todo el año). Por eso el offset se puede fijar así, sin
 // necesidad de una librería de zonas horarias.
 const CORDOBA_UTC_OFFSET = '-03:00';
 const TIENE_OFFSET_REGEX = /(Z|[+-]\d{2}:\d{2})$/;
-
-const FORMATO_FECHA_HORA_CORDOBA = new Intl.DateTimeFormat('es-AR', {
-  timeZone: 'America/Argentina/Cordoba',
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-});
 
 // Interpreta un string de fecha/hora SIN offset (como el que manda un
 // <input type="datetime-local">, p. ej. "2026-12-16T23:30") como hora de
@@ -201,7 +218,31 @@ async function validarYArmarDatos(
   return datos;
 }
 
-function serializarViaje(viaje) {
+// kmRealizados ya no sale de columnas propias del viaje (odometroInicial/
+// odometroFinal quedaron deprecadas en el Paso 1): se busca la lectura
+// INICIO_VIAJE y la FIN_VIAJE asociadas a este viaje y se resuelve cada una
+// con obtenerLecturaVigente, por si alguna fue corregida después (todavía no
+// hay forma de corregir desde HTTP, pero la función ya existe y el cálculo
+// tiene que estar bien desde ya). Si falta cualquiera de las dos, null.
+async function serializarViaje(viaje) {
+  const [lecturaInicio, lecturaFin] = await Promise.all([
+    prisma.lecturaOdometro.findFirst({
+      where: { viajeId: viaje.id, origen: { descripcion: 'INICIO_VIAJE' } },
+    }),
+    prisma.lecturaOdometro.findFirst({
+      where: { viajeId: viaje.id, origen: { descripcion: 'FIN_VIAJE' } },
+    }),
+  ]);
+
+  let kmRealizados = null;
+  if (lecturaInicio && lecturaFin) {
+    const [vigenteInicio, vigenteFin] = await Promise.all([
+      lecturaOdometroService.obtenerLecturaVigente(lecturaInicio.id),
+      lecturaOdometroService.obtenerLecturaVigente(lecturaFin.id),
+    ]);
+    kmRealizados = vigenteFin.valorKm - vigenteInicio.valorKm;
+  }
+
   return {
     id: viaje.id,
     choferId: viaje.choferId,
@@ -226,10 +267,9 @@ function serializarViaje(viaje) {
     fechaInicio: viaje.fechaInicio,
     fechaFin: viaje.fechaFin,
     kilometrosEstimados: viaje.kilometrosEstimados,
-    kmRealizados:
-      viaje.odometroInicial != null && viaje.odometroFinal != null
-        ? viaje.odometroFinal - viaje.odometroInicial
-        : null,
+    horaInicioReal: viaje.horaInicioReal,
+    horaFinReal: viaje.horaFinReal,
+    kmRealizados,
     estado: viaje.estadoViaje.descripcion,
     creadoEn: viaje.creadoEn,
   };
@@ -252,7 +292,7 @@ async function crearViaje({ choferId, vehiculoId, fechaInicio, fechaFin, kilomet
     include: { chofer: true, vehiculo: true, estadoViaje: true },
   });
 
-  return serializarViaje(viaje);
+  return await serializarViaje(viaje);
 }
 
 class NoEncontradoError extends Error {}
@@ -267,21 +307,6 @@ class EstadoNoEditableError extends Error {
 }
 
 class YaCanceladoError extends Error {}
-
-// Se dispara al intentar finalizar un viaje cuando existe otro viaje
-// PROGRAMADO del mismo vehículo con fecha de inicio anterior: ese viaje más
-// viejo tiene que resolverse (finalizar o cancelar) primero, porque si no el
-// odómetro inicial que se capture para el viaje actual no refleja el
-// kilometraje real del vehículo en ese momento.
-class OrdenFinalizacionError extends Error {
-  constructor(viajeAnterior) {
-    const fecha = FORMATO_FECHA_HORA_CORDOBA.format(viajeAnterior.fechaInicio);
-    super(
-      `No se puede finalizar: hay un viaje anterior pendiente de este vehículo (iniciado el ${fecha}) que debe finalizarse o cancelarse primero`
-    );
-    this.fechaInicioViajeAnterior = viajeAnterior.fechaInicio;
-  }
-}
 
 async function obtenerViaje(id) {
   const viaje = await prisma.viaje.findUnique({
@@ -318,7 +343,7 @@ async function actualizarViaje(id, { choferId, vehiculoId, fechaInicio, fechaFin
     include: { chofer: true, vehiculo: true, estadoViaje: true },
   });
 
-  return serializarViaje(viaje);
+  return await serializarViaje(viaje);
 }
 
 async function cancelarViaje(id) {
@@ -339,90 +364,165 @@ async function cancelarViaje(id) {
     include: { chofer: true, vehiculo: true, estadoViaje: true },
   });
 
-  return serializarViaje(viaje);
+  return await serializarViaje(viaje);
 }
 
-function validarOdometroFinal(odometroFinal, kilometrajeActual) {
-  const odometroFinalNumero = Number(odometroFinal);
-
-  if (odometroFinal === undefined || odometroFinal === null || odometroFinal === '') {
-    throw new ValidacionError({ odometroFinal: 'El odómetro final es obligatorio' });
+// Si crearLectura (dentro de la transacción) rechaza el valor, llega acá como
+// lecturaOdometroService.ValidacionError — se relanza como
+// viajeService.ValidacionError para que el controller tenga un solo tipo de
+// error de validación que reconocer, sin tener que importar el service de
+// lecturas solo para ese instanceof.
+function relanzarComoValidacionDeViaje(err) {
+  if (err instanceof lecturaOdometroService.ValidacionError) {
+    throw new ValidacionError(err.errores);
   }
-  if (!Number.isInteger(odometroFinalNumero) || odometroFinalNumero < 0) {
-    throw new ValidacionError({ odometroFinal: 'El odómetro final debe ser un número mayor o igual a 0' });
-  }
-  if (odometroFinalNumero < kilometrajeActual) {
-    throw new ValidacionError({
-      odometroFinal: `El odómetro final no puede ser menor al kilometraje actual del vehículo (${kilometrajeActual} km)`,
-    });
-  }
-
-  return odometroFinalNumero;
+  throw err;
 }
 
-// Busca, entre los viajes PROGRAMADOS del mismo vehículo, el más antiguo con
-// fecha de inicio anterior a la del viaje que se quiere finalizar. Los
-// CANCELADOS no cuentan: nunca sucedieron, así que no necesitan odómetro y no
-// bloquean nada.
-async function obtenerViajeProgramadoAnterior(vehiculoId, fechaInicio, excluirViajeId) {
-  const estadoProgramado = await obtenerEstadoViajePorDescripcion('PROGRAMADO');
-
-  return prisma.viaje.findFirst({
-    where: {
-      vehiculoId,
-      estadoViajeId: estadoProgramado.id,
-      fechaInicio: { lt: fechaInicio },
-      id: { not: excluirViajeId },
-    },
-    orderBy: { fechaInicio: 'asc' },
-  });
-}
-
-async function finalizarViaje(id, { odometroFinal }) {
+async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
   const actual = await obtenerViaje(id);
 
+  if (!puedeOperarViaje(usuarioSolicitante, actual)) {
+    throw new PermisoDenegadoError();
+  }
   if (actual.estadoViaje.descripcion !== 'PROGRAMADO') {
     throw new EstadoNoEditableError(actual.estadoViaje.descripcion);
   }
 
-  const viajeAnterior = await obtenerViajeProgramadoAnterior(actual.vehiculoId, actual.fechaInicio, actual.id);
-  if (viajeAnterior) {
-    throw new OrdenFinalizacionError(viajeAnterior);
+  // Revalida habilitación de chofer/vehículo con las mismas funciones que ya
+  // usa el alta (validarChofer/validarVehiculo más arriba en este archivo) —
+  // nada nuevo, solo se reusan tal cual, sin duplicar sus reglas.
+  await validarChofer(actual.choferId);
+  await validarVehiculo(actual.vehiculoId);
+
+  const estadoProgramado = await obtenerEstadoViajePorDescripcion('PROGRAMADO');
+  const estadoEnViaje = await obtenerEstadoViajePorDescripcion('EN_VIAJE');
+
+  // Chequeo explícito para un mensaje claro en el camino feliz. La garantía
+  // dura contra la carrera entre dos requests simultáneos para el MISMO
+  // vehículo/chofer en DOS VIAJES DISTINTOS es el índice único parcial de la
+  // base (ver catch de P2002 más abajo). Para la carrera de dos requests
+  // sobre el MISMO viaje (dos comenzar simultáneos), la garantía dura es el
+  // updateMany condicional de más abajo.
+  const vehiculoEnViaje = await prisma.viaje.findFirst({
+    where: { vehiculoId: actual.vehiculoId, estadoViajeId: estadoEnViaje.id },
+  });
+  if (vehiculoEnViaje) {
+    throw new ViajeEnCursoError('El vehículo ya tiene otro viaje En viaje en curso');
+  }
+  const choferEnViaje = await prisma.viaje.findFirst({
+    where: { choferId: actual.choferId, estadoViajeId: estadoEnViaje.id },
+  });
+  if (choferEnViaje) {
+    throw new ViajeEnCursoError('El chofer ya tiene otro viaje En viaje en curso');
   }
 
-  // El odómetro final se valida contra el kilometraje ACTUAL del vehículo (no
-  // contra kilometrosEstimados del viaje, que es una estimación aparte).
-  const odometroFinalNumero = validarOdometroFinal(odometroFinal, actual.vehiculo.kilometraje);
+  try {
+    await prisma.$transaction(async (tx) => {
+      // updateMany condicional contra el estado de origen esperado, en vez de
+      // un update ciego: si dos requests llegan a comenzar ESTE MISMO viaje a
+      // la vez, el chequeo de arriba (`actual.estadoViaje.descripcion`) pudo
+      // haber leído PROGRAMADO en ambas, antes de que ninguna escribiera
+      // todavía. Este WHERE con el estado de origen es la garantía dura: la
+      // segunda transacción en llegar ya no va a encontrar el viaje en
+      // PROGRAMADO (la primera ya lo cambió) y count da 0.
+      const actualizados = await tx.viaje.updateMany({
+        where: { id: actual.id, estadoViajeId: estadoProgramado.id },
+        data: { estadoViajeId: estadoEnViaje.id, horaInicioReal: new Date() },
+      });
+      if (actualizados.count === 0) {
+        const viajeActual = await tx.viaje.findUnique({
+          where: { id: actual.id },
+          include: { estadoViaje: true },
+        });
+        throw new EstadoNoEditableError(viajeActual.estadoViaje.descripcion);
+      }
 
-  // El odómetro inicial de ESTE viaje es el kilometraje del vehículo justo
-  // antes de aplicar esta actualización (gracias a la validación de orden de
-  // arriba, siempre va a ser el kilometraje real en ese momento).
-  const odometroInicialNumero = actual.vehiculo.kilometraje;
+      // { cliente: tx }: crearLectura NO debe abrir su propia transacción acá
+      // (abriría una segunda, con el `prisma` global, y quedaría esperando el
+      // lock de fila que esta misma transacción ya tiene tomado — el
+      // auto-deadlock documentado en el Paso 3).
+      await lecturaOdometroService.crearLectura(
+        {
+          vehiculoId: actual.vehiculoId,
+          valorKm: odometroInicial,
+          origen: 'INICIO_VIAJE',
+          viajeId: actual.id,
+          usuarioId: usuarioSolicitante.id,
+        },
+        { cliente: tx }
+      );
+    });
+  } catch (err) {
+    if (err.code === 'P2002') {
+      throw new ViajeEnCursoError('El vehículo o el chofer ya tienen otro viaje En viaje en curso');
+    }
+    relanzarComoValidacionDeViaje(err);
+  }
 
+  const viajeFinal = await obtenerViaje(actual.id);
+  return await serializarViaje(viajeFinal);
+}
+
+// El diseño pide validar el odómetro final contra DOS cosas: la lectura de
+// INICIO_VIAJE de este viaje puntual, Y la última lectura del vehículo en
+// general. Acá solo se valida lo segundo (crearLectura ya lo hace). Hoy son
+// equivalentes: nada puede tocar el odómetro de un vehículo mientras tiene un
+// viaje EN_VIAJE (no hay todavía ningún ajuste MANUAL ni CORRECCION conectado
+// a HTTP — eso es el Paso 6), así que "la última lectura del vehículo" es
+// siempre la lectura INICIO_VIAJE de ESTE viaje. Si el Paso 6 agrega una vía
+// para tocar el odómetro de un vehículo con un viaje EN_VIAJE en curso (no
+// debería poder, pero revisarlo), esta equivalencia se rompe y esta función
+// necesitaría validar explícitamente contra la lectura INICIO_VIAJE del
+// propio viaje en vez de confiar en "la última del vehículo".
+async function finalizarViaje(id, { odometroFinal }, usuarioSolicitante) {
+  const actual = await obtenerViaje(id);
+
+  if (!puedeOperarViaje(usuarioSolicitante, actual)) {
+    throw new PermisoDenegadoError();
+  }
+  if (actual.estadoViaje.descripcion !== 'EN_VIAJE') {
+    throw new EstadoNoEditableError(actual.estadoViaje.descripcion);
+  }
+
+  const estadoEnViajeOrigen = await obtenerEstadoViajePorDescripcion('EN_VIAJE');
   const estadoFinalizado = await obtenerEstadoViajePorDescripcion('FINALIZADO');
 
-  // El vehículo se actualiza ANTES que el viaje, dentro de la misma
-  // transacción: así el "include: { vehiculo: true }" del update del viaje
-  // ya lee el kilometraje nuevo (misma transacción = lecturas ven las
-  // escrituras previas de esa transacción), y la respuesta serializada queda
-  // consistente sin tener que parchear el objeto a mano.
-  const [, viajeFinalizado] = await prisma.$transaction([
-    prisma.vehiculo.update({
-      where: { id: actual.vehiculoId },
-      data: { kilometraje: odometroFinalNumero },
-    }),
-    prisma.viaje.update({
-      where: { id: actual.id },
-      data: {
-        estadoViajeId: estadoFinalizado.id,
-        odometroInicial: odometroInicialNumero,
-        odometroFinal: odometroFinalNumero,
-      },
-      include: { chofer: true, vehiculo: true, estadoViaje: true },
-    }),
-  ]);
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Mismo patrón que comenzarViaje: updateMany condicional contra el
+      // estado de origen esperado (EN_VIAJE), para que dos finalizar
+      // simultáneos sobre el MISMO viaje no generen dos lecturas FIN_VIAJE —
+      // el segundo en llegar encuentra count=0 y aborta sin crear nada.
+      const actualizados = await tx.viaje.updateMany({
+        where: { id: actual.id, estadoViajeId: estadoEnViajeOrigen.id },
+        data: { estadoViajeId: estadoFinalizado.id, horaFinReal: new Date() },
+      });
+      if (actualizados.count === 0) {
+        const viajeActual = await tx.viaje.findUnique({
+          where: { id: actual.id },
+          include: { estadoViaje: true },
+        });
+        throw new EstadoNoEditableError(viajeActual.estadoViaje.descripcion);
+      }
 
-  return serializarViaje(viajeFinalizado);
+      await lecturaOdometroService.crearLectura(
+        {
+          vehiculoId: actual.vehiculoId,
+          valorKm: odometroFinal,
+          origen: 'FIN_VIAJE',
+          viajeId: actual.id,
+          usuarioId: usuarioSolicitante.id,
+        },
+        { cliente: tx }
+      );
+    });
+  } catch (err) {
+    relanzarComoValidacionDeViaje(err);
+  }
+
+  const viajeFinal = await obtenerViaje(actual.id);
+  return await serializarViaje(viajeFinal);
 }
 
 function parsearFechaDesde(valor) {
@@ -478,7 +578,7 @@ async function listarViajes({ estado, choferId, vehiculoId, fechaDesde, fechaHas
     orderBy: { fechaInicio: 'desc' },
   });
 
-  return viajes.map(serializarViaje);
+  return Promise.all(viajes.map(serializarViaje));
 }
 
 module.exports = {
@@ -486,11 +586,14 @@ module.exports = {
   listarViajes,
   actualizarViaje,
   cancelarViaje,
+  comenzarViaje,
   finalizarViaje,
+  puedeOperarViaje,
   ValidacionError,
   NoEncontradoError,
   EstadoNoEditableError,
   YaCanceladoError,
-  OrdenFinalizacionError,
+  PermisoDenegadoError,
+  ViajeEnCursoError,
   ESTADOS_VIAJE_VALIDOS,
 };

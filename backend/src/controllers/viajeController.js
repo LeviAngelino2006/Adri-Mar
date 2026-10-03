@@ -2,6 +2,7 @@ const viajeService = require('../services/viajeService');
 
 const ETIQUETA_ESTADO = {
   PROGRAMADO: 'Programado',
+  EN_VIAJE: 'En viaje',
   FINALIZADO: 'Finalizado',
   CANCELADO: 'Cancelado',
 };
@@ -94,23 +95,26 @@ async function cancelar(req, res) {
   }
 }
 
-async function finalizar(req, res) {
-  const { odometroFinal } = req.body;
+async function comenzar(req, res) {
+  const { odometroInicial } = req.body;
 
   try {
-    const viaje = await viajeService.finalizarViaje(req.params.id, { odometroFinal });
+    const viaje = await viajeService.comenzarViaje(req.params.id, { odometroInicial }, req.usuario);
     return res.json({ viaje });
   } catch (err) {
     if (err instanceof viajeService.NoEncontradoError) {
       return res.status(404).json({ error: 'Viaje no encontrado' });
     }
+    if (err instanceof viajeService.PermisoDenegadoError) {
+      return res.status(403).json({ error: 'No tiene permisos para comenzar este viaje' });
+    }
     if (err instanceof viajeService.EstadoNoEditableError) {
       const etiqueta = ETIQUETA_ESTADO[err.estadoActual] || err.estadoActual;
       return res.status(409).json({
-        error: `No se puede finalizar un viaje en estado ${etiqueta}. Solo se pueden finalizar viajes Programados.`,
+        error: `No se puede comenzar un viaje en estado ${etiqueta}. Solo se pueden comenzar viajes Programados.`,
       });
     }
-    if (err instanceof viajeService.OrdenFinalizacionError) {
+    if (err instanceof viajeService.ViajeEnCursoError) {
       return res.status(409).json({ error: err.message });
     }
     if (err instanceof viajeService.ValidacionError) {
@@ -120,4 +124,30 @@ async function finalizar(req, res) {
   }
 }
 
-module.exports = { crear, listar, misViajes, actualizar, cancelar, finalizar };
+async function finalizar(req, res) {
+  const { odometroFinal } = req.body;
+
+  try {
+    const viaje = await viajeService.finalizarViaje(req.params.id, { odometroFinal }, req.usuario);
+    return res.json({ viaje });
+  } catch (err) {
+    if (err instanceof viajeService.NoEncontradoError) {
+      return res.status(404).json({ error: 'Viaje no encontrado' });
+    }
+    if (err instanceof viajeService.PermisoDenegadoError) {
+      return res.status(403).json({ error: 'No tiene permisos para finalizar este viaje' });
+    }
+    if (err instanceof viajeService.EstadoNoEditableError) {
+      const etiqueta = ETIQUETA_ESTADO[err.estadoActual] || err.estadoActual;
+      return res.status(409).json({
+        error: `No se puede finalizar un viaje en estado ${etiqueta}. Solo se pueden finalizar viajes En viaje.`,
+      });
+    }
+    if (err instanceof viajeService.ValidacionError) {
+      return res.status(400).json({ errores: err.errores });
+    }
+    throw err;
+  }
+}
+
+module.exports = { crear, listar, misViajes, actualizar, cancelar, comenzar, finalizar };

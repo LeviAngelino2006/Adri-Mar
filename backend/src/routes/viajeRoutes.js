@@ -22,11 +22,11 @@ router.patch(
   autorizar('ADMINISTRADOR', 'ENCARGADO'),
   viajeController.cancelar
 );
-router.patch(
-  '/:id/finalizar',
-  autenticar,
-  autorizar('ADMINISTRADOR', 'ENCARGADO'),
-  viajeController.finalizar
-);
+// Sin autorizar(...) de rol a propósito: puede comenzar/finalizar el chofer
+// asignado a ESE viaje (cualquiera sea su perfil) o Administrador/Encargado
+// sobre cualquier viaje — ese chequeo depende del viaje cargado (conocer el
+// choferId), así que vive en viajeService.puedeOperarViaje, no acá.
+router.patch('/:id/comenzar', autenticar, viajeController.comenzar);
+router.patch('/:id/finalizar', autenticar, viajeController.finalizar);
 
 module.exports = router;
