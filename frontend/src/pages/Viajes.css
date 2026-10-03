@@ -129,6 +129,20 @@ button.viajes-listado-card:focus-visible {
   overflow-wrap: break-word;
 }
 
+.viajes-listado-card-estado {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.viajes-detalle-estado {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .viajes-listado-card-header .estado-dot-label {
   flex-shrink: 0;
 }

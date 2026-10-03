@@ -12,6 +12,7 @@ import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import ViajeForm from '../components/ViajeForm';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
+import IndicadorVencimiento from '../components/ui/IndicadorVencimiento';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { aInputCordoba } from '../utils/fechaCordoba';
 import { formatearFechaHora, formatearRangoCompacto, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
@@ -329,9 +330,12 @@ function Viajes() {
                 <button type="button" key={v.id} className="viajes-listado-card" onClick={() => seleccionar(v)}>
                   <div className="viajes-listado-card-header">
                     <span className="viajes-listado-card-titulo">{nombreChofer(v.chofer)}</span>
-                    <EstadoDot color={ESTADOS_VIAJE[v.estado].dot} size="md">
-                      {ESTADOS_VIAJE[v.estado].label}
-                    </EstadoDot>
+                    <div className="viajes-listado-card-estado">
+                      <EstadoDot color={ESTADOS_VIAJE[v.estado].dot} size="md">
+                        {ESTADOS_VIAJE[v.estado].label}
+                      </EstadoDot>
+                      <IndicadorVencimiento viaje={v} />
+                    </div>
                   </div>
                   <span className="viajes-listado-card-vehiculo">
                     {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
@@ -358,9 +362,12 @@ function Viajes() {
 
             <div className="viajes-detalle-header">
               <h1>Viaje de {nombreChofer(seleccionado.chofer)}</h1>
-              <EstadoDot color={ESTADOS_VIAJE[seleccionado.estado].dot} size="md">
-                {ESTADOS_VIAJE[seleccionado.estado].label}
-              </EstadoDot>
+              <div className="viajes-detalle-estado">
+                <EstadoDot color={ESTADOS_VIAJE[seleccionado.estado].dot} size="md">
+                  {ESTADOS_VIAJE[seleccionado.estado].label}
+                </EstadoDot>
+                <IndicadorVencimiento viaje={seleccionado} size="md" />
+              </div>
             </div>
 
             <Card className="viajes-detalle" role="region" aria-label="Ficha del viaje">

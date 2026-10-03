@@ -53,6 +53,18 @@ function aFechaCordoba(valor) {
   return new Date(`${conSegundos}${CORDOBA_UTC_OFFSET}`);
 }
 
+// "Ahora" ya es un instante absoluto (Date es UTC puro internamente), así que
+// no necesita ningún ajuste de zona horaria para compararse contra
+// fechaInicio/fechaFin — esos valores ya quedaron guardados como instantes
+// absolutos vía aFechaCordoba() al crear/editar el viaje. Se nombra aparte
+// (en vez de usar `new Date()` suelto en cada lugar) para dejar explícito que
+// esta comparación usa el mismo criterio de "hora de Córdoba" que el resto
+// del archivo, no el reloj de quien esté mirando la pantalla (mismo bug que
+// se corrigió en SCRUM-29).
+function ahoraCordoba() {
+  return new Date();
+}
+
 class ValidacionError extends Error {
   constructor(errores) {
     super('Datos inválidos');
@@ -243,6 +255,15 @@ async function serializarViaje(viaje) {
     kmRealizados = vigenteFin.valorKm - vigenteInicio.valorKm;
   }
 
+  const estado = viaje.estadoViaje.descripcion;
+  const ahora = ahoraCordoba();
+  // Indicadores derivados, no un estado nuevo: "vencido" (Programado que
+  // nunca se comenzó) y "excedido" (En viaje que no se finalizó a tiempo) son
+  // mutuamente excluyentes por construcción (dependen de estados distintos) y
+  // van en false para Finalizado/Cancelado.
+  const vencido = estado === 'PROGRAMADO' && viaje.fechaInicio < ahora;
+  const excedido = estado === 'EN_VIAJE' && viaje.fechaFin < ahora;
+
   return {
     id: viaje.id,
     choferId: viaje.choferId,
@@ -270,7 +291,9 @@ async function serializarViaje(viaje) {
     horaInicioReal: viaje.horaInicioReal,
     horaFinReal: viaje.horaFinReal,
     kmRealizados,
-    estado: viaje.estadoViaje.descripcion,
+    estado,
+    vencido,
+    excedido,
     creadoEn: viaje.creadoEn,
   };
 }

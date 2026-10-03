@@ -8,6 +8,7 @@ import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
+import IndicadorVencimiento from '../components/ui/IndicadorVencimiento';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { formatearFechaHora, formatearRangoCompacto, nombreVehiculo } from '../utils/viajeFormato';
 import './Viajes.css';
@@ -164,9 +165,12 @@ function MisViajes() {
                     <span className="viajes-listado-card-titulo">
                       {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
                     </span>
-                    <EstadoDot color={ESTADOS_VIAJE[v.estado].dot} size="md">
-                      {ESTADOS_VIAJE[v.estado].label}
-                    </EstadoDot>
+                    <div className="viajes-listado-card-estado">
+                      <EstadoDot color={ESTADOS_VIAJE[v.estado].dot} size="md">
+                        {ESTADOS_VIAJE[v.estado].label}
+                      </EstadoDot>
+                      <IndicadorVencimiento viaje={v} />
+                    </div>
                   </div>
                   <div className="viajes-listado-card-detalle">
                     <span>{formatearRangoCompacto(v.fechaInicio, v.fechaFin)}</span>
@@ -187,9 +191,12 @@ function MisViajes() {
 
           <div className="viajes-detalle-header">
             <h1>{nombreVehiculo(seleccionado.vehiculo)}</h1>
-            <EstadoDot color={ESTADOS_VIAJE[seleccionado.estado].dot} size="md">
-              {ESTADOS_VIAJE[seleccionado.estado].label}
-            </EstadoDot>
+            <div className="viajes-detalle-estado">
+              <EstadoDot color={ESTADOS_VIAJE[seleccionado.estado].dot} size="md">
+                {ESTADOS_VIAJE[seleccionado.estado].label}
+              </EstadoDot>
+              <IndicadorVencimiento viaje={seleccionado} size="md" />
+            </div>
           </div>
 
           <Card className="viajes-detalle" role="region" aria-label="Ficha del viaje">
