@@ -5,6 +5,8 @@ import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
+import EstadoDot from '../components/ui/EstadoDot';
+import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { formatearHorarioCompacto, nombreVehiculo } from '../utils/viajeFormato';
 import { etiquetaDiaRelativo, hoyEnCordoba } from '../utils/fechaCordoba';
 import './Dashboard.css';
@@ -35,11 +37,19 @@ function ProximosViajes() {
   const [mostrarTodos, setMostrarTodos] = useState(false);
 
   useEffect(() => {
-    api
-      .get('/viajes/mis-viajes', { params: { estado: 'PROGRAMADO', fechaDesde: hoyEnCordoba() } })
-      // El backend siempre devuelve descendente (más nuevo/futuro primero);
-      // acá se da vuelta para que "lo que viene" muestre el más próximo arriba.
-      .then(({ data }) => setViajes([...data.viajes].reverse()))
+    // GET /mis-viajes solo acepta un estado por vez, así que el viaje En viaje
+    // (a lo sumo uno, ver viajeService) se pide aparte y se antepone al resto:
+    // es el viaje más relevante para mostrar en este momento.
+    Promise.all([
+      api.get('/viajes/mis-viajes', { params: { estado: 'EN_VIAJE' } }),
+      api.get('/viajes/mis-viajes', { params: { estado: 'PROGRAMADO', fechaDesde: hoyEnCordoba() } }),
+    ])
+      .then(([resEnViaje, resProgramados]) => {
+        // El backend siempre devuelve descendente (más nuevo/futuro primero);
+        // acá se da vuelta para que "lo que viene" muestre el más próximo arriba.
+        const programados = [...resProgramados.data.viajes].reverse();
+        setViajes([...resEnViaje.data.viajes, ...programados]);
+      })
       .finally(() => setCargando(false));
   }, []);
 
@@ -67,22 +77,34 @@ function ProximosViajes() {
       {!cargando && viajes.length > 0 && (
         <>
           <ul className="proximos-viajes-lista">
-            {visibles.map((v) => (
-              <li key={v.id} className="proximos-viajes-item">
-                <div className="proximos-viajes-icono">{ICONO_CALENDARIO}</div>
-                <div className="proximos-viajes-info">
-                  <span className="proximos-viajes-vehiculo">{nombreVehiculo(v.vehiculo)}</span>
-                  <span className="proximos-viajes-marca-modelo">
-                    {v.vehiculo.marca} {v.vehiculo.modelo}
-                  </span>
-                  <span className="proximos-viajes-horario">{formatearHorarioCompacto(v.fechaInicio, v.fechaFin)}</span>
-                </div>
-                <div className="proximos-viajes-meta">
-                  <span className="proximos-viajes-dia-relativo">{etiquetaDiaRelativo(v.fechaInicio)}</span>
-                  <span className="proximos-viajes-km">{v.kilometrosEstimados} km estimados</span>
-                </div>
-              </li>
-            ))}
+            {visibles.map((v) => {
+              const esEnViaje = v.estado === 'EN_VIAJE';
+              return (
+                <li
+                  key={v.id}
+                  className={esEnViaje ? 'proximos-viajes-item proximos-viajes-item-enviaje' : 'proximos-viajes-item'}
+                >
+                  <div className="proximos-viajes-icono">{ICONO_CALENDARIO}</div>
+                  <div className="proximos-viajes-info">
+                    <span className="proximos-viajes-vehiculo">{nombreVehiculo(v.vehiculo)}</span>
+                    <span className="proximos-viajes-marca-modelo">
+                      {v.vehiculo.marca} {v.vehiculo.modelo}
+                    </span>
+                    <span className="proximos-viajes-horario">{formatearHorarioCompacto(v.fechaInicio, v.fechaFin)}</span>
+                  </div>
+                  <div className="proximos-viajes-meta">
+                    {esEnViaje ? (
+                      <EstadoDot color={ESTADOS_VIAJE.EN_VIAJE.dot} size="sm">
+                        {ESTADOS_VIAJE.EN_VIAJE.label}
+                      </EstadoDot>
+                    ) : (
+                      <span className="proximos-viajes-dia-relativo">{etiquetaDiaRelativo(v.fechaInicio)}</span>
+                    )}
+                    <span className="proximos-viajes-km">{v.kilometrosEstimados} km estimados</span>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
 
           {restantes > 0 && (

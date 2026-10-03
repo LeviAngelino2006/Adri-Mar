@@ -28,6 +28,26 @@
   border-top: 1px solid var(--color-border);
 }
 
+/* Viaje En viaje: siempre primero en la lista, destacado con el mismo
+   ámbar del badge de estado (ver ESTADOS_VIAJE.EN_VIAJE) para que salte a
+   la vista como el viaje más relevante del momento. */
+.proximos-viajes-item-enviaje {
+  border-left: 3px solid #f59e0b;
+  background-color: #fffbeb;
+  border-radius: var(--radius-sm);
+  padding-left: calc(var(--space-3) - 3px);
+  padding-right: var(--space-3);
+}
+
+.proximos-viajes-item-enviaje + .proximos-viajes-item {
+  border-top: none;
+}
+
+.proximos-viajes-item-enviaje .proximos-viajes-icono {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
 .proximos-viajes-icono {
   flex-shrink: 0;
   display: flex;
