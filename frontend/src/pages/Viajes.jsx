@@ -11,6 +11,7 @@ import Alert from '../components/ui/Alert';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import ViajeForm from '../components/ViajeForm';
+import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { aInputCordoba } from '../utils/fechaCordoba';
 import { formatearFechaHora, formatearRangoCompacto, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
@@ -30,18 +31,12 @@ const ICONO_ALERTA = (
   </svg>
 );
 
-const ICONO_FINALIZAR = (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="9" />
-    <path d="M8.5 12.5l2.5 2.5 4.5-5" />
-  </svg>
-);
-
 const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
 
 const ESTADOS_FILTRO = [
   { value: '', label: 'Todos' },
   { value: 'PROGRAMADO', label: 'Programado' },
+  { value: 'EN_VIAJE', label: 'En viaje' },
   { value: 'FINALIZADO', label: 'Finalizado' },
   { value: 'CANCELADO', label: 'Cancelado' },
 ];
@@ -92,10 +87,9 @@ function Viajes() {
   const [cancelando, setCancelando] = useState(null);
   const [errorCancelar, setErrorCancelar] = useState('');
 
-  const [finalizando, setFinalizando] = useState(null);
-  const [odometroFinal, setOdometroFinal] = useState('');
-  const [erroresFinalizar, setErroresFinalizar] = useState({});
-  const [enviandoFinalizar, setEnviandoFinalizar] = useState(false);
+  // { viaje, accion: 'comenzar' | 'finalizar' } | null — un solo estado para
+  // el modal compartido de odómetro (ver ModalOdometroViaje).
+  const [pedidoOdometro, setPedidoOdometro] = useState(null);
 
   // Las opciones de los selects de chofer/vehículo salen de los viajes ya
   // programados (se cargan una sola vez, sin filtros) en vez de pedirle la
@@ -205,33 +199,26 @@ function Viajes() {
     }
   }
 
-  function pedirFinalizacion(viaje) {
+  function pedirComenzar(viaje) {
     setErrorCancelar('');
-    setOdometroFinal('');
-    setErroresFinalizar({});
-    setFinalizando(viaje);
+    setPedidoOdometro({ viaje, accion: 'comenzar' });
   }
 
-  async function confirmarFinalizacion() {
-    setErroresFinalizar({});
-    setEnviandoFinalizar(true);
-    try {
-      await api.patch(`/viajes/${finalizando.id}/finalizar`, { odometroFinal });
-      setMensaje('Viaje finalizado correctamente. Se actualizó el kilometraje del vehículo.');
-      setFinalizando(null);
-      setSeleccionado(null);
-      cargarViajes();
-    } catch (err) {
-      if (err.response?.status === 400 && err.response.data.errores) {
-        setErroresFinalizar(err.response.data.errores);
-      } else if (err.response?.status === 409) {
-        setErroresFinalizar({ general: err.response.data.error });
-      } else {
-        setErroresFinalizar({ general: 'No se pudo finalizar el viaje' });
-      }
-    } finally {
-      setEnviandoFinalizar(false);
-    }
+  function pedirFinalizar(viaje) {
+    setErrorCancelar('');
+    setPedidoOdometro({ viaje, accion: 'finalizar' });
+  }
+
+  function manejarExitoOdometro(viajeActualizado, mensajeExito) {
+    setMensaje(mensajeExito);
+    setPedidoOdometro(null);
+    // Tanto al comenzar como al finalizar, la ficha se actualiza en el lugar
+    // en vez de volver al listado: el usuario ve de inmediato el nuevo
+    // estado (En viaje u Finalizado), la hora real correspondiente, y — al
+    // finalizar — los km recorridos. Vuelve al listado manualmente con
+    // "Volver al listado" cuando quiera.
+    setSeleccionado(viajeActualizado);
+    cargarViajes();
   }
 
   return (
@@ -360,71 +347,101 @@ function Viajes() {
         </>
       )}
 
-      {!mostrarForm && seleccionado && (
-        <>
-          <button type="button" className="back-link" onClick={cerrarFicha}>
-            ← Volver al listado
-          </button>
+      {!mostrarForm && seleccionado && (() => {
+        const puedeOperarEsteViaje = puedeGestionar || usuario.id === seleccionado.choferId;
 
-          <div className="viajes-detalle-header">
-            <h1>Viaje de {nombreChofer(seleccionado.chofer)}</h1>
-            <EstadoDot color={ESTADOS_VIAJE[seleccionado.estado].dot} size="md">
-              {ESTADOS_VIAJE[seleccionado.estado].label}
-            </EstadoDot>
-          </div>
+        return (
+          <>
+            <button type="button" className="back-link" onClick={cerrarFicha}>
+              ← Volver al listado
+            </button>
 
-          <Card className="viajes-detalle" role="region" aria-label="Ficha del viaje">
-            <dl className="viajes-detalle-list">
-              <div className="detalle-item">
-                <dt>Chofer</dt>
-                <dd>{nombreChofer(seleccionado.chofer)}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Vehículo</dt>
-                <dd>
-                  {nombreVehiculo(seleccionado.vehiculo)} ({seleccionado.vehiculo.marca} {seleccionado.vehiculo.modelo})
-                </dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Fecha y hora de inicio</dt>
-                <dd>{formatearFechaHora(seleccionado.fechaInicio)}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Fecha y hora de fin</dt>
-                <dd>{formatearFechaHora(seleccionado.fechaFin)}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Kilómetros estimados</dt>
-                <dd>{seleccionado.kilometrosEstimados}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Kilometraje actual del vehículo</dt>
-                <dd>{seleccionado.vehiculo.kilometraje} km</dd>
-              </div>
-              {seleccionado.estado === 'FINALIZADO' && seleccionado.kmRealizados != null && (
+            <div className="viajes-detalle-header">
+              <h1>Viaje de {nombreChofer(seleccionado.chofer)}</h1>
+              <EstadoDot color={ESTADOS_VIAJE[seleccionado.estado].dot} size="md">
+                {ESTADOS_VIAJE[seleccionado.estado].label}
+              </EstadoDot>
+            </div>
+
+            <Card className="viajes-detalle" role="region" aria-label="Ficha del viaje">
+              <dl className="viajes-detalle-list">
                 <div className="detalle-item">
-                  <dt>Km realizados</dt>
-                  <dd>{seleccionado.kmRealizados} km</dd>
+                  <dt>Chofer</dt>
+                  <dd>{nombreChofer(seleccionado.chofer)}</dd>
+                </div>
+                <div className="detalle-item">
+                  <dt>Vehículo</dt>
+                  <dd>
+                    {nombreVehiculo(seleccionado.vehiculo)} ({seleccionado.vehiculo.marca} {seleccionado.vehiculo.modelo})
+                  </dd>
+                </div>
+                <div className="detalle-item">
+                  <dt>Fecha y hora de inicio</dt>
+                  <dd>{formatearFechaHora(seleccionado.fechaInicio)}</dd>
+                </div>
+                <div className="detalle-item">
+                  <dt>Fecha y hora de fin</dt>
+                  <dd>{formatearFechaHora(seleccionado.fechaFin)}</dd>
+                </div>
+                {seleccionado.horaInicioReal && (
+                  <div className="detalle-item">
+                    <dt>Hora real de inicio</dt>
+                    <dd>{formatearFechaHora(seleccionado.horaInicioReal)}</dd>
+                  </div>
+                )}
+                {seleccionado.horaFinReal && (
+                  <div className="detalle-item">
+                    <dt>Hora real de fin</dt>
+                    <dd>{formatearFechaHora(seleccionado.horaFinReal)}</dd>
+                  </div>
+                )}
+                <div className="detalle-item">
+                  <dt>Kilómetros estimados</dt>
+                  <dd>{seleccionado.kilometrosEstimados}</dd>
+                </div>
+                <div className="detalle-item">
+                  <dt>Kilometraje actual del vehículo</dt>
+                  <dd>{seleccionado.vehiculo.kilometraje} km</dd>
+                </div>
+                {seleccionado.estado === 'FINALIZADO' && seleccionado.kmRealizados != null && (
+                  <div className="detalle-item">
+                    <dt>Km realizados</dt>
+                    <dd>{seleccionado.kmRealizados} km</dd>
+                  </div>
+                )}
+              </dl>
+
+              {seleccionado.estado === 'PROGRAMADO' && (puedeOperarEsteViaje || puedeGestionar) && (
+                <div className="viajes-detalle-actions">
+                  {puedeOperarEsteViaje && (
+                    <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
+                      Comenzar
+                    </Button>
+                  )}
+                  {puedeGestionar && (
+                    <>
+                      <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                        Editar
+                      </Button>
+                      <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
+                        Cancelar
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
-            </dl>
 
-            {puedeGestionar && seleccionado.estado === 'PROGRAMADO' && (
-              <div className="viajes-detalle-actions">
-                <Button variant="primary" onClick={() => pedirFinalizacion(seleccionado)}>
-                  Finalizar
-                </Button>
-                <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                  Editar
-                </Button>
-                <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
-                  Cancelar
-                </Button>
-              </div>
-            )}
-          </Card>
-        </>
-      )}
+              {seleccionado.estado === 'EN_VIAJE' && puedeOperarEsteViaje && (
+                <div className="viajes-detalle-actions">
+                  <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
+                    Finalizar
+                  </Button>
+                </div>
+              )}
+            </Card>
+          </>
+        );
+      })()}
 
       <ConfirmModal
         open={Boolean(cancelando)}
@@ -445,35 +462,11 @@ function Viajes() {
         onCancel={() => setCancelando(null)}
       />
 
-      <ConfirmModal
-        open={Boolean(finalizando)}
-        tone="brand"
-        icon={ICONO_FINALIZAR}
-        title="Finalizar el viaje"
-        description={
-          finalizando && (
-            <div className="finalizar-viaje-modal">
-              <p>
-                Chofer <strong>{nombreChofer(finalizando.chofer)}</strong>, vehículo{' '}
-                <strong>{nombreVehiculo(finalizando.vehiculo)}</strong>.
-                <br />
-                Kilometraje actual del vehículo: <strong>{finalizando.vehiculo.kilometraje} km</strong>.
-              </p>
-              <FormField id="odometroFinal" label="Odómetro final (km)" error={erroresFinalizar.odometroFinal}>
-                <input
-                  type="number"
-                  min={finalizando.vehiculo.kilometraje}
-                  value={odometroFinal}
-                  onChange={(e) => setOdometroFinal(e.target.value)}
-                />
-              </FormField>
-              {erroresFinalizar.general && <Alert variant="error">{erroresFinalizar.general}</Alert>}
-            </div>
-          )
-        }
-        confirmLabel={enviandoFinalizar ? 'Finalizando…' : 'Finalizar viaje'}
-        onConfirm={confirmarFinalizacion}
-        onCancel={() => setFinalizando(null)}
+      <ModalOdometroViaje
+        viaje={pedidoOdometro?.viaje}
+        accion={pedidoOdometro?.accion}
+        onCerrar={() => setPedidoOdometro(null)}
+        onExito={manejarExitoOdometro}
       />
     </Layout>
   );
