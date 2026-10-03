@@ -13,6 +13,21 @@ class ValidacionError extends Error {
 
 class PermisoDenegadoError extends Error {}
 
+// Caso borde ya decidido: un usuario que es chofer de un viaje En viaje en
+// curso no se puede dar de baja ni deshabilitar para conducir hasta que ese
+// viaje finalice — sin importar su perfil (un Encargado también puede ser
+// chofer si está habilitado). Se consulta viajes directamente acá en vez de
+// importar viajeService, para no crear una dependencia cruzada entre
+// services.
+class ChoferEnViajeError extends Error {}
+
+async function esChoferDeViajeEnCurso(usuarioId) {
+  const viaje = await prisma.viaje.findFirst({
+    where: { choferId: usuarioId, estadoViaje: { descripcion: 'EN_VIAJE' } },
+  });
+  return Boolean(viaje);
+}
+
 async function obtenerPerfilPorDescripcion(descripcion) {
   const perfil = await prisma.perfil.findUnique({ where: { descripcion } });
   if (!perfil) {
@@ -190,6 +205,14 @@ async function actualizarUsuario(
     }
   }
 
+  // Solo bloquea el intento de pasar habilitadoParaConducir a false. Si no
+  // viene en el payload, o viene en true, no hay nada que validar acá.
+  if (habilitadoParaConducir === false && (await esChoferDeViajeEnCurso(actual.id))) {
+    throw new ChoferEnViajeError(
+      'El usuario tiene un viaje En viaje en curso como chofer. Debe finalizarse antes de deshabilitarlo para conducir.'
+    );
+  }
+
   const datosContacto = validarDatos(
     { nombre, apellido, nombreUsuario, perfil, dni, email, telefono },
     { requireContrasena: false }
@@ -233,6 +256,12 @@ async function darDeBajaUsuario(id, { perfilSolicitante } = {}) {
 
   if (actual.estadoUsuario.descripcion !== 'ACTIVO') {
     throw new YaInactivoError();
+  }
+
+  if (await esChoferDeViajeEnCurso(actual.id)) {
+    throw new ChoferEnViajeError(
+      'El usuario tiene un viaje En viaje en curso como chofer. Debe finalizarse antes de dar de baja al usuario.'
+    );
   }
 
   const estadoInactivo = await obtenerEstadoUsuarioPorDescripcion('INACTIVO');
@@ -300,5 +329,6 @@ module.exports = {
   NoEncontradoError,
   YaInactivoError,
   PermisoDenegadoError,
+  ChoferEnViajeError,
   PERFILES_VALIDOS,
 };

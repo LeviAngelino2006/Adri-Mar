@@ -96,6 +96,9 @@ async function darDeBaja(req, res) {
     if (err instanceof vehiculoService.YaDadoDeBajaError) {
       return res.status(409).json({ error: 'El vehículo ya está dado de baja' });
     }
+    if (err instanceof vehiculoService.VehiculoEnUsoError) {
+      return res.status(409).json({ error: err.message });
+    }
     throw err;
   }
 }

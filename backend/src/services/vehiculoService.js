@@ -261,11 +261,32 @@ async function actualizarVehiculo(id, datos) {
 
 class YaDadoDeBajaError extends Error {}
 
+// Caso borde ya decidido: un vehículo con un viaje En viaje en curso no se
+// puede dar de baja (ni, a futuro, pasar a taller) hasta que ese viaje
+// finalice. Se consulta viajes directamente acá en vez de importar
+// viajeService, para no crear una dependencia cruzada entre services — esta
+// tarea agrega validaciones del lado de vehículos consultando viajes, no al
+// revés.
+class VehiculoEnUsoError extends Error {}
+
+async function tieneViajeEnCurso(vehiculoId) {
+  const viaje = await prisma.viaje.findFirst({
+    where: { vehiculoId, estadoViaje: { descripcion: 'EN_VIAJE' } },
+  });
+  return Boolean(viaje);
+}
+
 async function darDeBajaVehiculo(id) {
   const actual = await obtenerVehiculo(id);
 
   if (actual.estado === 'DADO_DE_BAJA') {
     throw new YaDadoDeBajaError();
+  }
+
+  if (await tieneViajeEnCurso(actual.id)) {
+    throw new VehiculoEnUsoError(
+      'El vehículo tiene un viaje En viaje en curso. Debe finalizarse antes de dar de baja el vehículo.'
+    );
   }
 
   const estadoDadoDeBaja = await obtenerEstadoVehiculoPorDescripcion('DADO_DE_BAJA');
@@ -290,6 +311,7 @@ module.exports = {
   NoEncontradoError,
   DadoDeBajaError,
   YaDadoDeBajaError,
+  VehiculoEnUsoError,
   DOMINIO_REGEX,
   ESTADOS_VALIDOS,
 };

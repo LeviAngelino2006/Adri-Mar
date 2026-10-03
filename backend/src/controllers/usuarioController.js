@@ -47,6 +47,9 @@ async function actualizar(req, res) {
     if (err instanceof usuarioService.PermisoDenegadoError) {
       return res.status(403).json({ error: 'No tiene permisos para modificar este usuario' });
     }
+    if (err instanceof usuarioService.ChoferEnViajeError) {
+      return res.status(409).json({ error: err.message });
+    }
     if (err instanceof usuarioService.ValidacionError) {
       return res.status(400).json({ errores: err.errores });
     }
@@ -69,6 +72,9 @@ async function darDeBaja(req, res) {
     }
     if (err instanceof usuarioService.YaInactivoError) {
       return res.status(409).json({ error: 'El usuario ya está inactivo' });
+    }
+    if (err instanceof usuarioService.ChoferEnViajeError) {
+      return res.status(409).json({ error: err.message });
     }
     throw err;
   }
