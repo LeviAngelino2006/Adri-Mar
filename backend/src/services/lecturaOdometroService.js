@@ -277,6 +277,7 @@ async function corregirLectura({ lecturaCorregidaId, valorKm, motivo, usuarioId 
         fechaHora: { lt: lecturaCorregida.fechaHora },
       },
       orderBy: { fechaHora: 'desc' },
+      include: { origen: true },
     });
 
     const posterior = await tx.lecturaOdometro.findFirst({
@@ -286,6 +287,7 @@ async function corregirLectura({ lecturaCorregidaId, valorKm, motivo, usuarioId 
         fechaHora: { gt: lecturaCorregida.fechaHora },
       },
       orderBy: { fechaHora: 'asc' },
+      include: { origen: true },
     });
 
     if (anterior && datos.valorKm < anterior.valorKm) {
@@ -328,7 +330,18 @@ async function corregirLectura({ lecturaCorregidaId, valorKm, motivo, usuarioId 
       });
     }
 
-    return serializarLectura(creada);
+    // Se devuelven también los vecinos reales usados para el límite (con su
+    // origen): el Administrador necesita ver por qué un valor "razonable"
+    // puede rechazarse, sobre todo en correcciones encadenadas (ver el caso
+    // documentado en el Paso 2, donde el vecino de una corrección puede ser
+    // una lectura bastante distinta de la que uno esperaría intuitivamente).
+    return {
+      lectura: serializarLectura(creada),
+      vecinos: {
+        anterior: anterior ? serializarLectura(anterior) : null,
+        posterior: posterior ? serializarLectura(posterior) : null,
+      },
+    };
   };
 
   if (cliente) {

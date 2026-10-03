@@ -1,4 +1,5 @@
 const vehiculoService = require('../services/vehiculoService');
+const lecturaOdometroService = require('../services/lecturaOdometroService');
 
 async function crear(req, res) {
   const { dominio, numeroInterno, marca, modelo, anio, asientos, kilometraje, tipoVehiculoId } =
@@ -48,6 +49,22 @@ async function obtener(req, res) {
     }
     throw err;
   }
+}
+
+async function listarLecturasOdometro(req, res) {
+  const { origen, fechaDesde, fechaHasta } = req.query;
+
+  try {
+    await vehiculoService.obtenerVehiculo(req.params.id);
+  } catch (err) {
+    if (err instanceof vehiculoService.NoEncontradoError) {
+      return res.status(404).json({ error: 'Vehículo no encontrado' });
+    }
+    throw err;
+  }
+
+  const lecturas = await lecturaOdometroService.listarLecturas(req.params.id, { origen, fechaDesde, fechaHasta });
+  return res.json({ lecturas });
 }
 
 async function actualizar(req, res) {
@@ -103,4 +120,4 @@ async function darDeBaja(req, res) {
   }
 }
 
-module.exports = { crear, listar, listarTipos, obtener, actualizar, darDeBaja };
+module.exports = { crear, listar, listarTipos, obtener, listarLecturasOdometro, actualizar, darDeBaja };

@@ -22,6 +22,12 @@ router.get(
   autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
   vehiculoController.obtener
 );
+router.get(
+  '/:id/lecturas-odometro',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  vehiculoController.listarLecturasOdometro
+);
 router.put(
   '/:id',
   autenticar,

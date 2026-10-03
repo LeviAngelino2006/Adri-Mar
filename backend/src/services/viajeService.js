@@ -464,17 +464,27 @@ async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
   return await serializarViaje(viajeFinal);
 }
 
-// El diseño pide validar el odómetro final contra DOS cosas: la lectura de
-// INICIO_VIAJE de este viaje puntual, Y la última lectura del vehículo en
-// general. Acá solo se valida lo segundo (crearLectura ya lo hace). Hoy son
-// equivalentes: nada puede tocar el odómetro de un vehículo mientras tiene un
-// viaje EN_VIAJE (no hay todavía ningún ajuste MANUAL ni CORRECCION conectado
-// a HTTP — eso es el Paso 6), así que "la última lectura del vehículo" es
-// siempre la lectura INICIO_VIAJE de ESTE viaje. Si el Paso 6 agrega una vía
-// para tocar el odómetro de un vehículo con un viaje EN_VIAJE en curso (no
-// debería poder, pero revisarlo), esta equivalencia se rompe y esta función
-// necesitaría validar explícitamente contra la lectura INICIO_VIAJE del
-// propio viaje en vez de confiar en "la última del vehículo".
+// PASO 6 — la equivalencia documentada acá se rompió, y esta función ya
+// valida explícitamente contra la lectura INICIO_VIAJE vigente de este
+// viaje, además de lo que ya valida crearLectura. El motivo concreto:
+// crearLectura determina "la última lectura del vehículo" con un
+// findFirst(orderBy fechaHora desc) crudo sobre TODA la tabla, no contra
+// vehiculo.kilometraje (el caché, que sí se mantiene de forma confiable).
+// Una corrección (Paso 6) siempre se inserta con fechaHora = now(), que es
+// mayor a la fechaHora de CUALQUIER lectura previa — incluida la propia
+// INICIO_VIAJE de un viaje que sigue EN_VIAJE. Si un Administrador corrige
+// una lectura VIEJA del vehículo (no la INICIO_VIAJE de este viaje, sino una
+// anterior, p.ej. el ALTA_VEHICULO) con un valor menor al de la propia
+// INICIO_VIAJE, esa corrección pasa a ser, por fechaHora cruda, "la lectura
+// más reciente" — aunque el caché (vehiculo.kilometraje) no cambió, porque
+// esa lectura corregida SÍ tenía una posterior (la INICIO_VIAJE) y por regla
+// de corregirLectura el caché no se toca en ese caso. Resultado: crearLectura
+// validaría el odómetro final contra ese valor viejo y más chico, no contra
+// el valor real de inicio de este viaje — dejando pasar un odómetro final
+// menor al de inicio. Por eso se agrega acá el chequeo explícito contra
+// obtenerLecturaVigente(lecturaInicio), que sí resuelve correctamente el
+// valor vigente de ESTE viaje puntual sin importar qué más se haya corregido
+// en el medio.
 async function finalizarViaje(id, { odometroFinal }, usuarioSolicitante) {
   const actual = await obtenerViaje(id);
 
@@ -483,6 +493,19 @@ async function finalizarViaje(id, { odometroFinal }, usuarioSolicitante) {
   }
   if (actual.estadoViaje.descripcion !== 'EN_VIAJE') {
     throw new EstadoNoEditableError(actual.estadoViaje.descripcion);
+  }
+
+  const lecturaInicio = await prisma.lecturaOdometro.findFirst({
+    where: { viajeId: actual.id, origen: { descripcion: 'INICIO_VIAJE' } },
+  });
+  if (lecturaInicio) {
+    const vigenteInicio = await lecturaOdometroService.obtenerLecturaVigente(lecturaInicio.id);
+    const odometroFinalNumero = Number(odometroFinal);
+    if (Number.isInteger(odometroFinalNumero) && odometroFinalNumero < vigenteInicio.valorKm) {
+      throw new ValidacionError({
+        odometroFinal: `El odómetro final no puede ser menor a la lectura de inicio de este viaje (${vigenteInicio.valorKm} km)`,
+      });
+    }
   }
 
   const estadoEnViajeOrigen = await obtenerEstadoViajePorDescripcion('EN_VIAJE');
