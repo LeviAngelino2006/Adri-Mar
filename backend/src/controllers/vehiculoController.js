@@ -5,16 +5,19 @@ async function crear(req, res) {
     req.body;
 
   try {
-    const vehiculo = await vehiculoService.crearVehiculo({
-      dominio,
-      numeroInterno,
-      marca,
-      modelo,
-      anio,
-      asientos,
-      kilometraje,
-      tipoVehiculoId,
-    });
+    const vehiculo = await vehiculoService.crearVehiculo(
+      {
+        dominio,
+        numeroInterno,
+        marca,
+        modelo,
+        anio,
+        asientos,
+        kilometraje,
+        tipoVehiculoId,
+      },
+      { usuarioId: req.usuario.id }
+    );
     return res.status(201).json({ vehiculo });
   } catch (err) {
     if (err instanceof vehiculoService.ValidacionError) {
@@ -52,7 +55,7 @@ async function actualizar(req, res) {
     req.body;
 
   try {
-    const vehiculo = await vehiculoService.actualizarVehiculo(req.params.id, {
+    const { vehiculo, kilometrajeIgnorado } = await vehiculoService.actualizarVehiculo(req.params.id, {
       dominio,
       numeroInterno,
       marca,
@@ -62,7 +65,12 @@ async function actualizar(req, res) {
       kilometraje,
       tipoVehiculoId,
     });
-    return res.json({ vehiculo });
+    return res.json({
+      vehiculo,
+      ...(kilometrajeIgnorado
+        ? { avisos: { kilometraje: 'El kilometraje no se modifica desde este formulario; se gestiona como historial de lecturas del odómetro.' } }
+        : {}),
+    });
   } catch (err) {
     if (err instanceof vehiculoService.NoEncontradoError) {
       return res.status(404).json({ error: 'Vehículo no encontrado' });

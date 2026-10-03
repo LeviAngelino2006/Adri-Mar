@@ -102,10 +102,32 @@ function validarDatosCrear({ vehiculoId, valorKm, origen, viajeId, usuarioId }) 
 // correcciones van por corregirLectura, que tiene su propia validación (no se
 // permiten como un origen más acá, para no tener dos caminos de creación de
 // correcciones).
-async function crearLectura({ vehiculoId, valorKm, origen, viajeId, usuarioId }) {
+//
+// `{ cliente }` es opcional y permite componer esta función DENTRO de una
+// transacción ya abierta por el que llama (ej. el alta de vehículo, que
+// necesita crear el vehículo y su lectura ALTA_VEHICULO de forma atómica).
+// Si no se pasa, abre su propia transacción como siempre. Esto no es
+// cosmético: si un caller ya tiene una fila de `vehiculos` lockeada en su
+// propia transacción (vía `prisma`, no `tx`) y esta función intentara abrir
+// OTRA transacción nueva con `prisma.$transaction` para lockear esa misma
+// fila con `FOR UPDATE`, quedaría esperando un lock que su propio caller
+// nunca va a liberar (porque el caller está esperando a que esta llamada
+// termine) — un auto-deadlock.
+//
+// ATENCIÓN — riesgo de deadlock si llamás a esto desde código que YA está
+// dentro de una transacción Prisma (otro `prisma.$transaction(async (tx) =>
+// ...)`): tenés que pasar `{ cliente: tx }` con ESA transacción. Si en cambio
+// llamás a `crearLectura(...)` sin `cliente` desde ahí (dejando que abra la
+// suya propia con el `prisma` global), el `SELECT ... FOR UPDATE` de más
+// abajo va a intentar lockear una fila que tu propia transacción externa ya
+// tiene tomada, y se queda esperando un lock que vos mismo nunca vas a
+// liberar porque estás esperando a que esta llamada termine. Resultado:
+// cuelgue/timeout, no un error claro. Si estás afuera de cualquier
+// transacción (uso normal, standalone), no pases `cliente` y listo.
+async function crearLectura({ vehiculoId, valorKm, origen, viajeId, usuarioId }, { cliente } = {}) {
   const datos = validarDatosCrear({ vehiculoId, valorKm, origen, viajeId, usuarioId });
 
-  return prisma.$transaction(async (tx) => {
+  const ejecutar = async (tx) => {
     // Lock de fila sobre el vehículo: evita que dos crearLectura simultáneas
     // para el mismo vehículo lean la misma "última lectura" antes de que
     // ninguna haya escrito todavía.
@@ -145,7 +167,12 @@ async function crearLectura({ vehiculoId, valorKm, origen, viajeId, usuarioId })
     });
 
     return serializarLectura(creada);
-  });
+  };
+
+  if (cliente) {
+    return ejecutar(cliente);
+  }
+  return prisma.$transaction(ejecutar);
 }
 
 async function listarLecturas(vehiculoId, { origen, fechaDesde, fechaHasta } = {}) {
@@ -218,10 +245,20 @@ function validarDatosCorregir({ lecturaCorregidaId, valorKm, motivo, usuarioId }
 // valorKm tal cual está guardado, sin resolver si ese vecino fue a su vez
 // corregido después (ver reporte sobre el caso encontrado al probar esto con
 // correcciones encadenadas).
-async function corregirLectura({ lecturaCorregidaId, valorKm, motivo, usuarioId }) {
+// `{ cliente }` opcional, mismo motivo que en crearLectura (componer dentro
+// de una transacción ya abierta por el caller sin auto-deadlock).
+//
+// ATENCIÓN — mismo riesgo de deadlock que crearLectura: si llamás a esto
+// desde dentro de otra transacción Prisma ya abierta, pasá `{ cliente: tx }`
+// con esa transacción. Sin `cliente`, esta función abre la suya propia con
+// el `SELECT ... FOR UPDATE` de más abajo — si ya estás dentro de una
+// transacción externa que tiene lockeada esa misma fila de `vehiculos`,
+// queda esperando un lock que vos mismo nunca vas a liberar. Fuera de
+// cualquier transacción (uso normal, standalone), no pases `cliente`.
+async function corregirLectura({ lecturaCorregidaId, valorKm, motivo, usuarioId }, { cliente } = {}) {
   const datos = validarDatosCorregir({ lecturaCorregidaId, valorKm, motivo, usuarioId });
 
-  return prisma.$transaction(async (tx) => {
+  const ejecutar = async (tx) => {
     const lecturaCorregida = await tx.lecturaOdometro.findUnique({
       where: { id: datos.lecturaCorregidaId },
     });
@@ -292,7 +329,12 @@ async function corregirLectura({ lecturaCorregidaId, valorKm, motivo, usuarioId 
     }
 
     return serializarLectura(creada);
-  });
+  };
+
+  if (cliente) {
+    return ejecutar(cliente);
+  }
+  return prisma.$transaction(ejecutar);
 }
 
 // Sigue la cadena de correcciones hacia adelante (quién corrige a quién)

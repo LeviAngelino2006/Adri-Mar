@@ -1,4 +1,5 @@
 const prisma = require('./prismaClient');
+const lecturaOdometroService = require('./lecturaOdometroService');
 
 class ValidacionError extends Error {
   constructor(errores) {
@@ -17,7 +18,6 @@ function validarDatos({
   modelo,
   anio,
   asientos,
-  kilometraje,
   tipoVehiculoId,
 }) {
   const errores = {};
@@ -55,13 +55,6 @@ function validarDatos({
     errores.asientos = 'La cantidad de asientos debe ser un número mayor o igual a 0';
   }
 
-  const kilometrajeNumero = Number(kilometraje);
-  if (kilometraje === undefined || kilometraje === null || kilometraje === '') {
-    errores.kilometraje = 'El kilometraje es obligatorio';
-  } else if (!Number.isInteger(kilometrajeNumero) || kilometrajeNumero < 0) {
-    errores.kilometraje = 'El kilometraje debe ser un número mayor o igual a 0';
-  }
-
   if (Object.keys(errores).length > 0) {
     throw new ValidacionError(errores);
   }
@@ -73,9 +66,23 @@ function validarDatos({
     modelo,
     anio: anioNumero,
     asientos: asientosNumero,
-    kilometraje: kilometrajeNumero,
     tipoVehiculoId: tipoVehiculoIdNumero,
   };
+}
+
+// El kilometraje deja de ser un campo editable en el alta/edición "normal":
+// solo se usa como punto de partida en el alta, para generar la lectura
+// ALTA_VEHICULO (ver crearVehiculo). Por eso se valida aparte, no dentro de
+// validarDatos — actualizarVehiculo no lo necesita ni lo toca.
+function validarKilometrajeInicial(kilometraje) {
+  const kilometrajeNumero = Number(kilometraje);
+  if (kilometraje === undefined || kilometraje === null || kilometraje === '') {
+    throw new ValidacionError({ kilometraje: 'El kilometraje es obligatorio' });
+  }
+  if (!Number.isInteger(kilometrajeNumero) || kilometrajeNumero < 0) {
+    throw new ValidacionError({ kilometraje: 'El kilometraje debe ser un número mayor o igual a 0' });
+  }
+  return kilometrajeNumero;
 }
 
 async function validarTipoVehiculo(tipoVehiculoId, errores) {
@@ -111,8 +118,9 @@ function serializarVehiculo(vehiculo) {
   };
 }
 
-async function crearVehiculo(datos) {
+async function crearVehiculo(datos, { usuarioId } = {}) {
   const datosValidados = validarDatos(datos);
+  const kilometrajeInicial = validarKilometrajeInicial(datos.kilometraje);
   await validarTipoVehiculo(datosValidados.tipoVehiculoId, {});
 
   const existente = await prisma.vehiculo.findUnique({
@@ -126,9 +134,32 @@ async function crearVehiculo(datos) {
 
   let vehiculo;
   try {
-    vehiculo = await prisma.vehiculo.create({
-      data: { ...datosValidados, estadoVehiculoId: estadoOperativo.id },
-      include: { tipoVehiculo: true, estadoVehiculo: true },
+    vehiculo = await prisma.$transaction(async (tx) => {
+      // kilometraje no tiene default en el schema (columna NOT NULL) y hay
+      // que darle algún valor en el INSERT; 0 es un placeholder que nunca
+      // llega a ser visible fuera de esta transacción, porque la lectura
+      // ALTA_VEHICULO de abajo lo pisa en la misma transacción antes de
+      // hacer commit — el valor final siempre lo decide la lectura, no el
+      // create del vehículo.
+      const creado = await tx.vehiculo.create({
+        data: { ...datosValidados, kilometraje: 0, estadoVehiculoId: estadoOperativo.id },
+      });
+
+      await lecturaOdometroService.crearLectura(
+        {
+          vehiculoId: creado.id,
+          valorKm: kilometrajeInicial,
+          origen: 'ALTA_VEHICULO',
+          viajeId: null,
+          usuarioId,
+        },
+        { cliente: tx }
+      );
+
+      return tx.vehiculo.findUnique({
+        where: { id: creado.id },
+        include: { tipoVehiculo: true, estadoVehiculo: true },
+      });
     });
   } catch (err) {
     if (err.code === 'P2002') {
@@ -196,6 +227,11 @@ async function actualizarVehiculo(id, datos) {
     throw new DadoDeBajaError();
   }
 
+  // kilometraje ya no se acepta por esta vía (LecturaOdometro es la única
+  // fuente de verdad) — si llega en el body simplemente se ignora, no se
+  // valida ni se aplica. validarDatos ni siquiera lo mira.
+  const kilometrajeIgnorado = datos.kilometraje !== undefined;
+
   const datosValidados = validarDatos(datos);
   await validarTipoVehiculo(datosValidados.tipoVehiculoId, {});
 
@@ -220,7 +256,7 @@ async function actualizarVehiculo(id, datos) {
     throw err;
   }
 
-  return serializarVehiculo(vehiculo);
+  return { vehiculo: serializarVehiculo(vehiculo), kilometrajeIgnorado };
 }
 
 class YaDadoDeBajaError extends Error {}
