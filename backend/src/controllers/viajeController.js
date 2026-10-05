@@ -8,7 +8,7 @@ const ETIQUETA_ESTADO = {
 };
 
 async function crear(req, res) {
-  const { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados } = req.body;
+  const { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, origenId, destinoId } = req.body;
 
   try {
     const viaje = await viajeService.crearViaje({
@@ -17,6 +17,8 @@ async function crear(req, res) {
       fechaInicio,
       fechaFin,
       kilometrosEstimados,
+      origenId,
+      destinoId,
     });
     return res.status(201).json({ viaje });
   } catch (err) {
@@ -48,7 +50,7 @@ async function misViajes(req, res) {
 }
 
 async function actualizar(req, res) {
-  const { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados } = req.body;
+  const { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, origenId, destinoId } = req.body;
 
   try {
     const viaje = await viajeService.actualizarViaje(req.params.id, {
@@ -57,6 +59,8 @@ async function actualizar(req, res) {
       fechaInicio,
       fechaFin,
       kilometrosEstimados,
+      origenId,
+      destinoId,
     });
     return res.json({ viaje });
   } catch (err) {

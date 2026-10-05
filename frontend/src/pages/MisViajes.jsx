@@ -208,6 +208,14 @@ function MisViajes() {
                 </dd>
               </div>
               <div className="detalle-item">
+                <dt>Origen</dt>
+                <dd>{seleccionado.origen?.nombre || 'No registrado'}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Destino</dt>
+                <dd>{seleccionado.destino?.nombre || 'No registrado'}</dd>
+              </div>
+              <div className="detalle-item">
                 <dt>Fecha y hora de inicio</dt>
                 <dd>{formatearFechaHora(seleccionado.fechaInicio)}</dd>
               </div>

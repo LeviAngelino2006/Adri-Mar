@@ -62,6 +62,10 @@ function viajeAValoresForm(viaje) {
   return {
     choferId: viaje.choferId,
     vehiculoId: viaje.vehiculoId,
+    origenId: viaje.origenId || '',
+    origenNombre: viaje.origen?.nombre || '',
+    destinoId: viaje.destinoId || '',
+    destinoNombre: viaje.destino?.nombre || '',
     fechaInicio: aInputCordoba(viaje.fechaInicio),
     fechaFin: aInputCordoba(viaje.fechaFin),
     kilometrosEstimados: viaje.kilometrosEstimados,
@@ -381,6 +385,14 @@ function Viajes() {
                   <dd>
                     {nombreVehiculo(seleccionado.vehiculo)} ({seleccionado.vehiculo.marca} {seleccionado.vehiculo.modelo})
                   </dd>
+                </div>
+                <div className="detalle-item">
+                  <dt>Origen</dt>
+                  <dd>{seleccionado.origen?.nombre || 'No registrado'}</dd>
+                </div>
+                <div className="detalle-item">
+                  <dt>Destino</dt>
+                  <dd>{seleccionado.destino?.nombre || 'No registrado'}</dd>
                 </div>
                 <div className="detalle-item">
                   <dt>Fecha y hora de inicio</dt>

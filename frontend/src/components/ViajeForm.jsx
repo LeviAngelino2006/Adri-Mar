@@ -3,10 +3,15 @@ import api from '../services/api';
 import Button from './ui/Button';
 import FormField from './ui/FormField';
 import Alert from './ui/Alert';
+import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
 
 const FORM_INICIAL = {
   choferId: '',
   vehiculoId: '',
+  origenId: '',
+  origenNombre: '',
+  destinoId: '',
+  destinoNombre: '',
   fechaInicio: '',
   fechaFin: '',
   kilometrosEstimados: '',
@@ -27,6 +32,14 @@ function ViajeForm({ valoresIniciales, onSubmit, textoBoton, textoEnviando, onCa
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((f) => ({ ...f, [name]: value }));
+  }
+
+  function handleSeleccionarOrigen(item) {
+    setForm((f) => ({ ...f, origenId: item?.id || '', origenNombre: item?.nombre || '' }));
+  }
+
+  function handleSeleccionarDestino(item) {
+    setForm((f) => ({ ...f, destinoId: item?.id || '', destinoNombre: item?.nombre || '' }));
   }
 
   async function handleSubmit(e) {
@@ -71,6 +84,26 @@ function ViajeForm({ valoresIniciales, onSubmit, textoBoton, textoEnviando, onCa
               </option>
             ))}
           </select>
+        </FormField>
+
+        <FormField id="origenId" label="Origen" error={errores.origenId}>
+          <SelectorBuscarOCrear
+            endpoint="/ubicaciones"
+            valor={form.origenId}
+            valorNombre={form.origenNombre}
+            onSeleccionar={handleSeleccionarOrigen}
+            placeholder="Buscar o crear ubicación…"
+          />
+        </FormField>
+
+        <FormField id="destinoId" label="Destino" error={errores.destinoId}>
+          <SelectorBuscarOCrear
+            endpoint="/ubicaciones"
+            valor={form.destinoId}
+            valorNombre={form.destinoNombre}
+            onSeleccionar={handleSeleccionarDestino}
+            placeholder="Buscar o crear ubicación…"
+          />
         </FormField>
 
         <FormField id="fechaInicio" label="Fecha y hora de inicio" error={errores.fechaInicio}>

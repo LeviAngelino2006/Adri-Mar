@@ -115,6 +115,13 @@ model Viaje {
   horaInicioReal      DateTime?         @map("hora_inicio_real")
   horaFinReal         DateTime?         @map("hora_fin_real")
   lecturasOdometro    LecturaOdometro[]
+  // Nullable porque los viajes históricos no tienen este dato y no hay forma
+  // de reconstruirlo retroactivamente (quedan en null para siempre). La
+  // obligatoriedad para viajes nuevos se valida en viajeService, no acá.
+  origenId            Int?              @map("origen_id")
+  origen              Ubicacion?        @relation("ViajeOrigen", fields: [origenId], references: [id])
+  destinoId           Int?              @map("destino_id")
+  destino             Ubicacion?        @relation("ViajeDestino", fields: [destinoId], references: [id])
   creadoEn            DateTime          @default(now()) @map("creado_en")
   actualizadoEn       DateTime          @updatedAt @map("actualizado_en")
 
@@ -129,6 +136,8 @@ model Ubicacion {
   // de abajo) contra la carrera entre dos requests simultáneos.
   nombreNormalizado String   @map("nombre_normalizado")
   creadoEn          DateTime @default(now()) @map("creado_en")
+  viajesOrigen      Viaje[]  @relation("ViajeOrigen")
+  viajesDestino     Viaje[]  @relation("ViajeDestino")
 
   @@index([nombre])
   @@unique([nombreNormalizado])

@@ -72,7 +72,7 @@ class ValidacionError extends Error {
   }
 }
 
-function validarDatos({ choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados }) {
+function validarDatos({ choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, origenId, destinoId }) {
   const errores = {};
 
   const choferIdNumero = Number(choferId);
@@ -87,6 +87,32 @@ function validarDatos({ choferId, vehiculoId, fechaInicio, fechaFin, kilometrosE
     errores.vehiculoId = 'El vehículo es obligatorio';
   } else if (!Number.isInteger(vehiculoIdNumero) || vehiculoIdNumero <= 0) {
     errores.vehiculoId = 'El vehículo elegido no es válido';
+  }
+
+  // origenId/destinoId son nullable en la base (viajes históricos no lo
+  // tienen y no se puede reconstruir), pero para viajes nuevos y para toda
+  // edición son obligatorios — a diferencia de esos registros históricos,
+  // todo viaje gestionado desde acá en adelante tiene que tener ambos.
+  const origenIdNumero = Number(origenId);
+  if (origenId === undefined || origenId === null || origenId === '') {
+    errores.origenId = 'El origen es obligatorio';
+  } else if (!Number.isInteger(origenIdNumero) || origenIdNumero <= 0) {
+    errores.origenId = 'El origen elegido no es válido';
+  }
+
+  const destinoIdNumero = Number(destinoId);
+  if (destinoId === undefined || destinoId === null || destinoId === '') {
+    errores.destinoId = 'El destino es obligatorio';
+  } else if (!Number.isInteger(destinoIdNumero) || destinoIdNumero <= 0) {
+    errores.destinoId = 'El destino elegido no es válido';
+  }
+
+  if (
+    !errores.origenId &&
+    !errores.destinoId &&
+    origenIdNumero === destinoIdNumero
+  ) {
+    errores.destinoId = 'El destino no puede ser el mismo que el origen';
   }
 
   const fechaInicioDate = fechaInicio ? aFechaCordoba(fechaInicio) : null;
@@ -122,6 +148,8 @@ function validarDatos({ choferId, vehiculoId, fechaInicio, fechaFin, kilometrosE
     fechaInicio: fechaInicioDate,
     fechaFin: fechaFinDate,
     kilometrosEstimados: kilometrosEstimadosNumero,
+    origenId: origenIdNumero,
+    destinoId: destinoIdNumero,
   };
 }
 
@@ -170,6 +198,14 @@ async function validarVehiculo(vehiculoId) {
   return vehiculo;
 }
 
+async function validarUbicacion(id, campo) {
+  const ubicacion = await prisma.ubicacion.findUnique({ where: { id } });
+  if (!ubicacion) {
+    throw new ValidacionError({ [campo]: 'La ubicación elegida no existe' });
+  }
+  return ubicacion;
+}
+
 async function existeSolapamiento({ campo, id, fechaInicio, fechaFin, excluirViajeId }) {
   const estadoProgramado = await obtenerEstadoViajePorDescripcion('PROGRAMADO');
 
@@ -191,13 +227,23 @@ async function existeSolapamiento({ campo, id, fechaInicio, fechaFin, excluirVia
 // propio viaje de la búsqueda de solapamiento (si no, siempre "chocaría"
 // contra su propio horario original).
 async function validarYArmarDatos(
-  { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados },
+  { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, origenId, destinoId },
   { excluirViajeId } = {}
 ) {
-  const datos = validarDatos({ choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados });
+  const datos = validarDatos({
+    choferId,
+    vehiculoId,
+    fechaInicio,
+    fechaFin,
+    kilometrosEstimados,
+    origenId,
+    destinoId,
+  });
 
   await validarChofer(datos.choferId);
   await validarVehiculo(datos.vehiculoId);
+  await validarUbicacion(datos.origenId, 'origenId');
+  await validarUbicacion(datos.destinoId, 'destinoId');
 
   // TODO: validar umbral de mantenimiento preventivo cuando exista la tabla de planes (SCRUM-34)
 
@@ -285,6 +331,13 @@ async function serializarViaje(viaje) {
           kilometraje: viaje.vehiculo.kilometraje,
         }
       : undefined,
+    // origenId/destinoId y sus objetos resueltos van en null para viajes
+    // históricos que no los tienen (no se inventa ni se omite la clave, ver
+    // tarea de Origen/Destino).
+    origenId: viaje.origenId,
+    origen: viaje.origen ? { id: viaje.origen.id, nombre: viaje.origen.nombre } : null,
+    destinoId: viaje.destinoId,
+    destino: viaje.destino ? { id: viaje.destino.id, nombre: viaje.destino.nombre } : null,
     fechaInicio: viaje.fechaInicio,
     fechaFin: viaje.fechaFin,
     kilometrosEstimados: viaje.kilometrosEstimados,
@@ -298,8 +351,16 @@ async function serializarViaje(viaje) {
   };
 }
 
-async function crearViaje({ choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados }) {
-  const datos = await validarYArmarDatos({ choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados });
+async function crearViaje({ choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, origenId, destinoId }) {
+  const datos = await validarYArmarDatos({
+    choferId,
+    vehiculoId,
+    fechaInicio,
+    fechaFin,
+    kilometrosEstimados,
+    origenId,
+    destinoId,
+  });
 
   const estadoProgramado = await obtenerEstadoViajePorDescripcion('PROGRAMADO');
 
@@ -310,9 +371,11 @@ async function crearViaje({ choferId, vehiculoId, fechaInicio, fechaFin, kilomet
       fechaInicio: datos.fechaInicio,
       fechaFin: datos.fechaFin,
       kilometrosEstimados: datos.kilometrosEstimados,
+      origenId: datos.origenId,
+      destinoId: datos.destinoId,
       estadoViajeId: estadoProgramado.id,
     },
-    include: { chofer: true, vehiculo: true, estadoViaje: true },
+    include: { chofer: true, vehiculo: true, estadoViaje: true, origen: true, destino: true },
   });
 
   return await serializarViaje(viaje);
@@ -334,7 +397,7 @@ class YaCanceladoError extends Error {}
 async function obtenerViaje(id) {
   const viaje = await prisma.viaje.findUnique({
     where: { id: Number(id) },
-    include: { chofer: true, vehiculo: true, estadoViaje: true },
+    include: { chofer: true, vehiculo: true, estadoViaje: true, origen: true, destino: true },
   });
   if (!viaje) {
     throw new NoEncontradoError();
@@ -342,7 +405,7 @@ async function obtenerViaje(id) {
   return viaje;
 }
 
-async function actualizarViaje(id, { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados }) {
+async function actualizarViaje(id, { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, origenId, destinoId }) {
   const actual = await obtenerViaje(id);
 
   if (actual.estadoViaje.descripcion !== 'PROGRAMADO') {
@@ -350,7 +413,7 @@ async function actualizarViaje(id, { choferId, vehiculoId, fechaInicio, fechaFin
   }
 
   const datos = await validarYArmarDatos(
-    { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados },
+    { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, origenId, destinoId },
     { excluirViajeId: actual.id }
   );
 
@@ -362,8 +425,10 @@ async function actualizarViaje(id, { choferId, vehiculoId, fechaInicio, fechaFin
       fechaInicio: datos.fechaInicio,
       fechaFin: datos.fechaFin,
       kilometrosEstimados: datos.kilometrosEstimados,
+      origenId: datos.origenId,
+      destinoId: datos.destinoId,
     },
-    include: { chofer: true, vehiculo: true, estadoViaje: true },
+    include: { chofer: true, vehiculo: true, estadoViaje: true, origen: true, destino: true },
   });
 
   return await serializarViaje(viaje);
@@ -384,7 +449,7 @@ async function cancelarViaje(id) {
   const viaje = await prisma.viaje.update({
     where: { id: actual.id },
     data: { estadoViajeId: estadoCancelado.id },
-    include: { chofer: true, vehiculo: true, estadoViaje: true },
+    include: { chofer: true, vehiculo: true, estadoViaje: true, origen: true, destino: true },
   });
 
   return await serializarViaje(viaje);
@@ -620,7 +685,7 @@ async function listarViajes({ estado, choferId, vehiculoId, fechaDesde, fechaHas
 
   const viajes = await prisma.viaje.findMany({
     where,
-    include: { chofer: true, vehiculo: true, estadoViaje: true },
+    include: { chofer: true, vehiculo: true, estadoViaje: true, origen: true, destino: true },
     orderBy: { fechaInicio: 'desc' },
   });
 
