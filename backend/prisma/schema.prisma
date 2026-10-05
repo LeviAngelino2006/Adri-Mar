@@ -120,6 +120,31 @@ model Viaje {
   @@map("viajes")
 }
 
+model Ubicacion {
+  id                Int      @id @default(autoincrement())
+  nombre            String
+  // Calculado por normalizarNombre() al crear la fila. Nunca se expone en
+  // la API, solo sirve para la garantía dura de no-duplicados (índice único
+  // de abajo) contra la carrera entre dos requests simultáneos.
+  nombreNormalizado String   @map("nombre_normalizado")
+  creadoEn          DateTime @default(now()) @map("creado_en")
+
+  @@index([nombre])
+  @@unique([nombreNormalizado])
+  @@map("ubicaciones")
+}
+
+model Cliente {
+  id                Int      @id @default(autoincrement())
+  nombre            String
+  nombreNormalizado String   @map("nombre_normalizado")
+  creadoEn          DateTime @default(now()) @map("creado_en")
+
+  @@index([nombre])
+  @@unique([nombreNormalizado])
+  @@map("clientes")
+}
+
 model LecturaOdometro {
   id                 Int               @id @default(autoincrement())
   vehiculoId         Int               @map("vehiculo_id")
