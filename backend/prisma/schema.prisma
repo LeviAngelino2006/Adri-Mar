@@ -48,6 +48,7 @@ model Usuario {
 model TipoVehiculo {
   id          Int        @id @default(autoincrement()) @map("id_tipovehiculo")
   descripcion String     @unique
+  orden       Int
   vehiculos   Vehiculo[]
 
   @@map("tipos_vehiculo")

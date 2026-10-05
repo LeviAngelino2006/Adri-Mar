@@ -203,7 +203,7 @@ async function listarVehiculos({ estado, busqueda } = {}) {
 }
 
 async function listarTiposVehiculo() {
-  return prisma.tipoVehiculo.findMany({ orderBy: { descripcion: 'asc' } });
+  return prisma.tipoVehiculo.findMany({ orderBy: { orden: 'asc' } });
 }
 
 class NoEncontradoError extends Error {}

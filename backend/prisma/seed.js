@@ -65,16 +65,23 @@ async function main() {
 
   console.log(`Administrador inicial listo: ${admin.nombreUsuario}`);
 
-  const TIPOS_VEHICULO = ['Colectivo', 'Trafi'];
-  for (const descripcion of TIPOS_VEHICULO) {
+  // orden: de mayor a menor capacidad/tamaño real del vehículo, para que el
+  // selector del frontend los muestre en ese orden sin ordenar alfabético.
+  const TIPOS_VEHICULO = [
+    { descripcion: 'Colectivo', orden: 1 },
+    { descripcion: 'Minibus', orden: 2 },
+    { descripcion: 'Trafic', orden: 3 },
+    { descripcion: 'Utilitario', orden: 4 },
+  ];
+  for (const { descripcion, orden } of TIPOS_VEHICULO) {
     await prisma.tipoVehiculo.upsert({
       where: { descripcion },
-      update: {},
-      create: { descripcion },
+      update: { orden },
+      create: { descripcion, orden },
     });
   }
 
-  console.log(`Tipos de vehículo listos: ${TIPOS_VEHICULO.join(', ')}`);
+  console.log(`Tipos de vehículo listos: ${TIPOS_VEHICULO.map((t) => t.descripcion).join(', ')}`);
 
   const ESTADOS_VEHICULO = ['OPERATIVO', 'EN_TALLER', 'DADO_DE_BAJA'];
   for (const descripcion of ESTADOS_VEHICULO) {
