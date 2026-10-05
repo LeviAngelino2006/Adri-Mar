@@ -41,6 +41,7 @@ model Usuario {
   creadoEn               DateTime          @default(now()) @map("creado_en")
   viajes                 Viaje[]
   lecturasOdometro       LecturaOdometro[]
+  documentosVehiculo     DocumentoVehiculo[]
 
   @@map("usuarios")
 }
@@ -78,6 +79,7 @@ model Vehiculo {
   creadoEn         DateTime          @default(now()) @map("creado_en")
   viajes           Viaje[]
   lecturasOdometro LecturaOdometro[]
+  documentos       DocumentoVehiculo[]
 
   @@map("vehiculos")
 }
@@ -140,4 +142,40 @@ model LecturaOdometro {
 
   @@index([vehiculoId, fechaHora])
   @@map("lecturas_odometro")
+}
+
+model TipoDocumento {
+  id                  Int                 @id @default(autoincrement()) @map("id_tipodocumento")
+  codigo              String              @unique
+  descripcion         String
+  aplicaA             String              @map("aplica_a")
+  requiereVencimiento Boolean             @default(true) @map("requiere_vencimiento")
+  requiereArchivo     Boolean             @default(true) @map("requiere_archivo")
+  orden               Int                 @default(0)
+  documentosVehiculo  DocumentoVehiculo[]
+
+  @@map("tipos_documento")
+}
+
+model DocumentoVehiculo {
+  id               Int           @id @default(autoincrement())
+  vehiculoId       Int           @map("vehiculo_id")
+  vehiculo         Vehiculo      @relation(fields: [vehiculoId], references: [id])
+  tipoDocumentoId  Int           @map("tipo_documento_id")
+  tipoDocumento    TipoDocumento @relation(fields: [tipoDocumentoId], references: [id])
+  archivoUrl       String?       @map("archivo_url")
+  archivoPath      String?       @map("archivo_path")
+  nombreOriginal   String?       @map("nombre_original")
+  fechaEmision     DateTime?     @map("fecha_emision")
+  fechaVencimiento DateTime?     @map("fecha_vencimiento")
+  observaciones    String?
+  esVigente        Boolean       @default(true) @map("es_vigente")
+  usuarioId        Int           @map("usuario_id")
+  usuario          Usuario       @relation(fields: [usuarioId], references: [id])
+  creadoEn         DateTime      @default(now()) @map("creado_en")
+  actualizadoEn    DateTime      @updatedAt @map("actualizado_en")
+
+  @@index([vehiculoId, esVigente])
+  @@index([tipoDocumentoId])
+  @@map("documentos_vehiculo")
 }

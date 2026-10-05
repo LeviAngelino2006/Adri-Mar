@@ -6,6 +6,7 @@ const vehiculoRoutes = require('./routes/vehiculoRoutes');
 const tipoVehiculoRoutes = require('./routes/tipoVehiculoRoutes');
 const viajeRoutes = require('./routes/viajeRoutes');
 const lecturaOdometroRoutes = require('./routes/lecturaOdometroRoutes');
+const documentoRoutes = require('./routes/documentoRoutes');
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use('/api/vehiculos', vehiculoRoutes);
 app.use('/api/tipos-vehiculo', tipoVehiculoRoutes);
 app.use('/api/viajes', viajeRoutes);
 app.use('/api/lecturas-odometro', lecturaOdometroRoutes);
+app.use('/api/documentos', documentoRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Recurso no encontrado' });
