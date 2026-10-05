@@ -94,7 +94,7 @@ async function main() {
 
   console.log(`Estados de vehículo listos: ${ESTADOS_VEHICULO.join(', ')}`);
 
-  const ESTADOS_VIAJE = ['PROGRAMADO', 'EN_VIAJE', 'FINALIZADO', 'CANCELADO'];
+  const ESTADOS_VIAJE = ['A_CONFIRMAR', 'PROGRAMADO', 'EN_VIAJE', 'FINALIZADO', 'CANCELADO'];
   for (const descripcion of ESTADOS_VIAJE) {
     await prisma.estadoViaje.upsert({
       where: { descripcion },
@@ -125,6 +125,29 @@ async function main() {
   }
 
   console.log(`Orígenes de lectura listos: ${ORIGENES_LECTURA.join(', ')}`);
+
+  // Reusado tal cual para el pago al cliente y el pago al chofer.
+  const ESTADOS_PAGO = ['PENDIENTE', 'PAGADO', 'PARCIAL'];
+  for (const descripcion of ESTADOS_PAGO) {
+    await prisma.estadoPago.upsert({
+      where: { descripcion },
+      update: {},
+      create: { descripcion },
+    });
+  }
+
+  console.log(`Estados de pago listos: ${ESTADOS_PAGO.join(', ')}`);
+
+  const METODOS_PAGO = ['EFECTIVO', 'BANCO', 'CHEQUE'];
+  for (const descripcion of METODOS_PAGO) {
+    await prisma.metodoPago.upsert({
+      where: { descripcion },
+      update: {},
+      create: { descripcion },
+    });
+  }
+
+  console.log(`Métodos de pago listos: ${METODOS_PAGO.join(', ')}`);
 }
 
 main()
