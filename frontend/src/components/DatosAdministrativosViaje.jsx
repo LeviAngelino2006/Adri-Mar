@@ -11,9 +11,9 @@ import './DatosAdministrativosViaje.css';
 
 const NO_CARGADO = 'No cargado';
 
-function Dato({ etiqueta, children }) {
+function Dato({ etiqueta, ancho = false, children }) {
   return (
-    <div className="detalle-item">
+    <div className={ancho ? 'detalle-item detalle-item-ancho' : 'detalle-item'}>
       <dt>{etiqueta}</dt>
       <dd>{children ?? NO_CARGADO}</dd>
     </div>
@@ -79,7 +79,7 @@ function DatosAdministrativosViaje({ viaje, onGuardado }) {
   }
 
   return (
-    <Card className="datos-admin" role="region" aria-label="Datos administrativos">
+    <Card className="detalle-card datos-admin" role="region" aria-label="Datos administrativos">
       <div className="datos-admin-header">
         <h2>Datos administrativos</h2>
         {!editando && (
@@ -91,91 +91,105 @@ function DatosAdministrativosViaje({ viaje, onGuardado }) {
 
       {!editando && (
         <>
-          <h3 className="datos-admin-grupo">Cobro al cliente</h3>
-          <dl className="viajes-detalle-list">
-            <Dato etiqueta="Precio">{viaje.precio != null ? formatearMonto(viaje.precio) : null}</Dato>
-            <Dato etiqueta="Estado del pago">
-              {viaje.estadoPagoCliente ? capitalizarCatalogo(viaje.estadoPagoCliente.descripcion) : null}
-            </Dato>
-            <Dato etiqueta="Fecha de pago">
-              {viaje.fechaPagoCliente ? formatearSoloFecha(viaje.fechaPagoCliente) : null}
-            </Dato>
-            <Dato etiqueta="Método de pago">
-              {viaje.metodoPagoCliente ? capitalizarCatalogo(viaje.metodoPagoCliente.descripcion) : null}
-            </Dato>
-          </dl>
+          <section className="detalle-seccion">
+            <h3 className="detalle-seccion-titulo">Cobro al cliente</h3>
+            <dl className="detalle-grid">
+              <Dato etiqueta="Precio" ancho>
+                {viaje.precio != null ? formatearMonto(viaje.precio) : null}
+              </Dato>
+              <Dato etiqueta="Estado del pago">
+                {viaje.estadoPagoCliente ? capitalizarCatalogo(viaje.estadoPagoCliente.descripcion) : null}
+              </Dato>
+              <Dato etiqueta="Fecha de pago">
+                {viaje.fechaPagoCliente ? formatearSoloFecha(viaje.fechaPagoCliente) : null}
+              </Dato>
+              <Dato etiqueta="Método de pago" ancho>
+                {viaje.metodoPagoCliente ? capitalizarCatalogo(viaje.metodoPagoCliente.descripcion) : null}
+              </Dato>
+            </dl>
+          </section>
 
-          <h3 className="datos-admin-grupo">Pago al chofer</h3>
-          <dl className="viajes-detalle-list">
-            <Dato etiqueta="Monto">{viaje.pagoChofer != null ? formatearMonto(viaje.pagoChofer) : null}</Dato>
-            <Dato etiqueta="Estado del pago">
-              {viaje.estadoPagoChofer ? capitalizarCatalogo(viaje.estadoPagoChofer.descripcion) : null}
-            </Dato>
-            <Dato etiqueta="Fecha de pago">
-              {viaje.fechaPagoChofer ? formatearSoloFecha(viaje.fechaPagoChofer) : null}
-            </Dato>
-            <Dato etiqueta="Método de pago">
-              {viaje.metodoPagoChofer ? capitalizarCatalogo(viaje.metodoPagoChofer.descripcion) : null}
-            </Dato>
-          </dl>
+          <section className="detalle-seccion">
+            <h3 className="detalle-seccion-titulo">Pago al chofer</h3>
+            <dl className="detalle-grid">
+              <Dato etiqueta="Monto" ancho>
+                {viaje.pagoChofer != null ? formatearMonto(viaje.pagoChofer) : null}
+              </Dato>
+              <Dato etiqueta="Estado del pago">
+                {viaje.estadoPagoChofer ? capitalizarCatalogo(viaje.estadoPagoChofer.descripcion) : null}
+              </Dato>
+              <Dato etiqueta="Fecha de pago">
+                {viaje.fechaPagoChofer ? formatearSoloFecha(viaje.fechaPagoChofer) : null}
+              </Dato>
+              <Dato etiqueta="Método de pago" ancho>
+                {viaje.metodoPagoChofer ? capitalizarCatalogo(viaje.metodoPagoChofer.descripcion) : null}
+              </Dato>
+            </dl>
+          </section>
         </>
       )}
 
       {editando && (
         <form onSubmit={handleSubmit} noValidate>
-          <h3 className="datos-admin-grupo">Cobro al cliente</h3>
-          <div className="form-grid">
-            <FormField id="precio" label="Precio ($)" error={errores.precio}>
-              <input type="number" name="precio" min="0" step="0.01" value={valores.precio} onChange={handleChange} />
-            </FormField>
-            <FormField id="estadoPagoClienteId" label="Estado del pago" error={errores.estadoPagoClienteId}>
-              <select name="estadoPagoClienteId" value={valores.estadoPagoClienteId} onChange={handleChange}>
-                <option value="">Sin definir</option>
-                <OpcionesCatalogo items={estadosPago} />
-              </select>
-            </FormField>
-            <FormField id="fechaPagoCliente" label="Fecha de pago" error={errores.fechaPagoCliente}>
-              <input type="date" name="fechaPagoCliente" value={valores.fechaPagoCliente} onChange={handleChange} />
-            </FormField>
-            <FormField id="metodoPagoClienteId" label="Método de pago" error={errores.metodoPagoClienteId}>
-              <select name="metodoPagoClienteId" value={valores.metodoPagoClienteId} onChange={handleChange}>
-                <option value="">Sin definir</option>
-                <OpcionesCatalogo items={metodosPago} />
-              </select>
-            </FormField>
-          </div>
+          <section className="detalle-seccion">
+            <h3 className="detalle-seccion-titulo">Cobro al cliente</h3>
+            <div className="form-grid">
+              <FormField id="precio" label="Precio ($)" error={errores.precio}>
+                <input type="number" name="precio" min="0" step="0.01" value={valores.precio} onChange={handleChange} />
+              </FormField>
+              <FormField id="estadoPagoClienteId" label="Estado del pago" error={errores.estadoPagoClienteId}>
+                <select name="estadoPagoClienteId" value={valores.estadoPagoClienteId} onChange={handleChange}>
+                  <option value="">Sin definir</option>
+                  <OpcionesCatalogo items={estadosPago} />
+                </select>
+              </FormField>
+              <FormField id="fechaPagoCliente" label="Fecha de pago" error={errores.fechaPagoCliente}>
+                <input type="date" name="fechaPagoCliente" value={valores.fechaPagoCliente} onChange={handleChange} />
+              </FormField>
+              <FormField id="metodoPagoClienteId" label="Método de pago" error={errores.metodoPagoClienteId}>
+                <select name="metodoPagoClienteId" value={valores.metodoPagoClienteId} onChange={handleChange}>
+                  <option value="">Sin definir</option>
+                  <OpcionesCatalogo items={metodosPago} />
+                </select>
+              </FormField>
+            </div>
+          </section>
 
-          <h3 className="datos-admin-grupo">Pago al chofer</h3>
-          <div className="form-grid">
-            <FormField id="pagoChofer" label="Monto ($)" error={errores.pagoChofer}>
-              <input type="number" name="pagoChofer" min="0" step="0.01" value={valores.pagoChofer} onChange={handleChange} />
-            </FormField>
-            <FormField id="estadoPagoChoferId" label="Estado del pago" error={errores.estadoPagoChoferId}>
-              <select name="estadoPagoChoferId" value={valores.estadoPagoChoferId} onChange={handleChange}>
-                <option value="">Sin definir</option>
-                <OpcionesCatalogo items={estadosPago} />
-              </select>
-            </FormField>
-            <FormField id="fechaPagoChofer" label="Fecha de pago" error={errores.fechaPagoChofer}>
-              <input type="date" name="fechaPagoChofer" value={valores.fechaPagoChofer} onChange={handleChange} />
-            </FormField>
-            <FormField id="metodoPagoChoferId" label="Método de pago" error={errores.metodoPagoChoferId}>
-              <select name="metodoPagoChoferId" value={valores.metodoPagoChoferId} onChange={handleChange}>
-                <option value="">Sin definir</option>
-                <OpcionesCatalogo items={metodosPago} />
-              </select>
-            </FormField>
-          </div>
+          <section className="detalle-seccion">
+            <h3 className="detalle-seccion-titulo">Pago al chofer</h3>
+            <div className="form-grid">
+              <FormField id="pagoChofer" label="Monto ($)" error={errores.pagoChofer}>
+                <input type="number" name="pagoChofer" min="0" step="0.01" value={valores.pagoChofer} onChange={handleChange} />
+              </FormField>
+              <FormField id="estadoPagoChoferId" label="Estado del pago" error={errores.estadoPagoChoferId}>
+                <select name="estadoPagoChoferId" value={valores.estadoPagoChoferId} onChange={handleChange}>
+                  <option value="">Sin definir</option>
+                  <OpcionesCatalogo items={estadosPago} />
+                </select>
+              </FormField>
+              <FormField id="fechaPagoChofer" label="Fecha de pago" error={errores.fechaPagoChofer}>
+                <input type="date" name="fechaPagoChofer" value={valores.fechaPagoChofer} onChange={handleChange} />
+              </FormField>
+              <FormField id="metodoPagoChoferId" label="Método de pago" error={errores.metodoPagoChoferId}>
+                <select name="metodoPagoChoferId" value={valores.metodoPagoChoferId} onChange={handleChange}>
+                  <option value="">Sin definir</option>
+                  <OpcionesCatalogo items={metodosPago} />
+                </select>
+              </FormField>
+            </div>
+          </section>
 
-          {errores.general && <Alert variant="error">{errores.general}</Alert>}
+          <div className="datos-admin-pie">
+            {errores.general && <Alert variant="error">{errores.general}</Alert>}
 
-          <div className="form-actions">
-            <Button type="submit" variant="primary" loading={enviando}>
-              {enviando ? 'Guardando…' : 'Guardar datos'}
-            </Button>
-            <Button type="button" variant="secondary" onClick={cancelarEdicion} disabled={enviando}>
-              Cancelar
-            </Button>
+            <div className="form-actions">
+              <Button type="submit" variant="primary" loading={enviando}>
+                {enviando ? 'Guardando…' : 'Guardar datos'}
+              </Button>
+              <Button type="button" variant="secondary" onClick={cancelarEdicion} disabled={enviando}>
+                Cancelar
+              </Button>
+            </div>
           </div>
         </form>
       )}

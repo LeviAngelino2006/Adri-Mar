@@ -8,7 +8,8 @@
   justify-content: space-between;
   gap: var(--space-3);
   flex-wrap: wrap;
-  margin-bottom: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .datos-admin-header h2 {
@@ -16,12 +17,7 @@
   font-size: 1.125rem;
 }
 
-.datos-admin-grupo {
-  margin: 0 0 var(--space-3);
-  font-size: 0.9375rem;
-  color: var(--color-text-secondary);
-}
-
-.datos-admin .form-grid {
-  margin-bottom: var(--space-5);
+.datos-admin-pie {
+  padding: var(--space-4) var(--space-6) var(--space-5);
+  border-top: 1px solid var(--color-border);
 }

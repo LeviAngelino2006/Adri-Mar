@@ -147,8 +147,7 @@ button.viajes-listado-card:focus-visible {
   font-size: 1rem;
 }
 
-.viajes-listado-card-detalle,
-.viajes-detalle-list dd {
+.viajes-listado-card-detalle {
   font-variant-numeric: tabular-nums;
 }
 
@@ -186,55 +185,6 @@ button.viajes-listado-card:focus-visible {
 
 .viajes-detalle-header h1 {
   margin: 0;
-}
-
-.viajes-detalle-list {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-4) var(--space-6);
-  margin: 0 0 var(--space-4);
-}
-
-.viajes-detalle-list .detalle-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.viajes-detalle-list dt {
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
-  margin: 0;
-}
-
-.viajes-detalle-list dd {
-  margin: 0;
-  color: var(--color-text);
-  font-size: 1rem;
-}
-
-/* Texto libre (observación): ocupa todo el ancho de la grilla y respeta los
-   saltos de línea que escribió quien finalizó el viaje. */
-.viajes-detalle-list .detalle-item-ancho {
-  grid-column: 1 / -1;
-}
-
-.viajes-detalle-list .detalle-item-ancho dd {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-@media (min-width: 640px) {
-  .viajes-detalle-list {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 900px) {
-  .viajes-detalle-list {
-    grid-template-columns: repeat(3, 1fr);
-  }
 }
 
 .viajes-detalle-actions {
