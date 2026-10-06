@@ -9,7 +9,7 @@ import EstadoBadge from '../components/ui/EstadoBadge';
 import IndicadorVencimiento from '../components/ui/IndicadorVencimiento';
 import RutaViaje from '../components/RutaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
-import { formatearDiaYHora, formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { formatearDiaYHora, formatearFechaHora, nombreVehiculo } from '../utils/viajeFormato';
 import { hoyEnCordoba, porcentajeProgresoViaje } from '../utils/fechaCordoba';
 import './Dashboard.css';
 
@@ -33,7 +33,7 @@ const ICONO_CALENDARIO = (
   </svg>
 );
 
-function ViajeEnCurso({ viaje, chofer }) {
+function ViajeEnCurso({ viaje }) {
   const progreso = porcentajeProgresoViaje(viaje.fechaInicio, viaje.fechaFin);
   const claseBarra = viaje.excedido ? 'viaje-en-curso-barra viaje-en-curso-barra-excedido' : 'viaje-en-curso-barra';
 
@@ -67,14 +67,13 @@ function ViajeEnCurso({ viaje, chofer }) {
         </div>
       </div>
       <div className="viaje-en-curso-pie">
-        <span>Chofer: {nombreChofer(chofer)}</span>
         <span>Vehículo: {nombreVehiculo(viaje.vehiculo)}</span>
       </div>
     </Card>
   );
 }
 
-function ProximosViajes({ chofer }) {
+function ProximosViajes() {
   const [enCurso, setEnCurso] = useState([]);
   const [viajes, setViajes] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -104,7 +103,7 @@ function ProximosViajes({ chofer }) {
   return (
     <>
       {enCurso.map((v) => (
-        <ViajeEnCurso key={v.id} viaje={v} chofer={chofer} />
+        <ViajeEnCurso key={v.id} viaje={v} />
       ))}
 
       <Card className="dashboard-panel dashboard-proximos-viajes">
@@ -163,7 +162,7 @@ function Dashboard() {
         Hola, {usuario.nombre} {usuario.apellido}
       </p>
 
-      {usuario.habilitadoParaConducir && <ProximosViajes chofer={usuario} />}
+      {usuario.habilitadoParaConducir && <ProximosViajes />}
 
       <Card className="dashboard-panel">
         <h2>Alertas</h2>
