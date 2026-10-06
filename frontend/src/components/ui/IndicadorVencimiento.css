@@ -3,9 +3,9 @@
   align-items: center;
   gap: 4px;
   font-weight: 600;
-  color: #dc2626;
-  background-color: #fef2f2;
-  border: 1px solid #fecaca;
+  color: var(--state-error-text);
+  background-color: var(--state-error-bg);
+  border: 1px solid var(--state-error-border);
   border-radius: var(--radius-sm);
   white-space: nowrap;
 }

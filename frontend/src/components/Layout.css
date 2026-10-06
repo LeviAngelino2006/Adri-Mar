@@ -39,7 +39,7 @@
 .layout-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 23, 42, 0.4);
+  background-color: var(--overlay);
   z-index: 25;
 }
 
@@ -124,7 +124,7 @@
   width: 32px;
   height: 32px;
   flex: 0 0 auto;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background-color: var(--brand-100);
   color: var(--brand-700);
   font-weight: 700;

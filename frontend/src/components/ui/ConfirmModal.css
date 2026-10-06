@@ -1,7 +1,7 @@
 .confirm-modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 23, 42, 0.45);
+  background-color: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -13,9 +13,9 @@
   width: 360px;
   max-width: 100%;
   background-color: var(--color-surface);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   padding: var(--space-6);
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+  box-shadow: var(--shadow-lg);
 }
 
 .confirm-modal h3 {
@@ -59,7 +59,7 @@
 .confirm-modal-icon {
   width: 44px;
   height: 44px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
