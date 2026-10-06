@@ -64,17 +64,20 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 
 `components/bundle.js` expone `window.AdriMar` con Button, Card, Alert, FormField, Switch, Spinner, Toast, ConfirmModal, EstadoDot, EstadoBadge y RutaViaje (React). `components/bundle.css` trae sus estilos, las reglas base y las clases de páginas y layout. Leé el README de cada componente antes de usarlo.
 
-SelectorBuscarOCrear no está en el bundle porque depende del cliente HTTP de la app (tiene guía y vista estática). No hay archivos de fuente: la app usa fuentes del sistema.
-
 ## Patrones de página
 
 Las pantallas se arman con las clases de `bundle.css` y los componentes de arriba, no con componentes propios. Cada patrón tiene su README con la estructura y las clases exactas:
 
 - Viajes: `TarjetaViaje` (listado), `FormularioViaje` (programar y editar), `ViajeEnCurso` y `ProximosViajes` (Dashboard) y `ModalOdometro` (comenzar y finalizar).
-- Listados: `TablaListado` (escritorio, desde 768px), `TarjetaVehiculo` (mobile), `FichaDetalle` (ficha de un registro), `Filtros`.
+- Listados: `TarjetaVehiculo` (flota), `TablaListado` (tabla densa), `FichaDetalle` (ficha de un registro, agrupada en secciones en los viajes), `Filtros`.
 - Usuarios: `Avatar`, con el color según el perfil.
 - Layout: `Navegacion` (sidebar y topbar), `Login` (panel de marca + card).
 
-- Cada listado tiene dos vistas: tabla desde 768px y tarjetas apiladas debajo. Los viajes son la excepción: siempre en tarjetas de una columna.
+- Preferí tarjetas a tablas: viajes y flota se listan en tarjetas en todos los tamaños (viajes en una columna, flota en una grilla de 300px mínimo por tarjeta). La tabla (`TablaListado`) queda para listados con muchas columnas comparables.
+- Las fichas de detalle de un viaje se agrupan en secciones tituladas dentro de una sola `Card`, con los mismos pares de campos que el formulario.
 - Encabezado de página: `h1` a la izquierda y la acción principal (`Button` primary, "Nuevo vehículo") a la derecha, con margen inferior `space-6`.
 - Los estados vacíos van centrados, en `color-text-secondary`.
+
+## Estado respecto del código
+
+El código (rama `feat/ux-viajes-v3`) implementa este sistema completo. Sin cambios respecto del código: SelectorBuscarOCrear no está en el bundle porque depende del cliente HTTP de la app (tiene guía y vista estática). No hay archivos de fuente: la app usa fuentes del sistema.

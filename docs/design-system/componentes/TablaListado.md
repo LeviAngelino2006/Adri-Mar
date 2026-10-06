@@ -1,4 +1,4 @@
-Tabla de listado para escritorio (flota y usuarios), que en mobile se reemplaza por tarjetas. Patrón de página (`FlotaVehiculos.jsx`, `Usuarios.jsx`).
+Tabla de listado para escritorio, que en mobile se reemplaza por tarjetas. Hoy la usa solo Usuarios; Flota y Viajes usan tarjetas en todos los tamaños (ver `TarjetaVehiculo`). Úsala solo para listados con muchas columnas comparables. Patrón de página (`Usuarios.jsx`).
 
 ## Lo que provee quien lo usa
 - `.flota-table-wrap > table.flota-table`, o el equivalente `usuarios-*`. Cada fila lleva `tabIndex=0`, abre la ficha con click, Enter o Espacio, y tiene la clase `.flota-row`.
