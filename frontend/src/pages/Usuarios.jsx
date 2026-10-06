@@ -43,7 +43,7 @@ function perfilLabel(perfil) {
 }
 
 function estadoDotColor(activo) {
-  return activo ? '#16a34a' : '#94a3b8';
+  return activo ? 'var(--state-success-solid)' : 'var(--state-neutral-text)';
 }
 
 function ordenarPorPerfil(usuarios) {
