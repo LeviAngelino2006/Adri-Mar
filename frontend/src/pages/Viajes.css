@@ -143,10 +143,6 @@ button.viajes-listado-card:focus-visible {
   gap: var(--space-3);
 }
 
-.viajes-listado-card-header .estado-dot-label {
-  flex-shrink: 0;
-}
-
 .viajes-listado-card-ruta {
   font-size: 1rem;
 }
