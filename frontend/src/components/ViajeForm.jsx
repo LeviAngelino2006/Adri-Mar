@@ -4,6 +4,15 @@ import Button from './ui/Button';
 import FormField from './ui/FormField';
 import Alert from './ui/Alert';
 import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
+import SeccionDatosAdministrativos from './SeccionDatosAdministrativos';
+import {
+  CAMPOS_ADMINISTRATIVOS,
+  VALORES_ADMIN_VACIOS,
+  hayDatosAdministrativos,
+  useCatalogosPago,
+  validarMontos,
+  valoresAPayload,
+} from '../utils/datosAdministrativos';
 
 const FORM_INICIAL = {
   clienteId: '',
@@ -32,12 +41,29 @@ const LEYENDA_OPERATIVOS_OPCIONALES =
 // del estado actual, no de si el payload viene completo), así que conviene
 // avisar antes de que el usuario intente guardar y se encuentre con un error
 // del servidor. En alta, o editando un A_CONFIRMAR, nunca se exigen.
-function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, textoEnviando, onCancelar }) {
+//
+// `conDatosAdministrativos` agrega la sección colapsada de datos
+// administrativos (solo alta y solo para Administrador/Encargado: lo decide
+// quien monta el formulario). Si la sección queda vacía, no se manda nada; si
+// tiene datos, viajan en `datosAdministrativos` dentro del mismo POST, así el
+// viaje se crea completo o no se crea.
+function ViajeForm({
+  valoresIniciales,
+  estadoActual,
+  onSubmit,
+  textoBoton,
+  textoEnviando,
+  onCancelar,
+  conDatosAdministrativos = false,
+}) {
   const [choferes, setChoferes] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
   const [form, setForm] = useState(valoresIniciales || FORM_INICIAL);
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
+  const [administrativos, setAdministrativos] = useState(VALORES_ADMIN_VACIOS);
+  const [seccionAbierta, setSeccionAbierta] = useState(false);
+  const { estadosPago, metodosPago, cargarCatalogos } = useCatalogosPago();
 
   const requiereOperativos = estadoActual === 'PROGRAMADO';
 
@@ -49,6 +75,26 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((f) => ({ ...f, [name]: value }));
+  }
+
+  function handleChangeAdministrativo(e) {
+    const { name, value } = e.target;
+    setAdministrativos((a) => ({ ...a, [name]: value }));
+  }
+
+  function handleToggleSeccion(abierta) {
+    setSeccionAbierta(abierta);
+    // Los catálogos se piden la primera vez que se abre: quien no la abre no
+    // los necesita.
+    if (abierta) cargarCatalogos();
+  }
+
+  // Si hay un error adentro de la sección colapsada, se abre para que se vea.
+  function mostrarErrores(nuevos) {
+    setErrores(nuevos);
+    if (CAMPOS_ADMINISTRATIVOS.some((campo) => nuevos[campo])) {
+      handleToggleSeccion(true);
+    }
   }
 
   function handleSeleccionarCliente(item) {
@@ -67,25 +113,31 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
     e.preventDefault();
     setErrores({});
 
+    const erroresLocales = {};
     if (requiereOperativos) {
-      const erroresLocales = {};
       for (const campo of CAMPOS_OPERATIVOS) {
         if (form[campo] === '' || form[campo] === null || form[campo] === undefined) {
           erroresLocales[campo] = ERROR_OBLIGATORIO_PROGRAMADO;
         }
       }
-      if (Object.keys(erroresLocales).length > 0) {
-        setErrores(erroresLocales);
-        return;
-      }
+    }
+    if (conDatosAdministrativos) {
+      Object.assign(erroresLocales, validarMontos(administrativos));
+    }
+    if (Object.keys(erroresLocales).length > 0) {
+      mostrarErrores(erroresLocales);
+      return;
     }
 
     setEnviando(true);
     try {
-      await onSubmit(form);
+      const enviarAdministrativos = conDatosAdministrativos && hayDatosAdministrativos(administrativos);
+      await onSubmit(
+        enviarAdministrativos ? { ...form, datosAdministrativos: valoresAPayload(administrativos) } : form
+      );
     } catch (err) {
       if (err.response?.status === 400 && err.response.data.errores) {
-        setErrores(err.response.data.errores);
+        mostrarErrores(err.response.data.errores);
       } else if (err.response?.status === 409) {
         setErrores({ general: err.response.data.error });
       } else {
@@ -186,6 +238,18 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
             />
           </FormField>
         </div>
+
+        {conDatosAdministrativos && (
+          <SeccionDatosAdministrativos
+            valores={administrativos}
+            errores={errores}
+            estadosPago={estadosPago}
+            metodosPago={metodosPago}
+            abierta={seccionAbierta}
+            onToggle={handleToggleSeccion}
+            onChange={handleChangeAdministrativo}
+          />
+        )}
       </div>
 
       {errores.general && <Alert variant="error">{errores.general}</Alert>}

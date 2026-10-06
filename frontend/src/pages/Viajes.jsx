@@ -296,6 +296,7 @@ function Viajes() {
               textoBoton={editando ? 'Guardar cambios' : 'Programar viaje'}
               textoEnviando={editando ? 'Guardando…' : 'Programando…'}
               onCancelar={cerrarForm}
+              conDatosAdministrativos={puedeGestionar && !editando}
             />
           </Card>
         </>
