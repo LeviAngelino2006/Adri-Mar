@@ -1,70 +1,15 @@
 import { useState } from 'react';
-import api from '../services/api';
 import { actualizarDatosAdministrativos } from '../services/viajesApi';
 import Card from './ui/Card';
 import Button from './ui/Button';
 import FormField from './ui/FormField';
 import Alert from './ui/Alert';
-import { aInputCordoba } from '../utils/fechaCordoba';
+import OpcionesCatalogo from './ui/OpcionesCatalogo';
+import { useCatalogosPago, valoresAPayload, validarMontos, viajeAValores } from '../utils/datosAdministrativos';
 import { capitalizarCatalogo, formatearMonto, formatearSoloFecha } from '../utils/viajeFormato';
 import './DatosAdministrativosViaje.css';
 
 const NO_CARGADO = 'No cargado';
-
-const CAMPOS_MONTO = {
-  precio: 'El precio',
-  pagoChofer: 'El pago al chofer',
-};
-
-function viajeAValores(viaje) {
-  return {
-    precio: viaje.precio == null ? '' : String(viaje.precio),
-    estadoPagoClienteId: viaje.estadoPagoClienteId ?? '',
-    fechaPagoCliente: viaje.fechaPagoCliente ? aInputCordoba(viaje.fechaPagoCliente).slice(0, 10) : '',
-    metodoPagoClienteId: viaje.metodoPagoClienteId ?? '',
-    pagoChofer: viaje.pagoChofer == null ? '' : String(viaje.pagoChofer),
-    estadoPagoChoferId: viaje.estadoPagoChoferId ?? '',
-    fechaPagoChofer: viaje.fechaPagoChofer ? aInputCordoba(viaje.fechaPagoChofer).slice(0, 10) : '',
-    metodoPagoChoferId: viaje.metodoPagoChoferId ?? '',
-  };
-}
-
-// Un campo vacío del formulario se manda como `null` explícito (borra el
-// dato), nunca como ''. El backend (actualizarDatosAdministrativos) trata '' como un valor —
-// Number('') daría 0 en un monto— y una fecha sola ("YYYY-MM-DD") no la
-// acepta (aFechaCordoba espera hora), por eso se completa con T00:00 (hora de
-// Córdoba).
-function valoresAPayload(valores) {
-  const monto = (v) => (v === '' ? null : Number(v));
-  const id = (v) => (v === '' ? null : Number(v));
-  const fecha = (v) => (v === '' ? null : `${v}T00:00`);
-
-  return {
-    precio: monto(valores.precio),
-    estadoPagoClienteId: id(valores.estadoPagoClienteId),
-    fechaPagoCliente: fecha(valores.fechaPagoCliente),
-    metodoPagoClienteId: id(valores.metodoPagoClienteId),
-    pagoChofer: monto(valores.pagoChofer),
-    estadoPagoChoferId: id(valores.estadoPagoChoferId),
-    fechaPagoChofer: fecha(valores.fechaPagoChofer),
-    metodoPagoChoferId: id(valores.metodoPagoChoferId),
-  };
-}
-
-// Mismo criterio que validarFormatoMonto del backend (no negativo, número
-// finito), para avisar al instante sin esperar el roundtrip.
-function validarMontos(valores) {
-  const errores = {};
-  for (const [campo, etiqueta] of Object.entries(CAMPOS_MONTO)) {
-    const valor = valores[campo];
-    if (valor === '') continue;
-    const numero = Number(valor);
-    if (!Number.isFinite(numero) || numero < 0) {
-      errores[campo] = `${etiqueta} debe ser un número mayor o igual a 0`;
-    }
-  }
-  return errores;
-}
 
 function Dato({ etiqueta, children }) {
   return (
@@ -84,8 +29,7 @@ function DatosAdministrativosViaje({ viaje, onGuardado }) {
   const [valores, setValores] = useState(() => viajeAValores(viaje));
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
-  const [estadosPago, setEstadosPago] = useState([]);
-  const [metodosPago, setMetodosPago] = useState([]);
+  const { estadosPago, metodosPago, cargarCatalogos } = useCatalogosPago();
 
   async function abrirEdicion() {
     setValores(viajeAValores(viaje));
@@ -93,12 +37,7 @@ function DatosAdministrativosViaje({ viaje, onGuardado }) {
     setEditando(true);
     // Los catálogos se piden recién al abrir la edición (y solo la primera
     // vez): quien solo mira la ficha no necesita ninguno de los dos.
-    if (estadosPago.length === 0) {
-      api.get('/estados-pago').then(({ data }) => setEstadosPago(data.estadosPago));
-    }
-    if (metodosPago.length === 0) {
-      api.get('/metodos-pago').then(({ data }) => setMetodosPago(data.metodosPago));
-    }
+    cargarCatalogos();
   }
 
   function cancelarEdicion() {
@@ -138,17 +77,6 @@ function DatosAdministrativosViaje({ viaje, onGuardado }) {
       setEnviando(false);
     }
   }
-
-  const opcionesEstado = estadosPago.map((e) => (
-    <option key={e.id} value={e.id}>
-      {capitalizarCatalogo(e.descripcion)}
-    </option>
-  ));
-  const opcionesMetodo = metodosPago.map((m) => (
-    <option key={m.id} value={m.id}>
-      {capitalizarCatalogo(m.descripcion)}
-    </option>
-  ));
 
   return (
     <Card className="datos-admin" role="region" aria-label="Datos administrativos">
@@ -203,7 +131,7 @@ function DatosAdministrativosViaje({ viaje, onGuardado }) {
             <FormField id="estadoPagoClienteId" label="Estado del pago" error={errores.estadoPagoClienteId}>
               <select name="estadoPagoClienteId" value={valores.estadoPagoClienteId} onChange={handleChange}>
                 <option value="">Sin definir</option>
-                {opcionesEstado}
+                <OpcionesCatalogo items={estadosPago} />
               </select>
             </FormField>
             <FormField id="fechaPagoCliente" label="Fecha de pago" error={errores.fechaPagoCliente}>
@@ -212,7 +140,7 @@ function DatosAdministrativosViaje({ viaje, onGuardado }) {
             <FormField id="metodoPagoClienteId" label="Método de pago" error={errores.metodoPagoClienteId}>
               <select name="metodoPagoClienteId" value={valores.metodoPagoClienteId} onChange={handleChange}>
                 <option value="">Sin definir</option>
-                {opcionesMetodo}
+                <OpcionesCatalogo items={metodosPago} />
               </select>
             </FormField>
           </div>
@@ -225,7 +153,7 @@ function DatosAdministrativosViaje({ viaje, onGuardado }) {
             <FormField id="estadoPagoChoferId" label="Estado del pago" error={errores.estadoPagoChoferId}>
               <select name="estadoPagoChoferId" value={valores.estadoPagoChoferId} onChange={handleChange}>
                 <option value="">Sin definir</option>
-                {opcionesEstado}
+                <OpcionesCatalogo items={estadosPago} />
               </select>
             </FormField>
             <FormField id="fechaPagoChofer" label="Fecha de pago" error={errores.fechaPagoChofer}>
@@ -234,7 +162,7 @@ function DatosAdministrativosViaje({ viaje, onGuardado }) {
             <FormField id="metodoPagoChoferId" label="Método de pago" error={errores.metodoPagoChoferId}>
               <select name="metodoPagoChoferId" value={valores.metodoPagoChoferId} onChange={handleChange}>
                 <option value="">Sin definir</option>
-                {opcionesMetodo}
+                <OpcionesCatalogo items={metodosPago} />
               </select>
             </FormField>
           </div>
