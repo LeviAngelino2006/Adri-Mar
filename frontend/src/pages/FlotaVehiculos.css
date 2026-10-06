@@ -87,9 +87,12 @@
   outline-offset: -2px;
 }
 
+.flota-table td {
+  font-variant-numeric: tabular-nums;
+}
+
 .flota-row-dominio {
   color: var(--brand-600);
-  font-weight: 700;
 }
 
 /* Tarjetas (mobile) */
@@ -143,8 +146,6 @@
 }
 
 .flota-card-dominio {
-  font-weight: 700;
-  font-size: 1rem;
   color: var(--color-text);
 }
 
@@ -155,6 +156,7 @@
   gap: var(--space-1) var(--space-2);
   color: var(--color-text-secondary);
   font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (min-width: 768px) {

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import EstadoDot from '../components/ui/EstadoDot';
+import EstadoBadge from '../components/ui/EstadoBadge';
 import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
@@ -338,7 +339,7 @@ function FlotaVehiculos() {
                         }}
                       >
                         <td>{v.numeroInterno}</td>
-                        <td className="flota-row-dominio">{v.dominio}</td>
+                        <td className="flota-row-dominio patente">{v.dominio}</td>
                         <td>
                           {v.marca} {v.modelo}
                         </td>
@@ -364,11 +365,11 @@ function FlotaVehiculos() {
                     <div className="flota-card-content">
                       <div className="flota-card-top">
                         <span className="flota-card-dominio">
-                          {v.numeroInterno} - {v.dominio}
+                          {v.numeroInterno} - <span className="patente">{v.dominio}</span>
                         </span>
-                        <EstadoDot color={ESTADOS_VEHICULO[v.estado].dot}>
+                        <EstadoBadge tono={ESTADOS_VEHICULO[v.estado].tono} size="sm">
                           {ESTADOS_VEHICULO[v.estado].label}
-                        </EstadoDot>
+                        </EstadoBadge>
                       </div>
                       <div className="flota-card-body">
                         <span>
@@ -393,16 +394,16 @@ function FlotaVehiculos() {
 
           <div className="flota-detalle-header">
             <h1>Vehículo {seleccionado.dominio}</h1>
-            <EstadoDot color={ESTADOS_VEHICULO[seleccionado.estado].dot} size="md">
+            <EstadoBadge tono={ESTADOS_VEHICULO[seleccionado.estado].tono}>
               {ESTADOS_VEHICULO[seleccionado.estado].label}
-            </EstadoDot>
+            </EstadoBadge>
           </div>
 
           <Card className="flota-detalle" role="region" aria-label="Ficha del vehículo">
             <dl className="flota-detalle-list">
               <div className="detalle-item">
                 <dt>Dominio</dt>
-                <dd>{seleccionado.dominio}</dd>
+                <dd className="patente">{seleccionado.dominio}</dd>
               </div>
               <div className="detalle-item">
                 <dt>Número de interno</dt>

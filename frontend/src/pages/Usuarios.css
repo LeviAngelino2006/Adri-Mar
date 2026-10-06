@@ -45,7 +45,7 @@
   width: 30px;
   height: 30px;
   flex: 0 0 auto;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   font-weight: 700;
   font-size: 0.75rem;
   display: flex;
@@ -81,6 +81,10 @@
   font-size: 0.8125rem;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+}
+
+.usuarios-table td {
+  font-variant-numeric: tabular-nums;
 }
 
 .usuarios-table tbody tr:last-child td {
