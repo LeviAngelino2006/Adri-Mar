@@ -2,7 +2,7 @@ Tarjeta del listado de viajes: chofer, estado, ruta, vehículo, fechas y kilóme
 
 ## Lo que provee quien lo usa
 - Un `<button class="viajes-listado-card">` por viaje. El listado es una sola columna de ancho completo (`.viajes-listado-cards`, gap `space-4`) en todos los tamaños. No es una grilla.
-- Encabezado `.viajes-listado-card-header`: el nombre del chofer en `.viajes-listado-card-titulo`, o "Chofer pendiente". A la derecha, `EstadoBadge` md con el tono del estado y debajo `IndicadorVencimiento` si corresponde.
+- Encabezado `.viajes-listado-card-header`: el nombre del chofer en `.viajes-listado-card-titulo`, o "Chofer pendiente". A la derecha, `EstadoBadge` md con el tono del estado. No hay indicador de vencido: un viaje atrasado sigue Programado hasta que se comienza o se cancela.
 - `.viajes-listado-card-ruta` con `RutaViaje`. Después, `.viajes-listado-card-vehiculo` ("Interno 12 (Mercedes-Benz O500)" o "Vehículo pendiente").
 - `.viajes-listado-card-detalle`: rango de fechas y "N km estimados", o "Fechas pendientes" / "Km pendientes".
 

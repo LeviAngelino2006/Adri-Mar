@@ -35,6 +35,8 @@ export interface FormFieldProps {
   /** Mensaje de error: marca aria-invalid y reemplaza al hint. */
   error?: ReactNode;
   hint?: ReactNode;
+  /** Marca el campo como obligatorio: asterisco rojo en el label y aria-required en el control. */
+  required?: boolean;
   /** Un único control (input, select, textarea). */
   children: ReactElement;
 }
@@ -84,13 +86,6 @@ export interface EstadoDotProps {
   children?: ReactNode;
 }
 export declare function EstadoDot(props: EstadoDotProps): ReactElement;
-
-export interface IndicadorVencimientoProps {
-  /** Viaje serializado por el backend; se muestra solo si vencido o excedido es true. */
-  viaje?: { vencido?: boolean; excedido?: boolean } | null;
-  size?: 'sm' | 'md';
-}
-export declare function IndicadorVencimiento(props: IndicadorVencimientoProps): ReactElement | null;
 
 export interface SelectorBuscarOCrearProps {
   id?: string;

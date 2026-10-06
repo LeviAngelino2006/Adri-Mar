@@ -20,7 +20,7 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 - Estados de viaje: A confirmar neutral, Programado brand, En viaje warning, Finalizado success, Cancelado error. Estados de vehículo: Operativo success, En taller warning, Dado de baja neutral. Los tokens `viaje-*` y `vehiculo-*` son alias de esos colores.
 - Mostrá el estado con `EstadoBadge` (píldora) en tarjetas y fichas, y con `EstadoDot` (punto) en tablas. Siempre con su etiqueta: el color solo no comunica.
 - Las acciones destructivas usan `state-error-text` de fondo con `color-on-brand`; hover `state-error-strong`.
-- Vencido y Excedido usan el trío de error, igual que cualquier otro error.
+- No hay estados "Vencido" ni "Excedido": un viaje atrasado sigue Programado (o En viaje) hasta que el chofer lo comienza o finaliza, o un gestor lo cancela. No marques el atraso con ningún color ni badge.
 - Usá siempre tokens: no hay colores escritos a mano en `bundle.css`. Texto sobre fondos oscuros: `color-on-brand` o `color-inverse-text`. Backdrops: `overlay`.
 - No hay tema oscuro: la app declara `color-scheme: light`.
 
@@ -29,7 +29,7 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 - Una sola familia: la pila del sistema `--font-sans` (system-ui, Segoe UI, Roboto). No cargues fuentes web.
 - Base 16px con interlineado 1.5 (`body`). Títulos con interlineado 1.25: `h1` 28px en 700 por página; `h2` 22px y `h3` 18px en 600.
 - Labels en `label` (500); botones en `button` (600, interlineado 1).
-- Texto de apoyo: `body-sm` (15px) en alerts, toasts y modales; `caption` (14px) en hints y errores de campo; `meta` (13px) en contadores; `xs` (12px) y `micro` (11px) solo para etiquetas chicas.
+- Texto de apoyo: `body-sm` (15px) en alerts, toasts y modales; `caption` (14px) en hints y errores de campo; `meta` (13px) en contadores; `xs` (12px) solo para etiquetas chicas.
 - Números que se comparan (km, odómetro, horas, internos) van con números tabulares: clase `.num`. Tablas, fichas y pies de tarjeta ya los aplican.
 - Patentes y dominios van con `.patente` (familia `--font-mono`, 600, mayúsculas, letter-spacing 0.06em), en tablas, tarjetas y fichas.
 
@@ -47,12 +47,13 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 - Deshabilitado: opacidad 0.6 y cursor not-allowed.
 - Transiciones cortas (0.15–0.2s) y desactivadas con `prefers-reduced-motion`.
 - Los campos de formulario van dentro de `FormField`, que conecta label, hint y error con `aria-*`.
+- Lo obligatorio se marca con un asterisco rojo (`required` en `FormField`). Nunca escribas "Opcional" en un hint: lo que no lleva asterisco es opcional.
 
 ## Layout
 
 - Topbar sticky en `color-surface` con borde inferior y `shadow-sm`; logo de 32px de alto.
 - Sidebar de 232px con el logo (36px) arriba y la navegación con íconos de 20px.
-- Formularios: `.form-grid` pasa a dos columnas desde 640px; `.form-card` limita a 720px.
+- Formularios: `.form-grid` pasa a dos columnas desde 640px (una columna debajo, en el mismo orden); `.form-card` limita a 720px. Los campos que van juntos se agrupan en pares (origen–destino, inicio–fin, chofer–vehículo) y el resto va a ancho completo (`.form-field-ancho`). Las secciones opcionales y largas van colapsadas (`.form-seccion`).
 
 ## Logos e íconos
 
@@ -61,13 +62,15 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 
 ## Componentes
 
-`components/bundle.js` expone `window.AdriMar` con Button, Card, Alert, FormField, Switch, Spinner, Toast, ConfirmModal, EstadoDot, EstadoBadge, IndicadorVencimiento y RutaViaje (React). `components/bundle.css` trae sus estilos, las reglas base y las clases de páginas y layout. Leé el README de cada componente antes de usarlo.
+`components/bundle.js` expone `window.AdriMar` con Button, Card, Alert, FormField, Switch, Spinner, Toast, ConfirmModal, EstadoDot, EstadoBadge y RutaViaje (React). `components/bundle.css` trae sus estilos, las reglas base y las clases de páginas y layout. Leé el README de cada componente antes de usarlo.
+
+SelectorBuscarOCrear no está en el bundle porque depende del cliente HTTP de la app (tiene guía y vista estática). No hay archivos de fuente: la app usa fuentes del sistema.
 
 ## Patrones de página
 
 Las pantallas se arman con las clases de `bundle.css` y los componentes de arriba, no con componentes propios. Cada patrón tiene su README con la estructura y las clases exactas:
 
-- Viajes: `TarjetaViaje` (listado), `ViajeEnCurso` y `ProximosViajes` (Dashboard).
+- Viajes: `TarjetaViaje` (listado), `FormularioViaje` (programar y editar), `ViajeEnCurso` y `ProximosViajes` (Dashboard) y `ModalOdometro` (comenzar y finalizar).
 - Listados: `TablaListado` (escritorio, desde 768px), `TarjetaVehiculo` (mobile), `FichaDetalle` (ficha de un registro), `Filtros`.
 - Usuarios: `Avatar`, con el color según el perfil.
 - Layout: `Navegacion` (sidebar y topbar), `Login` (panel de marca + card).
@@ -75,18 +78,3 @@ Las pantallas se arman con las clases de `bundle.css` y los componentes de arrib
 - Cada listado tiene dos vistas: tabla desde 768px y tarjetas apiladas debajo. Los viajes son la excepción: siempre en tarjetas de una columna.
 - Encabezado de página: `h1` a la izquierda y la acción principal (`Button` primary, "Nuevo vehículo") a la derecha, con margen inferior `space-6`.
 - Los estados vacíos van centrados, en `color-text-secondary`.
-
-## Diferencias con el código
-
-Este sistema va un paso adelante del repositorio (`main@76e2cf3`). Al implementar algo en el código, seguí este sistema y estas diferencias:
-
-- La escala `brand-*` cambió al azul del logotipo y se agregó `brand-200`.
-- Los colores de estado ahora son alias de los tríos `state-*`, sin violeta ni ámbar claro. Los nuevos `state-*-solid` reemplazan a los hex de `constants/estadosViaje.js` y `constants/estadosVehiculo.js`, y `state-info-*` pasó a la escala de marca.
-- `EstadoBadge` es nuevo y se usa en tarjetas y fichas.
-- IndicadorVencimiento usa `state-error-*`.
-- Tokens nuevos: `color-on-brand`, `color-inverse-*`, `overlay`, `state-error-strong`, `space-5` (ya lo usaba `DatosAdministrativosViaje.css`), `radius-lg`, `radius-full`, `shadow-lg` y `--font-mono`.
-- `h1` en 700. Clases `.num` y `.patente`.
-- En el Dashboard, `ViajeEnCurso` reemplaza a `.proximos-viajes-item-enviaje`, y la pista de estado vacío pasa a `color-text-secondary`.
-- El Login nuevo tiene panel de marca.
-
-Sin cambios respecto del código: SelectorBuscarOCrear no está en el bundle porque depende del cliente HTTP de la app (tiene guía y vista estática). No hay archivos de fuente: la app usa fuentes del sistema.
