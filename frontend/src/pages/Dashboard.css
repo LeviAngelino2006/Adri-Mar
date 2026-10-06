@@ -68,28 +68,16 @@
   gap: 2px;
 }
 
-.proximos-viajes-vehiculo {
-  font-weight: 600;
+.proximos-viajes-ruta {
+  font-size: 0.9375rem;
+}
+
+.proximos-viajes-salida {
   color: var(--color-text);
 }
 
-.proximos-viajes-marca-modelo {
+.proximos-viajes-vehiculo {
   color: var(--color-text-secondary);
-}
-
-.proximos-viajes-meta {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  text-align: right;
-}
-
-.proximos-viajes-dia-relativo {
-  font-weight: 600;
-  font-size: 0.8125rem;
-  color: var(--brand-600);
 }
 
 .dashboard-panel h2 {

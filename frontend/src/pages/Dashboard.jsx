@@ -5,10 +5,9 @@ import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
-import EstadoDot from '../components/ui/EstadoDot';
-import { ESTADOS_VIAJE } from '../constants/estadosViaje';
-import { formatearHorarioCompacto, nombreVehiculo } from '../utils/viajeFormato';
-import { etiquetaDiaRelativo, hoyEnCordoba } from '../utils/fechaCordoba';
+import RutaViaje from '../components/RutaViaje';
+import { formatearFechaHora, nombreVehiculo } from '../utils/viajeFormato';
+import { hoyEnCordoba } from '../utils/fechaCordoba';
 import './Dashboard.css';
 
 const MAX_VIAJES_INICIAL = 3;
@@ -86,21 +85,12 @@ function ProximosViajes() {
                 >
                   <div className="proximos-viajes-icono">{ICONO_CALENDARIO}</div>
                   <div className="proximos-viajes-info">
-                    <span className="proximos-viajes-vehiculo">{nombreVehiculo(v.vehiculo)}</span>
-                    <span className="proximos-viajes-marca-modelo">
-                      {v.vehiculo.marca} {v.vehiculo.modelo}
+                    <span className="proximos-viajes-ruta">
+                      <RutaViaje origen={v.origen} destino={v.destino} />
                     </span>
-                    <span className="proximos-viajes-horario">{formatearHorarioCompacto(v.fechaInicio, v.fechaFin)}</span>
-                  </div>
-                  <div className="proximos-viajes-meta">
-                    {esEnViaje ? (
-                      <EstadoDot color={ESTADOS_VIAJE.EN_VIAJE.dot} size="sm">
-                        {ESTADOS_VIAJE.EN_VIAJE.label}
-                      </EstadoDot>
-                    ) : (
-                      <span className="proximos-viajes-dia-relativo">{etiquetaDiaRelativo(v.fechaInicio)}</span>
-                    )}
-                    <span className="proximos-viajes-km">{v.kilometrosEstimados} km estimados</span>
+                    <span className="proximos-viajes-salida">{formatearFechaHora(v.fechaInicio)}</span>
+                    <span className="proximos-viajes-vehiculo">{nombreVehiculo(v.vehiculo)}</span>
+                    {esEnViaje && <span className="sr-only">Viaje en curso</span>}
                   </div>
                 </li>
               );

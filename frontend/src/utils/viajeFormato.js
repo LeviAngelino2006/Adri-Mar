@@ -1,4 +1,4 @@
-import { diferenciaDiasCordoba, fechaCordobaISO } from './fechaCordoba';
+import { fechaCordobaISO } from './fechaCordoba';
 
 export function formatearFechaHora(valor) {
   // Se fuerza la zona horaria de Córdoba (la única en la que opera Adri-mar)
@@ -41,24 +41,6 @@ export function formatearRangoCompacto(fechaInicio, fechaFin) {
   }
 
   return `${diaYMes(inicio)} ${FORMATO_HORA.format(inicio)} → ${diaYMes(fin)} ${FORMATO_HORA.format(fin)}`;
-}
-
-// Igual que formatearRangoCompacto pero sin la fecha, solo el horario (para
-// contextos donde la fecha ya se comunica por otro lado, como el badge de
-// día relativo en "Tus próximos viajes" del Dashboard). Cuando cruza a un
-// día calendario distinto (Córdoba) agrega un sufijo corto "(+N día/s)" en
-// vez de la fecha completa, para no dejar ambiguo un viaje cuyo horario de
-// inicio y fin coincide (ej. dura exactamente 24hs): sin esto, "23:10 →
-// 23:10" se leería como si no durara nada.
-export function formatearHorarioCompacto(fechaInicio, fechaFin) {
-  const inicio = new Date(fechaInicio);
-  const fin = new Date(fechaFin);
-  const diasDeDiferencia = diferenciaDiasCordoba(fechaInicio, fechaFin);
-  const cruzaDias = diasDeDiferencia !== 0;
-  const separador = cruzaDias ? '→' : '-';
-  const sufijo = cruzaDias ? ` (+${diasDeDiferencia} día${diasDeDiferencia === 1 ? '' : 's'})` : '';
-
-  return `${FORMATO_HORA.format(inicio)} ${separador} ${FORMATO_HORA.format(fin)}${sufijo}`;
 }
 
 export function nombreChofer(chofer) {

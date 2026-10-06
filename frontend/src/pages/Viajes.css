@@ -147,6 +147,10 @@ button.viajes-listado-card:focus-visible {
   flex-shrink: 0;
 }
 
+.viajes-listado-card-ruta {
+  font-size: 1rem;
+}
+
 .viajes-listado-card-vehiculo {
   font-size: 0.875rem;
   color: var(--color-text-secondary);

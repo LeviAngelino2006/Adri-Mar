@@ -8,6 +8,7 @@ import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
+import RutaViaje from '../components/RutaViaje';
 import IndicadorVencimiento from '../components/ui/IndicadorVencimiento';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { formatearFechaHora, formatearRangoCompacto, nombreVehiculo } from '../utils/viajeFormato';
@@ -171,6 +172,9 @@ function MisViajes() {
                       </EstadoDot>
                       <IndicadorVencimiento viaje={v} />
                     </div>
+                  </div>
+                  <div className="viajes-listado-card-ruta">
+                    <RutaViaje origen={v.origen} destino={v.destino} />
                   </div>
                   <div className="viajes-listado-card-detalle">
                     <span>{formatearRangoCompacto(v.fechaInicio, v.fechaFin)}</span>

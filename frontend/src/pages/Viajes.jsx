@@ -13,6 +13,7 @@ import ConfirmModal from '../components/ui/ConfirmModal';
 import ViajeForm from '../components/ViajeForm';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import ModalConfirmarViaje from '../components/ModalConfirmarViaje';
+import RutaViaje from '../components/RutaViaje';
 import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
 import IndicadorVencimiento from '../components/ui/IndicadorVencimiento';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
@@ -383,6 +384,9 @@ function Viajes() {
                       </EstadoDot>
                       <IndicadorVencimiento viaje={v} />
                     </div>
+                  </div>
+                  <div className="viajes-listado-card-ruta">
+                    <RutaViaje origen={v.origen} destino={v.destino} />
                   </div>
                   <span className="viajes-listado-card-vehiculo">
                     {v.vehiculo ? `${nombreVehiculo(v.vehiculo)} (${v.vehiculo.marca} ${v.vehiculo.modelo})` : 'Vehículo pendiente'}
