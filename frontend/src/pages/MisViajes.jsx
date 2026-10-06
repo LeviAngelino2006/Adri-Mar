@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
@@ -34,6 +35,13 @@ const FILTROS_INICIALES = {
 };
 
 function MisViajes() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  // El Dashboard manda `viajeId` en el estado de navegación para abrir
+  // directo la ficha de ese viaje. Se consume una sola vez, al terminar la
+  // primera carga del listado.
+  const viajeIdPendiente = useRef(location.state?.viajeId ?? null);
+
   const [viajes, setViajes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
@@ -55,9 +63,20 @@ function MisViajes() {
 
     return api
       .get('/viajes/mis-viajes', { params })
-      .then(({ data }) => setViajes(data.viajes))
+      .then(({ data }) => {
+        setViajes(data.viajes);
+
+        if (viajeIdPendiente.current !== null) {
+          const pendiente = data.viajes.find((v) => v.id === viajeIdPendiente.current);
+          viajeIdPendiente.current = null;
+          if (pendiente) setSeleccionado(pendiente);
+          // Se limpia el estado de navegación para que recargar la página no
+          // vuelva a abrir la ficha.
+          navigate(location.pathname, { replace: true, state: null });
+        }
+      })
       .finally(() => setCargando(false));
-  }, [filtros]);
+  }, [filtros, navigate, location.pathname]);
 
   useEffect(() => {
     cargarViajes();
