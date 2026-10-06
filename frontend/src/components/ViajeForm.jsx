@@ -99,15 +99,17 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
   return (
     <form onSubmit={handleSubmit} noValidate>
       <div className="form-grid">
-        <FormField id="clienteId" label="Cliente" error={errores.clienteId} required>
-          <SelectorBuscarOCrear
-            endpoint="/clientes"
-            valor={form.clienteId}
-            valorNombre={form.clienteNombre}
-            onSeleccionar={handleSeleccionarCliente}
-            placeholder="Buscar o crear cliente…"
-          />
-        </FormField>
+        <div className="form-field-ancho">
+          <FormField id="clienteId" label="Cliente" error={errores.clienteId} required>
+            <SelectorBuscarOCrear
+              endpoint="/clientes"
+              valor={form.clienteId}
+              valorNombre={form.clienteNombre}
+              onSeleccionar={handleSeleccionarCliente}
+              placeholder="Buscar o crear cliente…"
+            />
+          </FormField>
+        </div>
 
         <FormField id="origenId" label="Origen" error={errores.origenId} required>
           <SelectorBuscarOCrear
@@ -130,38 +132,6 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
         </FormField>
 
         <FormField
-          id="choferId"
-          label="Chofer"
-          error={errores.choferId}
-          required={requiereOperativos}
-        >
-          <select name="choferId" value={form.choferId} onChange={handleChange}>
-            <option value="">Seleccionar…</option>
-            {choferes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre} {c.apellido}
-              </option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField
-          id="vehiculoId"
-          label="Vehículo"
-          error={errores.vehiculoId}
-          required={requiereOperativos}
-        >
-          <select name="vehiculoId" value={form.vehiculoId} onChange={handleChange}>
-            <option value="">Seleccionar…</option>
-            {vehiculos.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.numeroInterno} - {v.dominio}
-              </option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField
           id="fechaInicio"
           label="Fecha y hora de inicio"
           error={errores.fechaInicio}
@@ -179,19 +149,43 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
           <input type="datetime-local" name="fechaFin" value={form.fechaFin} onChange={handleChange} />
         </FormField>
 
-        <FormField
-          id="kilometrosEstimados"
-          label="Kilómetros estimados"
-          error={errores.kilometrosEstimados}
-          required={requiereOperativos}
-        >
-          <input
-            type="number"
-            name="kilometrosEstimados"
-            value={form.kilometrosEstimados}
-            onChange={handleChange}
-          />
+        <FormField id="choferId" label="Chofer" error={errores.choferId} required={requiereOperativos}>
+          <select name="choferId" value={form.choferId} onChange={handleChange}>
+            <option value="">Seleccionar…</option>
+            {choferes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre} {c.apellido}
+              </option>
+            ))}
+          </select>
         </FormField>
+
+        <FormField id="vehiculoId" label="Vehículo" error={errores.vehiculoId} required={requiereOperativos}>
+          <select name="vehiculoId" value={form.vehiculoId} onChange={handleChange}>
+            <option value="">Seleccionar…</option>
+            {vehiculos.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.numeroInterno} - {v.dominio}
+              </option>
+            ))}
+          </select>
+        </FormField>
+
+        <div className="form-field-ancho">
+          <FormField
+            id="kilometrosEstimados"
+            label="Kilómetros estimados"
+            error={errores.kilometrosEstimados}
+            required={requiereOperativos}
+          >
+            <input
+              type="number"
+              name="kilometrosEstimados"
+              value={form.kilometrosEstimados}
+              onChange={handleChange}
+            />
+          </FormField>
+        </div>
       </div>
 
       {errores.general && <Alert variant="error">{errores.general}</Alert>}

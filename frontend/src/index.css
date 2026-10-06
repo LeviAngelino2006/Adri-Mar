@@ -271,6 +271,58 @@ label {
   margin-bottom: 0;
 }
 
+.form-field-ancho {
+  grid-column: 1 / -1;
+}
+
+.form-seccion {
+  grid-column: 1 / -1;
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.form-seccion-resumen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  list-style: none;
+}
+
+.form-seccion-resumen::-webkit-details-marker {
+  display: none;
+}
+
+.form-seccion-resumen::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--color-text-secondary);
+  border-bottom: 2px solid var(--color-text-secondary);
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+}
+
+.form-seccion[open] > .form-seccion-resumen::after {
+  transform: rotate(-135deg);
+}
+
+.form-seccion-cuerpo {
+  padding: var(--space-2) var(--space-4) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.form-seccion-cuerpo .form-grid {
+  padding-top: var(--space-4);
+}
+
 .form-leyenda {
   margin: 0 0 var(--space-4);
   font-size: 0.875rem;
