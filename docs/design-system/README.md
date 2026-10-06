@@ -69,11 +69,11 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 Las pantallas se arman con las clases de `bundle.css` y los componentes de arriba, no con componentes propios. Cada patrón tiene su README con la estructura y las clases exactas:
 
 - Viajes: `TarjetaViaje` (listado), `FormularioViaje` (programar y editar), `ViajeEnCurso` y `ProximosViajes` (Dashboard) y `ModalOdometro` (comenzar y finalizar).
-- Listados: `TarjetaVehiculo` (flota), `TablaListado` (tabla densa), `FichaDetalle` (ficha de un registro, agrupada en secciones en los viajes), `Filtros`.
+- Listados: `Listado` (patrón único de Viajes, Flota y Usuarios), con las tarjetas `TarjetaViaje` y `TarjetaVehiculo`, `FichaDetalle` (ficha de un registro, agrupada en secciones en los viajes), `Filtros`.
 - Usuarios: `Avatar`, con el color según el perfil.
 - Layout: `Navegacion` (sidebar y topbar), `Login` (panel de marca + card).
 
-- Preferí tarjetas a tablas: viajes y flota se listan en tarjetas en todos los tamaños (viajes en una columna, flota en una grilla de 300px mínimo por tarjeta). La tabla (`TablaListado`) queda para listados con muchas columnas comparables.
+- Las tres pantallas de listado (Viajes, Flota de vehículos y Usuarios) siguen el mismo patrón, `Listado`: encabezado con acción principal, barra de búsqueda y filtros, y tarjetas con la misma anatomía, apiladas una debajo de otra a todo el ancho. No hay tablas ni grilla.
 - Las fichas de detalle de un viaje se agrupan en secciones tituladas dentro de una sola `Card`, con los mismos pares de campos que el formulario.
 - Encabezado de página: `h1` a la izquierda y la acción principal (`Button` primary, "Nuevo vehículo") a la derecha, con margen inferior `space-6`.
 - Los estados vacíos van centrados, en `color-text-secondary`.

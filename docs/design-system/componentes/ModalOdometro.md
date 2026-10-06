@@ -4,7 +4,7 @@ Modales para comenzar y finalizar un viaje: piden la lectura del odómetro. Usan
 - `ConfirmModal` `tone="brand"`, título "Comenzar el viaje" / "Finalizar el viaje", botón de confirmar "Comenzar viaje" / "Finalizar viaje" ("Comenzando…" / "Finalizando…" mientras corre) y botón "Cancelar".
 - Primer párrafo: "Último odómetro registrado: <strong class="num">110.030 km</strong>" (separador de miles es-AR, números tabulares). Reemplaza al texto "Kilometraje actual del vehículo".
 - `FormField` "Odómetro inicial (km)" / "Odómetro final (km)" con `required`.
-- Solo en Finalizar: `FormField` "Observación" (textarea, con placeholder "Algo para destacar del viaje" y contador `.contador-texto` "0 / 1000").
+- Solo en Finalizar: `FormField` "Observación" (textarea, con placeholder "Algo para destacar del viaje" y contador `.contador-texto` "0/1000").
 
 ## Reglas
 - No se muestra la línea "Chofer …, vehículo …": el chofer ya sabe qué viaje está operando.

@@ -1,3 +1,5 @@
+**En desuso:** ninguna pantalla usa tablas desde que Viajes, Flota y Usuarios comparten el patrón `Listado` (tarjetas apiladas). Se conserva solo como referencia; no la uses en pantallas nuevas.
+
 Tabla de listado para escritorio, que en mobile se reemplaza por tarjetas. Hoy la usa solo Usuarios; Flota y Viajes usan tarjetas en todos los tamaños (ver `TarjetaVehiculo`). Úsala solo para listados con muchas columnas comparables. Patrón de página (`Usuarios.jsx`).
 
 ## Lo que provee quien lo usa
