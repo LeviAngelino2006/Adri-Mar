@@ -10,8 +10,9 @@ import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import RutaViaje from '../components/RutaViaje';
+import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
-import { formatearFechaHora, formatearRangoCompacto, nombreVehiculo } from '../utils/viajeFormato';
+import { formatearRangoCompacto, nombreVehiculo } from '../utils/viajeFormato';
 import './Viajes.css';
 
 const ICONO_FILTRO = (
@@ -219,84 +220,23 @@ function MisViajes() {
             </div>
           </div>
 
-          <Card className="viajes-detalle" role="region" aria-label="Ficha del viaje">
-            <dl className="viajes-detalle-list">
-              <div className="detalle-item">
-                <dt>Cliente</dt>
-                <dd>{seleccionado.cliente?.nombre || 'No registrado'}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Vehículo</dt>
-                <dd>
-                  {nombreVehiculo(seleccionado.vehiculo)} ({seleccionado.vehiculo.marca} {seleccionado.vehiculo.modelo})
-                </dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Origen</dt>
-                <dd>{seleccionado.origen?.nombre || 'No registrado'}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Destino</dt>
-                <dd>{seleccionado.destino?.nombre || 'No registrado'}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Fecha y hora de inicio</dt>
-                <dd>{formatearFechaHora(seleccionado.fechaInicio)}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Fecha y hora de fin</dt>
-                <dd>{formatearFechaHora(seleccionado.fechaFin)}</dd>
-              </div>
-              {seleccionado.horaInicioReal && (
-                <div className="detalle-item">
-                  <dt>Hora real de inicio</dt>
-                  <dd>{formatearFechaHora(seleccionado.horaInicioReal)}</dd>
-                </div>
-              )}
-              {seleccionado.horaFinReal && (
-                <div className="detalle-item">
-                  <dt>Hora real de fin</dt>
-                  <dd>{formatearFechaHora(seleccionado.horaFinReal)}</dd>
-                </div>
-              )}
-              <div className="detalle-item">
-                <dt>Kilómetros estimados</dt>
-                <dd>{seleccionado.kilometrosEstimados}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Kilometraje actual del vehículo</dt>
-                <dd>{seleccionado.vehiculo.kilometraje} km</dd>
-              </div>
-              {seleccionado.estado === 'FINALIZADO' && seleccionado.kmRealizados != null && (
-                <div className="detalle-item">
-                  <dt>Km realizados</dt>
-                  <dd>{seleccionado.kmRealizados} km</dd>
-                </div>
-              )}
-              {seleccionado.observacionFinal && (
-                <div className="detalle-item detalle-item-ancho">
-                  <dt>Observación del viaje</dt>
-                  <dd>{seleccionado.observacionFinal}</dd>
-                </div>
-              )}
-            </dl>
+          <FichaViaje viaje={seleccionado} />
 
-            {seleccionado.estado === 'PROGRAMADO' && (
-              <div className="viajes-detalle-actions">
-                <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
-                  Comenzar
-                </Button>
-              </div>
-            )}
+          {seleccionado.estado === 'PROGRAMADO' && (
+            <div className="viajes-detalle-actions">
+              <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
+                Comenzar
+              </Button>
+            </div>
+          )}
 
-            {seleccionado.estado === 'EN_VIAJE' && (
-              <div className="viajes-detalle-actions">
-                <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
-                  Finalizar
-                </Button>
-              </div>
-            )}
-          </Card>
+          {seleccionado.estado === 'EN_VIAJE' && (
+            <div className="viajes-detalle-actions">
+              <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
+                Finalizar
+              </Button>
+            </div>
+          )}
         </>
       )}
 

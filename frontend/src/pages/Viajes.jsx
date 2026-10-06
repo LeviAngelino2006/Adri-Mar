@@ -15,6 +15,7 @@ import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import ModalConfirmarViaje from '../components/ModalConfirmarViaje';
 import RutaViaje from '../components/RutaViaje';
 import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
+import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { aInputCordoba } from '../utils/fechaCordoba';
 import { formatearFechaHora, formatearRangoCompacto, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
@@ -421,116 +422,49 @@ function Viajes() {
               </div>
             </div>
 
-            <Card className="viajes-detalle" role="region" aria-label="Ficha del viaje">
-              <dl className="viajes-detalle-list">
-                <div className="detalle-item">
-                  <dt>Cliente</dt>
-                  <dd>{seleccionado.cliente?.nombre || 'No registrado'}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Chofer</dt>
-                  <dd>{seleccionado.chofer ? nombreChofer(seleccionado.chofer) : 'Pendiente de definir'}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Vehículo</dt>
-                  <dd>
-                    {seleccionado.vehiculo
-                      ? `${nombreVehiculo(seleccionado.vehiculo)} (${seleccionado.vehiculo.marca} ${seleccionado.vehiculo.modelo})`
-                      : 'Pendiente de definir'}
-                  </dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Origen</dt>
-                  <dd>{seleccionado.origen?.nombre || 'No registrado'}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Destino</dt>
-                  <dd>{seleccionado.destino?.nombre || 'No registrado'}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Fecha y hora de inicio</dt>
-                  <dd>{seleccionado.fechaInicio ? formatearFechaHora(seleccionado.fechaInicio) : 'Pendiente de definir'}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Fecha y hora de fin</dt>
-                  <dd>{seleccionado.fechaFin ? formatearFechaHora(seleccionado.fechaFin) : 'Pendiente de definir'}</dd>
-                </div>
-                {seleccionado.horaInicioReal && (
-                  <div className="detalle-item">
-                    <dt>Hora real de inicio</dt>
-                    <dd>{formatearFechaHora(seleccionado.horaInicioReal)}</dd>
-                  </div>
-                )}
-                {seleccionado.horaFinReal && (
-                  <div className="detalle-item">
-                    <dt>Hora real de fin</dt>
-                    <dd>{formatearFechaHora(seleccionado.horaFinReal)}</dd>
-                  </div>
-                )}
-                <div className="detalle-item">
-                  <dt>Kilómetros estimados</dt>
-                  <dd>{seleccionado.kilometrosEstimados != null ? seleccionado.kilometrosEstimados : 'Pendiente de definir'}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Kilometraje actual del vehículo</dt>
-                  <dd>{seleccionado.vehiculo ? `${seleccionado.vehiculo.kilometraje} km` : 'Pendiente de definir'}</dd>
-                </div>
-                {seleccionado.estado === 'FINALIZADO' && seleccionado.kmRealizados != null && (
-                  <div className="detalle-item">
-                    <dt>Km realizados</dt>
-                    <dd>{seleccionado.kmRealizados} km</dd>
-                  </div>
-                )}
-                {seleccionado.observacionFinal && (
-                  <div className="detalle-item detalle-item-ancho">
-                    <dt>Observación del viaje</dt>
-                    <dd>{seleccionado.observacionFinal}</dd>
-                  </div>
-                )}
-              </dl>
+            <FichaViaje viaje={seleccionado} />
 
-              {seleccionado.estado === 'A_CONFIRMAR' && puedeGestionar && (
-                <div className="viajes-detalle-actions">
-                  <Button variant="primary" onClick={() => pedirConfirmar(seleccionado)}>
-                    Confirmar viaje
-                  </Button>
-                  <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                    Editar
-                  </Button>
-                  <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
-                    Cancelar
-                  </Button>
-                </div>
-              )}
+            {seleccionado.estado === 'A_CONFIRMAR' && puedeGestionar && (
+              <div className="viajes-detalle-actions">
+                <Button variant="primary" onClick={() => pedirConfirmar(seleccionado)}>
+                  Confirmar viaje
+                </Button>
+                <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                  Editar
+                </Button>
+                <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
+                  Cancelar
+                </Button>
+              </div>
+            )}
 
-              {seleccionado.estado === 'PROGRAMADO' && (puedeOperarEsteViaje || puedeGestionar) && (
-                <div className="viajes-detalle-actions">
-                  {puedeOperarEsteViaje && (
-                    <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
-                      Comenzar
+            {seleccionado.estado === 'PROGRAMADO' && (puedeOperarEsteViaje || puedeGestionar) && (
+              <div className="viajes-detalle-actions">
+                {puedeOperarEsteViaje && (
+                  <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
+                    Comenzar
+                  </Button>
+                )}
+                {puedeGestionar && (
+                  <>
+                    <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                      Editar
                     </Button>
-                  )}
-                  {puedeGestionar && (
-                    <>
-                      <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                        Editar
-                      </Button>
-                      <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
-                        Cancelar
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )}
+                    <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
+                      Cancelar
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
 
-              {seleccionado.estado === 'EN_VIAJE' && puedeOperarEsteViaje && (
-                <div className="viajes-detalle-actions">
-                  <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
-                    Finalizar
-                  </Button>
-                </div>
-              )}
-            </Card>
+            {seleccionado.estado === 'EN_VIAJE' && puedeOperarEsteViaje && (
+              <div className="viajes-detalle-actions">
+                <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
+                  Finalizar
+                </Button>
+              </div>
+            )}
 
             {puedeGestionar && (
               <DatosAdministrativosViaje

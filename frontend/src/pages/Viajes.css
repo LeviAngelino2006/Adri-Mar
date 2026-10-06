@@ -242,3 +242,76 @@ button.viajes-listado-card:focus-visible {
   gap: var(--space-3);
   flex-wrap: wrap;
 }
+
+/* Ficha agrupada en secciones (viaje): una Card con bloques titulados. */
+.detalle-card {
+  padding: 0;
+}
+
+.detalle-seccion {
+  padding: var(--space-5) var(--space-6);
+}
+
+.detalle-seccion + .detalle-seccion {
+  border-top: 1px solid var(--color-border);
+}
+
+.detalle-seccion-titulo {
+  margin: 0 0 var(--space-4);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.detalle-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4) var(--space-6);
+  margin: 0;
+}
+
+@media (min-width: 640px) {
+  .detalle-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.detalle-grid .detalle-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.detalle-grid dt {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.detalle-grid dd {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.detalle-grid .detalle-item-ancho {
+  grid-column: 1 / -1;
+}
+
+.detalle-grid .detalle-item-destacado dd {
+  font-weight: 600;
+}
+
+.detalle-grid .detalle-item-ancho dd {
+  white-space: pre-wrap;
+}
+
+/* Los botones de acción van debajo de la Card de la ficha. */
+.detalle-card + .viajes-detalle-actions {
+  margin-top: var(--space-4);
+}
