@@ -247,7 +247,7 @@ function Usuarios() {
                   <input name="email" type="email" value={form.email} onChange={handleChange} />
                 </FormField>
 
-                <FormField id="telefono" label="Teléfono" error={errores.telefono} hint="Opcional">
+                <FormField id="telefono" label="Teléfono" error={errores.telefono}>
                   <input name="telefono" type="tel" value={form.telefono} onChange={handleChange} />
                 </FormField>
 

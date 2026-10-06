@@ -123,7 +123,7 @@ function ModalOdometroViaje({ viaje, accion, onCerrar, onExito }) {
             >
               <textarea
                 rows={3}
-                placeholder="Opcional — algo para destacar del viaje"
+                placeholder="Algo para destacar del viaje"
                 value={observacion}
                 onChange={(e) => {
                   setObservacion(e.target.value);
