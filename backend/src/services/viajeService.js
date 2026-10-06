@@ -34,6 +34,19 @@ function puedeOperarViaje(usuarioSolicitante, viaje) {
   return PERFILES_GESTORES_VIAJE.includes(usuarioSolicitante.perfil) || viaje.choferId === usuarioSolicitante.id;
 }
 
+// Los datos administrativos/financieros (precio, pagos al cliente y al chofer)
+// solo los ven los gestores. Es una restricción de la RESPUESTA, no de la
+// acción: se aplica en serializarViaje, así que cubre por igual cualquier
+// endpoint que devuelva un viaje (listados, comenzar/finalizar de un chofer
+// dueño del viaje, etc.).
+const PERFILES_CON_DATOS_ADMINISTRATIVOS = ['ADMINISTRADOR', 'ENCARGADO'];
+
+// Falla cerrado: si por un descuido un call site no pasa al solicitante, los
+// datos se ocultan en vez de filtrarse.
+function puedeVerDatosAdministrativos(usuarioSolicitante) {
+  return Boolean(usuarioSolicitante) && PERFILES_CON_DATOS_ADMINISTRATIVOS.includes(usuarioSolicitante.perfil);
+}
+
 class PermisoDenegadoError extends Error {}
 
 // Se dispara al intentar Comenzar un viaje cuando el vehículo o el chofer ya
@@ -432,13 +445,46 @@ async function validarYArmarOperativos(campos, { obligatorios, excluirViajeId } 
   return datos;
 }
 
+// Las 12 claves de datos administrativos de un viaje. Se OMITEN por completo
+// (en vez de devolverse en null) para quien no puede verlas: un null diría
+// "no se cargó nada" sobre un viaje que sí tiene precio cargado, que es un dato
+// falso; ausente dice "esto no te corresponde". Los ids de las relaciones
+// (estadoPagoClienteId, etc.) van en el mismo grupo porque también revelan el
+// dato. precio/pagoChofer vienen de Prisma como Decimal (objeto), se convierten
+// a number para que la API devuelva un número plano; las que no se cargaron
+// van en null, nunca se omite la clave para un Administrador/Encargado.
+function serializarDatosAdministrativos(viaje) {
+  return {
+    precio: viaje.precio == null ? null : Number(viaje.precio),
+    estadoPagoClienteId: viaje.estadoPagoClienteId,
+    estadoPagoCliente: viaje.estadoPagoCliente
+      ? { id: viaje.estadoPagoCliente.id, descripcion: viaje.estadoPagoCliente.descripcion }
+      : null,
+    fechaPagoCliente: viaje.fechaPagoCliente,
+    metodoPagoClienteId: viaje.metodoPagoClienteId,
+    metodoPagoCliente: viaje.metodoPagoCliente
+      ? { id: viaje.metodoPagoCliente.id, descripcion: viaje.metodoPagoCliente.descripcion }
+      : null,
+    pagoChofer: viaje.pagoChofer == null ? null : Number(viaje.pagoChofer),
+    estadoPagoChoferId: viaje.estadoPagoChoferId,
+    estadoPagoChofer: viaje.estadoPagoChofer
+      ? { id: viaje.estadoPagoChofer.id, descripcion: viaje.estadoPagoChofer.descripcion }
+      : null,
+    fechaPagoChofer: viaje.fechaPagoChofer,
+    metodoPagoChoferId: viaje.metodoPagoChoferId,
+    metodoPagoChofer: viaje.metodoPagoChofer
+      ? { id: viaje.metodoPagoChofer.id, descripcion: viaje.metodoPagoChofer.descripcion }
+      : null,
+  };
+}
+
 // kmRealizados ya no sale de columnas propias del viaje (odometroInicial/
 // odometroFinal quedaron deprecadas en el Paso 1): se busca la lectura
 // INICIO_VIAJE y la FIN_VIAJE asociadas a este viaje y se resuelve cada una
 // con obtenerLecturaVigente, por si alguna fue corregida después (todavía no
 // hay forma de corregir desde HTTP, pero la función ya existe y el cálculo
 // tiene que estar bien desde ya). Si falta cualquiera de las dos, null.
-async function serializarViaje(viaje) {
+async function serializarViaje(viaje, usuarioSolicitante) {
   const [lecturaInicio, lecturaFin] = await Promise.all([
     prisma.lecturaOdometro.findFirst({
       where: { viajeId: viaje.id, origen: { descripcion: 'INICIO_VIAJE' } },
@@ -498,32 +544,14 @@ async function serializarViaje(viaje) {
     origen: viaje.origen ? { id: viaje.origen.id, nombre: viaje.origen.nombre } : null,
     destinoId: viaje.destinoId,
     destino: viaje.destino ? { id: viaje.destino.id, nombre: viaje.destino.nombre } : null,
-    // Datos administrativos: mismo criterio que origen/destino — null si no
-    // se cargaron, nunca se omite la clave. precio/pagoChofer vienen de
-    // Prisma como Decimal (objeto), se convierten a number para que la API
-    // devuelva un número plano.
-    precio: viaje.precio == null ? null : Number(viaje.precio),
+    // Cliente es un dato core del viaje, visible para todos los perfiles.
     clienteId: viaje.clienteId,
     cliente: viaje.cliente ? { id: viaje.cliente.id, nombre: viaje.cliente.nombre } : null,
-    estadoPagoClienteId: viaje.estadoPagoClienteId,
-    estadoPagoCliente: viaje.estadoPagoCliente
-      ? { id: viaje.estadoPagoCliente.id, descripcion: viaje.estadoPagoCliente.descripcion }
-      : null,
-    fechaPagoCliente: viaje.fechaPagoCliente,
-    metodoPagoClienteId: viaje.metodoPagoClienteId,
-    metodoPagoCliente: viaje.metodoPagoCliente
-      ? { id: viaje.metodoPagoCliente.id, descripcion: viaje.metodoPagoCliente.descripcion }
-      : null,
-    pagoChofer: viaje.pagoChofer == null ? null : Number(viaje.pagoChofer),
-    estadoPagoChoferId: viaje.estadoPagoChoferId,
-    estadoPagoChofer: viaje.estadoPagoChofer
-      ? { id: viaje.estadoPagoChofer.id, descripcion: viaje.estadoPagoChofer.descripcion }
-      : null,
-    fechaPagoChofer: viaje.fechaPagoChofer,
-    metodoPagoChoferId: viaje.metodoPagoChoferId,
-    metodoPagoChofer: viaje.metodoPagoChofer
-      ? { id: viaje.metodoPagoChofer.id, descripcion: viaje.metodoPagoChofer.descripcion }
-      : null,
+    // Datos administrativos: para Administrador/Encargado van las 12 claves
+    // (los 8 campos más los id de las 4 relaciones); para el resto de los
+    // perfiles NO viaja ninguna (se omiten, no se devuelven en null — ver
+    // serializarDatosAdministrativos).
+    ...(puedeVerDatosAdministrativos(usuarioSolicitante) ? serializarDatosAdministrativos(viaje) : {}),
     fechaInicio: viaje.fechaInicio,
     fechaFin: viaje.fechaFin,
     kilometrosEstimados: viaje.kilometrosEstimados,
@@ -543,16 +571,10 @@ async function serializarViaje(viaje) {
 // A_CONFIRMAR con lo que sí vino (validado solo por existencia) y el resto en
 // null. clienteId/origenId/destinoId son siempre obligatorios en los dos
 // casos — no son parte de esta bifurcación.
-async function crearViaje({
-  choferId,
-  vehiculoId,
-  fechaInicio,
-  fechaFin,
-  kilometrosEstimados,
-  clienteId,
-  origenId,
-  destinoId,
-}) {
+async function crearViaje(
+  { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, clienteId, origenId, destinoId },
+  usuarioSolicitante
+) {
   const core = await validarYArmarCore({ clienteId, origenId, destinoId });
 
   const camposOperativos = { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados };
@@ -577,7 +599,7 @@ async function crearViaje({
     include: INCLUDE_RELACIONES_VIAJE,
   });
 
-  return await serializarViaje(viaje);
+  return await serializarViaje(viaje, usuarioSolicitante);
 }
 
 class NoEncontradoError extends Error {}
@@ -619,7 +641,8 @@ async function obtenerViaje(id) {
 // viaje.
 async function actualizarViaje(
   id,
-  { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, clienteId, origenId, destinoId }
+  { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, clienteId, origenId, destinoId },
+  usuarioSolicitante
 ) {
   const actual = await obtenerViaje(id);
   const estadoActual = actual.estadoViaje.descripcion;
@@ -651,7 +674,7 @@ async function actualizarViaje(
     include: INCLUDE_RELACIONES_VIAJE,
   });
 
-  return await serializarViaje(viaje);
+  return await serializarViaje(viaje, usuarioSolicitante);
 }
 
 // Distingue "campo ausente" (no tocar) de "campo presente" — incluido el
@@ -674,7 +697,7 @@ class EstadoNoConfirmableError extends Error {
   }
 }
 
-async function confirmarViaje(id, payload = {}) {
+async function confirmarViaje(id, payload = {}, usuarioSolicitante) {
   const actual = await obtenerViaje(id);
 
   if (actual.estadoViaje.descripcion !== 'A_CONFIRMAR') {
@@ -709,7 +732,7 @@ async function confirmarViaje(id, payload = {}) {
     include: INCLUDE_RELACIONES_VIAJE,
   });
 
-  return await serializarViaje(viaje);
+  return await serializarViaje(viaje, usuarioSolicitante);
 }
 
 // `null` explícito siempre es válido (borra el dato); cualquier otro valor se
@@ -771,7 +794,7 @@ function validarFormatoIdPositivo(mensajeError) {
 // que vino explícitamente (incluido `null`, para poder "deshacer" una carga
 // anterior). Por eso no reusa validarDatos/validarYArmarDatos: esas dos
 // funciones asumen que todos los campos siempre vienen y son obligatorios.
-async function actualizarDatosAdministrativos(id, payload = {}) {
+async function actualizarDatosAdministrativos(id, payload = {}, usuarioSolicitante) {
   const actual = await obtenerViaje(id);
 
   const data = {};
@@ -837,7 +860,7 @@ async function actualizarDatosAdministrativos(id, payload = {}) {
   // Ningún campo reconocido en el payload: no-op válido, no se toca la fila
   // (ni siquiera actualizadoEn).
   if (Object.keys(data).length === 0) {
-    return serializarViaje(actual);
+    return serializarViaje(actual, usuarioSolicitante);
   }
 
   const viaje = await prisma.viaje.update({
@@ -846,10 +869,10 @@ async function actualizarDatosAdministrativos(id, payload = {}) {
     include: INCLUDE_RELACIONES_VIAJE,
   });
 
-  return serializarViaje(viaje);
+  return serializarViaje(viaje, usuarioSolicitante);
 }
 
-async function cancelarViaje(id) {
+async function cancelarViaje(id, usuarioSolicitante) {
   const actual = await obtenerViaje(id);
 
   if (actual.estadoViaje.descripcion === 'CANCELADO') {
@@ -870,7 +893,7 @@ async function cancelarViaje(id) {
     include: INCLUDE_RELACIONES_VIAJE,
   });
 
-  return await serializarViaje(viaje);
+  return await serializarViaje(viaje, usuarioSolicitante);
 }
 
 // Si crearLectura (dentro de la transacción) rechaza el valor, llega acá como
@@ -967,7 +990,7 @@ async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
   }
 
   const viajeFinal = await obtenerViaje(actual.id);
-  return await serializarViaje(viajeFinal);
+  return await serializarViaje(viajeFinal, usuarioSolicitante);
 }
 
 // PASO 6 — la equivalencia documentada acá se rompió, y esta función ya
@@ -1051,7 +1074,7 @@ async function finalizarViaje(id, { odometroFinal }, usuarioSolicitante) {
   }
 
   const viajeFinal = await obtenerViaje(actual.id);
-  return await serializarViaje(viajeFinal);
+  return await serializarViaje(viajeFinal, usuarioSolicitante);
 }
 
 function parsearFechaDesde(valor) {
@@ -1082,7 +1105,10 @@ function parsearFechaHasta(valor) {
 // que da una lista vacía en vez de un error o de ignorar el filtro. El
 // listado general (GET /viajes) nunca pasa esta opción, así que ve
 // A_CONFIRMAR con total normalidad.
-async function listarViajes({ estado, choferId, vehiculoId, fechaDesde, fechaHasta, excluirAConfirmar = false } = {}) {
+async function listarViajes(
+  { estado, choferId, vehiculoId, fechaDesde, fechaHasta, excluirAConfirmar = false } = {},
+  usuarioSolicitante
+) {
   const where = {};
 
   const filtroEstado = {};
@@ -1126,7 +1152,7 @@ async function listarViajes({ estado, choferId, vehiculoId, fechaDesde, fechaHas
     orderBy: { fechaInicio: { sort: 'desc', nulls: 'last' } },
   });
 
-  return Promise.all(viajes.map(serializarViaje));
+  return Promise.all(viajes.map((viaje) => serializarViaje(viaje, usuarioSolicitante)));
 }
 
 module.exports = {

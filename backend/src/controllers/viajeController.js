@@ -21,16 +21,19 @@ async function crear(req, res) {
   } = req.body;
 
   try {
-    const viaje = await viajeService.crearViaje({
-      choferId,
-      vehiculoId,
-      fechaInicio,
-      fechaFin,
-      kilometrosEstimados,
-      clienteId,
-      origenId,
-      destinoId,
-    });
+    const viaje = await viajeService.crearViaje(
+      {
+        choferId,
+        vehiculoId,
+        fechaInicio,
+        fechaFin,
+        kilometrosEstimados,
+        clienteId,
+        origenId,
+        destinoId,
+      },
+      req.usuario
+    );
     return res.status(201).json({ viaje });
   } catch (err) {
     if (err instanceof viajeService.ValidacionError) {
@@ -42,7 +45,10 @@ async function crear(req, res) {
 
 async function listar(req, res) {
   const { estado, choferId, vehiculoId, fechaDesde, fechaHasta } = req.query;
-  const viajes = await viajeService.listarViajes({ estado, choferId, vehiculoId, fechaDesde, fechaHasta });
+  const viajes = await viajeService.listarViajes(
+    { estado, choferId, vehiculoId, fechaDesde, fechaHasta },
+    req.usuario
+  );
   return res.json({ viajes });
 }
 
@@ -53,13 +59,16 @@ async function listar(req, res) {
 // ver todavía, ni siquiera si pide ?estado=A_CONFIRMAR explícito.
 async function misViajes(req, res) {
   const { estado, fechaDesde, fechaHasta } = req.query;
-  const viajes = await viajeService.listarViajes({
-    estado,
-    choferId: req.usuario.id,
-    fechaDesde,
-    fechaHasta,
-    excluirAConfirmar: true,
-  });
+  const viajes = await viajeService.listarViajes(
+    {
+      estado,
+      choferId: req.usuario.id,
+      fechaDesde,
+      fechaHasta,
+      excluirAConfirmar: true,
+    },
+    req.usuario
+  );
   return res.json({ viajes });
 }
 
@@ -76,16 +85,20 @@ async function actualizar(req, res) {
   } = req.body;
 
   try {
-    const viaje = await viajeService.actualizarViaje(req.params.id, {
-      choferId,
-      vehiculoId,
-      fechaInicio,
-      fechaFin,
-      kilometrosEstimados,
-      clienteId,
-      origenId,
-      destinoId,
-    });
+    const viaje = await viajeService.actualizarViaje(
+      req.params.id,
+      {
+        choferId,
+        vehiculoId,
+        fechaInicio,
+        fechaFin,
+        kilometrosEstimados,
+        clienteId,
+        origenId,
+        destinoId,
+      },
+      req.usuario
+    );
     return res.json({ viaje });
   } catch (err) {
     if (err instanceof viajeService.NoEncontradoError) {
@@ -106,7 +119,7 @@ async function actualizar(req, res) {
 
 async function confirmar(req, res) {
   try {
-    const viaje = await viajeService.confirmarViaje(req.params.id, req.body);
+    const viaje = await viajeService.confirmarViaje(req.params.id, req.body, req.usuario);
     return res.json({ viaje });
   } catch (err) {
     if (err instanceof viajeService.NoEncontradoError) {
@@ -134,7 +147,7 @@ async function confirmar(req, res) {
 // undefined) aunque el campo nunca haya venido en el body.
 async function actualizarDatosAdministrativos(req, res) {
   try {
-    const viaje = await viajeService.actualizarDatosAdministrativos(req.params.id, req.body);
+    const viaje = await viajeService.actualizarDatosAdministrativos(req.params.id, req.body, req.usuario);
     return res.json({ viaje });
   } catch (err) {
     if (err instanceof viajeService.NoEncontradoError) {
@@ -159,7 +172,7 @@ async function listarMetodosPago(req, res) {
 
 async function cancelar(req, res) {
   try {
-    const viaje = await viajeService.cancelarViaje(req.params.id);
+    const viaje = await viajeService.cancelarViaje(req.params.id, req.usuario);
     return res.json({ viaje });
   } catch (err) {
     if (err instanceof viajeService.NoEncontradoError) {
