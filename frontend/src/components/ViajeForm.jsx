@@ -20,8 +20,10 @@ const FORM_INICIAL = {
 };
 
 const CAMPOS_OPERATIVOS = ['choferId', 'vehiculoId', 'fechaInicio', 'fechaFin', 'kilometrosEstimados'];
-const AYUDA_OPCIONAL = 'Opcional — completalo si ya lo sabés.';
 const ERROR_OBLIGATORIO_PROGRAMADO = 'Obligatorio para un viaje Programado.';
+const LEYENDA_TODO_OBLIGATORIO = '* Obligatorio';
+const LEYENDA_OPERATIVOS_OPCIONALES =
+  '* Obligatorio. Si completás chofer, vehículo, fechas y kilómetros, el viaje queda Programado; si no, queda A confirmar.';
 
 // `estadoActual` es el estado del viaje que se está editando (undefined en
 // alta). Los cinco campos operativos solo son obligatorios a nivel de
@@ -97,7 +99,7 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
   return (
     <form onSubmit={handleSubmit} noValidate>
       <div className="form-grid">
-        <FormField id="clienteId" label="Cliente" error={errores.clienteId}>
+        <FormField id="clienteId" label="Cliente" error={errores.clienteId} required>
           <SelectorBuscarOCrear
             endpoint="/clientes"
             valor={form.clienteId}
@@ -107,7 +109,7 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
           />
         </FormField>
 
-        <FormField id="origenId" label="Origen" error={errores.origenId}>
+        <FormField id="origenId" label="Origen" error={errores.origenId} required>
           <SelectorBuscarOCrear
             endpoint="/ubicaciones"
             valor={form.origenId}
@@ -117,7 +119,7 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
           />
         </FormField>
 
-        <FormField id="destinoId" label="Destino" error={errores.destinoId}>
+        <FormField id="destinoId" label="Destino" error={errores.destinoId} required>
           <SelectorBuscarOCrear
             endpoint="/ubicaciones"
             valor={form.destinoId}
@@ -131,7 +133,7 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
           id="choferId"
           label="Chofer"
           error={errores.choferId}
-          hint={!requiereOperativos ? AYUDA_OPCIONAL : undefined}
+          required={requiereOperativos}
         >
           <select name="choferId" value={form.choferId} onChange={handleChange}>
             <option value="">Seleccionar…</option>
@@ -147,7 +149,7 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
           id="vehiculoId"
           label="Vehículo"
           error={errores.vehiculoId}
-          hint={!requiereOperativos ? AYUDA_OPCIONAL : undefined}
+          required={requiereOperativos}
         >
           <select name="vehiculoId" value={form.vehiculoId} onChange={handleChange}>
             <option value="">Seleccionar…</option>
@@ -163,7 +165,7 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
           id="fechaInicio"
           label="Fecha y hora de inicio"
           error={errores.fechaInicio}
-          hint={!requiereOperativos ? AYUDA_OPCIONAL : undefined}
+          required={requiereOperativos}
         >
           <input type="datetime-local" name="fechaInicio" value={form.fechaInicio} onChange={handleChange} />
         </FormField>
@@ -172,7 +174,7 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
           id="fechaFin"
           label="Fecha y hora de fin"
           error={errores.fechaFin}
-          hint={!requiereOperativos ? AYUDA_OPCIONAL : undefined}
+          required={requiereOperativos}
         >
           <input type="datetime-local" name="fechaFin" value={form.fechaFin} onChange={handleChange} />
         </FormField>
@@ -181,7 +183,7 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
           id="kilometrosEstimados"
           label="Kilómetros estimados"
           error={errores.kilometrosEstimados}
-          hint={!requiereOperativos ? AYUDA_OPCIONAL : undefined}
+          required={requiereOperativos}
         >
           <input
             type="number"
@@ -193,6 +195,8 @@ function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, texto
       </div>
 
       {errores.general && <Alert variant="error">{errores.general}</Alert>}
+
+      <p className="form-leyenda">{requiereOperativos ? LEYENDA_TODO_OBLIGATORIO : LEYENDA_OPERATIVOS_OPCIONALES}</p>
 
       <div className="form-actions">
         <Button type="submit" variant="primary" loading={enviando}>
