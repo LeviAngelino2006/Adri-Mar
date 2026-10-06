@@ -47,6 +47,9 @@ function Documentacion() {
   const [busqueda, setBusqueda] = useState('');
   const [vehiculoSeleccionado, setVehiculoSeleccionado] = useState(null);
 
+  // Filtro rápido de estado
+  const [filtroEstado, setFiltroEstado] = useState(null); // null = Todos, 'VENCIDOS', 'PENDIENTES'
+
   // Documentos del vehículo activo
   const [carpetaData, setCarpetaData] = useState(null);
   const [cargandoCarpeta, setCargandoCarpeta] = useState(false);
@@ -58,11 +61,11 @@ function Documentacion() {
   const [modalVisor, setModalVisor] = useState({ open: false, documento: null });
   const [modalHistorial, setModalHistorial] = useState({ open: false, tipo: null });
 
-  // Cargar lista de vehículos
-  useEffect(() => {
+  // Cargar lista de vehículos con estado de flota
+  const cargarFlota = useCallback(() => {
     setCargandoVehiculos(true);
-    api
-      .get('/vehiculos')
+    return api
+      .get('/documentos/estado-flota')
       .then(({ data }) => {
         const ordenados = ordenarPorInterno(data.vehiculos || []);
         setVehiculos(ordenados);
@@ -76,16 +79,26 @@ function Documentacion() {
           }
         }
 
-        // Por defecto seleccionar el primero
+        // Por defecto seleccionar el primero o mantener seleccionado
         if (ordenados.length > 0) {
-          setVehiculoSeleccionado((prev) => prev || ordenados[0]);
+          setVehiculoSeleccionado((prev) => {
+            if (prev) {
+              const actualizado = ordenados.find((v) => v.id === prev.id);
+              return actualizado || ordenados[0];
+            }
+            return ordenados[0];
+          });
         }
       })
       .catch((err) => {
-        console.error('Error al cargar vehículos:', err);
+        console.error('Error al cargar estado de flota:', err);
       })
       .finally(() => setCargandoVehiculos(false));
   }, [searchParams]);
+
+  useEffect(() => {
+    cargarFlota();
+  }, [cargarFlota]);
 
   // Cargar carpeta de documentación del vehículo seleccionado
   const cargarCarpeta = useCallback((vehiculoId) => {
@@ -137,22 +150,32 @@ function Documentacion() {
   }
 
   function handleSuccessDoc() {
-    setToast('Documento guardado y digitalizado exitosamente.');
+    setToast('Operación completada exitosamente.');
     if (vehiculoSeleccionado) {
       cargarCarpeta(vehiculoSeleccionado.id);
     }
+    cargarFlota();
   }
 
-  // Filtrado de lista lateral
+  // Filtrado de lista lateral por búsqueda y por píldoras de estado
   const vehiculosFiltrados = vehiculos.filter((v) => {
-    if (!busqueda.trim()) return true;
-    const q = busqueda.toLowerCase();
-    return (
-      v.numeroInterno.toLowerCase().includes(q) ||
-      v.dominio.toLowerCase().includes(q) ||
-      v.marca.toLowerCase().includes(q) ||
-      v.modelo.toLowerCase().includes(q)
-    );
+    if (busqueda.trim()) {
+      const q = busqueda.toLowerCase();
+      const coincide =
+        v.numeroInterno.toLowerCase().includes(q) ||
+        v.dominio.toLowerCase().includes(q) ||
+        v.marca.toLowerCase().includes(q) ||
+        v.modelo.toLowerCase().includes(q);
+      if (!coincide) return false;
+    }
+
+    if (filtroEstado === 'VENCIDOS') {
+      return v.tieneVencidos === true;
+    }
+    if (filtroEstado === 'PENDIENTES') {
+      return v.tienePendientes === true;
+    }
+    return true; // null = Todos
   });
 
   return (
@@ -207,6 +230,24 @@ function Documentacion() {
                   onChange={(e) => setBusqueda(e.target.value)}
                   className="doc-search-input"
                 />
+                <div className="doc-filter-pills">
+                  <button
+                    type="button"
+                    className={`doc-pill-btn ${filtroEstado === 'VENCIDOS' ? 'is-active is-vencidos' : ''}`}
+                    onClick={() => setFiltroEstado((prev) => (prev === 'VENCIDOS' ? null : 'VENCIDOS'))}
+                    title="Filtrar coches con documentos vencidos"
+                  >
+                    ⛔ Vencidos
+                  </button>
+                  <button
+                    type="button"
+                    className={`doc-pill-btn ${filtroEstado === 'PENDIENTES' ? 'is-active is-pendientes' : ''}`}
+                    onClick={() => setFiltroEstado((prev) => (prev === 'PENDIENTES' ? null : 'PENDIENTES'))}
+                    title="Filtrar coches con documentos pendientes de carga"
+                  >
+                    ⚠️ Pendientes
+                  </button>
+                </div>
               </div>
 
               <div className="doc-vehiculos-list">
@@ -224,7 +265,18 @@ function Documentacion() {
                       >
                         <div className="doc-vehiculo-item-header">
                           <span className="doc-vehiculo-badge-interno">Int. {v.numeroInterno}</span>
-                          <span className="doc-vehiculo-dominio">{v.dominio}</span>
+                          <div className="doc-vehiculo-header-right">
+                            {v.tieneVencidos && (
+                              <span className="doc-item-dot is-danger" title="Posee documentos vencidos" />
+                            )}
+                            {!v.tieneVencidos && v.tienePendientes && (
+                              <span className="doc-item-dot is-warning" title="Posee documentos pendientes" />
+                            )}
+                            {v.alDia && (
+                              <span className="doc-item-dot is-success" title="Documentación al día" />
+                            )}
+                            <span className="doc-vehiculo-dominio">{v.dominio}</span>
+                          </div>
                         </div>
                         <div className="doc-vehiculo-item-body">
                           <span className="doc-vehiculo-modelo">
@@ -418,13 +470,13 @@ function Documentacion() {
                               )}
 
                               {cargado && (
-                                <button
-                                  type="button"
-                                  className="doc-btn-historial"
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
                                   onClick={() => abrirHistorial(tipo)}
                                 >
                                   Historial
-                                </button>
+                                </Button>
                               )}
                             </div>
 

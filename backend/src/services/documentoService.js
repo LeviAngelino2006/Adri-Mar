@@ -356,10 +356,90 @@ async function eliminarDocumentoVehiculo(vehiculoId, documentoId) {
   return { mensaje: 'Documento eliminado correctamente.' };
 }
 
+/**
+ * Obtiene el resumen de documentación de toda la flota de vehículos activos.
+ * Permite filtrar rápidamente por unidades con vencidos o con pendientes.
+ */
+async function obtenerEstadoFlota() {
+  const tipos = await prisma.tipoDocumento.findMany({
+    where: { aplicaA: 'VEHICULO' },
+    select: { id: true, codigo: true, requiereVencimiento: true },
+  });
+  const totalRequeridos = tipos.length;
+
+  const vehiculos = await prisma.vehiculo.findMany({
+    where: {
+      estadoVehiculo: {
+        descripcion: { not: 'DADO_DE_BAJA' },
+      },
+    },
+    include: {
+      tipoVehiculo: true,
+      estadoVehiculo: true,
+      documentos: {
+        where: { esVigente: true },
+        select: {
+          id: true,
+          tipoDocumentoId: true,
+          fechaVencimiento: true,
+        },
+      },
+    },
+    orderBy: { numeroInterno: 'asc' },
+  });
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  return vehiculos.map((v) => {
+    const totalCargados = v.documentos.length;
+    const tienePendientes = totalCargados < totalRequeridos;
+
+    let tieneVencidos = false;
+    let tienePorVencer = false;
+
+    for (const doc of v.documentos) {
+      if (doc.fechaVencimiento) {
+        const venc = new Date(doc.fechaVencimiento);
+        venc.setHours(0, 0, 0, 0);
+        const diffDias = Math.ceil((venc.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDias < 0) {
+          tieneVencidos = true;
+        } else if (diffDias <= 30) {
+          tienePorVencer = true;
+        }
+      }
+    }
+
+    const alDia = !tienePendientes && !tieneVencidos;
+
+    return {
+      id: v.id,
+      dominio: v.dominio,
+      numeroInterno: v.numeroInterno,
+      marca: v.marca,
+      modelo: v.modelo,
+      anio: v.anio,
+      asientos: v.asientos,
+      kilometraje: v.kilometraje,
+      tipoVehiculo: v.tipoVehiculo,
+      estadoVehiculo: v.estadoVehiculo,
+      totalCargados,
+      totalRequeridos,
+      tieneVencidos,
+      tienePorVencer,
+      tienePendientes,
+      alDia,
+    };
+  });
+}
+
 module.exports = {
   listarTipos,
   obtenerDocumentacionVehiculo,
   obtenerHistorialDocumento,
   registrarDocumentoVehiculo,
   eliminarDocumentoVehiculo,
+  obtenerEstadoFlota,
 };
+
