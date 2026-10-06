@@ -13,19 +13,14 @@ import ConfirmModal from '../components/ui/ConfirmModal';
 import ViajeForm from '../components/ViajeForm';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import ModalConfirmarViaje from '../components/ModalConfirmarViaje';
-import RutaViaje from '../components/RutaViaje';
+import TarjetaViaje from '../components/TarjetaViaje';
+import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { aInputCordoba } from '../utils/fechaCordoba';
-import { formatearFechaHora, formatearRangoCompacto, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import './Viajes.css';
-
-const ICONO_FILTRO = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="4 4 20 4 14 12.5 14 19 10 21 10 12.5 4 4" />
-  </svg>
-);
 
 const ICONO_ALERTA = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -270,14 +265,13 @@ function Viajes() {
   return (
     <Layout>
       {!mostrarForm && !seleccionado && (
-        <div className="viajes-listado-header">
-          <h1>Viajes</h1>
+        <ListadoHeader titulo="Viajes">
           {puedeGestionar && (
             <Button variant="primary" onClick={abrirNuevo}>
               + Programar viaje
             </Button>
           )}
-        </div>
+        </ListadoHeader>
       )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
@@ -305,21 +299,12 @@ function Viajes() {
 
       {!mostrarForm && !seleccionado && (
         <>
-          <div className="viajes-listado-toolbar">
-            <button
-              type="button"
-              className="filtros-toggle-btn"
-              aria-expanded={mostrarFiltros}
-              onClick={() => setMostrarFiltros((m) => !m)}
-            >
-              {ICONO_FILTRO}
-              Filtros
-              {filtrosActivos > 0 && <span className="filtros-toggle-badge">{filtrosActivos}</span>}
-            </button>
-          </div>
+          <ListadoToolbar
+            filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos: filtrosActivos }}
+          />
 
           {mostrarFiltros && (
-            <form className="viajes-listado-filtros" onSubmit={(e) => e.preventDefault()}>
+            <form className="listado-filtros" onSubmit={(e) => e.preventDefault()}>
               <FormField id="estado" label="Estado">
                 <select name="estado" value={filtros.estado} onChange={handleFiltroChange}>
                   {ESTADOS_FILTRO.map((e) => (
@@ -369,35 +354,12 @@ function Viajes() {
             </div>
           )}
 
-          {!cargando && viajes.length === 0 && <Card className="viajes-listado-empty">No se encontraron viajes</Card>}
+          {!cargando && viajes.length === 0 && <div className="listado-vacio">No se encontraron viajes</div>}
 
           {!cargando && viajes.length > 0 && (
-            <div className="viajes-listado-cards">
+            <div className="listado-cards">
               {viajes.map((v) => (
-                <button type="button" key={v.id} className="viajes-listado-card" onClick={() => seleccionar(v)}>
-                  <div className="viajes-listado-card-header">
-                    <span className="viajes-listado-card-titulo">
-                      {v.chofer ? nombreChofer(v.chofer) : 'Chofer pendiente'}
-                    </span>
-                    <div className="viajes-listado-card-estado">
-                      <EstadoBadge tono={ESTADOS_VIAJE[v.estado].tono}>
-                        {ESTADOS_VIAJE[v.estado].label}
-                      </EstadoBadge>
-                    </div>
-                  </div>
-                  <div className="viajes-listado-card-ruta">
-                    <RutaViaje origen={v.origen} destino={v.destino} />
-                  </div>
-                  <span className="viajes-listado-card-vehiculo">
-                    {v.vehiculo ? `${nombreVehiculo(v.vehiculo)} (${v.vehiculo.marca} ${v.vehiculo.modelo})` : 'Vehículo pendiente'}
-                  </span>
-                  <div className="viajes-listado-card-detalle">
-                    <span>
-                      {v.fechaInicio && v.fechaFin ? formatearRangoCompacto(v.fechaInicio, v.fechaFin) : 'Fechas pendientes'}
-                    </span>
-                    <span>{v.kilometrosEstimados != null ? `${v.kilometrosEstimados} km estimados` : 'Km pendientes'}</span>
-                  </div>
-                </button>
+                <TarjetaViaje key={v.id} viaje={v} onClick={() => seleccionar(v)} />
               ))}
             </div>
           )}

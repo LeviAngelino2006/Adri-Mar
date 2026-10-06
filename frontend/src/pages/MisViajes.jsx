@@ -2,24 +2,18 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Layout from '../components/Layout';
-import Card from '../components/ui/Card';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
 import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
-import RutaViaje from '../components/RutaViaje';
+import TarjetaViaje from '../components/TarjetaViaje';
+import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
-import { formatearRangoCompacto, nombreVehiculo } from '../utils/viajeFormato';
+import { nombreVehiculo } from '../utils/viajeFormato';
 import './Viajes.css';
-
-const ICONO_FILTRO = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="4 4 20 4 14 12.5 14 19 10 21 10 12.5 4 4" />
-  </svg>
-);
 
 const ESTADOS_FILTRO = [
   { value: '', label: 'Todos' },
@@ -122,30 +116,19 @@ function MisViajes() {
   return (
     <Layout>
       {!seleccionado && (
-        <div className="viajes-listado-header">
-          <h1>Mis viajes</h1>
-        </div>
+        <ListadoHeader titulo="Mis viajes" />
       )}
 
       {mensaje && <Toast>{mensaje}</Toast>}
 
       {!seleccionado && (
         <>
-          <div className="viajes-listado-toolbar">
-            <button
-              type="button"
-              className="filtros-toggle-btn"
-              aria-expanded={mostrarFiltros}
-              onClick={() => setMostrarFiltros((m) => !m)}
-            >
-              {ICONO_FILTRO}
-              Filtros
-              {filtrosActivos > 0 && <span className="filtros-toggle-badge">{filtrosActivos}</span>}
-            </button>
-          </div>
+          <ListadoToolbar
+            filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos: filtrosActivos }}
+          />
 
           {mostrarFiltros && (
-            <form className="viajes-listado-filtros" onSubmit={(e) => e.preventDefault()}>
+            <form className="listado-filtros" onSubmit={(e) => e.preventDefault()}>
               <FormField id="estado" label="Estado">
                 <select name="estado" value={filtros.estado} onChange={handleFiltroChange}>
                   {ESTADOS_FILTRO.map((e) => (
@@ -173,32 +156,12 @@ function MisViajes() {
             </div>
           )}
 
-          {!cargando && viajes.length === 0 && (
-            <Card className="viajes-listado-empty">No tenés viajes asignados</Card>
-          )}
+          {!cargando && viajes.length === 0 && <div className="listado-vacio">No tenés viajes asignados</div>}
 
           {!cargando && viajes.length > 0 && (
-            <div className="viajes-listado-cards">
+            <div className="listado-cards">
               {viajes.map((v) => (
-                <button type="button" key={v.id} className="viajes-listado-card" onClick={() => seleccionar(v)}>
-                  <div className="viajes-listado-card-header">
-                    <span className="viajes-listado-card-titulo">
-                      {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
-                    </span>
-                    <div className="viajes-listado-card-estado">
-                      <EstadoBadge tono={ESTADOS_VIAJE[v.estado].tono}>
-                        {ESTADOS_VIAJE[v.estado].label}
-                      </EstadoBadge>
-                    </div>
-                  </div>
-                  <div className="viajes-listado-card-ruta">
-                    <RutaViaje origen={v.origen} destino={v.destino} />
-                  </div>
-                  <div className="viajes-listado-card-detalle">
-                    <span>{formatearRangoCompacto(v.fechaInicio, v.fechaFin)}</span>
-                    <span>{v.kilometrosEstimados} km estimados</span>
-                  </div>
-                </button>
+                <TarjetaViaje key={v.id} viaje={v} onClick={() => seleccionar(v)} />
               ))}
             </div>
           )}
