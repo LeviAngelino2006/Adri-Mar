@@ -17,7 +17,8 @@
 
 .proximos-viajes-item {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) 0;
   font-size: 0.875rem;
@@ -144,9 +145,53 @@
 .viaje-en-curso-pie {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
   font-size: 0.875rem;
   color: var(--color-text-secondary);
   padding-top: var(--space-3);
   border-top: 1px solid var(--color-border);
+}
+
+/* Viaje en curso: acciones del pie. */
+.viaje-en-curso-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Próximos viajes: el área de información abre la ficha del viaje. */
+.proximos-viajes-enlace {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin: calc(var(--space-1) * -1);
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.proximos-viajes-enlace:hover {
+  background-color: var(--brand-50);
+}
+
+.proximos-viajes-accion {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+@media (max-width: 479px) {
+  .proximos-viajes-accion,
+  .viaje-en-curso-acciones,
+  .viaje-en-curso-acciones .btn {
+    width: 100%;
+  }
 }
