@@ -33,8 +33,19 @@ const ICONO_CALENDARIO = (
   </svg>
 );
 
+const INTERVALO_PROGRESO_MS = 60 * 1000;
+
 function ViajeEnCurso({ viaje }) {
-  const progreso = porcentajeProgresoViaje(viaje.fechaInicio, viaje.fechaFin);
+  const [ahora, setAhora] = useState(() => Date.now());
+
+  // Solo se vuelve a calcular el avance con las fechas ya cargadas; no se
+  // consulta de nuevo la API.
+  useEffect(() => {
+    const id = setInterval(() => setAhora(Date.now()), INTERVALO_PROGRESO_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  const progreso = porcentajeProgresoViaje(viaje.fechaInicio, viaje.fechaFin, ahora);
   const claseBarra = viaje.excedido ? 'viaje-en-curso-barra viaje-en-curso-barra-excedido' : 'viaje-en-curso-barra';
 
   return (
