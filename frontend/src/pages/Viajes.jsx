@@ -3,7 +3,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
-import EstadoDot from '../components/ui/EstadoDot';
+import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
 import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
@@ -379,9 +379,9 @@ function Viajes() {
                       {v.chofer ? nombreChofer(v.chofer) : 'Chofer pendiente'}
                     </span>
                     <div className="viajes-listado-card-estado">
-                      <EstadoDot color={ESTADOS_VIAJE[v.estado].dot} size="md">
+                      <EstadoBadge tono={ESTADOS_VIAJE[v.estado].tono}>
                         {ESTADOS_VIAJE[v.estado].label}
-                      </EstadoDot>
+                      </EstadoBadge>
                       <IndicadorVencimiento viaje={v} />
                     </div>
                   </div>
@@ -416,9 +416,9 @@ function Viajes() {
             <div className="viajes-detalle-header">
               <h1>{seleccionado.chofer ? `Viaje de ${nombreChofer(seleccionado.chofer)}` : 'Viaje a confirmar'}</h1>
               <div className="viajes-detalle-estado">
-                <EstadoDot color={ESTADOS_VIAJE[seleccionado.estado].dot} size="md">
+                <EstadoBadge tono={ESTADOS_VIAJE[seleccionado.estado].tono}>
                   {ESTADOS_VIAJE[seleccionado.estado].label}
-                </EstadoDot>
+                </EstadoBadge>
                 <IndicadorVencimiento viaje={seleccionado} size="md" />
               </div>
             </div>

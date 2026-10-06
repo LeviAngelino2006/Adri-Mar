@@ -41,9 +41,9 @@
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background-color: var(--brand-600);
-  color: #fff;
+  color: var(--color-on-brand);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -149,6 +149,11 @@ button.viajes-listado-card:focus-visible {
 
 .viajes-listado-card-ruta {
   font-size: 1rem;
+}
+
+.viajes-listado-card-detalle,
+.viajes-detalle-list dd {
+  font-variant-numeric: tabular-nums;
 }
 
 .viajes-listado-card-vehiculo {
