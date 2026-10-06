@@ -9,7 +9,6 @@ import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import RutaViaje from '../components/RutaViaje';
-import IndicadorVencimiento from '../components/ui/IndicadorVencimiento';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { formatearFechaHora, formatearRangoCompacto, nombreVehiculo } from '../utils/viajeFormato';
 import './Viajes.css';
@@ -170,7 +169,6 @@ function MisViajes() {
                       <EstadoBadge tono={ESTADOS_VIAJE[v.estado].tono}>
                         {ESTADOS_VIAJE[v.estado].label}
                       </EstadoBadge>
-                      <IndicadorVencimiento viaje={v} />
                     </div>
                   </div>
                   <div className="viajes-listado-card-ruta">
@@ -199,7 +197,6 @@ function MisViajes() {
               <EstadoBadge tono={ESTADOS_VIAJE[seleccionado.estado].tono}>
                 {ESTADOS_VIAJE[seleccionado.estado].label}
               </EstadoBadge>
-              <IndicadorVencimiento viaje={seleccionado} size="md" />
             </div>
           </div>
 

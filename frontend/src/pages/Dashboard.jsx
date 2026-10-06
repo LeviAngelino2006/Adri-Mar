@@ -6,7 +6,6 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
 import EstadoBadge from '../components/ui/EstadoBadge';
-import IndicadorVencimiento from '../components/ui/IndicadorVencimiento';
 import RutaViaje from '../components/RutaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { formatearDiaYHora, formatearFechaHora, nombreVehiculo } from '../utils/viajeFormato';
@@ -46,13 +45,11 @@ function ViajeEnCurso({ viaje }) {
   }, []);
 
   const progreso = porcentajeProgresoViaje(viaje.fechaInicio, viaje.fechaFin, ahora);
-  const claseBarra = viaje.excedido ? 'viaje-en-curso-barra viaje-en-curso-barra-excedido' : 'viaje-en-curso-barra';
 
   return (
     <Card className="viaje-en-curso" role="region" aria-label="Viaje en curso">
       <div className="viaje-en-curso-header">
         <EstadoBadge tono={ESTADOS_VIAJE.EN_VIAJE.tono}>{ESTADOS_VIAJE.EN_VIAJE.label}</EstadoBadge>
-        <IndicadorVencimiento viaje={viaje} />
       </div>
       <div className="viaje-en-curso-ruta">
         <RutaViaje origen={viaje.origen} destino={viaje.destino} />
@@ -63,7 +60,7 @@ function ViajeEnCurso({ viaje }) {
           <small>Salida</small>
         </div>
         <div
-          className={claseBarra}
+          className="viaje-en-curso-barra"
           role="progressbar"
           aria-label="Avance del viaje"
           aria-valuemin={0}

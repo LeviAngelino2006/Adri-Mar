@@ -15,7 +15,6 @@ import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import ModalConfirmarViaje from '../components/ModalConfirmarViaje';
 import RutaViaje from '../components/RutaViaje';
 import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
-import IndicadorVencimiento from '../components/ui/IndicadorVencimiento';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { aInputCordoba } from '../utils/fechaCordoba';
 import { formatearFechaHora, formatearRangoCompacto, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
@@ -382,7 +381,6 @@ function Viajes() {
                       <EstadoBadge tono={ESTADOS_VIAJE[v.estado].tono}>
                         {ESTADOS_VIAJE[v.estado].label}
                       </EstadoBadge>
-                      <IndicadorVencimiento viaje={v} />
                     </div>
                   </div>
                   <div className="viajes-listado-card-ruta">
@@ -419,7 +417,6 @@ function Viajes() {
                 <EstadoBadge tono={ESTADOS_VIAJE[seleccionado.estado].tono}>
                   {ESTADOS_VIAJE[seleccionado.estado].label}
                 </EstadoBadge>
-                <IndicadorVencimiento viaje={seleccionado} size="md" />
               </div>
             </div>
 

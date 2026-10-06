@@ -44,8 +44,8 @@ export function fechaCordobaISO(fechaIso) {
 // Porcentaje (0 a 100) del viaje transcurrido entre fechaInicio y fechaFin.
 // Los valores de la API son instantes absolutos y "ahora" también, así que el
 // cociente no depende de la zona horaria del navegador: es el mismo criterio
-// de "hora de Córdoba" con el que el backend calcula `excedido` (fechaFin
-// contra el ahora). Un viaje cuyo fin ya pasó queda en 100.
+// de "hora de Córdoba" del resto de la app. Un viaje cuyo fin ya pasó queda en
+// 100 (llena, sin ninguna marca de atraso).
 export function porcentajeProgresoViaje(fechaInicio, fechaFin, ahora = Date.now()) {
   const inicio = new Date(fechaInicio).getTime();
   const fin = new Date(fechaFin).getTime();

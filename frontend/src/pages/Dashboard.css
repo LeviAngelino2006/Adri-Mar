@@ -141,10 +141,6 @@
   background-color: var(--brand-600);
 }
 
-.viaje-en-curso-barra-excedido .viaje-en-curso-barra-fill {
-  background-color: var(--state-error-solid);
-}
-
 .viaje-en-curso-pie {
   display: flex;
   flex-wrap: wrap;
