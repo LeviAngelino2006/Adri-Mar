@@ -13,6 +13,7 @@ import ConfirmModal from '../components/ui/ConfirmModal';
 import ViajeForm from '../components/ViajeForm';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import ModalConfirmarViaje from '../components/ModalConfirmarViaje';
+import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
 import IndicadorVencimiento from '../components/ui/IndicadorVencimiento';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { aInputCordoba } from '../utils/fechaCordoba';
@@ -250,6 +251,12 @@ function Viajes() {
   function pedirConfirmar(viaje) {
     setErrorCancelar('');
     setPedidoConfirmar(viaje);
+  }
+
+  function manejarExitoDatosAdministrativos(viajeActualizado) {
+    setMensaje('Datos administrativos guardados correctamente.');
+    setSeleccionado(viajeActualizado);
+    cargarViajes();
   }
 
   function manejarExitoConfirmar(viajeActualizado) {
@@ -516,6 +523,14 @@ function Viajes() {
                 </div>
               )}
             </Card>
+
+            {puedeGestionar && (
+              <DatosAdministrativosViaje
+                key={seleccionado.id}
+                viaje={seleccionado}
+                onGuardado={manejarExitoDatosAdministrativos}
+              />
+            )}
           </>
         );
       })()}

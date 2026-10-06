@@ -68,3 +68,31 @@ export function nombreChofer(chofer) {
 export function nombreVehiculo(vehiculo) {
   return `${vehiculo.numeroInterno} - ${vehiculo.dominio}`;
 }
+
+// Montos en pesos argentinos (ej. "$ 1.234,50"). Los valores nulos los
+// resuelve el caller (cada pantalla decide su propio placeholder).
+export function formatearMonto(valor) {
+  return Number(valor).toLocaleString('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 2,
+  });
+}
+
+// Solo la fecha (sin hora), en hora de Córdoba — para fechas de pago, que son
+// un día calendario y no un instante.
+export function formatearSoloFecha(valor) {
+  return new Date(valor).toLocaleDateString('es-AR', {
+    timeZone: TZ_CORDOBA,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+// Los catálogos (EstadoPago/MetodoPago) se guardan en mayúsculas ("PAGADO");
+// para mostrarlos al usuario se pasan a "Pagado".
+export function capitalizarCatalogo(descripcion) {
+  if (!descripcion) return '';
+  return descripcion.charAt(0).toUpperCase() + descripcion.slice(1).toLowerCase();
+}

@@ -147,6 +147,16 @@ async function actualizarDatosAdministrativos(req, res) {
   }
 }
 
+async function listarEstadosPago(req, res) {
+  const estadosPago = await viajeService.listarEstadosPago();
+  return res.json({ estadosPago });
+}
+
+async function listarMetodosPago(req, res) {
+  const metodosPago = await viajeService.listarMetodosPago();
+  return res.json({ metodosPago });
+}
+
 async function cancelar(req, res) {
   try {
     const viaje = await viajeService.cancelarViaje(req.params.id);
@@ -228,6 +238,8 @@ module.exports = {
   actualizar,
   actualizarDatosAdministrativos,
   confirmar,
+  listarEstadosPago,
+  listarMetodosPago,
   cancelar,
   comenzar,
   finalizar,

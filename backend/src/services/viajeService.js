@@ -326,6 +326,16 @@ async function validarEstadoPago(id, campo) {
   return estadoPago;
 }
 
+// Orden por id = orden del seed (PENDIENTE/PAGADO/PARCIAL, EFECTIVO/BANCO/CHEQUE),
+// que ya es el orden natural para mostrarlos en un <select>.
+async function listarEstadosPago() {
+  return prisma.estadoPago.findMany({ orderBy: { id: 'asc' } });
+}
+
+async function listarMetodosPago() {
+  return prisma.metodoPago.findMany({ orderBy: { id: 'asc' } });
+}
+
 async function validarMetodoPago(id, campo) {
   const metodoPago = await prisma.metodoPago.findUnique({ where: { id } });
   if (!metodoPago) {
@@ -1124,6 +1134,8 @@ module.exports = {
   listarViajes,
   actualizarViaje,
   actualizarDatosAdministrativos,
+  listarEstadosPago,
+  listarMetodosPago,
   confirmarViaje,
   cancelarViaje,
   comenzarViaje,

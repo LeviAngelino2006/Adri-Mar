@@ -8,6 +8,8 @@ const viajeRoutes = require('./routes/viajeRoutes');
 const lecturaOdometroRoutes = require('./routes/lecturaOdometroRoutes');
 const ubicacionRoutes = require('./routes/ubicacionRoutes');
 const clienteRoutes = require('./routes/clienteRoutes');
+const estadoPagoRoutes = require('./routes/estadoPagoRoutes');
+const metodoPagoRoutes = require('./routes/metodoPagoRoutes');
 
 const app = express();
 
@@ -26,6 +28,8 @@ app.use('/api/viajes', viajeRoutes);
 app.use('/api/lecturas-odometro', lecturaOdometroRoutes);
 app.use('/api/ubicaciones', ubicacionRoutes);
 app.use('/api/clientes', clienteRoutes);
+app.use('/api/estados-pago', estadoPagoRoutes);
+app.use('/api/metodos-pago', metodoPagoRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Recurso no encontrado' });
