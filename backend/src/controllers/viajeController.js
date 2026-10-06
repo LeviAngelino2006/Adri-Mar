@@ -18,6 +18,7 @@ async function crear(req, res) {
     clienteId,
     origenId,
     destinoId,
+    datosAdministrativos,
   } = req.body;
 
   try {
@@ -31,6 +32,7 @@ async function crear(req, res) {
         clienteId,
         origenId,
         destinoId,
+        datosAdministrativos,
       },
       req.usuario
     );

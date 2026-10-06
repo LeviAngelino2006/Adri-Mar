@@ -553,8 +553,23 @@ async function serializarViaje(viaje, usuarioSolicitante) {
 // A_CONFIRMAR con lo que sí vino (validado solo por existencia) y el resto en
 // null. clienteId/origenId/destinoId son siempre obligatorios en los dos
 // casos — no son parte de esta bifurcación.
+//
+// `datosAdministrativos` es opcional (solo lo manda el formulario de alta de
+// Administrador/Encargado): se valida con las mismas reglas que el PATCH
+// /:id/datos-administrativos y se guarda en el MISMO create, así el viaje se
+// crea con todo o no se crea, sin quedar a medias si esos datos son inválidos.
 async function crearViaje(
-  { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, clienteId, origenId, destinoId },
+  {
+    choferId,
+    vehiculoId,
+    fechaInicio,
+    fechaFin,
+    kilometrosEstimados,
+    clienteId,
+    origenId,
+    destinoId,
+    datosAdministrativos,
+  },
   usuarioSolicitante
 ) {
   const core = await validarYArmarCore({ clienteId, origenId, destinoId });
@@ -564,10 +579,13 @@ async function crearViaje(
 
   const operativos = await validarYArmarOperativos(camposOperativos, { obligatorios: completo });
 
+  const administrativos = await validarYArmarDatosAdministrativosOpcionales(datosAdministrativos);
+
   const estado = await obtenerEstadoViajePorDescripcion(completo ? 'PROGRAMADO' : 'A_CONFIRMAR');
 
   const viaje = await prisma.viaje.create({
     data: {
+      ...administrativos,
       choferId: operativos.choferId,
       vehiculoId: operativos.vehiculoId,
       fechaInicio: operativos.fechaInicio,
@@ -768,17 +786,12 @@ function validarFormatoIdPositivo(mensajeError) {
   };
 }
 
-// Acción administrativa/financiera, separada por completo del ciclo de vida
-// operativo del viaje: no valida nada contra el estado (funciona igual en
-// Programado, En viaje, Finalizado o Cancelado) y es actualización PARCIAL,
-// no reemplazo — a diferencia de actualizarViaje/validarYArmarDatos de
-// arriba, acá un campo ausente del payload nunca se toca, y solo se pisa el
-// que vino explícitamente (incluido `null`, para poder "deshacer" una carga
-// anterior). Por eso no reusa validarDatos/validarYArmarDatos: esas dos
-// funciones asumen que todos los campos siempre vienen y son obligatorios.
-async function actualizarDatosAdministrativos(id, payload = {}, usuarioSolicitante) {
-  const actual = await obtenerViaje(id);
-
+// Valida y arma los campos administrativos de un payload (parcial: un campo
+// ausente no entra en `data`; `null` explícito sí, para borrar el dato). La usan
+// actualizarDatosAdministrativos (PATCH) y crearViaje (alta con datos
+// administrativos), para que las dos rutas validen exactamente igual. Lanza
+// ValidacionError con los errores por campo; no toca la base.
+async function validarYArmarDatosAdministrativos(payload) {
   const data = {};
   const errores = {};
 
@@ -838,6 +851,33 @@ async function actualizarDatosAdministrativos(id, payload = {}, usuarioSolicitan
   if (typeof data.metodoPagoChoferId === 'number') {
     await validarMetodoPago(data.metodoPagoChoferId, 'metodoPagoChoferId');
   }
+
+  return data;
+}
+
+// Variante para el alta de un viaje: `datosAdministrativos` puede no venir
+// (undefined/null: no hay nada que guardar, devuelve {}), pero si viene tiene
+// que ser un objeto.
+async function validarYArmarDatosAdministrativosOpcionales(datos) {
+  if (datos === undefined || datos === null) return {};
+  if (typeof datos !== 'object' || Array.isArray(datos)) {
+    throw new ValidacionError({ datosAdministrativos: 'Los datos administrativos no son válidos' });
+  }
+  return validarYArmarDatosAdministrativos(datos);
+}
+
+// Acción administrativa/financiera, separada por completo del ciclo de vida
+// operativo del viaje: no valida nada contra el estado (funciona igual en
+// Programado, En viaje, Finalizado o Cancelado) y es actualización PARCIAL,
+// no reemplazo — a diferencia de actualizarViaje/validarYArmarDatos de
+// arriba, acá un campo ausente del payload nunca se toca, y solo se pisa el
+// que vino explícitamente (incluido `null`, para poder "deshacer" una carga
+// anterior). Por eso no reusa validarDatos/validarYArmarDatos: esas dos
+// funciones asumen que todos los campos siempre vienen y son obligatorios.
+async function actualizarDatosAdministrativos(id, payload = {}, usuarioSolicitante) {
+  const actual = await obtenerViaje(id);
+
+  const data = await validarYArmarDatosAdministrativos(payload);
 
   // Ningún campo reconocido en el payload: no-op válido, no se toca la fila
   // (ni siquiera actualizadoEn).
