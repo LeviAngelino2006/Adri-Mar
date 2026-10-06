@@ -40,66 +40,12 @@
   color: var(--color-text-secondary);
 }
 
-/* Tabla (escritorio) */
-.flota-table-wrap {
-  display: none;
-}
-
-.flota-table {
-  width: 100%;
-  border-collapse: collapse;
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.flota-table th,
-.flota-table td {
-  text-align: left;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.flota-table thead th {
-  background-color: var(--brand-50);
-  color: var(--color-text-secondary);
-  font-weight: 600;
-  font-size: 0.8125rem;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.flota-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.flota-row {
-  cursor: pointer;
-}
-
-.flota-row:hover {
-  background-color: var(--brand-50);
-}
-
-.flota-row:focus-visible {
-  outline: 2px solid var(--brand-600);
-  outline-offset: -2px;
-}
-
-.flota-table td {
-  font-variant-numeric: tabular-nums;
-}
-
-.flota-row-dominio {
-  color: var(--brand-600);
-}
-
-/* Tarjetas (mobile) */
+/* Tarjetas: el listado de flota usa tarjetas en todos los tamaños, en una
+   grilla que pasa de 1 a 2 y 3 columnas según el ancho. */
 .flota-cards {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-4);
   margin-bottom: var(--space-6);
 }
 
@@ -158,18 +104,6 @@
   color: var(--color-text-secondary);
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
-}
-
-@media (min-width: 768px) {
-  .flota-table-wrap {
-    display: block;
-    overflow-x: auto;
-    margin-bottom: var(--space-6);
-  }
-
-  .flota-cards {
-    display: none;
-  }
 }
 
 /* Ficha de detalle */

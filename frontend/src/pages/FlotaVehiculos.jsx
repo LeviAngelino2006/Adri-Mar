@@ -3,7 +3,6 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
-import EstadoDot from '../components/ui/EstadoDot';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
@@ -12,6 +11,7 @@ import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import { ESTADOS_VEHICULO } from '../constants/estadosVehiculo';
+import { formatearKm } from '../utils/viajeFormato';
 import './FlotaVehiculos.css';
 
 const ICONO_ALERTA = (
@@ -312,50 +312,6 @@ function FlotaVehiculos() {
 
           {!cargando && vehiculos.length > 0 && (
             <>
-              <div className="flota-table-wrap">
-                <table className="flota-table">
-                  <thead>
-                    <tr>
-                      <th>Interno</th>
-                      <th>Dominio</th>
-                      <th>Marca / Modelo</th>
-                      <th>Tipo</th>
-                      <th>Kilometraje</th>
-                      <th>Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ordenarPorInterno(vehiculos).map((v) => (
-                      <tr
-                        key={v.id}
-                        className="flota-row"
-                        tabIndex={0}
-                        onClick={() => seleccionar(v)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            seleccionar(v);
-                          }
-                        }}
-                      >
-                        <td>{v.numeroInterno}</td>
-                        <td className="flota-row-dominio patente">{v.dominio}</td>
-                        <td>
-                          {v.marca} {v.modelo}
-                        </td>
-                        <td>{v.tipoVehiculo.descripcion}</td>
-                        <td>{v.kilometraje}</td>
-                        <td>
-                          <EstadoDot color={ESTADOS_VEHICULO[v.estado].dot}>
-                            {ESTADOS_VEHICULO[v.estado].label}
-                          </EstadoDot>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
               <div className="flota-cards">
                 {ordenarPorInterno(vehiculos).map((v) => (
                   <button type="button" key={v.id} className="flota-card" onClick={() => seleccionar(v)}>
@@ -375,7 +331,11 @@ function FlotaVehiculos() {
                         <span>
                           {v.marca} {v.modelo}
                         </span>
-                        <span>{v.kilometraje} km</span>
+                      </div>
+                      <div className="flota-card-body">
+                        <span>{v.tipoVehiculo.descripcion}</span>
+                        <span>·</span>
+                        <span>{formatearKm(v.kilometraje)} km</span>
                       </div>
                     </div>
                   </button>
