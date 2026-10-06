@@ -28,6 +28,13 @@ function diaYMes(fecha) {
   return `${FORMATO_DIA_MES.format(fecha)} ${FORMATO_MES_CORTO.format(fecha)}`;
 }
 
+// "05 oct 08:00" en hora de Córdoba: un solo instante, sin año, para espacios
+// angostos donde la hora sola sería ambigua si el viaje cruza de día.
+export function formatearDiaYHora(valor) {
+  const fecha = new Date(valor);
+  return `${diaYMes(fecha)} ${FORMATO_HORA.format(fecha)}`;
+}
+
 // Formato compacto del rango de un viaje: "05 oct · 08:00 - 18:00" si
 // empieza y termina el mismo día calendario (Córdoba), o
 // "05 oct 08:00 → 06 oct 18:00" si cruza de día.

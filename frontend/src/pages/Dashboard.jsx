@@ -5,9 +5,12 @@ import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
+import EstadoBadge from '../components/ui/EstadoBadge';
+import IndicadorVencimiento from '../components/ui/IndicadorVencimiento';
 import RutaViaje from '../components/RutaViaje';
-import { formatearFechaHora, nombreVehiculo } from '../utils/viajeFormato';
-import { hoyEnCordoba } from '../utils/fechaCordoba';
+import { ESTADOS_VIAJE } from '../constants/estadosViaje';
+import { formatearDiaYHora, formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { hoyEnCordoba, porcentajeProgresoViaje } from '../utils/fechaCordoba';
 import './Dashboard.css';
 
 const MAX_VIAJES_INICIAL = 3;
@@ -30,15 +33,57 @@ const ICONO_CALENDARIO = (
   </svg>
 );
 
-function ProximosViajes() {
+function ViajeEnCurso({ viaje, chofer }) {
+  const progreso = porcentajeProgresoViaje(viaje.fechaInicio, viaje.fechaFin);
+  const claseBarra = viaje.excedido ? 'viaje-en-curso-barra viaje-en-curso-barra-excedido' : 'viaje-en-curso-barra';
+
+  return (
+    <Card className="viaje-en-curso" role="region" aria-label="Viaje en curso">
+      <div className="viaje-en-curso-header">
+        <EstadoBadge tono={ESTADOS_VIAJE.EN_VIAJE.tono}>{ESTADOS_VIAJE.EN_VIAJE.label}</EstadoBadge>
+        <IndicadorVencimiento viaje={viaje} />
+      </div>
+      <div className="viaje-en-curso-ruta">
+        <RutaViaje origen={viaje.origen} destino={viaje.destino} />
+      </div>
+      <div className="viaje-en-curso-progreso">
+        <div className="viaje-en-curso-hora">
+          {formatearDiaYHora(viaje.fechaInicio)}
+          <small>Salida</small>
+        </div>
+        <div
+          className={claseBarra}
+          role="progressbar"
+          aria-label="Avance del viaje"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progreso}
+        >
+          <div className="viaje-en-curso-barra-fill" style={{ width: `${progreso}%` }} />
+        </div>
+        <div className="viaje-en-curso-hora viaje-en-curso-hora-fin">
+          {formatearDiaYHora(viaje.fechaFin)}
+          <small>Llegada est.</small>
+        </div>
+      </div>
+      <div className="viaje-en-curso-pie">
+        <span>Chofer: {nombreChofer(chofer)}</span>
+        <span>Vehículo: {nombreVehiculo(viaje.vehiculo)}</span>
+      </div>
+    </Card>
+  );
+}
+
+function ProximosViajes({ chofer }) {
+  const [enCurso, setEnCurso] = useState([]);
   const [viajes, setViajes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [mostrarTodos, setMostrarTodos] = useState(false);
 
   useEffect(() => {
     // GET /mis-viajes solo acepta un estado por vez, así que el viaje En viaje
-    // (a lo sumo uno, ver viajeService) se pide aparte y se antepone al resto:
-    // es el viaje más relevante para mostrar en este momento.
+    // (a lo sumo uno, ver viajeService) se pide aparte: se muestra arriba como
+    // ViajeEnCurso y no forma parte de la lista de próximos.
     Promise.all([
       api.get('/viajes/mis-viajes', { params: { estado: 'EN_VIAJE' } }),
       api.get('/viajes/mis-viajes', { params: { estado: 'PROGRAMADO', fechaDesde: hoyEnCordoba() } }),
@@ -47,7 +92,8 @@ function ProximosViajes() {
         // El backend siempre devuelve descendente (más nuevo/futuro primero);
         // acá se da vuelta para que "lo que viene" muestre el más próximo arriba.
         const programados = [...resProgramados.data.viajes].reverse();
-        setViajes([...resEnViaje.data.viajes, ...programados]);
+        setEnCurso(resEnViaje.data.viajes);
+        setViajes(programados);
       })
       .finally(() => setCargando(false));
   }, []);
@@ -56,33 +102,33 @@ function ProximosViajes() {
   const restantes = viajes.length - MAX_VIAJES_INICIAL;
 
   return (
-    <Card className="dashboard-panel dashboard-proximos-viajes">
-      <h2>Tus próximos viajes</h2>
+    <>
+      {enCurso.map((v) => (
+        <ViajeEnCurso key={v.id} viaje={v} chofer={chofer} />
+      ))}
 
-      {cargando && (
-        <div className="loading-state">
-          <Spinner label="Cargando próximos viajes" />
-          <span>Cargando…</span>
-        </div>
-      )}
+      <Card className="dashboard-panel dashboard-proximos-viajes">
+        <h2>Tus próximos viajes</h2>
 
-      {!cargando && viajes.length === 0 && (
-        <div className="dashboard-empty">
-          {ICONO_VIAJE}
-          <span>No tenés viajes programados próximamente</span>
-        </div>
-      )}
+        {cargando && (
+          <div className="loading-state">
+            <Spinner label="Cargando próximos viajes" />
+            <span>Cargando…</span>
+          </div>
+        )}
 
-      {!cargando && viajes.length > 0 && (
-        <>
-          <ul className="proximos-viajes-lista">
-            {visibles.map((v) => {
-              const esEnViaje = v.estado === 'EN_VIAJE';
-              return (
-                <li
-                  key={v.id}
-                  className={esEnViaje ? 'proximos-viajes-item proximos-viajes-item-enviaje' : 'proximos-viajes-item'}
-                >
+        {!cargando && viajes.length === 0 && (
+          <div className="dashboard-empty">
+            {ICONO_VIAJE}
+            <span>No tenés viajes programados próximamente</span>
+          </div>
+        )}
+
+        {!cargando && viajes.length > 0 && (
+          <>
+            <ul className="proximos-viajes-lista">
+              {visibles.map((v) => (
+                <li key={v.id} className="proximos-viajes-item">
                   <div className="proximos-viajes-icono">{ICONO_CALENDARIO}</div>
                   <div className="proximos-viajes-info">
                     <span className="proximos-viajes-ruta">
@@ -90,21 +136,20 @@ function ProximosViajes() {
                     </span>
                     <span className="proximos-viajes-salida">{formatearFechaHora(v.fechaInicio)}</span>
                     <span className="proximos-viajes-vehiculo">{nombreVehiculo(v.vehiculo)}</span>
-                    {esEnViaje && <span className="sr-only">Viaje en curso</span>}
                   </div>
                 </li>
-              );
-            })}
-          </ul>
+              ))}
+            </ul>
 
-          {restantes > 0 && (
-            <Button variant="secondary" onClick={() => setMostrarTodos((m) => !m)}>
-              {mostrarTodos ? 'Ver menos' : `Ver ${restantes} más`}
-            </Button>
-          )}
-        </>
-      )}
-    </Card>
+            {restantes > 0 && (
+              <Button variant="secondary" onClick={() => setMostrarTodos((m) => !m)}>
+                {mostrarTodos ? 'Ver menos' : `Ver ${restantes} más`}
+              </Button>
+            )}
+          </>
+        )}
+      </Card>
+    </>
   );
 }
 
@@ -118,7 +163,7 @@ function Dashboard() {
         Hola, {usuario.nombre} {usuario.apellido}
       </p>
 
-      {usuario.habilitadoParaConducir && <ProximosViajes />}
+      {usuario.habilitadoParaConducir && <ProximosViajes chofer={usuario} />}
 
       <Card className="dashboard-panel">
         <h2>Alertas</h2>
