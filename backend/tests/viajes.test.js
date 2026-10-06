@@ -18,6 +18,26 @@ const SRC = path.join(__dirname, '..', 'src');
 
 const llamadas = { create: [], update: [] };
 let viajesParaListar = [];
+// Lecturas de odómetro por viaje: { [viajeId]: { INICIO_VIAJE: km, FIN_VIAJE: km } }.
+let lecturasPorViaje = {};
+// Correcciones: { [idLecturaCorregida]: kmCorregido }.
+let correcciones = {};
+
+const idLectura = (viajeId, origen) => viajeId * 10 + (origen === 'INICIO_VIAJE' ? 1 : 2);
+
+// Fila de lectura con los campos que lee serializarLectura.
+const lecturaFalsa = (id, valorKm, origen) => ({
+  id,
+  valorKm,
+  origen: { descripcion: origen },
+  vehiculoId: 1,
+  viajeId: null,
+  usuarioId: 1,
+  lecturaCorregidaId: null,
+  motivo: null,
+  fechaHora: new Date('2026-01-01T00:00:00Z'),
+  creadoEn: new Date('2026-01-01T00:00:00Z'),
+});
 
 function viajeBase(sobrescribir = {}) {
   return {
@@ -62,7 +82,28 @@ const prismaFalso = {
   estadoViaje: {
     findUnique: async ({ where: { descripcion } }) => ({ id: descripcion === 'A_CONFIRMAR' ? 1 : 2, descripcion }),
   },
-  lecturaOdometro: { findFirst: async () => null },
+  lecturaOdometro: {
+    findFirst: async ({ where }) => {
+      if (where.viajeId !== undefined) {
+        const origen = where.origen.descripcion;
+        const km = lecturasPorViaje[where.viajeId]?.[origen];
+        return km === undefined ? null : lecturaFalsa(idLectura(where.viajeId, origen), km, origen);
+      }
+      // Cadena de correcciones: quién corrige a la lectura `lecturaCorregidaId`.
+      const kmCorregido = correcciones[where.lecturaCorregidaId];
+      return kmCorregido === undefined
+        ? null
+        : lecturaFalsa(where.lecturaCorregidaId + 1000, kmCorregido, 'CORRECCION');
+    },
+    findUnique: async ({ where }) => {
+      for (const [viajeId, lecturas] of Object.entries(lecturasPorViaje)) {
+        for (const [origen, km] of Object.entries(lecturas)) {
+          if (idLectura(Number(viajeId), origen) === where.id) return lecturaFalsa(where.id, km, origen);
+        }
+      }
+      return null;
+    },
+  },
   viaje: {
     create: async ({ data }) => {
       llamadas.create.push(data);
@@ -106,6 +147,8 @@ beforeEach(() => {
   llamadas.create.length = 0;
   llamadas.update.length = 0;
   viajesParaListar = [];
+  lecturasPorViaje = {};
+  correcciones = {};
 });
 
 function tokenDe(perfil) {
@@ -306,5 +349,51 @@ describe('respuesta del viaje', () => {
       json.viajes.map((v) => v.estado),
       ['PROGRAMADO', 'EN_VIAJE']
     );
+  });
+});
+
+describe('odómetro del viaje en la respuesta', () => {
+  async function listar() {
+    const { status, json } = await pedir('GET', '/viajes', { perfil: 'ADMINISTRADOR' });
+    assert.equal(status, 200);
+    return Object.fromEntries(json.viajes.map((v) => [v.id, v]));
+  }
+
+  test('Finalizado, En viaje y Programado devuelven lo que existe y null en lo demás', async () => {
+    viajesParaListar = [
+      viajeBase({ id: 1, estadoViaje: { descripcion: 'FINALIZADO' } }),
+      viajeBase({ id: 2, estadoViaje: { descripcion: 'EN_VIAJE' } }),
+      viajeBase({ id: 3, estadoViaje: { descripcion: 'PROGRAMADO' } }),
+    ];
+    lecturasPorViaje = {
+      1: { INICIO_VIAJE: 57110, FIN_VIAJE: 57310 },
+      2: { INICIO_VIAJE: 80000 },
+    };
+
+    const v = await listar();
+
+    assert.equal(v[1].odometroInicial, 57110);
+    assert.equal(v[1].odometroFinal, 57310);
+    assert.equal(v[1].kmRealizados, 200);
+
+    assert.equal(v[2].odometroInicial, 80000);
+    assert.equal(v[2].odometroFinal, null);
+    assert.equal(v[2].kmRealizados, null);
+
+    assert.equal(v[3].odometroInicial, null);
+    assert.equal(v[3].odometroFinal, null);
+    assert.equal(v[3].kmRealizados, null);
+  });
+
+  test('usa la lectura vigente si fue corregida, y kmRealizados la respeta', async () => {
+    viajesParaListar = [viajeBase({ id: 1, estadoViaje: { descripcion: 'FINALIZADO' } })];
+    lecturasPorViaje = { 1: { INICIO_VIAJE: 57110, FIN_VIAJE: 57310 } };
+    correcciones = { [idLectura(1, 'FIN_VIAJE')]: 57300 };
+
+    const v = await listar();
+
+    assert.equal(v[1].odometroInicial, 57110);
+    assert.equal(v[1].odometroFinal, 57300);
+    assert.equal(v[1].kmRealizados, 190);
   });
 });

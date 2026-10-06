@@ -472,6 +472,10 @@ function serializarDatosAdministrativos(viaje) {
 // con obtenerLecturaVigente, por si alguna fue corregida después (todavía no
 // hay forma de corregir desde HTTP, pero la función ya existe y el cálculo
 // tiene que estar bien desde ya). Si falta cualquiera de las dos, null.
+//
+// Esas mismas lecturas vigentes se devuelven como odometroInicial y
+// odometroFinal (solo lectura, mismo criterio de visibilidad que kmRealizados):
+// un viaje En viaje tiene solo el inicial; uno sin comenzar, ninguno (null).
 async function serializarViaje(viaje, usuarioSolicitante) {
   const [lecturaInicio, lecturaFin] = await Promise.all([
     prisma.lecturaOdometro.findFirst({
@@ -482,14 +486,12 @@ async function serializarViaje(viaje, usuarioSolicitante) {
     }),
   ]);
 
-  let kmRealizados = null;
-  if (lecturaInicio && lecturaFin) {
-    const [vigenteInicio, vigenteFin] = await Promise.all([
-      lecturaOdometroService.obtenerLecturaVigente(lecturaInicio.id),
-      lecturaOdometroService.obtenerLecturaVigente(lecturaFin.id),
-    ]);
-    kmRealizados = vigenteFin.valorKm - vigenteInicio.valorKm;
-  }
+  const [vigenteInicio, vigenteFin] = await Promise.all([
+    lecturaInicio ? lecturaOdometroService.obtenerLecturaVigente(lecturaInicio.id) : null,
+    lecturaFin ? lecturaOdometroService.obtenerLecturaVigente(lecturaFin.id) : null,
+  ]);
+
+  const kmRealizados = vigenteInicio && vigenteFin ? vigenteFin.valorKm - vigenteInicio.valorKm : null;
 
   const estado = viaje.estadoViaje.descripcion;
 
@@ -538,6 +540,8 @@ async function serializarViaje(viaje, usuarioSolicitante) {
     kilometrosEstimados: viaje.kilometrosEstimados,
     horaInicioReal: viaje.horaInicioReal,
     horaFinReal: viaje.horaFinReal,
+    odometroInicial: vigenteInicio ? vigenteInicio.valorKm : null,
+    odometroFinal: vigenteFin ? vigenteFin.valorKm : null,
     kmRealizados,
     // Nota operativa del viaje, cargada solo al finalizar: visible para cualquier
     // perfil que vea el viaje (no es un dato administrativo). null si no hay.
