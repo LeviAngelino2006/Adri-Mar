@@ -1,0 +1,92 @@
+Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transporte de pasajeros, Río Tercero, Córdoba) para gestionar viajes, flota y usuarios. Interfaz clara, densa y de un solo tema: superficies blancas sobre gris muy claro, el azul del logotipo como único azul y colores de estado para viajes y vehículos.
+
+## Contenido y voz
+
+- Escribí en español rioplatense con voseo: "completalo cuando tengas los datos", "Intentá de nuevo".
+- Botones en infinitivo y concretos: "Guardar cambios", "Confirmar viaje", "Comenzar viaje", "Dar de baja".
+- Mientras una acción corre, el botón pasa a gerundio con elipsis: "Confirmando…", "Ingresando…", "Finalizando…".
+- Errores con "No se pudo…" + la acción: "No se pudo guardar el viaje". Éxitos en pasado: "Cambios guardados correctamente."
+- Mayúscula solo al inicio (sentence case), sin signos de exclamación ni emoji.
+- Los nombres de estado se escriben siempre igual: A confirmar, Programado, En viaje, Finalizado, Cancelado; Operativo, En taller, Dado de baja.
+
+## Color
+
+- Fondo de página `color-bg`; cards, topbar, sidebar, modales e inputs en `color-surface`.
+- Texto principal `color-text`; texto secundario, hints y navegación inactiva `color-text-secondary`. Ambos se leen sobre `color-surface` y `color-bg`.
+- Bordes y separadores en `color-border`.
+- Hay un solo azul: la escala `brand-*`, construida sobre el azul del logotipo (`brand-600`, #0535a6). `brand-600` es el botón primario (texto `color-on-brand`), los links, el switch encendido, la barra de progreso y el anillo de foco. `brand-700` es el hover y el ítem de navegación activo (sobre `brand-100`). `brand-50` es el hover suave y el encabezado de tablas. `brand-200` es el borde de badges y alerts de marca.
+- No agregues otros azules. Info (`state-info-*`) y el estado Programado son alias de la escala de marca. `theme-color` es alias de `brand-600`.
+- Cada estado tiene un trío `state-<tipo>-text` / `-bg` / `-border` (success, warning, neutral, error) y un `state-<tipo>-solid` para puntos y barras. El texto `state-*-text` va sobre su `state-*-bg` (todos ≥5.3:1); los `-solid` superan 3:1 sobre blanco.
+- Estados de viaje: A confirmar neutral, Programado brand, En viaje warning, Finalizado success, Cancelado error. Estados de vehículo: Operativo success, En taller warning, Dado de baja neutral. Los tokens `viaje-*` y `vehiculo-*` son alias de esos colores.
+- Mostrá el estado con `EstadoBadge` (píldora) en tarjetas y fichas, y con `EstadoDot` (punto) en tablas. Siempre con su etiqueta: el color solo no comunica.
+- Las acciones destructivas usan `state-error-text` de fondo con `color-on-brand`; hover `state-error-strong`.
+- Vencido y Excedido usan el trío de error, igual que cualquier otro error.
+- Usá siempre tokens: no hay colores escritos a mano en `bundle.css`. Texto sobre fondos oscuros: `color-on-brand` o `color-inverse-text`. Backdrops: `overlay`.
+- No hay tema oscuro: la app declara `color-scheme: light`.
+
+## Tipografía
+
+- Una sola familia: la pila del sistema `--font-sans` (system-ui, Segoe UI, Roboto). No cargues fuentes web.
+- Base 16px con interlineado 1.5 (`body`). Títulos con interlineado 1.25: `h1` 28px en 700 por página; `h2` 22px y `h3` 18px en 600.
+- Labels en `label` (500); botones en `button` (600, interlineado 1).
+- Texto de apoyo: `body-sm` (15px) en alerts, toasts y modales; `caption` (14px) en hints y errores de campo; `meta` (13px) en contadores; `xs` (12px) y `micro` (11px) solo para etiquetas chicas.
+- Números que se comparan (km, odómetro, horas, internos) van con números tabulares: clase `.num`. Tablas, fichas y pies de tarjeta ya los aplican.
+- Patentes y dominios van con `.patente` (familia `--font-mono`, 600, mayúsculas, letter-spacing 0.06em), en tablas, tarjetas y fichas.
+
+## Espaciado, radios y sombras
+
+- Escala de 4px: `space-1` 4, `space-2` 8, `space-3` 12, `space-4` 16, `space-5` 20, `space-6` 24, `space-8` 32, `space-12` 48. No hay 40.
+- Separación entre campos y párrafos: `space-4`. Padding de cards y modales: `space-6`.
+- `radius-sm` (6px) para controles, alerts y navegación; `radius-md` (10px) para cards y tablas; `radius-lg` (14px) para modales; `radius-full` para píldoras, switch, avatares y puntos.
+- `shadow-sm` en cards y topbar; `shadow-md` en popovers, hover de tarjetas y la card del login; `shadow-lg` en modales y toasts.
+
+## Interacción y accesibilidad
+
+- Todo control interactivo mide al menos 44px de alto (botones, inputs, ítems de navegación).
+- Foco visible: outline 2px `brand-600` con offset 2px. No lo quites.
+- Deshabilitado: opacidad 0.6 y cursor not-allowed.
+- Transiciones cortas (0.15–0.2s) y desactivadas con `prefers-reduced-motion`.
+- Los campos de formulario van dentro de `FormField`, que conecta label, hint y error con `aria-*`.
+
+## Layout
+
+- Topbar sticky en `color-surface` con borde inferior y `shadow-sm`; logo de 32px de alto.
+- Sidebar de 232px con el logo (36px) arriba y la navegación con íconos de 20px.
+- Formularios: `.form-grid` pasa a dos columnas desde 640px; `.form-card` limita a 720px.
+
+## Logos e íconos
+
+- Usá `assets/Logos/logo-adrimar.png` (el wordmark "Adri Mar Viajes") sobre `color-surface`, nunca sobre `brand-600`. No lo redibujes ni lo recolorees.
+- Íconos de navegación de 20px, de un solo color: en la app toman `currentColor` (`color-text-secondary`, o `brand-700` cuando están activos). Ver `assets/Icons/README.md`.
+
+## Componentes
+
+`components/bundle.js` expone `window.AdriMar` con Button, Card, Alert, FormField, Switch, Spinner, Toast, ConfirmModal, EstadoDot, EstadoBadge, IndicadorVencimiento y RutaViaje (React). `components/bundle.css` trae sus estilos, las reglas base y las clases de páginas y layout. Leé el README de cada componente antes de usarlo.
+
+## Patrones de página
+
+Las pantallas se arman con las clases de `bundle.css` y los componentes de arriba, no con componentes propios. Cada patrón tiene su README con la estructura y las clases exactas:
+
+- Viajes: `TarjetaViaje` (listado), `ViajeEnCurso` y `ProximosViajes` (Dashboard).
+- Listados: `TablaListado` (escritorio, desde 768px), `TarjetaVehiculo` (mobile), `FichaDetalle` (ficha de un registro), `Filtros`.
+- Usuarios: `Avatar`, con el color según el perfil.
+- Layout: `Navegacion` (sidebar y topbar), `Login` (panel de marca + card).
+
+- Cada listado tiene dos vistas: tabla desde 768px y tarjetas apiladas debajo. Los viajes son la excepción: siempre en tarjetas de una columna.
+- Encabezado de página: `h1` a la izquierda y la acción principal (`Button` primary, "Nuevo vehículo") a la derecha, con margen inferior `space-6`.
+- Los estados vacíos van centrados, en `color-text-secondary`.
+
+## Diferencias con el código
+
+Este sistema va un paso adelante del repositorio (`main@76e2cf3`). Al implementar algo en el código, seguí este sistema y estas diferencias:
+
+- La escala `brand-*` cambió al azul del logotipo y se agregó `brand-200`.
+- Los colores de estado ahora son alias de los tríos `state-*`, sin violeta ni ámbar claro. Los nuevos `state-*-solid` reemplazan a los hex de `constants/estadosViaje.js` y `constants/estadosVehiculo.js`, y `state-info-*` pasó a la escala de marca.
+- `EstadoBadge` es nuevo y se usa en tarjetas y fichas.
+- IndicadorVencimiento usa `state-error-*`.
+- Tokens nuevos: `color-on-brand`, `color-inverse-*`, `overlay`, `state-error-strong`, `space-5` (ya lo usaba `DatosAdministrativosViaje.css`), `radius-lg`, `radius-full`, `shadow-lg` y `--font-mono`.
+- `h1` en 700. Clases `.num` y `.patente`.
+- En el Dashboard, `ViajeEnCurso` reemplaza a `.proximos-viajes-item-enviaje`, y la pista de estado vacío pasa a `color-text-secondary`.
+- El Login nuevo tiene panel de marca.
+
+Sin cambios respecto del código: SelectorBuscarOCrear no está en el bundle porque depende del cliente HTTP de la app (tiene guía y vista estática). No hay archivos de fuente: la app usa fuentes del sistema.

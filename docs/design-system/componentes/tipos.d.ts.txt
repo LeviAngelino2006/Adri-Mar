@@ -1,0 +1,123 @@
+// Tipos documentales de los componentes de frontend/src/components/ui (Adri-Mar Gestión).
+// Los componentes originales son .jsx sin tipos: estas firmas se leen de sus props por defecto.
+import type { ReactNode, ButtonHTMLAttributes, HTMLAttributes, ChangeEventHandler, ReactElement } from 'react';
+
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  /** Estilo visual. Por defecto 'primary'. */
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  /** Muestra un Spinner sm y deshabilita el botón (aria-busy). */
+  loading?: boolean;
+  disabled?: boolean;
+  /** Por defecto 'button'. */
+  type?: 'button' | 'submit' | 'reset';
+  className?: string;
+  children?: ReactNode;
+}
+export declare function Button(props: ButtonProps): ReactElement;
+
+export interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  className?: string;
+  children?: ReactNode;
+}
+export declare function Card(props: CardProps): ReactElement;
+
+export interface AlertProps {
+  /** Por defecto 'info'. error usa role="alert"; success e info role="status". */
+  variant?: 'info' | 'success' | 'error';
+  children?: ReactNode;
+}
+export declare function Alert(props: AlertProps): ReactElement;
+
+export interface FormFieldProps {
+  /** id que se inyecta al control hijo y enlaza el label. */
+  id: string;
+  label: ReactNode;
+  /** Mensaje de error: marca aria-invalid y reemplaza al hint. */
+  error?: ReactNode;
+  hint?: ReactNode;
+  /** Un único control (input, select, textarea). */
+  children: ReactElement;
+}
+export declare function FormField(props: FormFieldProps): ReactElement;
+
+export interface SwitchProps {
+  id?: string;
+  name?: string;
+  checked: boolean;
+  onChange?: ChangeEventHandler<HTMLInputElement>;
+  disabled?: boolean;
+}
+export declare function Switch(props: SwitchProps): ReactElement;
+
+export interface SpinnerProps {
+  /** Por defecto 'md' (22px). sm 16px, lg 32px. */
+  size?: 'sm' | 'md' | 'lg';
+  /** Texto para lectores de pantalla. Por defecto 'Cargando…'. */
+  label?: string;
+}
+export declare function Spinner(props: SpinnerProps): ReactElement;
+
+export interface ToastProps {
+  children?: ReactNode;
+}
+export declare function Toast(props: ToastProps): ReactElement;
+
+export interface ConfirmModalProps {
+  open: boolean;
+  /** 'danger' (por defecto) o 'brand'. Define el color del ícono y el botón de confirmar. */
+  tone?: 'danger' | 'brand';
+  icon?: ReactNode;
+  title: string;
+  description?: ReactNode;
+  confirmLabel: ReactNode;
+  /** Por defecto 'Cancelar'. */
+  cancelLabel?: ReactNode;
+  onConfirm?: () => void;
+  onCancel?: () => void;
+}
+export declare function ConfirmModal(props: ConfirmModalProps): ReactElement | null;
+
+export interface EstadoDotProps {
+  /** Color del punto: uno de los tokens viaje-* o vehiculo-*. */
+  color: string;
+  size?: 'sm' | 'md';
+  children?: ReactNode;
+}
+export declare function EstadoDot(props: EstadoDotProps): ReactElement;
+
+export interface IndicadorVencimientoProps {
+  /** Viaje serializado por el backend; se muestra solo si vencido o excedido es true. */
+  viaje?: { vencido?: boolean; excedido?: boolean } | null;
+  size?: 'sm' | 'md';
+}
+export declare function IndicadorVencimiento(props: IndicadorVencimientoProps): ReactElement | null;
+
+export interface SelectorBuscarOCrearProps {
+  id?: string;
+  /** Endpoint que soporta GET ?busqueda= y POST { nombre }, respondiendo { recurso: … }. */
+  endpoint: string;
+  valor?: string | number | null;
+  valorNombre?: string;
+  onSeleccionar: (item: { id: string | number; nombre: string } | null) => void;
+  /** Por defecto 'Buscar…'. */
+  placeholder?: string;
+  disabled?: boolean;
+}
+/** No incluido en bundle.js: depende del cliente HTTP de la app. */
+export declare function SelectorBuscarOCrear(props: SelectorBuscarOCrearProps): ReactElement;
+
+export interface RutaViajeProps {
+  /** Lugar de origen; sin valor muestra "No registrado" atenuado. */
+  origen?: { nombre: string } | null;
+  destino?: { nombre: string } | null;
+}
+export declare function RutaViaje(props: RutaViajeProps): ReactElement;
+
+export interface EstadoBadgeProps {
+  /** Tono del estado. Ver la tabla de tonos en components/EstadoBadge/README.md. Por defecto 'neutral'. */
+  tono?: 'brand' | 'success' | 'warning' | 'error' | 'neutral';
+  /** Por defecto 'md'. */
+  size?: 'sm' | 'md';
+  children?: ReactNode;
+}
+export declare function EstadoBadge(props: EstadoBadgeProps): ReactElement;
