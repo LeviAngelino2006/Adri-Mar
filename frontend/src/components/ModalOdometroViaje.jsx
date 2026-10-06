@@ -35,12 +35,17 @@ const CONFIGS = {
     campo: 'odometroFinal',
     etiquetaCampo: 'Odómetro final (km)',
     icono: ICONO_FINALIZAR,
-    llamar: (id, valor) => finalizarViaje(id, valor),
+    conObservacion: true,
+    llamar: (id, valor, observacion) => finalizarViaje(id, valor, observacion),
     mensajeExito: 'Viaje finalizado correctamente. Se actualizó el kilometraje del vehículo.',
     textoBoton: 'Finalizar viaje',
     textoEnviando: 'Finalizando…',
   },
 };
+
+// Mismo máximo que valida el backend (MAX_LONGITUD_OBSERVACION en
+// viajeService). Acá solo alimenta el contador: el que rechaza es el backend.
+const MAX_LONGITUD_OBSERVACION = 1000;
 
 // Comenzar y Finalizar piden exactamente lo mismo (un odómetro, con el
 // kilometraje actual del vehículo como referencia) y solo cambian el
@@ -49,21 +54,25 @@ const CONFIGS = {
 function ModalOdometroViaje({ viaje, accion, onCerrar, onExito }) {
   const config = accion ? CONFIGS[accion] : null;
   const [valor, setValor] = useState('');
+  const [observacion, setObservacion] = useState('');
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
     setValor('');
+    setObservacion('');
     setErrores({});
   }, [viaje?.id, accion]);
 
   if (!viaje || !config) return null;
 
+  const cantidadObservacion = [...observacion].length;
+
   async function confirmar() {
     setErrores({});
     setEnviando(true);
     try {
-      const { data } = await config.llamar(viaje.id, valor);
+      const { data } = await config.llamar(viaje.id, valor, observacion);
       onExito(data.viaje, config.mensajeExito);
     } catch (err) {
       if (err.response?.status === 400 && err.response.data.errores) {
@@ -100,6 +109,30 @@ function ModalOdometroViaje({ viaje, accion, onCerrar, onExito }) {
               onChange={(e) => setValor(e.target.value)}
             />
           </FormField>
+          {config.conObservacion && (
+            <FormField
+              id="observacion"
+              label={
+                <>
+                  Observación{' '}
+                  <span className={cantidadObservacion > MAX_LONGITUD_OBSERVACION ? 'contador-texto contador-texto-excedido' : 'contador-texto'}>
+                    {cantidadObservacion}/{MAX_LONGITUD_OBSERVACION}
+                  </span>
+                </>
+              }
+              error={errores.observacion}
+            >
+              <textarea
+                rows={3}
+                placeholder="Opcional — algo para destacar del viaje"
+                value={observacion}
+                onChange={(e) => {
+                  setObservacion(e.target.value);
+                  setErrores((previos) => ({ ...previos, observacion: undefined }));
+                }}
+              />
+            </FormField>
+          )}
           {errores.general && <Alert variant="error">{errores.general}</Alert>}
         </div>
       }

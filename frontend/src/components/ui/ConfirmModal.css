@@ -39,6 +39,23 @@
   text-align: left;
 }
 
+.contador-texto {
+  margin-left: var(--space-1);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.contador-texto-excedido {
+  font-weight: 600;
+  color: var(--state-error-text);
+}
+
+.confirm-modal-description textarea {
+  resize: vertical;
+  min-height: 88px;
+}
+
 .confirm-modal-icon {
   width: 44px;
   height: 44px;

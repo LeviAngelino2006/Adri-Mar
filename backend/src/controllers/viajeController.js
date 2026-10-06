@@ -219,10 +219,10 @@ async function comenzar(req, res) {
 }
 
 async function finalizar(req, res) {
-  const { odometroFinal } = req.body;
+  const { odometroFinal, observacion } = req.body;
 
   try {
-    const viaje = await viajeService.finalizarViaje(req.params.id, { odometroFinal }, req.usuario);
+    const viaje = await viajeService.finalizarViaje(req.params.id, { odometroFinal, observacion }, req.usuario);
     return res.json({ viaje });
   } catch (err) {
     if (err instanceof viajeService.NoEncontradoError) {

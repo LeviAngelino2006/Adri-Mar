@@ -145,6 +145,10 @@ model Viaje {
   estadoViaje         EstadoViaje       @relation(fields: [estadoViajeId], references: [id])
   horaInicioReal      DateTime?         @map("hora_inicio_real")
   horaFinReal         DateTime?         @map("hora_fin_real")
+  // Nota libre opcional que se carga ÚNICAMENTE al finalizar el viaje (ver
+  // finalizarViaje); no hay forma de editarla después. El límite de longitud
+  // lo valida viajeService (no la base), igual que el resto de los textos.
+  observacionFinal    String?           @map("observacion_final")
   lecturasOdometro    LecturaOdometro[]
   // Nullable porque los viajes históricos no tienen este dato y no hay forma
   // de reconstruirlo retroactivamente (quedan en null para siempre). La

@@ -558,6 +558,9 @@ async function serializarViaje(viaje, usuarioSolicitante) {
     horaInicioReal: viaje.horaInicioReal,
     horaFinReal: viaje.horaFinReal,
     kmRealizados,
+    // Nota operativa del viaje, cargada solo al finalizar: visible para cualquier
+    // perfil que vea el viaje (no es un dato administrativo). null si no hay.
+    observacionFinal: viaje.observacionFinal,
     estado,
     vencido,
     excedido,
@@ -1014,7 +1017,37 @@ async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
 // obtenerLecturaVigente(lecturaInicio), que sí resuelve correctamente el
 // valor vigente de ESTE viaje puntual sin importar qué más se haya corregido
 // en el medio.
-async function finalizarViaje(id, { odometroFinal }, usuarioSolicitante) {
+// ~150-200 palabras: de sobra para una nota sobre cómo fue el viaje (un
+// comportamiento a destacar, una incidencia), y suficientemente acotado para
+// que no sirva para volcar texto arbitrario. Cuenta caracteres (no unidades
+// UTF-16), así que un emoji vale 1 como lo ve quien escribe. El frontend
+// repite este número en el maxLength del campo (ModalOdometroViaje).
+const MAX_LONGITUD_OBSERVACION = 1000;
+
+// La observación es opcional: ausente, null, vacía o solo espacios → null (el
+// viaje se finaliza sin nota, nunca se guarda un string vacío). Si viene, tiene
+// que ser un string y no pasar el máximo; se guarda sin espacios en los
+// extremos.
+function validarObservacionFinal(observacion) {
+  if (observacion === undefined || observacion === null) return null;
+
+  if (typeof observacion !== 'string') {
+    throw new ValidacionError({ observacion: 'La observación debe ser un texto' });
+  }
+
+  const texto = observacion.trim();
+  if (texto === '') return null;
+
+  if ([...texto].length > MAX_LONGITUD_OBSERVACION) {
+    throw new ValidacionError({
+      observacion: `La observación no puede superar los ${MAX_LONGITUD_OBSERVACION} caracteres`,
+    });
+  }
+
+  return texto;
+}
+
+async function finalizarViaje(id, { odometroFinal, observacion }, usuarioSolicitante) {
   const actual = await obtenerViaje(id);
 
   if (!puedeOperarViaje(usuarioSolicitante, actual)) {
@@ -1023,6 +1056,8 @@ async function finalizarViaje(id, { odometroFinal }, usuarioSolicitante) {
   if (actual.estadoViaje.descripcion !== 'EN_VIAJE') {
     throw new EstadoNoEditableError(actual.estadoViaje.descripcion);
   }
+
+  const observacionFinal = validarObservacionFinal(observacion);
 
   const lecturaInicio = await prisma.lecturaOdometro.findFirst({
     where: { viajeId: actual.id, origen: { descripcion: 'INICIO_VIAJE' } },
@@ -1048,7 +1083,7 @@ async function finalizarViaje(id, { odometroFinal }, usuarioSolicitante) {
       // el segundo en llegar encuentra count=0 y aborta sin crear nada.
       const actualizados = await tx.viaje.updateMany({
         where: { id: actual.id, estadoViajeId: estadoEnViajeOrigen.id },
-        data: { estadoViajeId: estadoFinalizado.id, horaFinReal: new Date() },
+        data: { estadoViajeId: estadoFinalizado.id, horaFinReal: new Date(), observacionFinal },
       });
       if (actualizados.count === 0) {
         const viajeActual = await tx.viaje.findUnique({

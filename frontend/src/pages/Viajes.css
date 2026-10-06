@@ -213,6 +213,17 @@ button.viajes-listado-card:focus-visible {
   font-size: 1rem;
 }
 
+/* Texto libre (observación): ocupa todo el ancho de la grilla y respeta los
+   saltos de línea que escribió quien finalizó el viaje. */
+.viajes-detalle-list .detalle-item-ancho {
+  grid-column: 1 / -1;
+}
+
+.viajes-detalle-list .detalle-item-ancho dd {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 @media (min-width: 640px) {
   .viajes-detalle-list {
     grid-template-columns: repeat(2, 1fr);

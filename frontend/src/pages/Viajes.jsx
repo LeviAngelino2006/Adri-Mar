@@ -483,6 +483,12 @@ function Viajes() {
                     <dd>{seleccionado.kmRealizados} km</dd>
                   </div>
                 )}
+                {seleccionado.observacionFinal && (
+                  <div className="detalle-item detalle-item-ancho">
+                    <dt>Observación del viaje</dt>
+                    <dd>{seleccionado.observacionFinal}</dd>
+                  </div>
+                )}
               </dl>
 
               {seleccionado.estado === 'A_CONFIRMAR' && puedeGestionar && (
