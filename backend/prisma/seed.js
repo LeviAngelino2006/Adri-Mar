@@ -118,6 +118,89 @@ async function main() {
   }
 
   console.log(`Orígenes de lectura listos: ${ORIGENES_LECTURA.join(', ')}`);
+
+  const TIPOS_DOCUMENTO = [
+    {
+      codigo: 'POLIZA_SEGURO',
+      descripcion: 'Póliza de seguro',
+      aplicaA: 'VEHICULO',
+      requiereVencimiento: true,
+      requiereArchivo: true,
+      orden: 1,
+    },
+    {
+      codigo: 'CERT_COBERTURA',
+      descripcion: 'Certificado de cobertura',
+      aplicaA: 'VEHICULO',
+      requiereVencimiento: true,
+      requiereArchivo: true,
+      orden: 2,
+    },
+    {
+      codigo: 'PAGO_SEGURO',
+      descripcion: 'Comprobante de pago de seguro',
+      aplicaA: 'VEHICULO',
+      requiereVencimiento: false,
+      requiereArchivo: true,
+      orden: 3,
+    },
+    {
+      codigo: 'ITV',
+      descripcion: 'Inspección Técnica Vehicular (ITV)',
+      aplicaA: 'VEHICULO',
+      requiereVencimiento: true,
+      requiereArchivo: true,
+      orden: 4,
+    },
+    {
+      codigo: 'MATAFUEGOS',
+      descripcion: 'Control de Matafuegos',
+      aplicaA: 'VEHICULO',
+      requiereVencimiento: true,
+      requiereArchivo: false,
+      orden: 5,
+    },
+    {
+      codigo: 'TITULO_VEHICULO',
+      descripcion: 'Título del automotor',
+      aplicaA: 'VEHICULO',
+      requiereVencimiento: false,
+      requiereArchivo: true,
+      orden: 6,
+    },
+    {
+      codigo: 'CEDULA_IDENTIFICACION',
+      descripcion: 'Cédula de identificación (Tarjeta Verde)',
+      aplicaA: 'VEHICULO',
+      requiereVencimiento: false,
+      requiereArchivo: true,
+      orden: 7,
+    },
+    {
+      codigo: 'ALTA_TRANSPORTE',
+      descripcion: 'Certificado de alta de transporte',
+      aplicaA: 'VEHICULO',
+      requiereVencimiento: false,
+      requiereArchivo: true,
+      orden: 8,
+    },
+  ];
+
+  for (const tipo of TIPOS_DOCUMENTO) {
+    await prisma.tipoDocumento.upsert({
+      where: { codigo: tipo.codigo },
+      update: {
+        descripcion: tipo.descripcion,
+        aplicaA: tipo.aplicaA,
+        requiereVencimiento: tipo.requiereVencimiento,
+        requiereArchivo: tipo.requiereArchivo,
+        orden: tipo.orden,
+      },
+      create: tipo,
+    });
+  }
+
+  console.log(`Tipos de documento listos: ${TIPOS_DOCUMENTO.length} tipos`);
 }
 
 main()
