@@ -845,7 +845,10 @@ async function cancelarViaje(id) {
   if (actual.estadoViaje.descripcion === 'CANCELADO') {
     throw new YaCanceladoError();
   }
-  if (actual.estadoViaje.descripcion !== 'PROGRAMADO') {
+  // Mismo criterio que actualizarViaje: un viaje A_CONFIRMAR todavía es una
+  // etapa de planificación, así que también se puede cancelar sin haber
+  // llegado a completarse.
+  if (!['PROGRAMADO', 'A_CONFIRMAR'].includes(actual.estadoViaje.descripcion)) {
     throw new EstadoNoEditableError(actual.estadoViaje.descripcion);
   }
 

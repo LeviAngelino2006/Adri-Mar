@@ -7,3 +7,7 @@ export function comenzarViaje(id, odometroInicial) {
 export function finalizarViaje(id, odometroFinal) {
   return api.patch(`/viajes/${id}/finalizar`, { odometroFinal });
 }
+
+export function confirmarViaje(id, datos) {
+  return api.patch(`/viajes/${id}/confirmar`, datos);
+}

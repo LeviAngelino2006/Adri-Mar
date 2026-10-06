@@ -202,6 +202,10 @@ function MisViajes() {
           <Card className="viajes-detalle" role="region" aria-label="Ficha del viaje">
             <dl className="viajes-detalle-list">
               <div className="detalle-item">
+                <dt>Cliente</dt>
+                <dd>{seleccionado.cliente?.nombre || 'No registrado'}</dd>
+              </div>
+              <div className="detalle-item">
                 <dt>Vehículo</dt>
                 <dd>
                   {nombreVehiculo(seleccionado.vehiculo)} ({seleccionado.vehiculo.marca} {seleccionado.vehiculo.modelo})

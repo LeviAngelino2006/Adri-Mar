@@ -6,6 +6,8 @@ import Alert from './ui/Alert';
 import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
 
 const FORM_INICIAL = {
+  clienteId: '',
+  clienteNombre: '',
   choferId: '',
   vehiculoId: '',
   origenId: '',
@@ -17,12 +19,25 @@ const FORM_INICIAL = {
   kilometrosEstimados: '',
 };
 
-function ViajeForm({ valoresIniciales, onSubmit, textoBoton, textoEnviando, onCancelar }) {
+const CAMPOS_OPERATIVOS = ['choferId', 'vehiculoId', 'fechaInicio', 'fechaFin', 'kilometrosEstimados'];
+const AYUDA_OPCIONAL = 'Opcional — completalo si ya lo sabés.';
+const ERROR_OBLIGATORIO_PROGRAMADO = 'Obligatorio para un viaje Programado.';
+
+// `estadoActual` es el estado del viaje que se está editando (undefined en
+// alta). Los cinco campos operativos solo son obligatorios a nivel de
+// formulario cuando se edita un viaje ya PROGRAMADO — el backend los sigue
+// exigiendo ahí (ver viajeService.actualizarViaje: la obligatoriedad depende
+// del estado actual, no de si el payload viene completo), así que conviene
+// avisar antes de que el usuario intente guardar y se encuentre con un error
+// del servidor. En alta, o editando un A_CONFIRMAR, nunca se exigen.
+function ViajeForm({ valoresIniciales, estadoActual, onSubmit, textoBoton, textoEnviando, onCancelar }) {
   const [choferes, setChoferes] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
   const [form, setForm] = useState(valoresIniciales || FORM_INICIAL);
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
+
+  const requiereOperativos = estadoActual === 'PROGRAMADO';
 
   useEffect(() => {
     api.get('/usuarios/disponibles-chofer').then(({ data }) => setChoferes(data.usuarios));
@@ -32,6 +47,10 @@ function ViajeForm({ valoresIniciales, onSubmit, textoBoton, textoEnviando, onCa
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((f) => ({ ...f, [name]: value }));
+  }
+
+  function handleSeleccionarCliente(item) {
+    setForm((f) => ({ ...f, clienteId: item?.id || '', clienteNombre: item?.nombre || '' }));
   }
 
   function handleSeleccionarOrigen(item) {
@@ -45,6 +64,20 @@ function ViajeForm({ valoresIniciales, onSubmit, textoBoton, textoEnviando, onCa
   async function handleSubmit(e) {
     e.preventDefault();
     setErrores({});
+
+    if (requiereOperativos) {
+      const erroresLocales = {};
+      for (const campo of CAMPOS_OPERATIVOS) {
+        if (form[campo] === '' || form[campo] === null || form[campo] === undefined) {
+          erroresLocales[campo] = ERROR_OBLIGATORIO_PROGRAMADO;
+        }
+      }
+      if (Object.keys(erroresLocales).length > 0) {
+        setErrores(erroresLocales);
+        return;
+      }
+    }
+
     setEnviando(true);
     try {
       await onSubmit(form);
@@ -64,26 +97,14 @@ function ViajeForm({ valoresIniciales, onSubmit, textoBoton, textoEnviando, onCa
   return (
     <form onSubmit={handleSubmit} noValidate>
       <div className="form-grid">
-        <FormField id="choferId" label="Chofer" error={errores.choferId}>
-          <select name="choferId" value={form.choferId} onChange={handleChange}>
-            <option value="">Seleccionar…</option>
-            {choferes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre} {c.apellido}
-              </option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField id="vehiculoId" label="Vehículo" error={errores.vehiculoId}>
-          <select name="vehiculoId" value={form.vehiculoId} onChange={handleChange}>
-            <option value="">Seleccionar…</option>
-            {vehiculos.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.numeroInterno} - {v.dominio}
-              </option>
-            ))}
-          </select>
+        <FormField id="clienteId" label="Cliente" error={errores.clienteId}>
+          <SelectorBuscarOCrear
+            endpoint="/clientes"
+            valor={form.clienteId}
+            valorNombre={form.clienteNombre}
+            onSeleccionar={handleSeleccionarCliente}
+            placeholder="Buscar o crear cliente…"
+          />
         </FormField>
 
         <FormField id="origenId" label="Origen" error={errores.origenId}>
@@ -106,15 +127,62 @@ function ViajeForm({ valoresIniciales, onSubmit, textoBoton, textoEnviando, onCa
           />
         </FormField>
 
-        <FormField id="fechaInicio" label="Fecha y hora de inicio" error={errores.fechaInicio}>
+        <FormField
+          id="choferId"
+          label="Chofer"
+          error={errores.choferId}
+          hint={!requiereOperativos ? AYUDA_OPCIONAL : undefined}
+        >
+          <select name="choferId" value={form.choferId} onChange={handleChange}>
+            <option value="">Seleccionar…</option>
+            {choferes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre} {c.apellido}
+              </option>
+            ))}
+          </select>
+        </FormField>
+
+        <FormField
+          id="vehiculoId"
+          label="Vehículo"
+          error={errores.vehiculoId}
+          hint={!requiereOperativos ? AYUDA_OPCIONAL : undefined}
+        >
+          <select name="vehiculoId" value={form.vehiculoId} onChange={handleChange}>
+            <option value="">Seleccionar…</option>
+            {vehiculos.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.numeroInterno} - {v.dominio}
+              </option>
+            ))}
+          </select>
+        </FormField>
+
+        <FormField
+          id="fechaInicio"
+          label="Fecha y hora de inicio"
+          error={errores.fechaInicio}
+          hint={!requiereOperativos ? AYUDA_OPCIONAL : undefined}
+        >
           <input type="datetime-local" name="fechaInicio" value={form.fechaInicio} onChange={handleChange} />
         </FormField>
 
-        <FormField id="fechaFin" label="Fecha y hora de fin" error={errores.fechaFin}>
+        <FormField
+          id="fechaFin"
+          label="Fecha y hora de fin"
+          error={errores.fechaFin}
+          hint={!requiereOperativos ? AYUDA_OPCIONAL : undefined}
+        >
           <input type="datetime-local" name="fechaFin" value={form.fechaFin} onChange={handleChange} />
         </FormField>
 
-        <FormField id="kilometrosEstimados" label="Kilómetros estimados" error={errores.kilometrosEstimados}>
+        <FormField
+          id="kilometrosEstimados"
+          label="Kilómetros estimados"
+          error={errores.kilometrosEstimados}
+          hint={!requiereOperativos ? AYUDA_OPCIONAL : undefined}
+        >
           <input
             type="number"
             name="kilometrosEstimados"
