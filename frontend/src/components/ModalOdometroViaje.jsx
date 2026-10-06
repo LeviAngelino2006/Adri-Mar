@@ -4,6 +4,7 @@ import FormField from './ui/FormField';
 import Alert from './ui/Alert';
 import { comenzarViaje, finalizarViaje } from '../services/viajesApi';
 import { formatearKm } from '../utils/viajeFormato';
+import { normalizarErroresOdometro } from '../utils/erroresOdometro';
 
 const ICONO_COMENZAR = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -75,9 +76,10 @@ function ModalOdometroViaje({ viaje, accion, onCerrar, onExito }) {
       const { data } = await config.llamar(viaje.id, valor, observacion);
       onExito(data.viaje, config.mensajeExito);
     } catch (err) {
-      if (err.response?.status === 400 && err.response.data.errores) {
-        setErrores(err.response.data.errores);
-      } else if (err.response?.status === 409 || err.response?.status === 403) {
+      const status = err.response?.status;
+      if (status === 400 && err.response.data.errores) {
+        setErrores(normalizarErroresOdometro(err.response.data.errores, config.campo));
+      } else if ([403, 404, 409].includes(status) && err.response.data.error) {
         setErrores({ general: err.response.data.error });
       } else {
         setErrores({ general: 'No se pudo completar la acción' });
