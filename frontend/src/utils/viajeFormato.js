@@ -50,6 +50,11 @@ export function formatearRangoCompacto(fechaInicio, fechaFin) {
   return `${diaYMes(inicio)} ${FORMATO_HORA.format(inicio)} → ${diaYMes(fin)} ${FORMATO_HORA.format(fin)}`;
 }
 
+// Kilómetros con separador de miles es-AR: 110030 -> "110.030".
+export function formatearKm(valor) {
+  return Number(valor).toLocaleString('es-AR');
+}
+
 export function nombreChofer(chofer) {
   return `${chofer.nombre} ${chofer.apellido}`;
 }

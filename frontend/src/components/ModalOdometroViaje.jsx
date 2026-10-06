@@ -3,7 +3,7 @@ import ConfirmModal from './ui/ConfirmModal';
 import FormField from './ui/FormField';
 import Alert from './ui/Alert';
 import { comenzarViaje, finalizarViaje } from '../services/viajesApi';
-import { nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { formatearKm } from '../utils/viajeFormato';
 
 const ICONO_COMENZAR = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -48,7 +48,7 @@ const CONFIGS = {
 const MAX_LONGITUD_OBSERVACION = 1000;
 
 // Comenzar y Finalizar piden exactamente lo mismo (un odómetro, con el
-// kilometraje actual del vehículo como referencia) y solo cambian el
+// último odómetro registrado del vehículo como referencia) y solo cambian el
 // endpoint, el campo y los textos — un solo componente parametrizado por
 // `accion` en vez de duplicar el modal.
 function ModalOdometroViaje({ viaje, accion, onCerrar, onExito }) {
@@ -96,12 +96,9 @@ function ModalOdometroViaje({ viaje, accion, onCerrar, onExito }) {
       description={
         <div className="odometro-viaje-modal">
           <p>
-            Chofer <strong>{nombreChofer(viaje.chofer)}</strong>, vehículo{' '}
-            <strong>{nombreVehiculo(viaje.vehiculo)}</strong>.
-            <br />
-            Kilometraje actual del vehículo: <strong>{viaje.vehiculo.kilometraje} km</strong>.
+            Último odómetro registrado: <strong className="num">{formatearKm(viaje.vehiculo.kilometraje)} km</strong>
           </p>
-          <FormField id={config.campo} label={config.etiquetaCampo} error={errores[config.campo]}>
+          <FormField id={config.campo} label={config.etiquetaCampo} error={errores[config.campo]} required>
             <input
               type="number"
               min={viaje.vehiculo.kilometraje}
