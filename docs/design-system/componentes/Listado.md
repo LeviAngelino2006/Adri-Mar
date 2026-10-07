@@ -18,6 +18,7 @@ Todas siguen la misma anatomía:
 
 Contenido de cada pantalla:
 - **Viaje**: ícono de ruta; título el chofer ("Chofer pendiente" si falta); badge de estado; sub la ruta (`RutaViaje`); detalle el vehículo ("2 - AB123CD (Mercedes-Benz OH 1618 L)"); pie "11 oct · 10:00 - 14:00" a la izquierda y "26 km estimados" a la derecha.
+  - **Mis viajes** (el chofer ve sus propios viajes): el título es el vehículo ("2 - AB123CD", solo el dominio con `.patente`) y no se muestra el chofer ni la línea de detalle; el resto igual. El chofer solo aparece como título en la vista de los gestores.
 - **Vehículo**: ícono de colectivo o combi; título "2 - AB123CD" (solo el dominio con `.patente`); badge Operativo / En taller / Dado de baja; sub marca y modelo; pie "Colectivo" a la izquierda y "57.345 km" a la derecha.
 - **Usuario**: `Avatar` de 40px; título el nombre; badge Activo (success) o Inactivo (neutral); sub el perfil; pie "@usuario".
 
