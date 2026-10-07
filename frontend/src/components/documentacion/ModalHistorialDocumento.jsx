@@ -8,6 +8,7 @@ function ModalHistorialDocumento({
   open,
   onClose,
   vehiculo,
+  chofer,
   tipoDocumento,
   onVerPdf,
 }) {
@@ -16,18 +17,22 @@ function ModalHistorialDocumento({
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (open && vehiculo && tipoDocumento) {
+    if (open && (vehiculo || chofer) && tipoDocumento) {
       setCargando(true);
       setError('');
+      const endpoint = chofer
+        ? `/documentos/choferes/${chofer.id}/tipos/${tipoDocumento.id}/historial`
+        : `/documentos/vehiculos/${vehiculo.id}/tipos/${tipoDocumento.id}/historial`;
+
       api
-        .get(`/documentos/vehiculos/${vehiculo.id}/tipos/${tipoDocumento.id}/historial`)
+        .get(endpoint)
         .then(({ data }) => setHistorial(data.historial || []))
         .catch((err) => setError(err.response?.data?.error || 'Error al cargar historial'))
         .finally(() => setCargando(false));
     }
-  }, [open, vehiculo, tipoDocumento]);
+  }, [open, vehiculo, chofer, tipoDocumento]);
 
-  if (!open || !vehiculo || !tipoDocumento) return null;
+  if (!open || (!vehiculo && !chofer) || !tipoDocumento) return null;
 
   return (
     <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
@@ -36,7 +41,12 @@ function ModalHistorialDocumento({
           <div>
             <h2>Historial de Versiones</h2>
             <p className="modal-doc-subtitle">
-              {tipoDocumento.descripcion} — Unidad <strong>{vehiculo.numeroInterno}</strong> ({vehiculo.dominio})
+              {tipoDocumento.descripcion} —{' '}
+              {chofer ? (
+                <strong>{chofer.nombre} {chofer.apellido}</strong>
+              ) : (
+                <>Unidad <strong>{vehiculo.numeroInterno}</strong> ({vehiculo.dominio})</>
+              )}
             </p>
           </div>
           <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Cerrar modal">

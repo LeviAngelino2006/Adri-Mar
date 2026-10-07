@@ -1,7 +1,7 @@
 import Button from '../ui/Button';
 import './ModalDocumentacion.css';
 
-function ModalVisorPdf({ open, onClose, documento, vehiculo }) {
+function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
   if (!open || !documento || !documento.signedUrl) return null;
 
   async function handleDescargar() {
@@ -21,6 +21,10 @@ function ModalVisorPdf({ open, onClose, documento, vehiculo }) {
     }
   }
 
+  const sujetoLabel = chofer
+    ? `Chofer: ${chofer.nombre} ${chofer.apellido} (DNI ${chofer.dni || '-'})`
+    : `Unidad ${vehiculo?.numeroInterno} (${vehiculo?.dominio})`;
+
   return (
     <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div className="modal-card modal-visor-card" onClick={(e) => e.stopPropagation()}>
@@ -28,7 +32,7 @@ function ModalVisorPdf({ open, onClose, documento, vehiculo }) {
           <div>
             <h2>{documento.tipoDocumento?.descripcion || 'Visor de Documento'}</h2>
             <p className="modal-doc-subtitle">
-              Unidad <strong>{vehiculo?.numeroInterno}</strong> ({vehiculo?.dominio}) — {documento.nombreOriginal || 'archivo.pdf'}
+              {sujetoLabel} — {documento.nombreOriginal || 'archivo.pdf'}
             </p>
           </div>
           <div className="modal-visor-header-actions">

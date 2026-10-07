@@ -184,6 +184,31 @@ async function main() {
       requiereArchivo: true,
       orden: 8,
     },
+    // Documentos reglamentarios para Choferes (SCRUM-39)
+    {
+      codigo: 'LICENCIA_CONDUCIR',
+      descripcion: 'Licencia de conducir profesional',
+      aplicaA: 'CHOFER',
+      requiereVencimiento: true,
+      requiereArchivo: true,
+      orden: 1,
+    },
+    {
+      codigo: 'DNI_CHOFER',
+      descripcion: 'Documento Nacional de Identidad (DNI)',
+      aplicaA: 'CHOFER',
+      requiereVencimiento: false,
+      requiereArchivo: true,
+      orden: 2,
+    },
+    {
+      codigo: 'EXAMEN_PSICOFISICO',
+      descripcion: 'Examen psicofísico / LINTI',
+      aplicaA: 'CHOFER',
+      requiereVencimiento: true,
+      requiereArchivo: true,
+      orden: 3,
+    },
   ];
 
   for (const tipo of TIPOS_DOCUMENTO) {

@@ -61,4 +61,55 @@ router.delete(
   documentoController.eliminarDocumentoVehiculo
 );
 
+// ================= RUTAS PARA DOCUMENTACIÓN DE CHOFERES (SCRUM-39) =================
+
+// Resumen de estado de documentación de todos los choferes
+router.get(
+  '/estado-choferes',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
+  documentoController.obtenerEstadoChoferes
+);
+
+// Consulta de carpeta documental de un chofer
+router.get(
+  '/choferes/:choferId',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
+  documentoController.obtenerPorChofer
+);
+
+// Historial de versiones de un documento del chofer
+router.get(
+  '/choferes/:choferId/tipos/:tipoDocumentoId/historial',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
+  documentoController.obtenerHistorialChofer
+);
+
+// Registro / actualización de documento del chofer
+router.post(
+  '/choferes/:choferId',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  (req, res, next) => {
+    upload.single('archivo')(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({ error: err.message });
+      }
+      next();
+    });
+  },
+  documentoController.registrarDocumentoChofer
+);
+
+// Eliminación de documento del chofer
+router.delete(
+  '/choferes/:choferId/:documentoId',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  documentoController.eliminarDocumentoChofer
+);
+
 module.exports = router;
+
