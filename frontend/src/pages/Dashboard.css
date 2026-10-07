@@ -179,7 +179,14 @@
   cursor: pointer;
 }
 
-.proximos-viajes-enlace:hover {
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .proximos-viajes-enlace:hover {
+    background-color: var(--brand-50);
+  }
+}
+
+.proximos-viajes-enlace:active {
   background-color: var(--brand-50);
 }
 
