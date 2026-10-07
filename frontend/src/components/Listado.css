@@ -57,8 +57,12 @@
   cursor: pointer;
 }
 
-.filtros-toggle-btn:hover {
-  border-color: var(--brand-500);
+/* Solo con mouse: en pantallas táctiles el :hover queda pegado en lo que
+   estaba bajo el dedo al cambiar de pantalla. */
+@media (hover: hover) {
+  .filtros-toggle-btn:hover {
+    border-color: var(--brand-500);
+  }
 }
 
 .filtros-toggle-badge {
