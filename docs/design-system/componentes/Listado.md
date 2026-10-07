@@ -23,6 +23,6 @@ Contenido de cada pantalla:
 - **Usuario**: `Avatar` de 40px; título el nombre; badge Activo (success) o Inactivo (neutral); sub el perfil; pie "@usuario".
 
 ## Reglas
-- Superficie `color-surface`, borde `color-border`, `radius-md`, `shadow-sm`, padding `space-4`. En hover, borde `brand-500` y `shadow-md`. Foco: outline 2px `brand-600`, offset 2px. Click o Enter abre la ficha.
+- Superficie `color-surface`, borde `color-border`, `radius-md`, `shadow-sm`, padding `space-4`. En hover (solo con mouse) y al tocar (`:active`), borde `brand-500` y `shadow-md`. Foco: outline 2px `brand-600`, offset 2px. Click o Enter abre la ficha.
 - Orden por defecto: Viajes, los de fecha de inicio más reciente primero (como hoy); Flota, por número de interno de menor a mayor; Usuarios, por nombre.
 - La tabla (`TablaListado`) ya no se usa en ninguna pantalla.

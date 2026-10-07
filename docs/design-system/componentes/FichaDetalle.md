@@ -20,6 +20,9 @@ Reglas:
 - Un dato sin valor se muestra como "No registrado". Una sección sin ningún dato no se muestra.
 - En la ficha de un viaje no va "Kilometraje actual del vehículo": es un dato del vehículo, cambia con cada viaje y confunde en un viaje ya finalizado. Se reemplaza por el odómetro inicial y final del viaje.
 
+## Scroll
+- Al abrir la ficha la página vuelve arriba, y también al volver al listado. La ficha reemplaza al listado en la misma ruta y el router no reinicia el scroll: sin esto aparecería desplazada hacia abajo.
+
 ## Ficha simple (vehículo y usuario)
 - `.flota-detalle` o `.usuarios-detalle`, con el mismo header, `<dl class="viajes-detalle-list">` (1 columna, 2 desde 640px y 3 desde 900px) y `.viajes-detalle-actions`. En vehículo, el dominio va con `.patente`.
 - El texto libre va en `.detalle-item-ancho`.
