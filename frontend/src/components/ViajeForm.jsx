@@ -31,9 +31,6 @@ const FORM_INICIAL = {
 
 const CAMPOS_OPERATIVOS = ['choferId', 'vehiculoId', 'fechaInicio', 'fechaFin', 'kilometrosEstimados'];
 const ERROR_OBLIGATORIO_PROGRAMADO = 'Obligatorio para un viaje Programado.';
-const LEYENDA_TODO_OBLIGATORIO = '* Obligatorio';
-const LEYENDA_OPERATIVOS_OPCIONALES =
-  '* Obligatorio. Si completás chofer, vehículo, fechas y kilómetros, el viaje queda Programado; si no, queda A confirmar.';
 
 // `estadoActual` es el estado del viaje que se está editando (undefined en
 // alta). Los cinco campos operativos solo son obligatorios a nivel de
@@ -256,8 +253,6 @@ function ViajeForm({
       </div>
 
       {errores.general && <Alert variant="error">{errores.general}</Alert>}
-
-      <p className="form-leyenda">{requiereOperativos ? LEYENDA_TODO_OBLIGATORIO : LEYENDA_OPERATIVOS_OPCIONALES}</p>
 
       <div className="form-actions">
         <Button type="submit" variant="primary" loading={enviando}>

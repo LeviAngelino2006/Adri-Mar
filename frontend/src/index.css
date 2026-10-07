@@ -150,7 +150,15 @@ a {
   text-decoration: none;
 }
 
-a:hover {
+/* Hover solo con mouse (en táctil queda pegado); el :active da la respuesta al toque. */
+@media (hover: hover) {
+  a:hover {
+    color: var(--brand-700);
+    text-decoration: underline;
+  }
+}
+
+a:active {
   color: var(--brand-700);
   text-decoration: underline;
 }
@@ -237,7 +245,16 @@ label {
   cursor: pointer;
 }
 
-.back-link:hover {
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .back-link:hover {
+    color: var(--brand-700);
+    background: none;
+    text-decoration: underline;
+  }
+}
+
+.back-link:active {
   color: var(--brand-700);
   background: none;
   text-decoration: underline;
@@ -321,12 +338,6 @@ label {
 
 .form-seccion-cuerpo .form-grid {
   padding-top: var(--space-4);
-}
-
-.form-leyenda {
-  margin: 0 0 var(--space-4);
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
 }
 
 .form-actions {

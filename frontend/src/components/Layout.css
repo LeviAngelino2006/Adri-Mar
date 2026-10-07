@@ -97,7 +97,16 @@
   font-size: 0.9375rem;
 }
 
-.layout-nav-link:hover {
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .layout-nav-link:hover {
+    background-color: var(--brand-50);
+    color: var(--brand-700);
+    text-decoration: none;
+  }
+}
+
+.layout-nav-link:active {
   background-color: var(--brand-50);
   color: var(--brand-700);
   text-decoration: none;
@@ -164,7 +173,15 @@
   min-height: auto;
 }
 
-.layout-logout:hover {
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .layout-logout:hover {
+    color: var(--state-error-text);
+    background: none;
+  }
+}
+
+.layout-logout:active {
   color: var(--state-error-text);
   background: none;
 }

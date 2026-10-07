@@ -10,5 +10,5 @@ No está en `bundle.js`: depende del cliente HTTP de la app (`services/api`). La
 
 ## Reglas
 - La deduplicación es del backend: el componente siempre ofrece "+ Crear" cuando hay texto.
-- Lista: fondo `color-surface`, borde `color-border`, radio `radius-sm`, sombra `shadow-md`, máximo 240px de alto. Hover de opción `brand-50`; la opción de crear va en `brand-600`, 500.
+- Lista: fondo `color-surface`, borde `color-border`, radio `radius-sm`, sombra `shadow-md`, máximo 240px de alto. Hover de opción `brand-50` (solo con mouse; `:active` igual al tocar); la opción de crear va en `brand-600`, 500.
 - Escape cierra la lista; click afuera también.

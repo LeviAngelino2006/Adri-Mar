@@ -24,7 +24,15 @@
   color: var(--color-on-brand);
 }
 
-.btn-primary:hover:not(:disabled) {
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--brand-700);
+    border-color: var(--brand-700);
+  }
+}
+
+.btn-primary:active:not(:disabled) {
   background-color: var(--brand-700);
   border-color: var(--brand-700);
 }
@@ -35,7 +43,16 @@
   color: var(--color-text);
 }
 
-.btn-secondary:hover:not(:disabled) {
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--brand-50);
+    border-color: var(--brand-500);
+    color: var(--brand-700);
+  }
+}
+
+.btn-secondary:active:not(:disabled) {
   background-color: var(--brand-50);
   border-color: var(--brand-500);
   color: var(--brand-700);
@@ -47,7 +64,15 @@
   color: var(--color-on-brand);
 }
 
-.btn-danger:hover:not(:disabled) {
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .btn-danger:hover:not(:disabled) {
+    background-color: var(--state-error-strong);
+    border-color: var(--state-error-strong);
+  }
+}
+
+.btn-danger:active:not(:disabled) {
   background-color: var(--state-error-strong);
   border-color: var(--state-error-strong);
 }
@@ -58,6 +83,13 @@
   color: var(--brand-600);
 }
 
-.btn-ghost:hover:not(:disabled) {
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--brand-50);
+  }
+}
+
+.btn-ghost:active:not(:disabled) {
   background-color: var(--brand-50);
 }

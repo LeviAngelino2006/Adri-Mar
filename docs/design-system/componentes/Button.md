@@ -1,7 +1,7 @@
 Botón de acción con cuatro variantes y estado de carga.
 
 ## Cuándo usarlo
-- `primary`: la acción principal de la vista o del formulario (una por bloque). Fondo `brand-600`, texto `color-on-brand`; hover `brand-700`.
+- `primary`: la acción principal de la vista o del formulario (una por bloque). Fondo `brand-600`, texto `color-on-brand`; hover `brand-700` (solo con mouse; al tocar, `:active` con el mismo color).
 - `secondary`: acciones alternativas y "Cancelar". Fondo `color-surface`, borde `color-border`; hover `brand-50` con borde `brand-500`.
 - `danger`: acciones destructivas o irreversibles (cancelar un viaje, dar de baja). Fondo `state-error-text`, texto `color-on-brand`; hover `state-error-strong`.
 - `ghost`: acciones terciarias o en línea, sin borde. Texto `brand-600`.

@@ -57,7 +57,14 @@
   cursor: pointer;
 }
 
-.filtros-toggle-btn:hover {
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .filtros-toggle-btn:hover {
+    border-color: var(--brand-500);
+  }
+}
+
+.filtros-toggle-btn:active {
   border-color: var(--brand-500);
 }
 
@@ -138,7 +145,15 @@ button.listado-card {
   cursor: pointer;
 }
 
-button.listado-card:hover {
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  button.listado-card:hover {
+    border-color: var(--brand-500);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+button.listado-card:active {
   border-color: var(--brand-500);
   box-shadow: var(--shadow-md);
 }

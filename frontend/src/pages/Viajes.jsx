@@ -156,6 +156,15 @@ function Viajes() {
     return () => clearTimeout(t);
   }, [mensaje]);
 
+  // La ficha y el formulario reemplazan al listado dentro de la misma ruta: sin
+  // esto conservan el scroll de la vista anterior (la ficha o el formulario
+  // aparecen desplazados hacia abajo, y el listado también al cancelar o
+  // guardar desde los botones del final).
+  const seleccionadoId = seleccionado?.id ?? null;
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [seleccionadoId, mostrarForm]);
+
   function handleFiltroChange(e) {
     const { name, value } = e.target;
     setFiltros((f) => ({ ...f, [name]: value }));

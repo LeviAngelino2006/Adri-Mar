@@ -7,11 +7,13 @@ import Usuarios from './pages/Usuarios';
 import FlotaVehiculos from './pages/FlotaVehiculos';
 import Viajes from './pages/Viajes';
 import MisViajes from './pages/MisViajes';
+import ScrollAlTope from './components/ScrollAlTope';
 import './App.css';
 
 function App() {
   return (
     <BrowserRouter>
+      <ScrollAlTope />
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />

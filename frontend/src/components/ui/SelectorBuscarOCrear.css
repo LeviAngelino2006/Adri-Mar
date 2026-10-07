@@ -34,7 +34,14 @@
   border-radius: var(--radius-sm);
 }
 
-.selector-buscar-crear-lista button:hover {
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .selector-buscar-crear-lista button:hover {
+    background-color: var(--brand-50);
+  }
+}
+
+.selector-buscar-crear-lista button:active {
   background-color: var(--brand-50);
 }
 

@@ -11,5 +11,5 @@ Lista de próximos viajes del Dashboard. El viaje en curso no va en esta lista: 
 
 ## Reglas
 - Los ítems se separan con un borde superior `color-border`. El ícono va en 36×36, `radius-md`, `brand-50` / `brand-600`.
-- El área clickeable tiene hover `brand-50` y `radius-sm`; el botón de acción queda a la derecha. Debajo de 480px el botón pasa a una línea propia a todo el ancho.
+- El área clickeable tiene hover (solo con mouse) y `:active` en `brand-50`, y `radius-sm`; el botón de acción queda a la derecha. Debajo de 480px el botón pasa a una línea propia a todo el ancho.
 - Si no hay viajes, se muestra `.dashboard-empty` centrado, con la pista en `.dashboard-empty-hint` (`color-text-secondary`).
