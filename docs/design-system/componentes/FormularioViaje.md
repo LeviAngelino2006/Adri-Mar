@@ -14,7 +14,7 @@ Dentro de `.form-card` (720px) y `.form-grid` (dos columnas desde 640px, una col
 - Lo obligatorio se marca con `required` en `FormField`: asterisco rojo después del label. No se escribe "Opcional" en ningún campo ni hint.
 - Cliente, Origen y Destino son siempre obligatorios.
 - Chofer, vehículo, fecha de inicio, fecha de fin y kilómetros estimados son obligatorios solo al editar un viaje Programado. Al crear (o editar un A confirmar) son opcionales y no llevan asterisco.
-- Si no todos los campos operativos son obligatorios, antes de las acciones va una leyenda `.form-leyenda` (`caption`, `color-text-secondary`): "* Obligatorio. Si completás chofer, vehículo, fechas y kilómetros, el viaje queda Programado; si no, queda A confirmar." Cuando todo es obligatorio la leyenda es solo "* Obligatorio".
+- El formulario no lleva leyenda ("* Obligatorio…"): el asterisco rojo alcanza. La regla de estado (con chofer, vehículo, fechas y kilómetros queda Programado; si no, A confirmar) no se explica en la pantalla.
 
 ## Datos administrativos
 - `<details class="form-seccion">` con `<summary class="form-seccion-resumen">` "Datos administrativos (opcional)" y el cuerpo en `.form-seccion-cuerpo` con su propia `.form-grid`. Empieza cerrada; el chevron gira al abrir.

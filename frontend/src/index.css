@@ -323,12 +323,6 @@ label {
   padding-top: var(--space-4);
 }
 
-.form-leyenda {
-  margin: 0 0 var(--space-4);
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-}
-
 .form-actions {
   display: flex;
   gap: var(--space-3);
