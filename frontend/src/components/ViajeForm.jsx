@@ -5,6 +5,7 @@ import FormField from './ui/FormField';
 import Alert from './ui/Alert';
 import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
 import SeccionDatosAdministrativos from './SeccionDatosAdministrativos';
+import { ordenarPorInterno } from '../utils/vehiculos';
 import {
   CAMPOS_ADMINISTRATIVOS,
   VALORES_ADMIN_VACIOS,
@@ -69,7 +70,9 @@ function ViajeForm({
 
   useEffect(() => {
     api.get('/usuarios/disponibles-chofer').then(({ data }) => setChoferes(data.usuarios));
-    api.get('/vehiculos', { params: { estado: 'OPERATIVO' } }).then(({ data }) => setVehiculos(data.vehiculos));
+    api
+      .get('/vehiculos', { params: { estado: 'OPERATIVO' } })
+      .then(({ data }) => setVehiculos(ordenarPorInterno(data.vehiculos)));
   }, []);
 
   function handleChange(e) {

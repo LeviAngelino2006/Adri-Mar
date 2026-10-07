@@ -20,6 +20,7 @@ import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { aInputCordoba } from '../utils/fechaCordoba';
 import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { ordenarPorInterno } from '../utils/vehiculos';
 import './Viajes.css';
 
 const ICONO_ALERTA = (
@@ -126,11 +127,7 @@ function Viajes() {
           nombreChofer(a).localeCompare(nombreChofer(b))
         )
       );
-      setOpcionesVehiculo(
-        dedupePorId(data.viajes.map((v) => v.vehiculo).filter(Boolean)).sort((a, b) =>
-          nombreVehiculo(a).localeCompare(nombreVehiculo(b))
-        )
-      );
+      setOpcionesVehiculo(ordenarPorInterno(dedupePorId(data.viajes.map((v) => v.vehiculo).filter(Boolean))));
     });
   }, []);
 
