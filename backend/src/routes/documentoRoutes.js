@@ -13,6 +13,14 @@ router.get(
   documentoController.listarTipos
 );
 
+// Resumen de estado de documentación de toda la flota
+router.get(
+  '/estado-flota',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
+  documentoController.obtenerEstadoFlota
+);
+
 // Consulta de carpeta documental de un vehículo
 router.get(
   '/vehiculos/:vehiculoId',

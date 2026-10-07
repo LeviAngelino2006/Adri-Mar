@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import Button from '../ui/Button';
 import FormField from '../ui/FormField';
 import Alert from '../ui/Alert';
+import ConfirmModal from '../ui/ConfirmModal';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import './ModalDocumentacion.css';
 
@@ -13,17 +15,23 @@ function ModalSubirDocumento({
   documentoActual,
   onSuccess,
 }) {
+  const { usuario } = useAuth();
+  const esAdmin = usuario?.perfil === 'ADMINISTRADOR';
+
   const [archivo, setArchivo] = useState(null);
   const [fechaEmision, setFechaEmision] = useState('');
   const [fechaVencimiento, setFechaVencimiento] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (open) {
       setArchivo(null);
       setError('');
+      setConfirmandoEliminar(false);
       if (documentoActual) {
         setFechaEmision(documentoActual.fechaEmision ? documentoActual.fechaEmision.substring(0, 10) : '');
         setFechaVencimiento(documentoActual.fechaVencimiento ? documentoActual.fechaVencimiento.substring(0, 10) : '');
@@ -100,6 +108,24 @@ function ModalSubirDocumento({
       setEnviando(false);
     }
   }
+
+  async function handleEliminar() {
+    setEliminando(true);
+    try {
+      await api.delete(`/documentos/vehiculos/${vehiculo.id}/${documentoActual.id}`);
+      setConfirmandoEliminar(false);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al eliminar el documento.');
+      setConfirmandoEliminar(false);
+    } finally {
+      setEliminando(false);
+    }
+  }
+
+  const hoyStr = new Date().toISOString().substring(0, 10);
+  const esFechaVencida = Boolean(fechaVencimiento && fechaVencimiento < hoyStr);
 
   return (
     <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
@@ -183,6 +209,12 @@ function ModalSubirDocumento({
             </FormField>
           </div>
 
+          {esFechaVencida && (
+            <Alert variant="warning">
+              ⚠️ Atención: La fecha seleccionada ya pasó. El documento se registrará con estado <strong>Vencido</strong>.
+            </Alert>
+          )}
+
           <FormField label="Observaciones o notas adicionales" error={null}>
             <textarea
               rows="3"
@@ -193,15 +225,38 @@ function ModalSubirDocumento({
             />
           </FormField>
 
-          <div className="modal-doc-actions">
-            <Button variant="secondary" type="button" onClick={onClose} disabled={enviando}>
-              Cancelar
-            </Button>
-            <Button variant="primary" type="submit" loading={enviando}>
-              {esRenovacion ? 'Guardar renovación' : 'Guardar documento'}
-            </Button>
+          <div className="modal-doc-actions" style={{ justifyContent: esRenovacion && esAdmin ? 'space-between' : 'flex-end' }}>
+            {esRenovacion && esAdmin && (
+              <Button
+                variant="danger"
+                type="button"
+                onClick={() => setConfirmandoEliminar(true)}
+                disabled={enviando || eliminando}
+              >
+                Eliminar documento
+              </Button>
+            )}
+            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+              <Button variant="secondary" type="button" onClick={onClose} disabled={enviando || eliminando}>
+                Cancelar
+              </Button>
+              <Button variant="primary" type="submit" loading={enviando} disabled={eliminando}>
+                {esRenovacion ? 'Guardar renovación' : 'Guardar documento'}
+              </Button>
+            </div>
           </div>
         </form>
+
+        <ConfirmModal
+          open={confirmandoEliminar}
+          tone="danger"
+          title="Eliminar documento"
+          description={`¿Seguro que deseás eliminar este documento (${tipoDocumento.descripcion})? Si existe una versión anterior en el historial, volverá a quedar vigente.`}
+          confirmLabel="Eliminar definitivamente"
+          loading={eliminando}
+          onConfirm={handleEliminar}
+          onCancel={() => setConfirmandoEliminar(false)}
+        />
       </div>
     </div>
   );

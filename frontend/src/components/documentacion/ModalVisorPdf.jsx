@@ -4,6 +4,23 @@ import './ModalDocumentacion.css';
 function ModalVisorPdf({ open, onClose, documento, vehiculo }) {
   if (!open || !documento || !documento.signedUrl) return null;
 
+  async function handleDescargar() {
+    try {
+      const response = await fetch(documento.signedUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = documento.nombreOriginal || `${documento.tipoDocumento?.codigo || 'documento'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch {
+      window.open(documento.signedUrl, '_blank');
+    }
+  }
+
   return (
     <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div className="modal-card modal-visor-card" onClick={(e) => e.stopPropagation()}>
@@ -15,6 +32,9 @@ function ModalVisorPdf({ open, onClose, documento, vehiculo }) {
             </p>
           </div>
           <div className="modal-visor-header-actions">
+            <Button variant="primary" size="sm" onClick={handleDescargar}>
+              Descargar PDF
+            </Button>
             <a
               href={documento.signedUrl}
               target="_blank"
@@ -41,9 +61,14 @@ function ModalVisorPdf({ open, onClose, documento, vehiculo }) {
           <span className="modal-visor-meta">
             Subido por: {documento.usuario?.nombre} {documento.usuario?.apellido} — {new Date(documento.creadoEn).toLocaleDateString()}
           </span>
-          <Button variant="secondary" onClick={onClose}>
-            Cerrar
-          </Button>
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <Button variant="secondary" onClick={handleDescargar}>
+              Descargar PDF
+            </Button>
+            <Button variant="secondary" onClick={onClose}>
+              Cerrar
+            </Button>
+          </div>
         </div>
       </div>
     </div>

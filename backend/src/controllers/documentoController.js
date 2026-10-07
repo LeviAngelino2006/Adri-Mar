@@ -82,10 +82,20 @@ async function eliminarDocumentoVehiculo(req, res, next) {
   }
 }
 
+async function obtenerEstadoFlota(req, res, next) {
+  try {
+    const vehiculos = await documentoService.obtenerEstadoFlota();
+    res.json({ vehiculos });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listarTipos,
   obtenerPorVehiculo,
   obtenerHistorial,
   registrarDocumentoVehiculo,
   eliminarDocumentoVehiculo,
+  obtenerEstadoFlota,
 };
