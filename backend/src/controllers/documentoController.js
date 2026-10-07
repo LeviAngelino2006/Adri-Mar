@@ -91,6 +91,85 @@ async function obtenerEstadoFlota(req, res, next) {
   }
 }
 
+async function obtenerEstadoChoferes(req, res, next) {
+  try {
+    const choferes = await documentoService.obtenerEstadoChoferes();
+    res.json({ choferes });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function obtenerPorChofer(req, res, next) {
+  try {
+    const { choferId } = req.params;
+    const resultado = await documentoService.obtenerDocumentacionChofer(choferId);
+    res.json(resultado);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    next(err);
+  }
+}
+
+async function obtenerHistorialChofer(req, res, next) {
+  try {
+    const { choferId, tipoDocumentoId } = req.params;
+    const historial = await documentoService.obtenerHistorialDocumentoChofer(choferId, tipoDocumentoId);
+    res.json({ historial });
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    next(err);
+  }
+}
+
+async function registrarDocumentoChofer(req, res, next) {
+  try {
+    const { choferId } = req.params;
+    const { tipoDocumentoId, fechaEmision, fechaVencimiento, observaciones } = req.body;
+    const file = req.file;
+    const usuarioId = req.usuario.id;
+
+    const documento = await documentoService.registrarDocumentoChofer(
+      choferId,
+      {
+        tipoDocumentoId,
+        fechaEmision,
+        fechaVencimiento,
+        observaciones,
+      },
+      file,
+      usuarioId
+    );
+
+    res.status(201).json({
+      mensaje: 'Documento registrado con éxito.',
+      documento,
+    });
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    next(err);
+  }
+}
+
+async function eliminarDocumentoChofer(req, res, next) {
+  try {
+    const { choferId, documentoId } = req.params;
+    const resultado = await documentoService.eliminarDocumentoChofer(choferId, documentoId);
+    res.json(resultado);
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    next(err);
+  }
+}
+
 module.exports = {
   listarTipos,
   obtenerPorVehiculo,
@@ -98,4 +177,10 @@ module.exports = {
   registrarDocumentoVehiculo,
   eliminarDocumentoVehiculo,
   obtenerEstadoFlota,
+  obtenerEstadoChoferes,
+  obtenerPorChofer,
+  obtenerHistorialChofer,
+  registrarDocumentoChofer,
+  eliminarDocumentoChofer,
 };
+

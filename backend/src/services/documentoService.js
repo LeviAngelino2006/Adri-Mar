@@ -434,6 +434,412 @@ async function obtenerEstadoFlota() {
   });
 }
 
+/**
+ * Obtiene la carpeta de documentación completa de un chofer.
+ */
+async function obtenerDocumentacionChofer(choferId) {
+  const cId = parseInt(choferId, 10);
+  const chofer = await prisma.usuario.findUnique({
+    where: { id: cId },
+    include: {
+      perfil: true,
+      estadoUsuario: true,
+    },
+  });
+
+  if (!chofer) {
+    const error = new Error('Chofer no encontrado');
+    error.status = 404;
+    throw error;
+  }
+
+  const tipos = await prisma.tipoDocumento.findMany({
+    where: { aplicaA: 'CHOFER' },
+    orderBy: { orden: 'asc' },
+  });
+
+  const docsCargados = await prisma.documentoChofer.findMany({
+    where: {
+      choferId: cId,
+      esVigente: true,
+    },
+    include: {
+      tipoDocumento: true,
+      usuario: {
+        select: {
+          id: true,
+          nombre: true,
+          apellido: true,
+        },
+      },
+    },
+  });
+
+  const docsPorTipo = new Map();
+  for (const doc of docsCargados) {
+    docsPorTipo.set(doc.tipoDocumentoId, doc);
+  }
+
+  const carpeta = await Promise.all(
+    tipos.map(async (tipo) => {
+      const doc = docsPorTipo.get(tipo.id);
+      let signedUrl = null;
+
+      if (doc && doc.archivoPath) {
+        signedUrl = await storageService.generarSignedUrl(doc.archivoPath, 3600);
+      }
+
+      const estadoVigencia = calcularEstadoVigencia(doc);
+
+      return {
+        tipo,
+        cargado: !!doc,
+        documento: doc
+          ? {
+              ...doc,
+              signedUrl,
+              estadoVigencia,
+            }
+          : null,
+      };
+    })
+  );
+
+  const totalRequeridos = tipos.length;
+  const totalCargados = carpeta.filter((item) => item.cargado).length;
+  const totalVencidos = carpeta.filter(
+    (item) => item.cargado && item.documento.estadoVigencia === 'VENCIDO'
+  ).length;
+  const totalPorVencer = carpeta.filter(
+    (item) => item.cargado && item.documento.estadoVigencia === 'POR_VENCER'
+  ).length;
+
+  return {
+    chofer: {
+      id: chofer.id,
+      nombre: chofer.nombre,
+      apellido: chofer.apellido,
+      dni: chofer.dni,
+      email: chofer.email,
+      telefono: chofer.telefono,
+      nombreUsuario: chofer.nombreUsuario,
+      perfil: chofer.perfil,
+      estadoUsuario: chofer.estadoUsuario,
+      habilitadoParaConducir: chofer.habilitadoParaConducir,
+    },
+    resumen: {
+      totalRequeridos,
+      totalCargados,
+      totalVencidos,
+      totalPorVencer,
+      alDia: totalCargados === totalRequeridos && totalVencidos === 0,
+    },
+    documentos: carpeta,
+  };
+}
+
+/**
+ * Consulta el historial de renovaciones de un tipo de documento para un chofer.
+ */
+async function obtenerHistorialDocumentoChofer(choferId, tipoDocumentoId) {
+  const cId = parseInt(choferId, 10);
+  const tId = parseInt(tipoDocumentoId, 10);
+
+  const historial = await prisma.documentoChofer.findMany({
+    where: {
+      choferId: cId,
+      tipoDocumentoId: tId,
+    },
+    orderBy: { creadoEn: 'desc' },
+    include: {
+      tipoDocumento: true,
+      usuario: {
+        select: {
+          id: true,
+          nombre: true,
+          apellido: true,
+        },
+      },
+    },
+  });
+
+  return Promise.all(
+    historial.map(async (doc) => {
+      let signedUrl = null;
+      if (doc.archivoPath) {
+        signedUrl = await storageService.generarSignedUrl(doc.archivoPath, 3600);
+      }
+      return {
+        ...doc,
+        signedUrl,
+        estadoVigencia: calcularEstadoVigencia(doc),
+      };
+    })
+  );
+}
+
+/**
+ * Registra o renueva un documento de un chofer.
+ */
+async function registrarDocumentoChofer(choferId, data, file, usuarioId) {
+  const cId = parseInt(choferId, 10);
+  const { tipoDocumentoId, fechaEmision, fechaVencimiento, observaciones } = data;
+  const tId = parseInt(tipoDocumentoId, 10);
+
+  if (isNaN(tId)) {
+    const error = new Error('El tipo de documento es obligatorio.');
+    error.status = 400;
+    throw error;
+  }
+
+  const chofer = await prisma.usuario.findUnique({
+    where: { id: cId },
+  });
+  if (!chofer) {
+    const error = new Error('Chofer no encontrado');
+    error.status = 404;
+    throw error;
+  }
+
+  const tipoDocumento = await prisma.tipoDocumento.findUnique({
+    where: { id: tId },
+  });
+  if (!tipoDocumento || tipoDocumento.aplicaA !== 'CHOFER') {
+    const error = new Error('Tipo de documento no válido para choferes.');
+    error.status = 400;
+    throw error;
+  }
+
+  if (tipoDocumento.requiereArchivo && !file) {
+    const error = new Error(
+      `El tipo de documento '${tipoDocumento.descripcion}' requiere adjuntar un archivo en formato PDF.`
+    );
+    error.status = 400;
+    throw error;
+  }
+
+  if (tipoDocumento.requiereVencimiento && !fechaVencimiento) {
+    const error = new Error(
+      `La fecha de vencimiento es obligatoria para '${tipoDocumento.descripcion}'.`
+    );
+    error.status = 400;
+    throw error;
+  }
+
+  let parsedEmision = null;
+  if (fechaEmision) {
+    parsedEmision = new Date(fechaEmision.length === 10 ? `${fechaEmision}T12:00:00Z` : fechaEmision);
+    if (isNaN(parsedEmision.getTime())) {
+      const error = new Error('La fecha de emisión ingresada no es válida.');
+      error.status = 400;
+      throw error;
+    }
+  }
+
+  let parsedVencimiento = null;
+  if (fechaVencimiento) {
+    parsedVencimiento = new Date(
+      fechaVencimiento.length === 10 ? `${fechaVencimiento}T12:00:00Z` : fechaVencimiento
+    );
+    if (isNaN(parsedVencimiento.getTime())) {
+      const error = new Error('La fecha de vencimiento ingresada no es válida.');
+      error.status = 400;
+      throw error;
+    }
+  }
+
+  if (parsedEmision && parsedVencimiento && parsedEmision > parsedVencimiento) {
+    const error = new Error('La fecha de emisión no puede ser posterior a la fecha de vencimiento.');
+    error.status = 400;
+    throw error;
+  }
+
+  let storagePath = null;
+  let nombreOriginal = null;
+
+  if (file) {
+    nombreOriginal = file.originalname;
+    const extension = path.extname(file.originalname) || '.pdf';
+    const timestamp = Date.now();
+    storagePath = `choferes/${cId}/${tipoDocumento.codigo}_${timestamp}${extension}`;
+
+    await storageService.subirArchivo(file.buffer, storagePath, file.mimetype);
+  }
+
+  await prisma.documentoChofer.updateMany({
+    where: {
+      choferId: cId,
+      tipoDocumentoId: tId,
+      esVigente: true,
+    },
+    data: {
+      esVigente: false,
+    },
+  });
+
+  const nuevoDocumento = await prisma.documentoChofer.create({
+    data: {
+      choferId: cId,
+      tipoDocumentoId: tId,
+      archivoPath: storagePath,
+      nombreOriginal,
+      fechaEmision: parsedEmision,
+      fechaVencimiento: parsedVencimiento,
+      observaciones: observaciones?.trim() || null,
+      esVigente: true,
+      usuarioId,
+    },
+    include: {
+      tipoDocumento: true,
+      usuario: {
+        select: {
+          id: true,
+          nombre: true,
+          apellido: true,
+        },
+      },
+    },
+  });
+
+  let signedUrl = null;
+  if (nuevoDocumento.archivoPath) {
+    signedUrl = await storageService.generarSignedUrl(nuevoDocumento.archivoPath, 3600);
+  }
+
+  return {
+    ...nuevoDocumento,
+    signedUrl,
+    estadoVigencia: calcularEstadoVigencia(nuevoDocumento),
+  };
+}
+
+/**
+ * Elimina un documento del chofer.
+ */
+async function eliminarDocumentoChofer(choferId, documentoId) {
+  const cId = parseInt(choferId, 10);
+  const docId = parseInt(documentoId, 10);
+
+  const doc = await prisma.documentoChofer.findUnique({
+    where: { id: docId },
+  });
+
+  if (!doc || doc.choferId !== cId) {
+    const error = new Error('Documento no encontrado para este chofer.');
+    error.status = 404;
+    throw error;
+  }
+
+  if (doc.archivoPath) {
+    await storageService.eliminarArchivo(doc.archivoPath).catch((err) => {
+      console.warn(`No se pudo eliminar el archivo físico en Storage (${doc.archivoPath}):`, err.message);
+    });
+  }
+
+  await prisma.documentoChofer.delete({
+    where: { id: docId },
+  });
+
+  if (doc.esVigente) {
+    const ultimoAnterior = await prisma.documentoChofer.findFirst({
+      where: {
+        choferId: cId,
+        tipoDocumentoId: doc.tipoDocumentoId,
+      },
+      orderBy: { creadoEn: 'desc' },
+    });
+
+    if (ultimoAnterior) {
+      await prisma.documentoChofer.update({
+        where: { id: ultimoAnterior.id },
+        data: { esVigente: true },
+      });
+    }
+  }
+
+  return { ok: true, mensaje: 'Documento eliminado correctamente.' };
+}
+
+/**
+ * Retorna el estado documental general de todos los choferes habilitados o con perfil CHOFER.
+ */
+async function obtenerEstadoChoferes() {
+  const tipos = await prisma.tipoDocumento.findMany({
+    where: { aplicaA: 'CHOFER' },
+  });
+  const totalRequeridos = tipos.length;
+
+  const choferes = await prisma.usuario.findMany({
+    where: {
+      OR: [
+        { perfil: { descripcion: 'CHOFER' } },
+        { habilitadoParaConducir: true },
+      ],
+    },
+    include: {
+      perfil: true,
+      estadoUsuario: true,
+      documentosChofer: {
+        where: { esVigente: true },
+        select: {
+          id: true,
+          tipoDocumentoId: true,
+          fechaVencimiento: true,
+        },
+      },
+    },
+    orderBy: [
+      { apellido: 'asc' },
+      { nombre: 'asc' },
+    ],
+  });
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  return choferes.map((c) => {
+    const totalCargados = c.documentosChofer.length;
+    const tienePendientes = totalCargados < totalRequeridos;
+
+    let tieneVencidos = false;
+    let tienePorVencer = false;
+
+    for (const doc of c.documentosChofer) {
+      if (doc.fechaVencimiento) {
+        const venc = new Date(doc.fechaVencimiento);
+        venc.setHours(0, 0, 0, 0);
+        const diffDias = Math.ceil((venc.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDias < 0) {
+          tieneVencidos = true;
+        } else if (diffDias <= 30) {
+          tienePorVencer = true;
+        }
+      }
+    }
+
+    const alDia = !tienePendientes && !tieneVencidos;
+
+    return {
+      id: c.id,
+      nombre: c.nombre,
+      apellido: c.apellido,
+      dni: c.dni,
+      email: c.email,
+      telefono: c.telefono,
+      nombreUsuario: c.nombreUsuario,
+      perfil: c.perfil,
+      estadoUsuario: c.estadoUsuario,
+      habilitadoParaConducir: c.habilitadoParaConducir,
+      totalCargados,
+      totalRequeridos,
+      tieneVencidos,
+      tienePorVencer,
+      tienePendientes,
+      alDia,
+    };
+  });
+}
+
 module.exports = {
   listarTipos,
   obtenerDocumentacionVehiculo,
@@ -441,5 +847,11 @@ module.exports = {
   registrarDocumentoVehiculo,
   eliminarDocumentoVehiculo,
   obtenerEstadoFlota,
+  obtenerDocumentacionChofer,
+  obtenerHistorialDocumentoChofer,
+  registrarDocumentoChofer,
+  eliminarDocumentoChofer,
+  obtenerEstadoChoferes,
 };
+
 

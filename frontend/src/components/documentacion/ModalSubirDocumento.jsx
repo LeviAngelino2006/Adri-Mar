@@ -11,6 +11,7 @@ function ModalSubirDocumento({
   open,
   onClose,
   vehiculo,
+  chofer,
   tipoDocumento,
   documentoActual,
   onSuccess,
@@ -44,7 +45,7 @@ function ModalSubirDocumento({
     }
   }, [open, documentoActual]);
 
-  if (!open || !vehiculo || !tipoDocumento) return null;
+  if (!open || (!vehiculo && !chofer) || !tipoDocumento) return null;
 
   const esRenovacion = !!documentoActual;
 
@@ -96,7 +97,11 @@ function ModalSubirDocumento({
       if (observaciones) formData.append('observaciones', observaciones);
       if (archivo) formData.append('archivo', archivo);
 
-      const { data } = await api.post(`/documentos/vehiculos/${vehiculo.id}`, formData, {
+      const endpoint = chofer
+        ? `/documentos/choferes/${chofer.id}`
+        : `/documentos/vehiculos/${vehiculo.id}`;
+
+      const { data } = await api.post(endpoint, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
@@ -112,7 +117,11 @@ function ModalSubirDocumento({
   async function handleEliminar() {
     setEliminando(true);
     try {
-      await api.delete(`/documentos/vehiculos/${vehiculo.id}/${documentoActual.id}`);
+      const endpoint = chofer
+        ? `/documentos/choferes/${chofer.id}/${documentoActual.id}`
+        : `/documentos/vehiculos/${vehiculo.id}/${documentoActual.id}`;
+
+      await api.delete(endpoint);
       setConfirmandoEliminar(false);
       onSuccess();
       onClose();
@@ -134,7 +143,12 @@ function ModalSubirDocumento({
           <div>
             <h2>{esRenovacion ? 'Renovar / Actualizar Documento' : 'Registrar Documento'}</h2>
             <p className="modal-doc-subtitle">
-              {tipoDocumento.descripcion} — Unidad <strong>{vehiculo.numeroInterno}</strong> ({vehiculo.dominio})
+              {tipoDocumento.descripcion} —{' '}
+              {chofer ? (
+                <strong>{chofer.nombre} {chofer.apellido}</strong>
+              ) : (
+                <>Unidad <strong>{vehiculo.numeroInterno}</strong> ({vehiculo.dominio})</>
+              )}
             </p>
           </div>
           <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Cerrar modal">

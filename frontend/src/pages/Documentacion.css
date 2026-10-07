@@ -51,14 +51,14 @@
   transition: all 0.15s ease;
 }
 
+.doc-tab-btn:hover:not(.is-active) {
+  background-color: var(--brand-50);
+  color: var(--brand-700);
+}
+
 .doc-tab-btn.is-active {
   background-color: var(--brand-700);
   color: #ffffff;
-}
-
-.doc-tab-btn.is-disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .doc-tab-badge {
@@ -69,6 +69,27 @@
   border-radius: 999px;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.doc-chofer-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.doc-chofer-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: var(--brand-100);
+  color: var(--brand-700);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  flex-shrink: 0;
 }
 
 /* Layout 2 columnas */
