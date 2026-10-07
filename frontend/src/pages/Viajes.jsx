@@ -3,7 +3,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
-import EstadoDot from '../components/ui/EstadoDot';
+import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
 import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
@@ -13,19 +13,15 @@ import ConfirmModal from '../components/ui/ConfirmModal';
 import ViajeForm from '../components/ViajeForm';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import ModalConfirmarViaje from '../components/ModalConfirmarViaje';
-import RutaViaje from '../components/RutaViaje';
+import TarjetaViaje from '../components/TarjetaViaje';
+import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
-import IndicadorVencimiento from '../components/ui/IndicadorVencimiento';
+import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { aInputCordoba } from '../utils/fechaCordoba';
-import { formatearFechaHora, formatearRangoCompacto, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { ordenarPorInterno } from '../utils/vehiculos';
 import './Viajes.css';
-
-const ICONO_FILTRO = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="4 4 20 4 14 12.5 14 19 10 21 10 12.5 4 4" />
-  </svg>
-);
 
 const ICONO_ALERTA = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -131,11 +127,7 @@ function Viajes() {
           nombreChofer(a).localeCompare(nombreChofer(b))
         )
       );
-      setOpcionesVehiculo(
-        dedupePorId(data.viajes.map((v) => v.vehiculo).filter(Boolean)).sort((a, b) =>
-          nombreVehiculo(a).localeCompare(nombreVehiculo(b))
-        )
-      );
+      setOpcionesVehiculo(ordenarPorInterno(dedupePorId(data.viajes.map((v) => v.vehiculo).filter(Boolean))));
     });
   }, []);
 
@@ -270,14 +262,13 @@ function Viajes() {
   return (
     <Layout>
       {!mostrarForm && !seleccionado && (
-        <div className="viajes-listado-header">
-          <h1>Viajes</h1>
+        <ListadoHeader titulo="Viajes">
           {puedeGestionar && (
             <Button variant="primary" onClick={abrirNuevo}>
               + Programar viaje
             </Button>
           )}
-        </div>
+        </ListadoHeader>
       )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
@@ -297,6 +288,7 @@ function Viajes() {
               textoBoton={editando ? 'Guardar cambios' : 'Programar viaje'}
               textoEnviando={editando ? 'Guardando…' : 'Programando…'}
               onCancelar={cerrarForm}
+              conDatosAdministrativos={puedeGestionar && !editando}
             />
           </Card>
         </>
@@ -304,21 +296,12 @@ function Viajes() {
 
       {!mostrarForm && !seleccionado && (
         <>
-          <div className="viajes-listado-toolbar">
-            <button
-              type="button"
-              className="filtros-toggle-btn"
-              aria-expanded={mostrarFiltros}
-              onClick={() => setMostrarFiltros((m) => !m)}
-            >
-              {ICONO_FILTRO}
-              Filtros
-              {filtrosActivos > 0 && <span className="filtros-toggle-badge">{filtrosActivos}</span>}
-            </button>
-          </div>
+          <ListadoToolbar
+            filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos: filtrosActivos }}
+          />
 
           {mostrarFiltros && (
-            <form className="viajes-listado-filtros" onSubmit={(e) => e.preventDefault()}>
+            <form className="listado-filtros" onSubmit={(e) => e.preventDefault()}>
               <FormField id="estado" label="Estado">
                 <select name="estado" value={filtros.estado} onChange={handleFiltroChange}>
                   {ESTADOS_FILTRO.map((e) => (
@@ -368,36 +351,12 @@ function Viajes() {
             </div>
           )}
 
-          {!cargando && viajes.length === 0 && <Card className="viajes-listado-empty">No se encontraron viajes</Card>}
+          {!cargando && viajes.length === 0 && <div className="listado-vacio">No se encontraron viajes</div>}
 
           {!cargando && viajes.length > 0 && (
-            <div className="viajes-listado-cards">
+            <div className="listado-cards">
               {viajes.map((v) => (
-                <button type="button" key={v.id} className="viajes-listado-card" onClick={() => seleccionar(v)}>
-                  <div className="viajes-listado-card-header">
-                    <span className="viajes-listado-card-titulo">
-                      {v.chofer ? nombreChofer(v.chofer) : 'Chofer pendiente'}
-                    </span>
-                    <div className="viajes-listado-card-estado">
-                      <EstadoDot color={ESTADOS_VIAJE[v.estado].dot} size="md">
-                        {ESTADOS_VIAJE[v.estado].label}
-                      </EstadoDot>
-                      <IndicadorVencimiento viaje={v} />
-                    </div>
-                  </div>
-                  <div className="viajes-listado-card-ruta">
-                    <RutaViaje origen={v.origen} destino={v.destino} />
-                  </div>
-                  <span className="viajes-listado-card-vehiculo">
-                    {v.vehiculo ? `${nombreVehiculo(v.vehiculo)} (${v.vehiculo.marca} ${v.vehiculo.modelo})` : 'Vehículo pendiente'}
-                  </span>
-                  <div className="viajes-listado-card-detalle">
-                    <span>
-                      {v.fechaInicio && v.fechaFin ? formatearRangoCompacto(v.fechaInicio, v.fechaFin) : 'Fechas pendientes'}
-                    </span>
-                    <span>{v.kilometrosEstimados != null ? `${v.kilometrosEstimados} km estimados` : 'Km pendientes'}</span>
-                  </div>
-                </button>
+                <TarjetaViaje key={v.id} viaje={v} onClick={() => seleccionar(v)} />
               ))}
             </div>
           )}
@@ -416,123 +375,55 @@ function Viajes() {
             <div className="viajes-detalle-header">
               <h1>{seleccionado.chofer ? `Viaje de ${nombreChofer(seleccionado.chofer)}` : 'Viaje a confirmar'}</h1>
               <div className="viajes-detalle-estado">
-                <EstadoDot color={ESTADOS_VIAJE[seleccionado.estado].dot} size="md">
+                <EstadoBadge tono={ESTADOS_VIAJE[seleccionado.estado].tono}>
                   {ESTADOS_VIAJE[seleccionado.estado].label}
-                </EstadoDot>
-                <IndicadorVencimiento viaje={seleccionado} size="md" />
+                </EstadoBadge>
               </div>
             </div>
 
-            <Card className="viajes-detalle" role="region" aria-label="Ficha del viaje">
-              <dl className="viajes-detalle-list">
-                <div className="detalle-item">
-                  <dt>Cliente</dt>
-                  <dd>{seleccionado.cliente?.nombre || 'No registrado'}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Chofer</dt>
-                  <dd>{seleccionado.chofer ? nombreChofer(seleccionado.chofer) : 'Pendiente de definir'}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Vehículo</dt>
-                  <dd>
-                    {seleccionado.vehiculo
-                      ? `${nombreVehiculo(seleccionado.vehiculo)} (${seleccionado.vehiculo.marca} ${seleccionado.vehiculo.modelo})`
-                      : 'Pendiente de definir'}
-                  </dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Origen</dt>
-                  <dd>{seleccionado.origen?.nombre || 'No registrado'}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Destino</dt>
-                  <dd>{seleccionado.destino?.nombre || 'No registrado'}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Fecha y hora de inicio</dt>
-                  <dd>{seleccionado.fechaInicio ? formatearFechaHora(seleccionado.fechaInicio) : 'Pendiente de definir'}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Fecha y hora de fin</dt>
-                  <dd>{seleccionado.fechaFin ? formatearFechaHora(seleccionado.fechaFin) : 'Pendiente de definir'}</dd>
-                </div>
-                {seleccionado.horaInicioReal && (
-                  <div className="detalle-item">
-                    <dt>Hora real de inicio</dt>
-                    <dd>{formatearFechaHora(seleccionado.horaInicioReal)}</dd>
-                  </div>
-                )}
-                {seleccionado.horaFinReal && (
-                  <div className="detalle-item">
-                    <dt>Hora real de fin</dt>
-                    <dd>{formatearFechaHora(seleccionado.horaFinReal)}</dd>
-                  </div>
-                )}
-                <div className="detalle-item">
-                  <dt>Kilómetros estimados</dt>
-                  <dd>{seleccionado.kilometrosEstimados != null ? seleccionado.kilometrosEstimados : 'Pendiente de definir'}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Kilometraje actual del vehículo</dt>
-                  <dd>{seleccionado.vehiculo ? `${seleccionado.vehiculo.kilometraje} km` : 'Pendiente de definir'}</dd>
-                </div>
-                {seleccionado.estado === 'FINALIZADO' && seleccionado.kmRealizados != null && (
-                  <div className="detalle-item">
-                    <dt>Km realizados</dt>
-                    <dd>{seleccionado.kmRealizados} km</dd>
-                  </div>
-                )}
-                {seleccionado.observacionFinal && (
-                  <div className="detalle-item detalle-item-ancho">
-                    <dt>Observación del viaje</dt>
-                    <dd>{seleccionado.observacionFinal}</dd>
-                  </div>
-                )}
-              </dl>
+            <FichaViaje viaje={seleccionado} />
 
-              {seleccionado.estado === 'A_CONFIRMAR' && puedeGestionar && (
-                <div className="viajes-detalle-actions">
-                  <Button variant="primary" onClick={() => pedirConfirmar(seleccionado)}>
-                    Confirmar viaje
-                  </Button>
-                  <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                    Editar
-                  </Button>
-                  <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
-                    Cancelar
-                  </Button>
-                </div>
-              )}
+            {seleccionado.estado === 'A_CONFIRMAR' && puedeGestionar && (
+              <div className="viajes-detalle-actions">
+                <Button variant="primary" onClick={() => pedirConfirmar(seleccionado)}>
+                  Confirmar viaje
+                </Button>
+                <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                  Editar
+                </Button>
+                <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
+                  Cancelar
+                </Button>
+              </div>
+            )}
 
-              {seleccionado.estado === 'PROGRAMADO' && (puedeOperarEsteViaje || puedeGestionar) && (
-                <div className="viajes-detalle-actions">
-                  {puedeOperarEsteViaje && (
-                    <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
-                      Comenzar
+            {seleccionado.estado === 'PROGRAMADO' && (puedeOperarEsteViaje || puedeGestionar) && (
+              <div className="viajes-detalle-actions">
+                {puedeOperarEsteViaje && (
+                  <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
+                    Comenzar
+                  </Button>
+                )}
+                {puedeGestionar && (
+                  <>
+                    <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                      Editar
                     </Button>
-                  )}
-                  {puedeGestionar && (
-                    <>
-                      <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                        Editar
-                      </Button>
-                      <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
-                        Cancelar
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )}
+                    <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
+                      Cancelar
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
 
-              {seleccionado.estado === 'EN_VIAJE' && puedeOperarEsteViaje && (
-                <div className="viajes-detalle-actions">
-                  <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
-                    Finalizar
-                  </Button>
-                </div>
-              )}
-            </Card>
+            {seleccionado.estado === 'EN_VIAJE' && puedeOperarEsteViaje && (
+              <div className="viajes-detalle-actions">
+                <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
+                  Finalizar
+                </Button>
+              </div>
+            )}
 
             {puedeGestionar && (
               <DatosAdministrativosViaje

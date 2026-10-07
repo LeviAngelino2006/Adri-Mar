@@ -2,11 +2,13 @@
   color-scheme: light;
 
   /* Marca */
-  --brand-700: #262878;
-  --brand-600: #30308f;
-  --brand-500: #4547b0;
-  --brand-100: #e4e5f5;
-  --brand-50: #f3f3fb;
+  --brand-700: #042a85;
+  --brand-600: #0535a6;
+  --brand-500: #2a56c6;
+  --brand-200: #b4c5ef;
+  --brand-100: #e1e8f8;
+  --brand-50: #f2f5fc;
+  --theme-color: var(--brand-600);
 
   /* Neutros */
   --color-text: #1e293b;
@@ -14,33 +16,52 @@
   --color-border: #e2e8f0;
   --color-bg: #f8fafc;
   --color-surface: #ffffff;
+  --color-on-brand: #ffffff;
+  --color-inverse-bg: var(--color-text);
+  --color-inverse-text: #ffffff;
+  --overlay: rgba(15, 23, 42, 0.45);
 
-  /* Estados (vehículos, alertas) */
+  /* Estados */
   --state-success-text: #166534;
   --state-success-bg: #dcfce7;
   --state-success-border: #86efac;
-
+  --state-success-solid: #16a34a;
   --state-warning-text: #92400e;
   --state-warning-bg: #fef3c7;
   --state-warning-border: #fcd34d;
-
+  --state-warning-solid: #d97706;
   --state-neutral-text: #475569;
   --state-neutral-bg: #f1f5f9;
   --state-neutral-border: #cbd5e1;
-
   --state-error-text: #b91c1c;
   --state-error-bg: #fee2e2;
   --state-error-border: #fca5a5;
+  --state-error-solid: #dc2626;
+  --state-error-strong: #991b1b;
+  --state-info-text: var(--brand-700);
+  --state-info-bg: var(--brand-50);
+  --state-info-border: var(--brand-200);
 
-  --state-info-text: #1d4ed8;
-  --state-info-bg: #dbeafe;
-  --state-info-border: #93c5fd;
+  /* Estados de viaje y vehículo (puntos de EstadoDot) */
+  --viaje-a-confirmar: var(--state-neutral-text);
+  --viaje-programado: var(--brand-600);
+  --viaje-en-viaje: var(--state-warning-solid);
+  --viaje-finalizado: var(--state-success-solid);
+  --viaje-cancelado: var(--state-error-solid);
+  --vehiculo-operativo: var(--state-success-solid);
+  --vehiculo-en-taller: var(--state-warning-solid);
+  --vehiculo-dado-de-baja: var(--state-neutral-text);
+
+  /* Perfiles */
+  --perfil-encargado-bg: #ede9fe;
+  --perfil-encargado-text: #6d28d9;
 
   /* Espaciado */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
   --space-12: 48px;
@@ -48,13 +69,17 @@
   /* Radios */
   --radius-sm: 6px;
   --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
 
   /* Sombras */
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.1);
   --shadow-md: 0 4px 6px rgba(15, 23, 42, 0.05), 0 10px 15px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 20px 50px rgba(15, 23, 42, 0.3);
 
   /* Tipografía */
   --font-sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   font-family: var(--font-sans);
   font-size: 16px;
@@ -105,6 +130,7 @@ h3 {
 
 h1 {
   font-size: 1.75rem;
+  font-weight: 700;
 }
 
 h2 {
@@ -171,6 +197,20 @@ label {
   outline-offset: 2px;
 }
 
+/* Números que se comparan en columnas (km, odómetro, horas). */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Patente / dominio: se lee como código. */
+.patente {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -229,6 +269,64 @@ label {
 
 .form-grid .form-field {
   margin-bottom: 0;
+}
+
+.form-field-ancho {
+  grid-column: 1 / -1;
+}
+
+.form-seccion {
+  grid-column: 1 / -1;
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.form-seccion-resumen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  list-style: none;
+}
+
+.form-seccion-resumen::-webkit-details-marker {
+  display: none;
+}
+
+.form-seccion-resumen::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--color-text-secondary);
+  border-bottom: 2px solid var(--color-text-secondary);
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+}
+
+.form-seccion[open] > .form-seccion-resumen::after {
+  transform: rotate(-135deg);
+}
+
+.form-seccion-cuerpo {
+  padding: var(--space-2) var(--space-4) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.form-seccion-cuerpo .form-grid {
+  padding-top: var(--space-4);
+}
+
+.form-leyenda {
+  margin: 0 0 var(--space-4);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
 }
 
 .form-actions {

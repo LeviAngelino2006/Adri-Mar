@@ -93,18 +93,6 @@ function aFechaCordobaOInstancia(valor) {
   return aFechaCordoba(valor);
 }
 
-// "Ahora" ya es un instante absoluto (Date es UTC puro internamente), así que
-// no necesita ningún ajuste de zona horaria para compararse contra
-// fechaInicio/fechaFin — esos valores ya quedaron guardados como instantes
-// absolutos vía aFechaCordoba() al crear/editar el viaje. Se nombra aparte
-// (en vez de usar `new Date()` suelto en cada lugar) para dejar explícito que
-// esta comparación usa el mismo criterio de "hora de Córdoba" que el resto
-// del archivo, no el reloj de quien esté mirando la pantalla (mismo bug que
-// se corrigió en SCRUM-29).
-function ahoraCordoba() {
-  return new Date();
-}
-
 class ValidacionError extends Error {
   constructor(errores) {
     super('Datos inválidos');
@@ -484,6 +472,10 @@ function serializarDatosAdministrativos(viaje) {
 // con obtenerLecturaVigente, por si alguna fue corregida después (todavía no
 // hay forma de corregir desde HTTP, pero la función ya existe y el cálculo
 // tiene que estar bien desde ya). Si falta cualquiera de las dos, null.
+//
+// Esas mismas lecturas vigentes se devuelven como odometroInicial y
+// odometroFinal (solo lectura, mismo criterio de visibilidad que kmRealizados):
+// un viaje En viaje tiene solo el inicial; uno sin comenzar, ninguno (null).
 async function serializarViaje(viaje, usuarioSolicitante) {
   const [lecturaInicio, lecturaFin] = await Promise.all([
     prisma.lecturaOdometro.findFirst({
@@ -494,23 +486,14 @@ async function serializarViaje(viaje, usuarioSolicitante) {
     }),
   ]);
 
-  let kmRealizados = null;
-  if (lecturaInicio && lecturaFin) {
-    const [vigenteInicio, vigenteFin] = await Promise.all([
-      lecturaOdometroService.obtenerLecturaVigente(lecturaInicio.id),
-      lecturaOdometroService.obtenerLecturaVigente(lecturaFin.id),
-    ]);
-    kmRealizados = vigenteFin.valorKm - vigenteInicio.valorKm;
-  }
+  const [vigenteInicio, vigenteFin] = await Promise.all([
+    lecturaInicio ? lecturaOdometroService.obtenerLecturaVigente(lecturaInicio.id) : null,
+    lecturaFin ? lecturaOdometroService.obtenerLecturaVigente(lecturaFin.id) : null,
+  ]);
+
+  const kmRealizados = vigenteInicio && vigenteFin ? vigenteFin.valorKm - vigenteInicio.valorKm : null;
 
   const estado = viaje.estadoViaje.descripcion;
-  const ahora = ahoraCordoba();
-  // Indicadores derivados, no un estado nuevo: "vencido" (Programado que
-  // nunca se comenzó) y "excedido" (En viaje que no se finalizó a tiempo) son
-  // mutuamente excluyentes por construcción (dependen de estados distintos) y
-  // van en false para Finalizado/Cancelado.
-  const vencido = estado === 'PROGRAMADO' && viaje.fechaInicio < ahora;
-  const excedido = estado === 'EN_VIAJE' && viaje.fechaFin < ahora;
 
   return {
     id: viaje.id,
@@ -557,13 +540,13 @@ async function serializarViaje(viaje, usuarioSolicitante) {
     kilometrosEstimados: viaje.kilometrosEstimados,
     horaInicioReal: viaje.horaInicioReal,
     horaFinReal: viaje.horaFinReal,
+    odometroInicial: vigenteInicio ? vigenteInicio.valorKm : null,
+    odometroFinal: vigenteFin ? vigenteFin.valorKm : null,
     kmRealizados,
     // Nota operativa del viaje, cargada solo al finalizar: visible para cualquier
     // perfil que vea el viaje (no es un dato administrativo). null si no hay.
     observacionFinal: viaje.observacionFinal,
     estado,
-    vencido,
-    excedido,
     creadoEn: viaje.creadoEn,
   };
 }
@@ -574,8 +557,23 @@ async function serializarViaje(viaje, usuarioSolicitante) {
 // A_CONFIRMAR con lo que sí vino (validado solo por existencia) y el resto en
 // null. clienteId/origenId/destinoId son siempre obligatorios en los dos
 // casos — no son parte de esta bifurcación.
+//
+// `datosAdministrativos` es opcional (solo lo manda el formulario de alta de
+// Administrador/Encargado): se valida con las mismas reglas que el PATCH
+// /:id/datos-administrativos y se guarda en el MISMO create, así el viaje se
+// crea con todo o no se crea, sin quedar a medias si esos datos son inválidos.
 async function crearViaje(
-  { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, clienteId, origenId, destinoId },
+  {
+    choferId,
+    vehiculoId,
+    fechaInicio,
+    fechaFin,
+    kilometrosEstimados,
+    clienteId,
+    origenId,
+    destinoId,
+    datosAdministrativos,
+  },
   usuarioSolicitante
 ) {
   const core = await validarYArmarCore({ clienteId, origenId, destinoId });
@@ -585,10 +583,13 @@ async function crearViaje(
 
   const operativos = await validarYArmarOperativos(camposOperativos, { obligatorios: completo });
 
+  const administrativos = await validarYArmarDatosAdministrativosOpcionales(datosAdministrativos);
+
   const estado = await obtenerEstadoViajePorDescripcion(completo ? 'PROGRAMADO' : 'A_CONFIRMAR');
 
   const viaje = await prisma.viaje.create({
     data: {
+      ...administrativos,
       choferId: operativos.choferId,
       vehiculoId: operativos.vehiculoId,
       fechaInicio: operativos.fechaInicio,
@@ -789,17 +790,12 @@ function validarFormatoIdPositivo(mensajeError) {
   };
 }
 
-// Acción administrativa/financiera, separada por completo del ciclo de vida
-// operativo del viaje: no valida nada contra el estado (funciona igual en
-// Programado, En viaje, Finalizado o Cancelado) y es actualización PARCIAL,
-// no reemplazo — a diferencia de actualizarViaje/validarYArmarDatos de
-// arriba, acá un campo ausente del payload nunca se toca, y solo se pisa el
-// que vino explícitamente (incluido `null`, para poder "deshacer" una carga
-// anterior). Por eso no reusa validarDatos/validarYArmarDatos: esas dos
-// funciones asumen que todos los campos siempre vienen y son obligatorios.
-async function actualizarDatosAdministrativos(id, payload = {}, usuarioSolicitante) {
-  const actual = await obtenerViaje(id);
-
+// Valida y arma los campos administrativos de un payload (parcial: un campo
+// ausente no entra en `data`; `null` explícito sí, para borrar el dato). La usan
+// actualizarDatosAdministrativos (PATCH) y crearViaje (alta con datos
+// administrativos), para que las dos rutas validen exactamente igual. Lanza
+// ValidacionError con los errores por campo; no toca la base.
+async function validarYArmarDatosAdministrativos(payload) {
   const data = {};
   const errores = {};
 
@@ -859,6 +855,33 @@ async function actualizarDatosAdministrativos(id, payload = {}, usuarioSolicitan
   if (typeof data.metodoPagoChoferId === 'number') {
     await validarMetodoPago(data.metodoPagoChoferId, 'metodoPagoChoferId');
   }
+
+  return data;
+}
+
+// Variante para el alta de un viaje: `datosAdministrativos` puede no venir
+// (undefined/null: no hay nada que guardar, devuelve {}), pero si viene tiene
+// que ser un objeto.
+async function validarYArmarDatosAdministrativosOpcionales(datos) {
+  if (datos === undefined || datos === null) return {};
+  if (typeof datos !== 'object' || Array.isArray(datos)) {
+    throw new ValidacionError({ datosAdministrativos: 'Los datos administrativos no son válidos' });
+  }
+  return validarYArmarDatosAdministrativos(datos);
+}
+
+// Acción administrativa/financiera, separada por completo del ciclo de vida
+// operativo del viaje: no valida nada contra el estado (funciona igual en
+// Programado, En viaje, Finalizado o Cancelado) y es actualización PARCIAL,
+// no reemplazo — a diferencia de actualizarViaje/validarYArmarDatos de
+// arriba, acá un campo ausente del payload nunca se toca, y solo se pisa el
+// que vino explícitamente (incluido `null`, para poder "deshacer" una carga
+// anterior). Por eso no reusa validarDatos/validarYArmarDatos: esas dos
+// funciones asumen que todos los campos siempre vienen y son obligatorios.
+async function actualizarDatosAdministrativos(id, payload = {}, usuarioSolicitante) {
+  const actual = await obtenerViaje(id);
+
+  const data = await validarYArmarDatosAdministrativos(payload);
 
   // Ningún campo reconocido en el payload: no-op válido, no se toca la fila
   // (ni siquiera actualizadoEn).

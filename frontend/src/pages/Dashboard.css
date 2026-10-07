@@ -17,7 +17,8 @@
 
 .proximos-viajes-item {
   display: flex;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) 0;
   font-size: 0.875rem;
@@ -26,26 +27,6 @@
 
 .proximos-viajes-item + .proximos-viajes-item {
   border-top: 1px solid var(--color-border);
-}
-
-/* Viaje En viaje: siempre primero en la lista, destacado con el mismo
-   ámbar del badge de estado (ver ESTADOS_VIAJE.EN_VIAJE) para que salte a
-   la vista como el viaje más relevante del momento. */
-.proximos-viajes-item-enviaje {
-  border-left: 3px solid #f59e0b;
-  background-color: #fffbeb;
-  border-radius: var(--radius-sm);
-  padding-left: calc(var(--space-3) - 3px);
-  padding-right: var(--space-3);
-}
-
-.proximos-viajes-item-enviaje + .proximos-viajes-item {
-  border-top: none;
-}
-
-.proximos-viajes-item-enviaje .proximos-viajes-icono {
-  background-color: #fef3c7;
-  color: #b45309;
 }
 
 .proximos-viajes-icono {
@@ -98,5 +79,119 @@
 
 .dashboard-empty-hint {
   font-size: 0.8125rem;
-  color: #cbd5e1;
+  color: var(--color-text-secondary);
+}
+
+/* Viaje en curso: tarjeta propia arriba de Próximos viajes, con el progreso
+   entre la salida y la llegada estimada. Reemplaza al ítem destacado con
+   borde izquierdo ámbar. */
+.viaje-en-curso {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.viaje-en-curso-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.viaje-en-curso-ruta {
+  font-size: 1.125rem;
+}
+
+.viaje-en-curso-progreso {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.viaje-en-curso-hora {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.viaje-en-curso-hora small {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.viaje-en-curso-hora-fin {
+  text-align: right;
+}
+
+.viaje-en-curso-barra {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-border);
+  overflow: hidden;
+}
+
+.viaje-en-curso-barra-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background-color: var(--brand-600);
+}
+
+.viaje-en-curso-pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Viaje en curso: acciones del pie. */
+.viaje-en-curso-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Próximos viajes: el área de información abre la ficha del viaje. */
+.proximos-viajes-enlace {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin: calc(var(--space-1) * -1);
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.proximos-viajes-enlace:hover {
+  background-color: var(--brand-50);
+}
+
+.proximos-viajes-accion {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+@media (max-width: 479px) {
+  .proximos-viajes-accion,
+  .viaje-en-curso-acciones,
+  .viaje-en-curso-acciones .btn {
+    width: 100%;
+  }
 }

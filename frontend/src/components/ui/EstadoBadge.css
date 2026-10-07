@@ -1,0 +1,58 @@
+.estado-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.estado-badge-sm {
+  font-size: 0.8125rem;
+  padding: 2px var(--space-2);
+}
+
+.estado-badge-md {
+  font-size: 0.875rem;
+  padding: var(--space-1) var(--space-3);
+}
+
+.estado-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background-color: currentColor;
+  flex: 0 0 auto;
+}
+
+.estado-badge-brand {
+  color: var(--brand-700);
+  background-color: var(--brand-50);
+  border-color: var(--brand-200);
+}
+
+.estado-badge-success {
+  color: var(--state-success-text);
+  background-color: var(--state-success-bg);
+  border-color: var(--state-success-border);
+}
+
+.estado-badge-warning {
+  color: var(--state-warning-text);
+  background-color: var(--state-warning-bg);
+  border-color: var(--state-warning-border);
+}
+
+.estado-badge-error {
+  color: var(--state-error-text);
+  background-color: var(--state-error-bg);
+  border-color: var(--state-error-border);
+}
+
+.estado-badge-neutral {
+  color: var(--state-neutral-text);
+  background-color: var(--state-neutral-bg);
+  border-color: var(--state-neutral-border);
+}

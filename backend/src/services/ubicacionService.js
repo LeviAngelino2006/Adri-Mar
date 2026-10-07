@@ -1,5 +1,6 @@
 const prisma = require('./prismaClient');
 const { normalizarNombre } = require('../utils/normalizarNombre');
+const { normalizarNombreUbicacion } = require('../utils/normalizarNombreUbicacion');
 
 const LIMITE_BUSQUEDA = 50;
 
@@ -26,9 +27,12 @@ async function buscar(texto) {
   });
 }
 
-// Idempotente: si ya existe una ubicación cuyo nombre normalizado coincide,
-// la devuelve tal cual (nunca crea una segunda). El nombre se compara
-// normalizado pero se persiste tal cual lo tipeó el usuario.
+// Idempotente: si ya existe una ubicación cuyo nombre normalizado coincide
+// (sin distinguir mayúsculas, acentos ni espacios repetidos), la devuelve tal
+// cual (nunca crea una segunda). Lo que se persiste es el nombre con formato de
+// título (normalizarNombreUbicacion: "RIO TERCERO" y "rio tercero" quedan como
+// "Rio Tercero"); para comparar se usa normalizarNombre, que no cambia con ese
+// formato, así que el índice único de abajo sigue siendo el mismo.
 //
 // El chequeo findUnique+create de abajo es best effort para el camino feliz;
 // la garantía dura contra la carrera entre dos requests simultáneos con el
@@ -39,12 +43,12 @@ async function buscar(texto) {
 // contra ese índice (P2002) — se captura y se busca la fila que la primera
 // ya creó, para que buscarOCrear nunca propague un 500 por la carrera.
 async function buscarOCrear({ nombre }) {
-  const nombreTrim = (nombre || '').trim();
-  if (!nombreTrim) {
+  const nombreFormateado = normalizarNombreUbicacion(nombre);
+  if (!nombreFormateado) {
     throw new ValidacionError({ nombre: 'El nombre es obligatorio' });
   }
 
-  const nombreNormalizado = normalizarNombre(nombreTrim);
+  const nombreNormalizado = normalizarNombre(nombreFormateado);
 
   const existente = await prisma.ubicacion.findUnique({
     where: { nombreNormalizado },
@@ -56,7 +60,7 @@ async function buscarOCrear({ nombre }) {
 
   try {
     return await prisma.ubicacion.create({
-      data: { nombre: nombreTrim, nombreNormalizado },
+      data: { nombre: nombreFormateado, nombreNormalizado },
       select: SELECT_PUBLICO,
     });
   } catch (err) {

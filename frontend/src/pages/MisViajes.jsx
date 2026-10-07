@@ -1,24 +1,22 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
-import Card from '../components/ui/Card';
-import EstadoDot from '../components/ui/EstadoDot';
+import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
 import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
-import RutaViaje from '../components/RutaViaje';
-import IndicadorVencimiento from '../components/ui/IndicadorVencimiento';
+import TarjetaViaje from '../components/TarjetaViaje';
+import { ListadoHeader, ListadoToolbar } from '../components/Listado';
+import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
-import { formatearFechaHora, formatearRangoCompacto, nombreVehiculo } from '../utils/viajeFormato';
+import { nombreVehiculo } from '../utils/viajeFormato';
 import './Viajes.css';
 
-const ICONO_FILTRO = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="4 4 20 4 14 12.5 14 19 10 21 10 12.5 4 4" />
-  </svg>
-);
+const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
 
 const ESTADOS_FILTRO = [
   { value: '', label: 'Todos' },
@@ -35,6 +33,17 @@ const FILTROS_INICIALES = {
 };
 
 function MisViajes() {
+  const { usuario } = useAuth();
+  // Un chofer ve sus viajes con el vehículo como título; un gestor, como en Viajes
+  // (con el chofer como título).
+  const varianteTarjeta = PUEDE_GESTIONAR.includes(usuario.perfil) ? undefined : 'chofer';
+  const location = useLocation();
+  const navigate = useNavigate();
+  // El Dashboard manda `viajeId` en el estado de navegación para abrir
+  // directo la ficha de ese viaje. Se consume una sola vez, al terminar la
+  // primera carga del listado.
+  const viajeIdPendiente = useRef(location.state?.viajeId ?? null);
+
   const [viajes, setViajes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
@@ -56,9 +65,20 @@ function MisViajes() {
 
     return api
       .get('/viajes/mis-viajes', { params })
-      .then(({ data }) => setViajes(data.viajes))
+      .then(({ data }) => {
+        setViajes(data.viajes);
+
+        if (viajeIdPendiente.current !== null) {
+          const pendiente = data.viajes.find((v) => v.id === viajeIdPendiente.current);
+          viajeIdPendiente.current = null;
+          if (pendiente) setSeleccionado(pendiente);
+          // Se limpia el estado de navegación para que recargar la página no
+          // vuelva a abrir la ficha.
+          navigate(location.pathname, { replace: true, state: null });
+        }
+      })
       .finally(() => setCargando(false));
-  }, [filtros]);
+  }, [filtros, navigate, location.pathname]);
 
   useEffect(() => {
     cargarViajes();
@@ -103,30 +123,19 @@ function MisViajes() {
   return (
     <Layout>
       {!seleccionado && (
-        <div className="viajes-listado-header">
-          <h1>Mis viajes</h1>
-        </div>
+        <ListadoHeader titulo="Mis viajes" />
       )}
 
       {mensaje && <Toast>{mensaje}</Toast>}
 
       {!seleccionado && (
         <>
-          <div className="viajes-listado-toolbar">
-            <button
-              type="button"
-              className="filtros-toggle-btn"
-              aria-expanded={mostrarFiltros}
-              onClick={() => setMostrarFiltros((m) => !m)}
-            >
-              {ICONO_FILTRO}
-              Filtros
-              {filtrosActivos > 0 && <span className="filtros-toggle-badge">{filtrosActivos}</span>}
-            </button>
-          </div>
+          <ListadoToolbar
+            filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos: filtrosActivos }}
+          />
 
           {mostrarFiltros && (
-            <form className="viajes-listado-filtros" onSubmit={(e) => e.preventDefault()}>
+            <form className="listado-filtros" onSubmit={(e) => e.preventDefault()}>
               <FormField id="estado" label="Estado">
                 <select name="estado" value={filtros.estado} onChange={handleFiltroChange}>
                   {ESTADOS_FILTRO.map((e) => (
@@ -154,33 +163,12 @@ function MisViajes() {
             </div>
           )}
 
-          {!cargando && viajes.length === 0 && (
-            <Card className="viajes-listado-empty">No tenés viajes asignados</Card>
-          )}
+          {!cargando && viajes.length === 0 && <div className="listado-vacio">No tenés viajes asignados</div>}
 
           {!cargando && viajes.length > 0 && (
-            <div className="viajes-listado-cards">
+            <div className="listado-cards">
               {viajes.map((v) => (
-                <button type="button" key={v.id} className="viajes-listado-card" onClick={() => seleccionar(v)}>
-                  <div className="viajes-listado-card-header">
-                    <span className="viajes-listado-card-titulo">
-                      {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
-                    </span>
-                    <div className="viajes-listado-card-estado">
-                      <EstadoDot color={ESTADOS_VIAJE[v.estado].dot} size="md">
-                        {ESTADOS_VIAJE[v.estado].label}
-                      </EstadoDot>
-                      <IndicadorVencimiento viaje={v} />
-                    </div>
-                  </div>
-                  <div className="viajes-listado-card-ruta">
-                    <RutaViaje origen={v.origen} destino={v.destino} />
-                  </div>
-                  <div className="viajes-listado-card-detalle">
-                    <span>{formatearRangoCompacto(v.fechaInicio, v.fechaFin)}</span>
-                    <span>{v.kilometrosEstimados} km estimados</span>
-                  </div>
-                </button>
+                <TarjetaViaje key={v.id} viaje={v} variante={varianteTarjeta} onClick={() => seleccionar(v)} />
               ))}
             </div>
           )}
@@ -196,91 +184,29 @@ function MisViajes() {
           <div className="viajes-detalle-header">
             <h1>{nombreVehiculo(seleccionado.vehiculo)}</h1>
             <div className="viajes-detalle-estado">
-              <EstadoDot color={ESTADOS_VIAJE[seleccionado.estado].dot} size="md">
+              <EstadoBadge tono={ESTADOS_VIAJE[seleccionado.estado].tono}>
                 {ESTADOS_VIAJE[seleccionado.estado].label}
-              </EstadoDot>
-              <IndicadorVencimiento viaje={seleccionado} size="md" />
+              </EstadoBadge>
             </div>
           </div>
 
-          <Card className="viajes-detalle" role="region" aria-label="Ficha del viaje">
-            <dl className="viajes-detalle-list">
-              <div className="detalle-item">
-                <dt>Cliente</dt>
-                <dd>{seleccionado.cliente?.nombre || 'No registrado'}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Vehículo</dt>
-                <dd>
-                  {nombreVehiculo(seleccionado.vehiculo)} ({seleccionado.vehiculo.marca} {seleccionado.vehiculo.modelo})
-                </dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Origen</dt>
-                <dd>{seleccionado.origen?.nombre || 'No registrado'}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Destino</dt>
-                <dd>{seleccionado.destino?.nombre || 'No registrado'}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Fecha y hora de inicio</dt>
-                <dd>{formatearFechaHora(seleccionado.fechaInicio)}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Fecha y hora de fin</dt>
-                <dd>{formatearFechaHora(seleccionado.fechaFin)}</dd>
-              </div>
-              {seleccionado.horaInicioReal && (
-                <div className="detalle-item">
-                  <dt>Hora real de inicio</dt>
-                  <dd>{formatearFechaHora(seleccionado.horaInicioReal)}</dd>
-                </div>
-              )}
-              {seleccionado.horaFinReal && (
-                <div className="detalle-item">
-                  <dt>Hora real de fin</dt>
-                  <dd>{formatearFechaHora(seleccionado.horaFinReal)}</dd>
-                </div>
-              )}
-              <div className="detalle-item">
-                <dt>Kilómetros estimados</dt>
-                <dd>{seleccionado.kilometrosEstimados}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Kilometraje actual del vehículo</dt>
-                <dd>{seleccionado.vehiculo.kilometraje} km</dd>
-              </div>
-              {seleccionado.estado === 'FINALIZADO' && seleccionado.kmRealizados != null && (
-                <div className="detalle-item">
-                  <dt>Km realizados</dt>
-                  <dd>{seleccionado.kmRealizados} km</dd>
-                </div>
-              )}
-              {seleccionado.observacionFinal && (
-                <div className="detalle-item detalle-item-ancho">
-                  <dt>Observación del viaje</dt>
-                  <dd>{seleccionado.observacionFinal}</dd>
-                </div>
-              )}
-            </dl>
+          <FichaViaje viaje={seleccionado} />
 
-            {seleccionado.estado === 'PROGRAMADO' && (
-              <div className="viajes-detalle-actions">
-                <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
-                  Comenzar
-                </Button>
-              </div>
-            )}
+          {seleccionado.estado === 'PROGRAMADO' && (
+            <div className="viajes-detalle-actions">
+              <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
+                Comenzar
+              </Button>
+            </div>
+          )}
 
-            {seleccionado.estado === 'EN_VIAJE' && (
-              <div className="viajes-detalle-actions">
-                <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
-                  Finalizar
-                </Button>
-              </div>
-            )}
-          </Card>
+          {seleccionado.estado === 'EN_VIAJE' && (
+            <div className="viajes-detalle-actions">
+              <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
+                Finalizar
+              </Button>
+            </div>
+          )}
         </>
       )}
 

@@ -3,7 +3,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
-import EstadoDot from '../components/ui/EstadoDot';
+import EstadoBadge from '../components/ui/EstadoBadge';
 import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
@@ -11,6 +11,9 @@ import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import { ESTADOS_VEHICULO } from '../constants/estadosVehiculo';
+import { formatearKm } from '../utils/viajeFormato';
+import { ordenarPorInterno } from '../utils/vehiculos';
+import { ListadoCard, ListadoHeader, ListadoToolbar } from '../components/Listado';
 import './FlotaVehiculos.css';
 
 const ICONO_ALERTA = (
@@ -43,7 +46,7 @@ const FORM_INICIAL = {
 const PUEDE_GESTIONAR_FLOTA = ['ADMINISTRADOR', 'ENCARGADO'];
 
 const ICONO_COLECTIVO = (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+  <svg width="20" height="20" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
     <path strokeLinecap="round" strokeLinejoin="round" d="M6.004 10V5m5 5V5m5 5V5.5M5.016 17c-1.42 0-2.13 0-2.571-.44c-.441-.439-.441-1.146-.441-2.56V8c0-1.414 0-2.121.441-2.56S3.596 5 5.016 5h7.085c3.473 0 5.21 0 6.54.706c.978.52 1.794 1.3 2.356 2.252c.764 1.293.836 3.021.98 6.478c.04.932.06 1.398-.123 1.75c-.134.26-.34.474-.595.618c-.346.196-.814.196-1.75.196h-.505m-10 0h6" />
     <path d="M7.004 19a2 2 0 1 0 0-4a2 2 0 0 0 0 4Zm10 0a2 2 0 1 0 0-4a2 2 0 0 0 0 4Z" />
     <path strokeLinecap="round" d="M1.996 10h13.368c.627 0 .84.368 1.32.944c.552.54.925.919 1.44.996c.72.108 3.384.054 3.384.054" />
@@ -51,16 +54,10 @@ const ICONO_COLECTIVO = (
 );
 
 const ICONO_COMBI = (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="20" height="20" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
     <path d="M19.17 5.11A2 2 0 0 0 17.38 4H4c-1.1 0-2 .9-2 2v9c0 1.1.9 2 2 2c0 1.65 1.35 3 3 3s3-1.35 3-3h4c0 1.65 1.35 3 3 3s3-1.35 3-3c1.1 0 2-.9 2-2v-3.76c0-.31-.07-.62-.21-.89zM17.38 6l2 4h-4.13V6zm-4.13 0v4h-3.5V6zm-5.5 0v4H4V6zM7 18a1.003 1.003 0 0 1-.87-1.5c.37-.63 1.36-.63 1.73 0c.09.15.13.32.13.49c0 .55-.45 1-1 1Zm10 0a1.003 1.003 0 0 1-.87-1.5c.37-.63 1.36-.63 1.73 0c.09.15.13.32.13.49c0 .55-.45 1-1 1Zm3-3h-.77s-.05-.05-.08-.07c-.06-.06-.12-.11-.17-.16c-.12-.11-.25-.21-.38-.29a3 3 0 0 0-.67-.32c-.07-.02-.14-.05-.21-.07Q17.375 14 17 14c-.375 0-.49.04-.72.09c-.07.02-.14.05-.21.07c-.16.05-.31.11-.45.19c-.07.04-.15.08-.22.13c-.13.09-.26.18-.38.29c-.06.05-.12.1-.18.16c-.02.03-.05.04-.08.07H9.23s-.05-.05-.08-.07c-.06-.06-.12-.11-.17-.16c-.12-.11-.25-.21-.38-.29a3 3 0 0 0-.67-.32c-.07-.02-.14-.05-.21-.07Q7.375 14 7 14c-.375 0-.49.04-.72.09c-.07.02-.14.05-.21.07c-.16.05-.31.11-.45.19c-.07.04-.15.08-.22.13c-.13.09-.26.18-.38.29c-.06.05-.12.1-.18.16c-.02.03-.05.04-.08.07h-.77v-3h16v3Z" />
   </svg>
 );
-
-function ordenarPorInterno(vehiculos) {
-  return [...vehiculos].sort(
-    (a, b) => (parseInt(a.numeroInterno, 10) || 0) - (parseInt(b.numeroInterno, 10) || 0)
-  );
-}
 
 function FlotaVehiculos() {
   const { usuario } = useAuth();
@@ -69,6 +66,7 @@ function FlotaVehiculos() {
   const [tiposVehiculo, setTiposVehiculo] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [estado, setEstado] = useState('');
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [seleccionado, setSeleccionado] = useState(null);
   const [confirmandoBaja, setConfirmandoBaja] = useState(false);
@@ -203,14 +201,13 @@ function FlotaVehiculos() {
   return (
     <Layout>
       {!mostrarForm && !seleccionado && (
-        <div className="flota-header">
-          <h1>Flota de vehículos</h1>
+        <ListadoHeader titulo="Flota de vehículos">
           {puedeGestionar && (
             <Button variant="primary" onClick={abrirNuevo}>
               + Nuevo vehículo
             </Button>
           )}
-        </div>
+        </ListadoHeader>
       )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
@@ -282,21 +279,24 @@ function FlotaVehiculos() {
 
       {!mostrarForm && !seleccionado && (
         <>
-          <form className="flota-filtros" onSubmit={(e) => e.preventDefault()}>
-            <FormField id="busqueda" label="Buscar por dominio, interno o marca">
-              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-            </FormField>
+          <ListadoToolbar
+            busqueda={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Buscar por dominio, interno o marca' }}
+            filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos: estado ? 1 : 0 }}
+          />
 
-            <FormField id="estado" label="Estado">
-              <select value={estado} onChange={(e) => setEstado(e.target.value)}>
-                {ESTADOS.map((e) => (
-                  <option key={e.value} value={e.value}>
-                    {e.label}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-          </form>
+          {mostrarFiltros && (
+            <form className="listado-filtros" onSubmit={(e) => e.preventDefault()}>
+              <FormField id="estado" label="Estado">
+                <select value={estado} onChange={(e) => setEstado(e.target.value)}>
+                  {ESTADOS.map((e) => (
+                    <option key={e.value} value={e.value}>
+                      {e.label}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            </form>
+          )}
 
           {cargando && (
             <div className="loading-state">
@@ -305,82 +305,30 @@ function FlotaVehiculos() {
             </div>
           )}
 
-          {!cargando && vehiculos.length === 0 && (
-            <Card className="flota-empty">No se encontraron vehículos</Card>
-          )}
+          {!cargando && vehiculos.length === 0 && <div className="listado-vacio">No se encontraron vehículos</div>}
 
           {!cargando && vehiculos.length > 0 && (
-            <>
-              <div className="flota-table-wrap">
-                <table className="flota-table">
-                  <thead>
-                    <tr>
-                      <th>Interno</th>
-                      <th>Dominio</th>
-                      <th>Marca / Modelo</th>
-                      <th>Tipo</th>
-                      <th>Kilometraje</th>
-                      <th>Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ordenarPorInterno(vehiculos).map((v) => (
-                      <tr
-                        key={v.id}
-                        className="flota-row"
-                        tabIndex={0}
-                        onClick={() => seleccionar(v)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            seleccionar(v);
-                          }
-                        }}
-                      >
-                        <td>{v.numeroInterno}</td>
-                        <td className="flota-row-dominio">{v.dominio}</td>
-                        <td>
-                          {v.marca} {v.modelo}
-                        </td>
-                        <td>{v.tipoVehiculo.descripcion}</td>
-                        <td>{v.kilometraje}</td>
-                        <td>
-                          <EstadoDot color={ESTADOS_VEHICULO[v.estado].dot}>
-                            {ESTADOS_VEHICULO[v.estado].label}
-                          </EstadoDot>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flota-cards">
-                {ordenarPorInterno(vehiculos).map((v) => (
-                  <button type="button" key={v.id} className="flota-card" onClick={() => seleccionar(v)}>
-                    <div className="flota-card-icon">
-                      {v.tipoVehiculo.descripcion === 'Colectivo' ? ICONO_COLECTIVO : ICONO_COMBI}
-                    </div>
-                    <div className="flota-card-content">
-                      <div className="flota-card-top">
-                        <span className="flota-card-dominio">
-                          {v.numeroInterno} - {v.dominio}
-                        </span>
-                        <EstadoDot color={ESTADOS_VEHICULO[v.estado].dot}>
-                          {ESTADOS_VEHICULO[v.estado].label}
-                        </EstadoDot>
-                      </div>
-                      <div className="flota-card-body">
-                        <span>
-                          {v.marca} {v.modelo}
-                        </span>
-                        <span>{v.kilometraje} km</span>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </>
+            <div className="listado-cards">
+              {ordenarPorInterno(vehiculos).map((v) => (
+                <ListadoCard
+                  key={v.id}
+                  marca={v.tipoVehiculo.descripcion === 'Colectivo' ? ICONO_COLECTIVO : ICONO_COMBI}
+                  titulo={
+                    <>
+                      {v.numeroInterno} - <span className="patente">{v.dominio}</span>
+                    </>
+                  }
+                  estado={
+                    <EstadoBadge tono={ESTADOS_VEHICULO[v.estado].tono} size="sm">
+                      {ESTADOS_VEHICULO[v.estado].label}
+                    </EstadoBadge>
+                  }
+                  sub={`${v.marca} ${v.modelo}`}
+                  pie={[v.tipoVehiculo.descripcion, `${formatearKm(v.kilometraje)} km`]}
+                  onClick={() => seleccionar(v)}
+                />
+              ))}
+            </div>
           )}
         </>
       )}
@@ -393,16 +341,16 @@ function FlotaVehiculos() {
 
           <div className="flota-detalle-header">
             <h1>Vehículo {seleccionado.dominio}</h1>
-            <EstadoDot color={ESTADOS_VEHICULO[seleccionado.estado].dot} size="md">
+            <EstadoBadge tono={ESTADOS_VEHICULO[seleccionado.estado].tono}>
               {ESTADOS_VEHICULO[seleccionado.estado].label}
-            </EstadoDot>
+            </EstadoBadge>
           </div>
 
           <Card className="flota-detalle" role="region" aria-label="Ficha del vehículo">
             <dl className="flota-detalle-list">
               <div className="detalle-item">
                 <dt>Dominio</dt>
-                <dd>{seleccionado.dominio}</dd>
+                <dd className="patente">{seleccionado.dominio}</dd>
               </div>
               <div className="detalle-item">
                 <dt>Número de interno</dt>

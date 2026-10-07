@@ -26,3 +26,8 @@
   font-size: 0.875rem;
   color: var(--state-error-text);
 }
+
+.form-field-required {
+  color: var(--state-error-text);
+  font-weight: 600;
+}

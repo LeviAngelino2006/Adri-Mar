@@ -21,7 +21,7 @@
 .btn-primary {
   background-color: var(--brand-600);
   border-color: var(--brand-600);
-  color: #ffffff;
+  color: var(--color-on-brand);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -44,12 +44,12 @@
 .btn-danger {
   background-color: var(--state-error-text);
   border-color: var(--state-error-text);
-  color: #ffffff;
+  color: var(--color-on-brand);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background-color: #991b1b;
-  border-color: #991b1b;
+  background-color: var(--state-error-strong);
+  border-color: var(--state-error-strong);
 }
 
 .btn-ghost {
