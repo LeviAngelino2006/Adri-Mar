@@ -90,6 +90,13 @@ function MisViajes() {
     return () => clearTimeout(t);
   }, [mensaje]);
 
+  // La ficha reemplaza al listado dentro de la misma ruta: sin esto conserva el
+  // scroll que tenía el listado y aparece desplazada hacia abajo.
+  const seleccionadoId = seleccionado?.id ?? null;
+  useEffect(() => {
+    if (seleccionadoId !== null) window.scrollTo(0, 0);
+  }, [seleccionadoId]);
+
   function handleFiltroChange(e) {
     const { name, value } = e.target;
     setFiltros((f) => ({ ...f, [name]: value }));
