@@ -91,10 +91,11 @@ function MisViajes() {
   }, [mensaje]);
 
   // La ficha reemplaza al listado dentro de la misma ruta: sin esto conserva el
-  // scroll que tenía el listado y aparece desplazada hacia abajo.
+  // scroll de la vista anterior (la ficha aparece desplazada hacia abajo, y el
+  // listado también al volver desde los botones del final).
   const seleccionadoId = seleccionado?.id ?? null;
   useEffect(() => {
-    if (seleccionadoId !== null) window.scrollTo(0, 0);
+    window.scrollTo(0, 0);
   }, [seleccionadoId]);
 
   function handleFiltroChange(e) {
