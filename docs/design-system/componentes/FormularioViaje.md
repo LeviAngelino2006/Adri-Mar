@@ -17,7 +17,7 @@ Dentro de `.form-card` (720px) y `.form-grid` (dos columnas desde 640px, una col
 - El formulario no lleva leyenda ("* Obligatorio…"): el asterisco rojo alcanza. La regla de estado (con chofer, vehículo, fechas y kilómetros queda Programado; si no, A confirmar) no se explica en la pantalla.
 
 ## Scroll
-- Al abrir el formulario (alta o edición) la página vuelve arriba, y también al cancelar o guardar y volver al listado, porque los botones están al final del formulario.
+- Al abrir el formulario (alta o edición; igual en los formularios de vehículo y de usuario) la página vuelve arriba, y también al cancelar o guardar y volver al listado, porque los botones están al final del formulario.
 
 ## Datos administrativos
 - `<details class="form-seccion">` con `<summary class="form-seccion-resumen">` "Datos administrativos (opcional)" y el cuerpo en `.form-seccion-cuerpo` con su propia `.form-grid`. Empieza cerrada; el chevron gira al abrir.
