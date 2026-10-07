@@ -13,20 +13,45 @@ const ICONO_RUTA = (
 );
 
 // Tarjeta de un viaje en el listado: la usan Viajes y Mis viajes.
-function TarjetaViaje({ viaje, onClick }) {
+//
+// variante="chofer" es la vista de Mis viajes de un chofer, que ve sus propios
+// viajes: el título es el vehículo ("12 - AE452KD", solo el dominio con
+// .patente) y no se muestran ni el chofer (es él mismo) ni la línea de detalle,
+// porque el vehículo ya está en el título. Sin variante (Viajes, y Mis viajes
+// de un gestor) el título es el chofer y el vehículo va en el detalle.
+function TarjetaViaje({ viaje, onClick, variante }) {
   const { chofer, vehiculo, fechaInicio, fechaFin, kilometrosEstimados } = viaje;
+  const vistaChofer = variante === 'chofer';
+
+  const titulo = vistaChofer ? (
+    vehiculo ? (
+      <>
+        {vehiculo.numeroInterno} - <span className="patente">{vehiculo.dominio}</span>
+      </>
+    ) : (
+      'Vehículo pendiente'
+    )
+  ) : chofer ? (
+    nombreChofer(chofer)
+  ) : (
+    'Chofer pendiente'
+  );
+
+  const detalleVehiculo = vehiculo
+    ? `${nombreVehiculo(vehiculo)} (${vehiculo.marca} ${vehiculo.modelo})`
+    : 'Vehículo pendiente';
 
   return (
     <ListadoCard
       marca={ICONO_RUTA}
-      titulo={chofer ? nombreChofer(chofer) : 'Chofer pendiente'}
+      titulo={titulo}
       estado={
         <EstadoBadge tono={ESTADOS_VIAJE[viaje.estado].tono} size="sm">
           {ESTADOS_VIAJE[viaje.estado].label}
         </EstadoBadge>
       }
       sub={<RutaViaje origen={viaje.origen} destino={viaje.destino} />}
-      detalle={vehiculo ? `${nombreVehiculo(vehiculo)} (${vehiculo.marca} ${vehiculo.modelo})` : 'Vehículo pendiente'}
+      detalle={vistaChofer ? undefined : detalleVehiculo}
       pie={[
         fechaInicio && fechaFin ? formatearRangoCompacto(fechaInicio, fechaFin) : 'Fechas pendientes',
         kilometrosEstimados != null ? `${formatearKm(kilometrosEstimados)} km estimados` : 'Km pendientes',

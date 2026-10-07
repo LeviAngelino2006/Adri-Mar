@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
@@ -14,6 +15,8 @@ import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { nombreVehiculo } from '../utils/viajeFormato';
 import './Viajes.css';
+
+const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
 
 const ESTADOS_FILTRO = [
   { value: '', label: 'Todos' },
@@ -30,6 +33,10 @@ const FILTROS_INICIALES = {
 };
 
 function MisViajes() {
+  const { usuario } = useAuth();
+  // Un chofer ve sus viajes con el vehículo como título; un gestor, como en Viajes
+  // (con el chofer como título).
+  const varianteTarjeta = PUEDE_GESTIONAR.includes(usuario.perfil) ? undefined : 'chofer';
   const location = useLocation();
   const navigate = useNavigate();
   // El Dashboard manda `viajeId` en el estado de navegación para abrir
@@ -161,7 +168,7 @@ function MisViajes() {
           {!cargando && viajes.length > 0 && (
             <div className="listado-cards">
               {viajes.map((v) => (
-                <TarjetaViaje key={v.id} viaje={v} onClick={() => seleccionar(v)} />
+                <TarjetaViaje key={v.id} viaje={v} variante={varianteTarjeta} onClick={() => seleccionar(v)} />
               ))}
             </div>
           )}
