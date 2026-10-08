@@ -7,9 +7,9 @@ Estructura:
 - Debajo, `.viajes-detalle-actions` con los `Button`.
 
 Secciones, en este orden y con estos pares (los mismos del formulario `FormularioViaje`):
-1. **Viaje**: Cliente (`.detalle-item-ancho`, `.detalle-item-destacado`) · Origen | Destino.
+1. **Viaje**: Cliente (`.detalle-item-ancho`, `.detalle-item-destacado`) · Origen | Destino · Cantidad de pasajeros ("—" si no se cargó: es un dato opcional, no un faltante).
 2. **Programación**: Inicio | Fin (día y hora, "07 oct 08:00").
-3. **Asignación**: Chofer | Vehículo ("2 - AB123CD (Mercedes-Benz OH 1618 L)") · Kilómetros estimados.
+3. **Asignación**: Chofer | Vehículo ("2 - AB123CD (Mercedes-Benz OH 1618 L)") · Kilómetros estimados. En un viaje A confirmar no hay chofer ni vehículo asignado: en su lugar van **Choferes posibles** y **Vehículos posibles** (nombres separados por coma, ancho completo, "Sin cargar" si la lista está vacía). Solo los ven Administrador y Encargado; para el resto esos ítems quedan en "No registrado".
 4. **Recorrido real**: solo si el viaje ya empezó. Hora real de inicio | Hora real de fin · Odómetro inicial | Odómetro final · Km realizados. Los viajes En viaje muestran solo lo que ya existe.
 5. **Observación**: solo si hay texto; ancho completo, respeta los saltos de línea.
 Los datos administrativos (solo Administrador y Encargado) siguen en su propio bloque debajo de la Card, con la misma estética de secciones.

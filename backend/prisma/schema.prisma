@@ -41,6 +41,7 @@ model Usuario {
   creadoEn               DateTime          @default(now()) @map("creado_en")
   viajes                 Viaje[]
   lecturasOdometro       LecturaOdometro[]
+  viajesCandidato        ViajeChoferCandidato[]
 
   @@map("usuarios")
 }
@@ -79,6 +80,7 @@ model Vehiculo {
   creadoEn         DateTime          @default(now()) @map("creado_en")
   viajes           Viaje[]
   lecturasOdometro LecturaOdometro[]
+  viajesCandidato  ViajeVehiculoCandidato[]
 
   @@map("vehiculos")
 }
@@ -156,6 +158,11 @@ model Viaje {
   // lo valida viajeService (no la base), igual que el resto de los textos.
   observacionFinal    String?           @map("observacion_final")
   lecturasOdometro    LecturaOdometro[]
+  // Choferes y vehículos posibles mientras el viaje está A_CONFIRMAR. Al
+  // confirmar se elige uno de cada uno (choferId/vehiculoId) y estas filas se
+  // borran en la misma transacción: no se guardan como historial.
+  choferesCandidatos  ViajeChoferCandidato[]
+  vehiculosCandidatos ViajeVehiculoCandidato[]
   // Nullable porque los viajes históricos no tienen este dato y no hay forma
   // de reconstruirlo retroactivamente (quedan en null para siempre). La
   // obligatoriedad para viajes nuevos se valida en viajeService, no acá.
@@ -236,4 +243,27 @@ model LecturaOdometro {
 
   @@index([vehiculoId, fechaHora])
   @@map("lecturas_odometro")
+}
+
+// Chofer posible para un viaje A_CONFIRMAR. Viaje.choferId sigue siendo "el
+// asignado" y queda en null hasta confirmar. Cascade al borrar el viaje;
+// Restrict al borrar el usuario (mismo criterio que Viaje.choferId).
+model ViajeChoferCandidato {
+  viajeId   Int     @map("viaje_id")
+  usuarioId Int     @map("usuario_id")
+  viaje     Viaje   @relation(fields: [viajeId], references: [id], onDelete: Cascade)
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@id([viajeId, usuarioId])
+  @@map("viaje_chofer_candidato")
+}
+
+model ViajeVehiculoCandidato {
+  viajeId    Int      @map("viaje_id")
+  vehiculoId Int      @map("vehiculo_id")
+  viaje      Viaje    @relation(fields: [viajeId], references: [id], onDelete: Cascade)
+  vehiculo   Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+
+  @@id([viajeId, vehiculoId])
+  @@map("viaje_vehiculo_candidato")
 }
