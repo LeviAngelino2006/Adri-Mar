@@ -24,6 +24,9 @@ const ICONO_QUITAR = (
 // las opciones) no se descarta: se muestra como "#id" para no perder datos sin
 // que se note.
 //
+// Orden: primero el buscador y debajo los chips elegidos. La lista desplegable
+// abre debajo del buscador y se superpone a los chips (no los empuja).
+//
 // `avisos` ({ [id]: texto }) muestra un aviso debajo del chip de ese id y le
 // da tono de advertencia. Es informativo: el componente nunca bloquea nada.
 function SelectorMultiple({
@@ -105,6 +108,61 @@ function SelectorMultiple({
 
   return (
     <div className="selector-multiple" ref={contenedorRef}>
+      {/* El buscador es el ancla de la lista desplegable: la lista se posiciona
+          respecto de él, no del contenedor completo, para que siga abriendo
+          debajo del input aunque los chips estén más abajo. */}
+      <div className="selector-multiple-buscador">
+        <input
+          id={id}
+          type="text"
+          role="combobox"
+          aria-expanded={abierto && !disabled}
+          aria-controls={listaId}
+          aria-autocomplete="list"
+          aria-activedescendant={abierto && disponibles[indiceActivo] ? `${listaId}-${disponibles[indiceActivo].id}` : undefined}
+          value={texto}
+          onChange={handleChangeTexto}
+          onFocus={() => setAbierto(true)}
+          onClick={() => setAbierto(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          disabled={disabled}
+          autoComplete="off"
+          {...resto}
+        />
+
+        {abierto && !disabled && (
+          <ul className="selector-multiple-lista" id={listaId} role="listbox" aria-multiselectable="true">
+            {disponibles.map((opcion, indice) => (
+              <li
+                key={opcion.id}
+                id={`${listaId}-${opcion.id}`}
+                role="option"
+                aria-selected="false"
+                className={indice === indiceActivo ? 'selector-multiple-opcion selector-multiple-opcion-activa' : 'selector-multiple-opcion'}
+                // mousedown (y no click) para que el input no pierda el foco antes
+                // de elegir.
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  agregar(opcion);
+                }}
+                onMouseEnter={() => setActivo(indice)}
+              >
+                {opcion.etiqueta}
+              </li>
+            ))}
+
+            {disponibles.length === 0 && (
+              <li className="selector-multiple-estado" role="presentation">
+                {!hayOpciones && 'No hay opciones para elegir'}
+                {todasElegidas && 'Ya elegiste todas las opciones'}
+                {hayOpciones && !todasElegidas && 'Sin coincidencias'}
+              </li>
+            )}
+          </ul>
+        )}
+      </div>
+
       {valor.length > 0 && (
         <ul className="selector-multiple-chips">
           {valor.map((valorId) => {
@@ -129,56 +187,6 @@ function SelectorMultiple({
               </li>
             );
           })}
-        </ul>
-      )}
-
-      <input
-        id={id}
-        type="text"
-        role="combobox"
-        aria-expanded={abierto && !disabled}
-        aria-controls={listaId}
-        aria-autocomplete="list"
-        aria-activedescendant={abierto && disponibles[indiceActivo] ? `${listaId}-${disponibles[indiceActivo].id}` : undefined}
-        value={texto}
-        onChange={handleChangeTexto}
-        onFocus={() => setAbierto(true)}
-        onClick={() => setAbierto(true)}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        disabled={disabled}
-        autoComplete="off"
-        {...resto}
-      />
-
-      {abierto && !disabled && (
-        <ul className="selector-multiple-lista" id={listaId} role="listbox" aria-multiselectable="true">
-          {disponibles.map((opcion, indice) => (
-            <li
-              key={opcion.id}
-              id={`${listaId}-${opcion.id}`}
-              role="option"
-              aria-selected="false"
-              className={indice === indiceActivo ? 'selector-multiple-opcion selector-multiple-opcion-activa' : 'selector-multiple-opcion'}
-              // mousedown (y no click) para que el input no pierda el foco antes
-              // de elegir.
-              onMouseDown={(e) => {
-                e.preventDefault();
-                agregar(opcion);
-              }}
-              onMouseEnter={() => setActivo(indice)}
-            >
-              {opcion.etiqueta}
-            </li>
-          ))}
-
-          {disponibles.length === 0 && (
-            <li className="selector-multiple-estado" role="presentation">
-              {!hayOpciones && 'No hay opciones para elegir'}
-              {todasElegidas && 'Ya elegiste todas las opciones'}
-              {hayOpciones && !todasElegidas && 'Sin coincidencias'}
-            </li>
-          )}
         </ul>
       )}
     </div>

@@ -12,6 +12,7 @@ No está en `bundle.js`. A diferencia de `SelectorBuscarOCrear` no depende del c
 ## Reglas
 - Un id de `valor` que no está en `opciones` no se descarta: se muestra como "#id", para no perder datos sin que se note.
 - La lista solo ofrece lo que todavía no está elegido. El filtro ignora tildes y mayúsculas ("perez" encuentra "Pérez"). Sin opciones muestra "No hay opciones para elegir"; sin coincidencias, "Sin coincidencias".
+- Orden: primero el buscador y debajo los chips elegidos, separados por `space-2`. La lista desplegable abre debajo del buscador y se superpone a los chips (posición absoluta, por encima): no los empuja. Los avisos van debajo de cada chip.
 - Elegir una opción agrega el chip, limpia el texto y cierra la lista.
 - Teclado: ↑ y ↓ mueven la opción activa, Enter la elige (con la lista abierta nunca envía el formulario), Escape cierra. Click afuera también cierra.
 - Accesibilidad: el input es un `combobox` con `aria-expanded`, `aria-controls` y `aria-activedescendant`; la lista es un `listbox` `aria-multiselectable`. Cada chip tiene un botón con `aria-label="Quitar …"`.

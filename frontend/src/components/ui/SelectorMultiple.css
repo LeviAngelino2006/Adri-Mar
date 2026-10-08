@@ -2,11 +2,17 @@
   position: relative;
 }
 
+/* Ancla de la lista desplegable: la lista se posiciona respecto del buscador y
+   no del componente entero, que ahora también incluye los chips debajo. */
+.selector-multiple-buscador {
+  position: relative;
+}
+
 .selector-multiple-chips {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin: 0 0 var(--space-2);
+  margin: var(--space-2) 0 0;
   padding: 0;
   list-style: none;
 }
