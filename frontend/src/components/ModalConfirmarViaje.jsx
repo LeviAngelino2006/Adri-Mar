@@ -33,11 +33,13 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
 
+  const viajeId = viaje?.id;
+
   useEffect(() => {
-    if (!viaje) return;
+    if (!viajeId) return;
     api.get('/usuarios/disponibles-chofer').then(({ data }) => setChoferes(data.usuarios));
     api.get('/vehiculos', { params: { estado: 'OPERATIVO' } }).then(({ data }) => setVehiculos(data.vehiculos));
-  }, [viaje?.id]);
+  }, [viajeId]);
 
   useEffect(() => {
     if (!viaje) return;
