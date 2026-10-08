@@ -41,6 +41,7 @@ model Usuario {
   creadoEn               DateTime          @default(now()) @map("creado_en")
   viajes                 Viaje[]
   lecturasOdometro       LecturaOdometro[]
+  documentos             DocumentoUsuario[]
 
   @@map("usuarios")
 }
@@ -79,6 +80,7 @@ model Vehiculo {
   creadoEn         DateTime          @default(now()) @map("creado_en")
   viajes           Viaje[]
   lecturasOdometro LecturaOdometro[]
+  documentos       DocumentoVehiculo[]
 
   @@map("vehiculos")
 }
@@ -230,4 +232,34 @@ model LecturaOdometro {
 
   @@index([vehiculoId, fechaHora])
   @@map("lecturas_odometro")
+}
+
+model DocumentoVehiculo {
+  id                Int      @id @default(autoincrement())
+  vehiculoId        Int      @map("vehiculo_id")
+  vehiculo          Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Cascade)
+  tipo              String
+  numeroComprobante String?  @map("numero_comprobante")
+  fechaVencimiento  DateTime @map("fecha_vencimiento")
+  observaciones     String?
+  creadoEn          DateTime @default(now()) @map("creado_en")
+  actualizadoEn     DateTime @updatedAt @map("actualizado_en")
+
+  @@index([vehiculoId, fechaVencimiento])
+  @@map("documentos_vehiculo")
+}
+
+model DocumentoUsuario {
+  id                Int      @id @default(autoincrement())
+  usuarioId         Int      @map("usuario_id")
+  usuario           Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tipo              String
+  numeroComprobante String?  @map("numero_comprobante")
+  fechaVencimiento  DateTime @map("fecha_vencimiento")
+  observaciones     String?
+  creadoEn          DateTime @default(now()) @map("creado_en")
+  actualizadoEn     DateTime @updatedAt @map("actualizado_en")
+
+  @@index([usuarioId, fechaVencimiento])
+  @@map("documentos_usuario")
 }
