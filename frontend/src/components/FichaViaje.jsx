@@ -53,6 +53,9 @@ function FichaViaje({ viaje }) {
           { etiqueta: 'Cliente', valor: viaje.cliente?.nombre, clase: 'detalle-item-ancho detalle-item-destacado' },
           { etiqueta: 'Origen', valor: viaje.origen?.nombre },
           { etiqueta: 'Destino', valor: viaje.destino?.nombre },
+          // "—" y no "No registrado": es un dato opcional que a menudo no se
+          // conoce al crear, no un faltante.
+          { etiqueta: 'Cantidad de pasajeros', valor: viaje.cantidadPasajeros ?? '—' },
         ]}
       />
       <Seccion

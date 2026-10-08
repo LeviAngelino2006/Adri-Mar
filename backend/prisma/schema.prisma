@@ -136,9 +136,15 @@ model Viaje {
   chofer              Usuario?          @relation(fields: [choferId], references: [id], onDelete: Restrict)
   vehiculoId          Int?              @map("vehiculo_id")
   vehiculo            Vehiculo?         @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  // Nullable porque los viajes históricos no tienen este dato y no hay forma
+  // de reconstruirlo retroactivamente. La obligatoriedad para viajes nuevos (y
+  // al editar, en cualquier estado) se valida en viajeService, no acá.
   fechaInicio         DateTime?         @map("fecha_inicio")
   fechaFin            DateTime?         @map("fecha_fin")
   kilometrosEstimados Int?              @map("kilometros_estimados")
+  // Dato informativo, opcional en todos los estados: no se valida contra
+  // Vehiculo.asientos ni restringe nada.
+  cantidadPasajeros   Int?              @map("cantidad_pasajeros")
   odometroInicial     Int?              @map("odometro_inicial")
   odometroFinal       Int?              @map("odometro_final")
   estadoViajeId       Int               @map("estado_viaje_id")
