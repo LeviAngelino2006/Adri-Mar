@@ -8,6 +8,7 @@ import FlotaVehiculos from './pages/FlotaVehiculos';
 import Viajes from './pages/Viajes';
 import MisViajes from './pages/MisViajes';
 import ScrollAlTope from './components/ScrollAlTope';
+import Documentacion from './pages/Documentacion';
 import './App.css';
 
 function App() {
@@ -38,6 +39,22 @@ function App() {
             element={
               <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER']}>
                 <FlotaVehiculos />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/documentacion"
+            element={
+              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER']}>
+                <Documentacion />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/documentacion/vehiculos"
+            element={
+              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER']}>
+                <Documentacion />
               </ProtectedRoute>
             }
           />

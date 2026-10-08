@@ -12,14 +12,23 @@ const prismaFalso = {
     findMany: async () => [],
     create: async ({ data }) => ({ id: 1, ...data }),
   },
-  documentoUsuario: {
+  documentoChofer: {
     findMany: async () => [],
     create: async ({ data }) => ({ id: 1, ...data }),
   },
 };
 
+const storageFalso = {
+  generarSignedUrl: async () => 'http://test-url.com',
+  subirArchivo: async () => {},
+  eliminarArchivo: async () => {},
+};
+
 const rutaPrisma = require.resolve(path.join(SRC, 'services', 'prismaClient.js'));
 require.cache[rutaPrisma] = { id: rutaPrisma, filename: rutaPrisma, loaded: true, exports: prismaFalso };
+
+const rutaStorage = require.resolve(path.join(SRC, 'services', 'storageService.js'));
+require.cache[rutaStorage] = { id: rutaStorage, filename: rutaStorage, loaded: true, exports: storageFalso };
 
 const { calcularEstadoDocumento } = require(path.join(SRC, 'services', 'documentoService.js'));
 
