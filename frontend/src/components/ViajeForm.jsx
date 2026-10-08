@@ -27,10 +27,12 @@ const FORM_INICIAL = {
   fechaInicio: '',
   fechaFin: '',
   kilometrosEstimados: '',
+  cantidadPasajeros: '',
 };
 
 const CAMPOS_OPERATIVOS = ['choferId', 'vehiculoId', 'fechaInicio', 'fechaFin', 'kilometrosEstimados'];
 const ERROR_OBLIGATORIO_PROGRAMADO = 'Obligatorio para un viaje Programado.';
+const ERROR_FECHA_INICIO = 'La fecha y hora de inicio es obligatoria';
 
 // `estadoActual` es el estado del viaje que se está editando (undefined en
 // alta). Los cinco campos operativos solo son obligatorios a nivel de
@@ -38,7 +40,8 @@ const ERROR_OBLIGATORIO_PROGRAMADO = 'Obligatorio para un viaje Programado.';
 // exigiendo ahí (ver viajeService.actualizarViaje: la obligatoriedad depende
 // del estado actual, no de si el payload viene completo), así que conviene
 // avisar antes de que el usuario intente guardar y se encuentre con un error
-// del servidor. En alta, o editando un A_CONFIRMAR, nunca se exigen.
+// del servidor. En alta, o editando un A_CONFIRMAR, no se exigen — con una
+// excepción: la fecha de inicio es obligatoria siempre, en cualquier estado.
 //
 // `conDatosAdministrativos` agrega la sección colapsada de datos
 // administrativos (solo alta y solo para Administrador/Encargado: lo decide
@@ -121,6 +124,9 @@ function ViajeForm({
         }
       }
     }
+    if (!erroresLocales.fechaInicio && !form.fechaInicio) {
+      erroresLocales.fechaInicio = ERROR_FECHA_INICIO;
+    }
     if (conDatosAdministrativos) {
       Object.assign(erroresLocales, validarMontos(administrativos));
     }
@@ -187,7 +193,7 @@ function ViajeForm({
           id="fechaInicio"
           label="Fecha y hora de inicio"
           error={errores.fechaInicio}
-          required={requiereOperativos}
+          required
         >
           <input type="datetime-local" name="fechaInicio" value={form.fechaInicio} onChange={handleChange} />
         </FormField>
@@ -223,21 +229,30 @@ function ViajeForm({
           </select>
         </FormField>
 
-        <div className="form-field-ancho">
-          <FormField
-            id="kilometrosEstimados"
-            label="Kilómetros estimados"
-            error={errores.kilometrosEstimados}
-            required={requiereOperativos}
-          >
-            <input
-              type="number"
-              name="kilometrosEstimados"
-              value={form.kilometrosEstimados}
-              onChange={handleChange}
-            />
-          </FormField>
-        </div>
+        <FormField
+          id="kilometrosEstimados"
+          label="Kilómetros estimados"
+          error={errores.kilometrosEstimados}
+          required={requiereOperativos}
+        >
+          <input
+            type="number"
+            name="kilometrosEstimados"
+            value={form.kilometrosEstimados}
+            onChange={handleChange}
+          />
+        </FormField>
+
+        <FormField id="cantidadPasajeros" label="Cantidad de pasajeros" error={errores.cantidadPasajeros}>
+          <input
+            type="number"
+            name="cantidadPasajeros"
+            min="1"
+            step="1"
+            value={form.cantidadPasajeros}
+            onChange={handleChange}
+          />
+        </FormField>
 
         {conDatosAdministrativos && (
           <SeccionDatosAdministrativos

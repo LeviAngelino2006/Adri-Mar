@@ -147,14 +147,19 @@ function validarCamposCore({ clienteId, origenId, destinoId }) {
 
 // Los 5 campos operativos (quién maneja, qué vehículo, cuándo, cuántos km).
 // `obligatorios` decide el modo:
-//  - true: idéntico al validarDatos de siempre — los 5 son obligatorios,
-//    mismos mensajes de error (usado al crear/editar con los 5 completos, al
-//    editar un viaje PROGRAMADO, y al confirmar).
+//  - true: los 5 son obligatorios, mismos mensajes de error de siempre (usado
+//    al editar un viaje PROGRAMADO y al confirmar).
 //  - false: un campo ausente no es error, simplemente resuelve a `null`
 //    explícito (nunca `undefined` — actualizarViaje/crearViaje son reemplazo
 //    completo, no actualización parcial, así que un campo que no vino tiene
 //    que BORRARSE, no "dejarse como estaba"). Si el campo SÍ vino, igual se le
 //    exige formato válido — la obligatoriedad se relaja, no la validación.
+//    Usado al crear (todo viaje nace A_CONFIRMAR) y al editar un A_CONFIRMAR.
+//
+// La excepción es `fechaInicio`: es obligatoria en AMBOS modos, o sea al crear
+// y al editar en cualquier estado. El encargado confirma "el día anterior", así
+// que sin fecha no hay forma de saber cuándo hacerlo. La columna sigue siendo
+// nullable en la base solo por los viajes históricos.
 function validarCamposOperativos(
   { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados },
   { obligatorios }
@@ -187,7 +192,7 @@ function validarCamposOperativos(
   }
 
   if (campoAusente(fechaInicio)) {
-    if (obligatorios) errores.fechaInicio = 'La fecha y hora de inicio es obligatoria';
+    errores.fechaInicio = 'La fecha y hora de inicio es obligatoria';
     datos.fechaInicio = null;
   } else {
     const fecha = aFechaCordobaOInstancia(fechaInicio);
@@ -233,8 +238,26 @@ function validarCamposOperativos(
   return datos;
 }
 
-function todosLosCincoPresentes({ choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados }) {
-  return [choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados].every((v) => !campoAusente(v));
+// Dato informativo (cuántas personas viajan): opcional en todos los estados
+// porque no siempre se conoce al crear el viaje. Ausente, null o vacío → null
+// (reemplazo completo, igual que los campos operativos). Si viene, entero > 0.
+// A propósito NO se compara con Vehiculo.asientos: no restringe nada.
+//
+// No lanza: devuelve `{ valor, errores }` para que el caller junte este error
+// con los de los campos operativos en un solo ValidacionError (el 400 trae
+// todos los campos inválidos juntos, ver validarYArmarOperativos).
+function validarCantidadPasajeros(cantidadPasajeros) {
+  if (campoAusente(cantidadPasajeros)) return { valor: null, errores: {} };
+
+  const numero = typeof cantidadPasajeros === 'boolean' ? NaN : Number(cantidadPasajeros);
+  if (!Number.isInteger(numero) || numero <= 0) {
+    return {
+      valor: null,
+      errores: { cantidadPasajeros: 'La cantidad de pasajeros debe ser un número entero mayor a 0' },
+    };
+  }
+
+  return { valor: numero, errores: {} };
 }
 
 async function obtenerEstadoViajePorDescripcion(descripcion) {
@@ -364,11 +387,11 @@ async function existeSolapamiento({ campo, id, fechaInicio, fechaFin, excluirVia
 // Validación de negocio completa de los 5 campos operativos, YA bien
 // formados y YA todos presentes (ver validarCamposOperativos con
 // obligatorios:true antes de esto): chofer y vehículo habilitados, y sin
-// solapamiento. Reusada por crearViaje (camino "los 5 completos"),
-// actualizarViaje (edición de un viaje PROGRAMADO) y confirmarViaje — las
-// tres rutas que necesitan la validación completa, nunca duplicada. En la
-// edición/confirmación hay que excluir el propio viaje de la búsqueda de
-// solapamiento (si no, siempre "chocaría" contra su propio horario actual).
+// solapamiento. La usan actualizarViaje (edición de un viaje PROGRAMADO) y
+// confirmarViaje — crearViaje ya NO: todo viaje nace A_CONFIRMAR, así que
+// esta validación recién corre al confirmar. Hay que excluir el propio viaje
+// de la búsqueda de solapamiento (si no, siempre "chocaría" contra su propio
+// horario actual).
 async function validarDisponibilidadOperativa({ choferId, vehiculoId, fechaInicio, fechaFin }, { excluirViajeId } = {}) {
   await validarChofer(choferId);
   await validarVehiculo(vehiculoId);
@@ -418,10 +441,26 @@ async function validarYArmarCore({ clienteId, origenId, destinoId }) {
 //  - `obligatorios: true` → los 5 tienen que estar y pasar la validación de
 //    negocio completa (habilitación + solapamiento).
 //  - `obligatorios: false` → los que vengan presentes solo se validan por
-//    existencia (sin elegibilidad de negocio); los ausentes quedan en null.
+//    existencia (sin elegibilidad de negocio); los ausentes quedan en null
+//    (salvo fechaInicio, que es obligatoria siempre).
 // `excluirViajeId` solo importa en modo obligatorio (solapamiento).
-async function validarYArmarOperativos(campos, { obligatorios, excluirViajeId } = {}) {
-  const datos = validarCamposOperativos(campos, { obligatorios });
+// `erroresPrevios` son errores de formato de otros campos del mismo payload
+// (hoy, cantidadPasajeros) que ya se detectaron: se juntan con los de formato
+// de los operativos para que un único 400 los traiga a todos. Las validaciones
+// contra la base (existencia, disponibilidad) solo corren si el formato de
+// todo está bien.
+async function validarYArmarOperativos(campos, { obligatorios, excluirViajeId, erroresPrevios = {} } = {}) {
+  let datos;
+  const errores = { ...erroresPrevios };
+  try {
+    datos = validarCamposOperativos(campos, { obligatorios });
+  } catch (err) {
+    if (!(err instanceof ValidacionError)) throw err;
+    Object.assign(errores, err.errores);
+  }
+  if (Object.keys(errores).length > 0) {
+    throw new ValidacionError(errores);
+  }
 
   if (obligatorios) {
     await validarDisponibilidadOperativa(datos, { excluirViajeId });
@@ -538,6 +577,9 @@ async function serializarViaje(viaje, usuarioSolicitante) {
     fechaInicio: viaje.fechaInicio,
     fechaFin: viaje.fechaFin,
     kilometrosEstimados: viaje.kilometrosEstimados,
+    // Dato informativo, no administrativo: lo ven todos los perfiles que ven
+    // el viaje. null si no se cargó.
+    cantidadPasajeros: viaje.cantidadPasajeros ?? null,
     horaInicioReal: viaje.horaInicioReal,
     horaFinReal: viaje.horaFinReal,
     odometroInicial: vigenteInicio ? vigenteInicio.valorKm : null,
@@ -551,12 +593,12 @@ async function serializarViaje(viaje, usuarioSolicitante) {
   };
 }
 
-// Un solo endpoint, dos resultados posibles: si los 5 campos operativos
-// vienen completos, comportamiento idéntico a como era antes de esta tarea
-// (validación completa, PROGRAMADO). Si falta alguno, el viaje se crea
-// A_CONFIRMAR con lo que sí vino (validado solo por existencia) y el resto en
-// null. clienteId/origenId/destinoId son siempre obligatorios en los dos
-// casos — no son parte de esta bifurcación.
+// Todo viaje nace A_CONFIRMAR, vengan o no los 5 campos operativos: el
+// encargado primero anota el viaje y recién después lo confirma. El único
+// camino a PROGRAMADO es `confirmarViaje`, que es donde corre la validación de
+// disponibilidad (habilitación + solapamiento). Lo que sí venga se valida solo
+// por existencia y el resto queda en null. clienteId/origenId/destinoId y
+// fechaInicio son siempre obligatorios.
 //
 // `datosAdministrativos` es opcional (solo lo manda el formulario de alta de
 // Administrador/Encargado): se valida con las mismas reglas que el PATCH
@@ -569,6 +611,7 @@ async function crearViaje(
     fechaInicio,
     fechaFin,
     kilometrosEstimados,
+    cantidadPasajeros,
     clienteId,
     origenId,
     destinoId,
@@ -578,14 +621,15 @@ async function crearViaje(
 ) {
   const core = await validarYArmarCore({ clienteId, origenId, destinoId });
 
-  const camposOperativos = { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados };
-  const completo = todosLosCincoPresentes(camposOperativos);
-
-  const operativos = await validarYArmarOperativos(camposOperativos, { obligatorios: completo });
+  const pasajeros = validarCantidadPasajeros(cantidadPasajeros);
+  const operativos = await validarYArmarOperativos(
+    { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados },
+    { obligatorios: false, erroresPrevios: pasajeros.errores }
+  );
 
   const administrativos = await validarYArmarDatosAdministrativosOpcionales(datosAdministrativos);
 
-  const estado = await obtenerEstadoViajePorDescripcion(completo ? 'PROGRAMADO' : 'A_CONFIRMAR');
+  const estado = await obtenerEstadoViajePorDescripcion('A_CONFIRMAR');
 
   const viaje = await prisma.viaje.create({
     data: {
@@ -595,6 +639,7 @@ async function crearViaje(
       fechaInicio: operativos.fechaInicio,
       fechaFin: operativos.fechaFin,
       kilometrosEstimados: operativos.kilometrosEstimados,
+      cantidadPasajeros: pasajeros.valor,
       clienteId: core.clienteId,
       origenId: core.origenId,
       destinoId: core.destinoId,
@@ -645,7 +690,7 @@ async function obtenerViaje(id) {
 // viaje.
 async function actualizarViaje(
   id,
-  { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, clienteId, origenId, destinoId },
+  { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, cantidadPasajeros, clienteId, origenId, destinoId },
   usuarioSolicitante
 ) {
   const actual = await obtenerViaje(id);
@@ -658,9 +703,10 @@ async function actualizarViaje(
   const core = await validarYArmarCore({ clienteId, origenId, destinoId });
 
   const modoCompleto = estadoActual === 'PROGRAMADO';
+  const pasajeros = validarCantidadPasajeros(cantidadPasajeros);
   const operativos = await validarYArmarOperativos(
     { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados },
-    { obligatorios: modoCompleto, excluirViajeId: actual.id }
+    { obligatorios: modoCompleto, excluirViajeId: actual.id, erroresPrevios: pasajeros.errores }
   );
 
   const viaje = await prisma.viaje.update({
@@ -671,6 +717,7 @@ async function actualizarViaje(
       fechaInicio: operativos.fechaInicio,
       fechaFin: operativos.fechaFin,
       kilometrosEstimados: operativos.kilometrosEstimados,
+      cantidadPasajeros: pasajeros.valor,
       clienteId: core.clienteId,
       origenId: core.origenId,
       destinoId: core.destinoId,
