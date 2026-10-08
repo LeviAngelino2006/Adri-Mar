@@ -34,12 +34,12 @@ function Login() {
   return (
     <main className="login-page">
       <div className="login-brand">
-        <p className="login-brand-titulo">Adri-Mar Gestión</p>
+        <p className="login-brand-titulo">Adri-Mar Gestión Online</p>
         <p className="login-brand-sub">Viajes, flota y mantenimiento</p>
       </div>
       <div className="login-main">
         <Card className="login-card">
-          <img src={logo} alt="Adri-Mar Gestión" className="login-logo" />
+          <img src={logo} alt="Adri-Mar Gestión Online" className="login-logo" />
           <h1 className="sr-only">Iniciar sesión</h1>
           <form onSubmit={handleSubmit} noValidate>
             <FormField id="nombreUsuario" label="Usuario">

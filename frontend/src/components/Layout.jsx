@@ -81,7 +81,7 @@ function Layout({ children }) {
           <span className="sr-only">{menuAbierto ? 'Cerrar menú' : 'Abrir menú'}</span>
           <span aria-hidden="true">☰</span>
         </button>
-        <img src={logo} alt="Adri-Mar Gestión" className="layout-topbar-logo" />
+        <img src={logo} alt="Adri-Mar Gestión Online" className="layout-topbar-logo" />
       </header>
 
       {menuAbierto && (
@@ -90,7 +90,7 @@ function Layout({ children }) {
 
       <aside id="layout-sidebar" className={`layout-sidebar${menuAbierto ? ' layout-sidebar-open' : ''}`}>
         <div className="layout-sidebar-brand">
-          <img src={logo} alt="Adri-Mar Gestión" className="layout-logo" />
+          <img src={logo} alt="Adri-Mar Gestión Online" className="layout-logo" />
         </div>
 
         <nav className="layout-nav" aria-label="Principal">
