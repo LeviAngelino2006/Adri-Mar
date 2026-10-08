@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../../services/api';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
+import { formatearNombreArchivo } from '../../utils/archivoFormato';
 import './ModalDocumentacion.css';
 
 function ModalHistorialDocumento({
@@ -87,7 +88,7 @@ function ModalHistorialDocumento({
                     <td>{h.fechaVencimiento ? new Date(h.fechaVencimiento).toLocaleDateString() : '—'}</td>
                     <td>{new Date(h.creadoEn).toLocaleDateString()}</td>
                     <td>{h.usuario ? `${h.usuario.nombre} ${h.usuario.apellido}` : '—'}</td>
-                    <td>{h.nombreOriginal || 'Sin archivo PDF'}</td>
+                    <td>{formatearNombreArchivo(h.nombreOriginal) || 'Sin archivo PDF'}</td>
                     <td>
                       {h.signedUrl && (
                         <Button

@@ -2,6 +2,15 @@ const path = require('path');
 const prisma = require('./prismaClient');
 const storageService = require('./storageService');
 
+function sanearNombreArchivo(nombreOriginal) {
+  if (!nombreOriginal) return null;
+  try {
+    return Buffer.from(nombreOriginal, 'latin1').toString('utf8').normalize('NFC');
+  } catch {
+    return String(nombreOriginal).normalize('NFC');
+  }
+}
+
 function calcularEstadoVigencia(doc) {
   if (!doc) return 'PENDIENTE';
   if (!doc.fechaVencimiento) return 'VIGENTE';
@@ -253,7 +262,7 @@ async function registrarDocumentoVehiculo({
   if (file) {
     const timestamp = Date.now();
     const ext = path.extname(file.originalname) || '.pdf';
-    nombreOriginal = file.originalname;
+    nombreOriginal = sanearNombreArchivo(file.originalname);
     storagePath = `vehiculos/${vId}/${tipoDocumento.codigo}_${timestamp}${ext}`;
 
     await storageService.subirArchivo(file.buffer, storagePath, file.mimetype || 'application/pdf');
@@ -658,7 +667,7 @@ async function registrarDocumentoChofer(choferId, data, file, usuarioId) {
   let nombreOriginal = null;
 
   if (file) {
-    nombreOriginal = file.originalname;
+    nombreOriginal = sanearNombreArchivo(file.originalname);
     const extension = path.extname(file.originalname) || '.pdf';
     const timestamp = Date.now();
     storagePath = `choferes/${cId}/${tipoDocumento.codigo}_${timestamp}${extension}`;

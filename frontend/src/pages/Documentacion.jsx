@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { ESTADOS_VEHICULO } from '../constants/estadosVehiculo';
 import api from '../services/api';
 import { eliminarDocumentoVehiculo, eliminarDocumentoChofer } from '../services/documentosApi';
+import { formatearNombreArchivo } from '../utils/archivoFormato';
 import './Documentacion.css';
 
 const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
@@ -98,9 +99,9 @@ function GridDocumentos({
                       <span className="doc-dato-label">Archivo:</span>
                       <span
                         className="doc-dato-valor doc-archivo-nombre"
-                        title={documento.nombreOriginal || 'Sin archivo'}
+                        title={formatearNombreArchivo(documento.nombreOriginal) || 'Sin archivo'}
                       >
-                        {documento.nombreOriginal ||
+                        {formatearNombreArchivo(documento.nombreOriginal) ||
                           (tipo.requiereArchivo ? 'Sin archivo' : 'Trámite sin PDF')}
                       </span>
                     </div>
@@ -120,7 +121,7 @@ function GridDocumentos({
               </div>
             </div>
 
-            {/* Nivel Inferior: Barra Horizontal con Los 5 Botones */}
+            {/* Nivel Inferior: Barra Horizontal con Los 5 Botones (Eliminar al final) */}
             <div className="doc-card-acciones-fila">
               {cargado && documento?.signedUrl && (
                 <Button
@@ -152,16 +153,6 @@ function GridDocumentos({
                 </Button>
               )}
 
-              {puedeGestionar && cargado && (
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={() => onEliminar(documento)}
-                >
-                  Eliminar
-                </Button>
-              )}
-
               {puedeGestionar && (
                 <Button
                   variant={cargado ? 'secondary' : 'primary'}
@@ -169,6 +160,16 @@ function GridDocumentos({
                   onClick={() => onSubir(tipo, documento)}
                 >
                   {cargado ? 'Actualizar' : 'Subir documento'}
+                </Button>
+              )}
+
+              {puedeGestionar && cargado && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => onEliminar(documento)}
+                >
+                  Eliminar
                 </Button>
               )}
             </div>
@@ -503,16 +504,8 @@ function Documentacion() {
   return (
     <Layout>
       <div className="doc-page-container">
-        {/* Cabecera Principal */}
+        {/* Selector de Pestañas Centrado (Vehículos / Choferes) */}
         <div className="doc-page-header">
-          <div>
-            <h1 className="doc-page-title">Gestión de Documentación</h1>
-            <p className="doc-page-description">
-              Repositorio centralizado de documentos legales, habilitaciones y pólizas digitalizadas.
-            </p>
-          </div>
-
-          {/* Selector de Pestañas (Vehículos / Choferes) */}
           <div className="doc-tabs-container" role="tablist">
             <button
               type="button"
@@ -521,7 +514,7 @@ function Documentacion() {
               className={`doc-tab-btn ${tabActiva === 'vehiculos' ? 'is-active' : ''}`}
               onClick={() => handleCambiarTab('vehiculos')}
             >
-              🚍 Vehículos de la Flota
+              Vehículos
             </button>
             <button
               type="button"
@@ -530,7 +523,7 @@ function Documentacion() {
               className={`doc-tab-btn ${tabActiva === 'choferes' ? 'is-active' : ''}`}
               onClick={() => handleCambiarTab('choferes')}
             >
-              👤 Choferes
+              Choferes
             </button>
           </div>
         </div>

@@ -6,23 +6,9 @@
 
 .doc-page-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-}
-
-.doc-page-title {
-  margin: 0;
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--color-text);
-}
-
-.doc-page-description {
-  margin: var(--space-1) 0 0;
-  color: var(--color-text-secondary);
-  font-size: 0.9375rem;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: var(--space-2);
 }
 
 /* Tabs */
