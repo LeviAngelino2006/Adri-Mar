@@ -7,12 +7,14 @@ import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
 import Alert from '../components/ui/Alert';
 import EstadoDot from '../components/ui/EstadoDot';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import ModalSubirDocumento from '../components/documentacion/ModalSubirDocumento';
 import ModalVisorPdf from '../components/documentacion/ModalVisorPdf';
 import ModalHistorialDocumento from '../components/documentacion/ModalHistorialDocumento';
 import { useAuth } from '../context/AuthContext';
 import { ESTADOS_VEHICULO } from '../constants/estadosVehiculo';
 import api from '../services/api';
+import { eliminarDocumentoVehiculo, eliminarDocumentoChofer } from '../services/documentosApi';
 import './Documentacion.css';
 
 const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
@@ -38,7 +40,7 @@ function ordenarPorInterno(vehiculos) {
   );
 }
 
-function GridDocumentos({ documentos, puedeGestionar, onVerPdf, onHistorial, onSubir }) {
+function GridDocumentos({ documentos, puedeGestionar, onVerPdf, onHistorial, onSubir, onEliminar }) {
   if (!documentos || documentos.length === 0) {
     return (
       <div className="doc-card-placeholder">
@@ -149,6 +151,16 @@ function GridDocumentos({ documentos, puedeGestionar, onVerPdf, onHistorial, onS
                     Historial
                   </Button>
                 )}
+
+                {puedeGestionar && cargado && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => onEliminar(documento)}
+                  >
+                    Eliminar
+                  </Button>
+                )}
               </div>
 
               {puedeGestionar && (
@@ -167,6 +179,7 @@ function GridDocumentos({ documentos, puedeGestionar, onVerPdf, onHistorial, onS
     </div>
   );
 }
+
 
 function Documentacion() {
   const { usuario } = useAuth();
@@ -206,6 +219,9 @@ function Documentacion() {
   const [modalSubir, setModalSubir] = useState({ open: false, tipo: null, docActual: null });
   const [modalVisor, setModalVisor] = useState({ open: false, documento: null });
   const [modalHistorial, setModalHistorial] = useState({ open: false, tipo: null });
+
+  // Modal de confirmación de eliminación de documento
+  const [modalEliminar, setModalEliminar] = useState({ open: false, documento: null, eliminando: false, error: '' });
 
   // Cargar lista de vehículos con estado de flota
   const cargarFlota = useCallback(() => {
@@ -391,6 +407,35 @@ function Documentacion() {
         cargarCarpetaChofer(choferSeleccionado.id);
       }
       cargarChoferes();
+    }
+  }
+
+  function abrirEliminar(documento) {
+    setModalEliminar({ open: true, documento, eliminando: false, error: '' });
+  }
+
+  async function confirmarEliminar() {
+    const { documento } = modalEliminar;
+    if (!documento) return;
+    setModalEliminar((prev) => ({ ...prev, eliminando: true, error: '' }));
+    try {
+      if (tabActiva === 'vehiculos') {
+        await eliminarDocumentoVehiculo(vehiculoSeleccionado.id, documento.id);
+        cargarCarpetaVehiculo(vehiculoSeleccionado.id);
+        cargarFlota();
+      } else {
+        await eliminarDocumentoChofer(choferSeleccionado.id, documento.id);
+        cargarCarpetaChofer(choferSeleccionado.id);
+        cargarChoferes();
+      }
+      setModalEliminar({ open: false, documento: null, eliminando: false, error: '' });
+      setToast('Documento eliminado correctamente.');
+    } catch (err) {
+      setModalEliminar((prev) => ({
+        ...prev,
+        eliminando: false,
+        error: err.response?.data?.error || 'No se pudo eliminar el documento.',
+      }));
     }
   }
 
@@ -649,6 +694,7 @@ function Documentacion() {
                       onVerPdf={abrirVisor}
                       onHistorial={abrirHistorial}
                       onSubir={abrirSubir}
+                      onEliminar={abrirEliminar}
                     />
                   </div>
                 ) : null}
@@ -834,6 +880,7 @@ function Documentacion() {
                       onVerPdf={abrirVisor}
                       onHistorial={abrirHistorial}
                       onSubir={abrirSubir}
+                      onEliminar={abrirEliminar}
                     />
                   </div>
                 ) : null}
@@ -875,8 +922,33 @@ function Documentacion() {
           }}
         />
 
+        {/* Modal de Confirmación de Eliminación de Documento */}
+        <ConfirmModal
+          open={modalEliminar.open}
+          tone="danger"
+          icon="🗑️"
+          title="Eliminar documento"
+          description={
+            <>
+              <p>
+                Vas a eliminar este documento de forma permanente. El archivo PDF adjunto
+                también se borrará del almacenamiento.
+              </p>
+              {modalEliminar.error && (
+                <p style={{ color: 'var(--color-danger)', marginTop: '0.5rem', fontWeight: 500 }}>
+                  {modalEliminar.error}
+                </p>
+              )}
+            </>
+          }
+          confirmLabel={modalEliminar.eliminando ? 'Eliminando…' : 'Eliminar permanentemente'}
+          cancelLabel="Cancelar"
+          onConfirm={confirmarEliminar}
+          onCancel={() => setModalEliminar({ open: false, documento: null, eliminando: false, error: '' })}
+        />
+
         {/* Notificación Toast */}
-        {toast && <Toast message={toast} onClose={() => setToast('')} />}
+        {toast && <Toast onClose={() => setToast('')}>{toast}</Toast>}
       </div>
     </Layout>
   );

@@ -1,5 +1,6 @@
 const prisma = require('./prismaClient');
 const lecturaOdometroService = require('./lecturaOdometroService');
+const storageService = require('./storageService');
 
 class ValidacionError extends Error {
   constructor(errores) {
@@ -287,6 +288,28 @@ async function darDeBajaVehiculo(id) {
     throw new VehiculoEnUsoError(
       'El vehículo tiene un viaje En viaje en curso. Debe finalizarse antes de dar de baja el vehículo.'
     );
+  }
+
+  // Purgar toda la documentación asociada (DB + Supabase Storage)
+  const documentos = await prisma.documentoVehiculo.findMany({
+    where: { vehiculoId: actual.id },
+  });
+
+  for (const doc of documentos) {
+    if (doc.archivoPath) {
+      await storageService.eliminarArchivo(doc.archivoPath).catch((err) => {
+        console.warn(
+          `[darDeBajaVehiculo] No se pudo eliminar archivo de Supabase (${doc.archivoPath}):`,
+          err.message
+        );
+      });
+    }
+  }
+
+  if (documentos.length > 0) {
+    await prisma.documentoVehiculo.deleteMany({
+      where: { vehiculoId: actual.id },
+    });
   }
 
   const estadoDadoDeBaja = await obtenerEstadoVehiculoPorDescripcion('DADO_DE_BAJA');

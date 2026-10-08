@@ -871,6 +871,12 @@ async function obtenerAlertasVencimiento() {
       fechaVencimiento: {
         lte: fechaLimite,
       },
+      // Solo vehículos que NO estén dados de baja
+      vehiculo: {
+        estadoVehiculo: {
+          descripcion: { not: 'DADO_DE_BAJA' },
+        },
+      },
     },
     include: {
       tipoDocumento: true,
@@ -892,6 +898,12 @@ async function obtenerAlertasVencimiento() {
       esVigente: true,
       fechaVencimiento: {
         lte: fechaLimite,
+      },
+      // Solo choferes activos
+      chofer: {
+        estadoUsuario: {
+          descripcion: 'ACTIVO',
+        },
       },
     },
     include: {
