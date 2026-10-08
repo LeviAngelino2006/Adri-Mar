@@ -40,7 +40,15 @@ function ordenarPorInterno(vehiculos) {
   );
 }
 
-function GridDocumentos({ documentos, puedeGestionar, onVerPdf, onHistorial, onSubir, onEliminar }) {
+function GridDocumentos({
+  documentos,
+  puedeGestionar,
+  onVerPdf,
+  onDescargarPdf,
+  onHistorial,
+  onSubir,
+  onEliminar,
+}) {
   if (!documentos || documentos.length === 0) {
     return (
       <div className="doc-card-placeholder">
@@ -62,106 +70,116 @@ function GridDocumentos({ documentos, puedeGestionar, onVerPdf, onHistorial, onS
               estadoVigencia === 'VENCIDO' ? 'slot-vencido' : ''
             }`}
           >
-            <div className="doc-card-top">
-              <span className="doc-card-icon" aria-hidden="true">
-                {icon}
-              </span>
-              <div className="doc-card-title-group">
-                <h3 className="doc-card-title">{tipo.descripcion}</h3>
-                <span className="doc-card-req">
-                  {tipo.requiereArchivo ? 'Requiere PDF' : 'Solo registro de vigencia'}
+            <div className="doc-card-info-col">
+              <div className="doc-card-top">
+                <span className="doc-card-icon" aria-hidden="true">
+                  {icon}
                 </span>
-              </div>
-
-              {/* Badge de estado */}
-              <span className={`doc-status-badge badge-${estadoVigencia.toLowerCase()}`}>
-                {estadoVigencia === 'PENDIENTE' && 'Pendiente'}
-                {estadoVigencia === 'VIGENTE' && '● Vigente'}
-                {estadoVigencia === 'POR_VENCER' && '⚠️ Por vencer'}
-                {estadoVigencia === 'VENCIDO' && '⛔ Vencido'}
-              </span>
-            </div>
-
-            {/* Cuerpo de la tarjeta */}
-            <div className="doc-card-body">
-              {cargado ? (
-                <div className="doc-info-rows">
-                  {tipo.requiereVencimiento && documento.fechaVencimiento && (
-                    <div className="doc-info-row">
-                      <span className="doc-info-label">Vencimiento:</span>
-                      <span className="doc-info-val doc-venc-val">
-                        {new Date(documento.fechaVencimiento).toLocaleDateString()}
-                      </span>
-                    </div>
-                  )}
-
-                  {documento.fechaEmision && (
-                    <div className="doc-info-row">
-                      <span className="doc-info-label">Emisión:</span>
-                      <span className="doc-info-val">
-                        {new Date(documento.fechaEmision).toLocaleDateString()}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="doc-info-row">
-                    <span className="doc-info-label">Archivo:</span>
-                    <span
-                      className="doc-info-val doc-file-val"
-                      title={documento.nombreOriginal || 'Sin archivo'}
-                    >
-                      {documento.nombreOriginal ||
-                        (tipo.requiereArchivo ? 'Sin archivo' : 'Trámite sin PDF')}
+                <div className="doc-card-title-group">
+                  <div className="doc-card-title-row">
+                    <h3 className="doc-card-title">{tipo.descripcion}</h3>
+                    <span className="doc-card-req">
+                      {tipo.requiereArchivo ? 'Requiere PDF' : 'Solo registro de vigencia'}
+                    </span>
+                    <span className={`doc-status-badge badge-${estadoVigencia.toLowerCase()}`}>
+                      {estadoVigencia === 'PENDIENTE' && 'Pendiente'}
+                      {estadoVigencia === 'VIGENTE' && '● Vigente'}
+                      {estadoVigencia === 'POR_VENCER' && '⚠️ Por vencer'}
+                      {estadoVigencia === 'VENCIDO' && '⛔ Vencido'}
                     </span>
                   </div>
+                </div>
+              </div>
 
-                  {documento.observaciones && (
-                    <div className="doc-info-notas">
-                      <span className="doc-info-label">Notas:</span>
-                      <p className="doc-notas-text">{documento.observaciones}</p>
+              {/* Datos del documento en fila horizontal */}
+              <div className="doc-card-body">
+                {cargado ? (
+                  <div className="doc-info-horizontal">
+                    {tipo.requiereVencimiento && documento.fechaVencimiento && (
+                      <div className="doc-info-item">
+                        <span className="doc-info-label">Vencimiento:</span>
+                        <span className="doc-info-val doc-venc-val">
+                          {new Date(documento.fechaVencimiento).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+
+                    {documento.fechaEmision && (
+                      <div className="doc-info-item">
+                        <span className="doc-info-label">Emisión:</span>
+                        <span className="doc-info-val">
+                          {new Date(documento.fechaEmision).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="doc-info-item">
+                      <span className="doc-info-label">Archivo:</span>
+                      <span
+                        className="doc-info-val doc-file-val"
+                        title={documento.nombreOriginal || 'Sin archivo'}
+                      >
+                        {documento.nombreOriginal ||
+                          (tipo.requiereArchivo ? 'Sin archivo' : 'Trámite sin PDF')}
+                      </span>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="doc-card-placeholder">
-                  <p>Este documento aún no ha sido cargado en el sistema.</p>
-                </div>
-              )}
-            </div>
 
-            {/* Acciones de la tarjeta */}
-            <div className="doc-card-actions">
-              <div className="doc-card-actions-left">
-                {cargado && documento?.signedUrl && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onVerPdf(documento)}
-                  >
-                    Ver PDF
-                  </Button>
-                )}
-
-                {cargado && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onHistorial(tipo)}
-                  >
-                    Historial
-                  </Button>
-                )}
-
-                {puedeGestionar && cargado && (
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => onEliminar(documento)}
-                  >
-                    Eliminar
-                  </Button>
+                    {documento.observaciones && (
+                      <div className="doc-info-item doc-info-notas-inline">
+                        <span className="doc-info-label">Notas:</span>
+                        <span className="doc-notas-text-inline">{documento.observaciones}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="doc-card-placeholder-inline">
+                    <span>Este documento aún no ha sido cargado en el sistema.</span>
+                  </div>
                 )}
               </div>
+            </div>
+
+            {/* Acciones de la tarjeta: todos en fila horizontal */}
+            <div className="doc-card-actions">
+              {cargado && documento?.signedUrl && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onVerPdf(documento)}
+                >
+                  Ver PDF
+                </Button>
+              )}
+
+              {cargado && documento?.signedUrl && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onDescargarPdf(documento)}
+                >
+                  Descargar PDF
+                </Button>
+              )}
+
+              {cargado && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onHistorial(tipo)}
+                >
+                  Historial
+                </Button>
+              )}
+
+              {puedeGestionar && cargado && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => onEliminar(documento)}
+                >
+                  Eliminar
+                </Button>
+              )}
 
               {puedeGestionar && (
                 <Button
@@ -169,7 +187,7 @@ function GridDocumentos({ documentos, puedeGestionar, onVerPdf, onHistorial, onS
                   size="sm"
                   onClick={() => onSubir(tipo, documento)}
                 >
-                  {cargado ? 'Renovar / Actualizar' : 'Subir documento'}
+                  {cargado ? 'Actualizar' : 'Subir documento'}
                 </Button>
               )}
             </div>
@@ -393,6 +411,24 @@ function Documentacion() {
       open: true,
       tipo,
     });
+  }
+
+  async function descargarPdf(documento) {
+    if (!documento?.signedUrl) return;
+    try {
+      const response = await fetch(documento.signedUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = documento.nombreOriginal || `${documento.tipoDocumento?.codigo || 'documento'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch {
+      window.open(documento.signedUrl, '_blank');
+    }
   }
 
   function handleSuccessDoc() {
@@ -692,6 +728,7 @@ function Documentacion() {
                       documentos={carpetaData.documentos}
                       puedeGestionar={puedeGestionar}
                       onVerPdf={abrirVisor}
+                      onDescargarPdf={descargarPdf}
                       onHistorial={abrirHistorial}
                       onSubir={abrirSubir}
                       onEliminar={abrirEliminar}
@@ -878,6 +915,7 @@ function Documentacion() {
                       documentos={carpetaChoferData.documentos}
                       puedeGestionar={puedeGestionar}
                       onVerPdf={abrirVisor}
+                      onDescargarPdf={descargarPdf}
                       onHistorial={abrirHistorial}
                       onSubir={abrirSubir}
                       onEliminar={abrirEliminar}

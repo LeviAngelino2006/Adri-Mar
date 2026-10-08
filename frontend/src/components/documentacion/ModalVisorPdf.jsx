@@ -65,10 +65,7 @@ function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
           <span className="modal-visor-meta">
             Subido por: {documento.usuario?.nombre} {documento.usuario?.apellido} — {new Date(documento.creadoEn).toLocaleDateString()}
           </span>
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <Button variant="secondary" onClick={handleDescargar}>
-              Descargar PDF
-            </Button>
+          <div>
             <Button variant="secondary" onClick={onClose}>
               Cerrar
             </Button>
