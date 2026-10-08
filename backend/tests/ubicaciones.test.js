@@ -45,7 +45,21 @@ const prismaFalso = {
       filas.push(fila);
       return publico(fila);
     },
-    findMany: async () => filas.map(publico),
+    // Filtra por la columna nombreNormalizado (nunca por nombre), igual que la
+    // consulta real: así un test no pasa por casualidad comparando con acentos.
+    findMany: async ({ where, select, orderBy, take } = {}) => {
+      assert.ok(!where || !('nombre' in where), 'la búsqueda debe filtrar por nombreNormalizado, no por nombre');
+      const contiene = where?.nombreNormalizado?.contains;
+      assert.ok(contiene === undefined || !where.nombreNormalizado.mode, 'no hace falta mode: insensitive');
+      let resultado = filas.filter((f) => contiene === undefined || f.nombreNormalizado.includes(contiene));
+      if (orderBy?.nombre === 'asc') {
+        resultado = [...resultado].sort((a, b) => (a.nombre < b.nombre ? -1 : a.nombre > b.nombre ? 1 : 0));
+      }
+      if (take !== undefined) resultado = resultado.slice(0, take);
+      // Sin select devuelve la fila completa (con nombreNormalizado): si el
+      // service no lo pide, el test de "no se expone" lo detecta.
+      return resultado.map((f) => (select ? Object.fromEntries(Object.keys(select).map((k) => [k, f[k]])) : { ...f }));
+    },
   },
 };
 
@@ -83,6 +97,20 @@ async function crear(nombre, perfil = 'ADMINISTRADOR') {
     body: JSON.stringify({ nombre }),
   });
   return { status: respuesta.status, json: await respuesta.json() };
+}
+
+async function buscar(busqueda, perfil = 'ADMINISTRADOR') {
+  const query = busqueda === undefined ? '' : `?busqueda=${encodeURIComponent(busqueda)}`;
+  const respuesta = await fetch(`${base}/ubicaciones${query}`, {
+    headers: { Authorization: `Bearer ${generarToken({ id: 1, nombreUsuario: 'test', perfil })}` },
+  });
+  return { status: respuesta.status, json: await respuesta.json() };
+}
+
+// nombreNormalizado escrito a mano (no calculado con normalizarNombre) para que
+// el test no dependa de la misma función que prueba.
+function cargarFila(nombre, nombreNormalizado) {
+  filas.push({ id: proximoId++, nombre, nombreNormalizado, creadoEn: new Date('2026-01-01T00:00:00Z') });
 }
 
 // --- Tests -----------------------------------------------------------------
@@ -164,4 +192,55 @@ describe('POST /ubicaciones', () => {
       assert.equal(creaciones.length, 0);
     });
   }
+});
+
+describe('GET /ubicaciones?busqueda=', () => {
+  beforeEach(() => {
+    // Cargadas desordenadas a propósito, para comprobar el orden por nombre.
+    cargarFila('Villa María', 'villa maria');
+    cargarFila('Río Tercero', 'rio tercero');
+  });
+
+  const nombres = (json) => json.ubicaciones.map((u) => u.nombre);
+
+  for (const [descripcion, texto, esperado] of [
+    ['"rio" (sin acento) encuentra "Río Tercero"', 'rio', ['Río Tercero']],
+    ['"RÍO" (mayúsculas y acento) encuentra "Río Tercero"', 'RÍO', ['Río Tercero']],
+    ['"maria" (sin acento) encuentra "Villa María"', 'maria', ['Villa María']],
+    ['"María" (con acento) encuentra "Villa María"', 'María', ['Villa María']],
+    ['"  rio   tercero " (espacios de más) encuentra "Río Tercero"', '  rio   tercero ', ['Río Tercero']],
+    ['un texto que no está no devuelve nada', 'cordoba', []],
+  ]) {
+    test(descripcion, async () => {
+      const { status, json } = await buscar(texto);
+      assert.equal(status, 200);
+      assert.deepEqual(nombres(json), esperado);
+    });
+  }
+
+  test('sin texto devuelve todas, ordenadas por nombre', async () => {
+    const { status, json } = await buscar(undefined);
+    assert.equal(status, 200);
+    assert.deepEqual(nombres(json), ['Río Tercero', 'Villa María']);
+  });
+
+  test('un texto de solo espacios se comporta como sin texto', async () => {
+    const { json } = await buscar('   ');
+    assert.deepEqual(nombres(json), ['Río Tercero', 'Villa María']);
+  });
+
+  test('la respuesta nunca incluye nombreNormalizado', async () => {
+    for (const texto of [undefined, 'rio']) {
+      const { json } = await buscar(texto);
+      assert.ok(json.ubicaciones.length > 0);
+      for (const ubicacion of json.ubicaciones) {
+        assert.deepEqual(Object.keys(ubicacion).sort(), ['creadoEn', 'id', 'nombre']);
+      }
+    }
+  });
+
+  test('CHOFER: 403', async () => {
+    const { status } = await buscar('rio', 'CHOFER');
+    assert.equal(status, 403);
+  });
 });
