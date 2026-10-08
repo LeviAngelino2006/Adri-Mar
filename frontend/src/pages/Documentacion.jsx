@@ -95,7 +95,7 @@ function GridDocumentos({
                       </div>
                     )}
 
-                    <div className="doc-dato-fila">
+                    <div className="doc-dato-fila doc-dato-fila-full">
                       <span className="doc-dato-label">Archivo:</span>
                       <span
                         className="doc-dato-valor doc-archivo-nombre"
@@ -107,7 +107,7 @@ function GridDocumentos({
                     </div>
 
                     {documento.observaciones && (
-                      <div className="doc-dato-fila doc-dato-notas">
+                      <div className="doc-dato-fila doc-dato-fila-full doc-dato-notas">
                         <span className="doc-dato-label">Notas:</span>
                         <span className="doc-dato-valor">{documento.observaciones}</span>
                       </div>
