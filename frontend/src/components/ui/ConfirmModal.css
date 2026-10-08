@@ -16,6 +16,14 @@
   border-radius: var(--radius-lg);
   padding: var(--space-6);
   box-shadow: var(--shadow-lg);
+  /* Un modal con varios campos no puede quedar más alto que la pantalla. */
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+/* Para modales con opciones largas (p. ej. Confirmar viaje). */
+.confirm-modal-wide {
+  width: 460px;
 }
 
 .confirm-modal h3 {

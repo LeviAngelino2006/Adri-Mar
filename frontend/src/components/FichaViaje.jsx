@@ -8,6 +8,14 @@ const hayValor = (valor) => valor !== null && valor !== undefined && valor !== '
 const fecha = (valor) => (valor ? formatearDiaYHora(valor) : null);
 const km = (valor) => (hayValor(valor) ? `${formatearKm(valor)} km` : null);
 
+// Candidatos de un viaje A confirmar como "Ana Pérez, Beto Gómez". Sin la clave
+// (el perfil no los puede ver) → null; con la clave y lista vacía → "Sin cargar",
+// para que se note que todavía no se eligieron.
+function listaDeNombres(candidatos, nombre) {
+  if (!Array.isArray(candidatos)) return null;
+  return candidatos.length > 0 ? candidatos.map(nombre).join(', ') : 'Sin cargar';
+}
+
 // Un bloque titulado de la ficha. Sin ningún dato no se renderiza; un dato
 // sin valor dentro de un bloque que sí tiene otros se muestra "No registrado".
 function Seccion({ titulo, items }) {
@@ -68,8 +76,26 @@ function FichaViaje({ viaje }) {
       <Seccion
         titulo="Asignación"
         items={[
-          { etiqueta: 'Chofer', valor: viaje.chofer ? nombreChofer(viaje.chofer) : null },
-          { etiqueta: 'Vehículo', valor: vehiculo },
+          ...(viaje.estado === 'A_CONFIRMAR'
+            ? [
+                // Un A confirmar no tiene chofer ni vehículo asignado: tiene
+                // candidatos. Solo los ven los gestores (para el resto las
+                // claves no vienen y el ítem queda en "No registrado").
+                {
+                  etiqueta: 'Choferes posibles',
+                  valor: listaDeNombres(viaje.choferesCandidatos, nombreChofer),
+                  clase: 'detalle-item-ancho',
+                },
+                {
+                  etiqueta: 'Vehículos posibles',
+                  valor: listaDeNombres(viaje.vehiculosCandidatos, nombreVehiculo),
+                  clase: 'detalle-item-ancho',
+                },
+              ]
+            : [
+                { etiqueta: 'Chofer', valor: viaje.chofer ? nombreChofer(viaje.chofer) : null },
+                { etiqueta: 'Vehículo', valor: vehiculo },
+              ]),
           { etiqueta: 'Kilómetros estimados', valor: km(viaje.kilometrosEstimados) },
         ]}
       />

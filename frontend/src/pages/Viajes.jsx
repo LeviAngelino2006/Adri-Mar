@@ -64,6 +64,8 @@ function viajeAValoresForm(viaje) {
     clienteNombre: viaje.cliente?.nombre || '',
     choferId: viaje.choferId || '',
     vehiculoId: viaje.vehiculoId || '',
+    choferesCandidatos: (viaje.choferesCandidatos ?? []).map((c) => c.id),
+    vehiculosCandidatos: (viaje.vehiculosCandidatos ?? []).map((c) => c.id),
     origenId: viaje.origenId || '',
     origenNombre: viaje.origen?.nombre || '',
     destinoId: viaje.destinoId || '',
@@ -290,6 +292,9 @@ function Viajes() {
             <ViajeForm
               valoresIniciales={editando ? viajeAValoresForm(editando) : undefined}
               estadoActual={editando?.estado}
+              candidatosActuales={
+                editando && { choferes: editando.choferesCandidatos, vehiculos: editando.vehiculosCandidatos }
+              }
               onSubmit={handleGuardarForm}
               textoBoton={editando ? 'Guardar cambios' : 'Crear viaje'}
               textoEnviando={editando ? 'Guardando…' : 'Creando…'}

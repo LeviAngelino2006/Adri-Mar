@@ -82,8 +82,8 @@ const prismaFalso = {
   // Solo existencia: al crear/editar un A_CONFIRMAR no se valida habilitación
   // ni solapamiento, así que estos dobles NO traen estadoUsuario/estadoVehiculo
   // — si alguna ruta intentara validar disponibilidad, reventaría.
-  usuario: { findUnique: existe([5]) },
-  vehiculo: { findUnique: existe([7]) },
+  usuario: { findUnique: existe([5]), findMany: async ({ where }) => where.id.in.filter((i) => i === 5).map((id) => ({ id })) },
+  vehiculo: { findUnique: existe([7]), findMany: async ({ where }) => where.id.in.filter((i) => i === 7).map((id) => ({ id })) },
   ubicacion: { findUnique: existe([1, 2]) },
   estadoPago: { findUnique: existe([1, 2, 3]) },
   metodoPago: { findUnique: existe([1, 2, 3]) },
@@ -112,11 +112,19 @@ const prismaFalso = {
       return null;
     },
   },
+  // Los candidatos y el rollback se prueban en viajesCandidatos.test.js (con un
+  // doble con estado); acá solo hace falta que las rutas que ahora usan
+  // transacción no revienten.
+  $transaction: async (fn) => fn(prismaFalso),
+  viajeChoferCandidato: { deleteMany: async () => ({}), createMany: async () => ({}) },
+  viajeVehiculoCandidato: { deleteMany: async () => ({}), createMany: async () => ({}) },
   viaje: {
     create: async ({ data }) => {
       llamadas.create.push(data);
+      // Los create anidados de candidatos no son columnas del viaje.
+      const { choferesCandidatos: _c, vehiculosCandidatos: _v, ...columnas } = data;
       return viajeBase({
-        ...data,
+        ...columnas,
         estadoViaje: { descripcion: data.estadoViajeId === 1 ? 'A_CONFIRMAR' : 'PROGRAMADO' },
       });
     },
@@ -179,9 +187,10 @@ async function pedir(metodo, ruta, { perfil, body } = {}) {
 // forma parte del payload mínimo válido.
 const CORE = { clienteId: 1, origenId: 1, destinoId: 2, fechaInicio: '2026-10-20T08:00' };
 
+// En A_CONFIRMAR no hay chofer/vehículo asignado: se usan los candidatos.
 const OPERATIVOS_COMPLETOS = {
-  choferId: 5,
-  vehiculoId: 7,
+  choferesCandidatos: [5],
+  vehiculosCandidatos: [7],
   fechaFin: '2026-10-20T12:00',
   kilometrosEstimados: 120,
 };
@@ -291,7 +300,7 @@ describe('POST /viajes con datosAdministrativos', () => {
 // --- Estado inicial, fecha obligatoria y pasajeros (Fase 1) -----------------
 
 describe('POST /viajes: estado inicial', () => {
-  test('con los 5 campos operativos completos igual nace A_CONFIRMAR, sin validar disponibilidad', async () => {
+  test('con todos los datos operativos completos igual nace A_CONFIRMAR, sin validar disponibilidad', async () => {
     const { status, json } = await pedir('POST', '/viajes', {
       perfil: 'ENCARGADO',
       body: { ...CORE, ...OPERATIVOS_COMPLETOS },
@@ -300,9 +309,11 @@ describe('POST /viajes: estado inicial', () => {
     assert.equal(status, 201);
     assert.equal(json.viaje.estado, 'A_CONFIRMAR');
     assert.equal(llamadas.create[0].estadoViajeId, 1);
-    // Los datos operativos que vinieron se guardan tal cual.
-    assert.equal(llamadas.create[0].choferId, 5);
-    assert.equal(llamadas.create[0].vehiculoId, 7);
+    // El asignado queda en null; los que vinieron son candidatos.
+    assert.equal(llamadas.create[0].choferId, null);
+    assert.equal(llamadas.create[0].vehiculoId, null);
+    assert.deepEqual(llamadas.create[0].choferesCandidatos, { create: [{ usuarioId: 5 }] });
+    assert.deepEqual(llamadas.create[0].vehiculosCandidatos, { create: [{ vehiculoId: 7 }] });
   });
 
   test('con solo los datos core también nace A_CONFIRMAR', async () => {
