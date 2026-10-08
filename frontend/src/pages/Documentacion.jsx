@@ -19,21 +19,6 @@ import './Documentacion.css';
 
 const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
 
-const ICONOS_DOCUMENTO = {
-  POLIZA_SEGURO: '🛡️',
-  CERT_COBERTURA: '📜',
-  PAGO_SEGURO: '💳',
-  ITV: '🔧',
-  MATAFUEGOS: '🧯',
-  TITULO_VEHICULO: '📑',
-  CEDULA_IDENTIFICACION: '🪪',
-  ALTA_TRANSPORTE: '🏛️',
-  LICENCIA_CONDUCIR: '🪪',
-  DNI_CHOFER: '👤',
-  EXAMEN_PSICOFISICO: '🩺',
-  DEFAULT: '📄',
-};
-
 function ordenarPorInterno(vehiculos) {
   return [...vehiculos].sort(
     (a, b) => (parseInt(a.numeroInterno, 10) || 0) - (parseInt(b.numeroInterno, 10) || 0)
@@ -60,63 +45,59 @@ function GridDocumentos({
   return (
     <div className="doc-grid-documentos">
       {documentos.map(({ tipo, cargado, documento }) => {
-        const icon = ICONOS_DOCUMENTO[tipo.codigo] || ICONOS_DOCUMENTO.DEFAULT;
         const estadoVigencia = documento?.estadoVigencia || 'PENDIENTE';
 
         return (
           <Card
             key={tipo.id}
-            className={`doc-card-slot ${cargado ? 'slot-cargado' : 'slot-vacio'} ${
+            className={`doc-card-tarjeta ${cargado ? 'slot-cargado' : 'slot-vacio'} ${
               estadoVigencia === 'VENCIDO' ? 'slot-vencido' : ''
             }`}
           >
-            <div className="doc-card-info-col">
-              <div className="doc-card-top">
-                <span className="doc-card-icon" aria-hidden="true">
-                  {icon}
-                </span>
-                <div className="doc-card-title-group">
-                  <div className="doc-card-title-row">
-                    <h3 className="doc-card-title">{tipo.descripcion}</h3>
-                    <span className="doc-card-req">
-                      {tipo.requiereArchivo ? 'Requiere PDF' : 'Solo registro de vigencia'}
-                    </span>
-                    <span className={`doc-status-badge badge-${estadoVigencia.toLowerCase()}`}>
-                      {estadoVigencia === 'PENDIENTE' && 'Pendiente'}
-                      {estadoVigencia === 'VIGENTE' && '● Vigente'}
-                      {estadoVigencia === 'POR_VENCER' && '⚠️ Por vencer'}
-                      {estadoVigencia === 'VENCIDO' && '⛔ Vencido'}
-                    </span>
-                  </div>
+            {/* Nivel Superior: 2 Columnas (Identificación vs Metadatos) */}
+            <div className="doc-card-top-grid">
+              {/* Columna Izquierda: Título en Mayúsculas + Badges */}
+              <div className="doc-col-izq">
+                <h3 className="doc-titulo-mayus">{tipo.descripcion.toUpperCase()}</h3>
+                <div className="doc-badges-fila">
+                  <span className="doc-badge-req">
+                    {tipo.requiereArchivo ? 'Requiere PDF' : 'Solo registro de vigencia'}
+                  </span>
+                  <span className={`doc-status-badge badge-${estadoVigencia.toLowerCase()}`}>
+                    {estadoVigencia === 'PENDIENTE' && 'Pendiente'}
+                    {estadoVigencia === 'VIGENTE' && 'Vigente'}
+                    {estadoVigencia === 'POR_VENCER' && 'Por vencer'}
+                    {estadoVigencia === 'VENCIDO' && 'Vencido'}
+                  </span>
                 </div>
               </div>
 
-              {/* Datos del documento en fila horizontal */}
-              <div className="doc-card-body">
+              {/* Columna Derecha: Vencimiento, Emisión, Archivo, Notas */}
+              <div className="doc-col-der">
                 {cargado ? (
-                  <div className="doc-info-horizontal">
+                  <div className="doc-datos-columna">
                     {tipo.requiereVencimiento && documento.fechaVencimiento && (
-                      <div className="doc-info-item">
-                        <span className="doc-info-label">Vencimiento:</span>
-                        <span className="doc-info-val doc-venc-val">
+                      <div className="doc-dato-fila">
+                        <span className="doc-dato-label">Vencimiento:</span>
+                        <span className="doc-dato-valor doc-venc-val">
                           {new Date(documento.fechaVencimiento).toLocaleDateString()}
                         </span>
                       </div>
                     )}
 
                     {documento.fechaEmision && (
-                      <div className="doc-info-item">
-                        <span className="doc-info-label">Emisión:</span>
-                        <span className="doc-info-val">
+                      <div className="doc-dato-fila">
+                        <span className="doc-dato-label">Emisión:</span>
+                        <span className="doc-dato-valor">
                           {new Date(documento.fechaEmision).toLocaleDateString()}
                         </span>
                       </div>
                     )}
 
-                    <div className="doc-info-item">
-                      <span className="doc-info-label">Archivo:</span>
+                    <div className="doc-dato-fila">
+                      <span className="doc-dato-label">Archivo:</span>
                       <span
-                        className="doc-info-val doc-file-val"
+                        className="doc-dato-valor doc-archivo-nombre"
                         title={documento.nombreOriginal || 'Sin archivo'}
                       >
                         {documento.nombreOriginal ||
@@ -125,22 +106,22 @@ function GridDocumentos({
                     </div>
 
                     {documento.observaciones && (
-                      <div className="doc-info-item doc-info-notas-inline">
-                        <span className="doc-info-label">Notas:</span>
-                        <span className="doc-notas-text-inline">{documento.observaciones}</span>
+                      <div className="doc-dato-fila doc-dato-notas">
+                        <span className="doc-dato-label">Notas:</span>
+                        <span className="doc-dato-valor">{documento.observaciones}</span>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="doc-card-placeholder-inline">
+                  <div className="doc-placeholder-col">
                     <span>Este documento aún no ha sido cargado en el sistema.</span>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Acciones de la tarjeta: todos en fila horizontal */}
-            <div className="doc-card-actions">
+            {/* Nivel Inferior: Barra Horizontal con Los 5 Botones */}
+            <div className="doc-card-acciones-fila">
               {cargado && documento?.signedUrl && (
                 <Button
                   variant="secondary"
