@@ -550,19 +550,19 @@ function Documentacion() {
                   <div className="doc-filter-pills">
                     <button
                       type="button"
-                      className={`doc-pill-btn ${filtroEstado === 'VENCIDOS' ? 'is-active is-vencidos' : ''}`}
+                      className={`doc-pill-btn is-vencidos ${filtroEstado === 'VENCIDOS' ? 'is-active' : ''}`}
                       onClick={() => setFiltroEstado((prev) => (prev === 'VENCIDOS' ? null : 'VENCIDOS'))}
                       title="Filtrar coches con documentos vencidos"
                     >
-                      ⛔ Vencidos
+                      Vencidos
                     </button>
                     <button
                       type="button"
-                      className={`doc-pill-btn ${filtroEstado === 'PENDIENTES' ? 'is-active is-pendientes' : ''}`}
+                      className={`doc-pill-btn is-pendientes ${filtroEstado === 'PENDIENTES' ? 'is-active' : ''}`}
                       onClick={() => setFiltroEstado((prev) => (prev === 'PENDIENTES' ? null : 'PENDIENTES'))}
                       title="Filtrar coches con documentos pendientes de carga"
                     >
-                      ⚠️ Pendientes
+                      Pendientes
                     </button>
                   </div>
                 </div>
@@ -581,17 +581,8 @@ function Documentacion() {
                           onClick={() => handleSelectVehiculo(v)}
                         >
                           <div className="doc-vehiculo-item-header">
-                            <span className="doc-vehiculo-badge-interno">Int. {v.numeroInterno}</span>
+                            <span className="doc-vehiculo-badge-interno">{v.numeroInterno}</span>
                             <div className="doc-vehiculo-header-right">
-                              {v.tieneVencidos && (
-                                <span className="doc-item-dot is-danger" title="Posee documentos vencidos" />
-                              )}
-                              {!v.tieneVencidos && v.tienePendientes && (
-                                <span className="doc-item-dot is-warning" title="Posee documentos pendientes" />
-                              )}
-                              {v.alDia && (
-                                <span className="doc-item-dot is-success" title="Documentación al día" />
-                              )}
                               <span className="doc-vehiculo-dominio">{v.dominio}</span>
                             </div>
                           </div>
@@ -599,11 +590,6 @@ function Documentacion() {
                             <span className="doc-vehiculo-modelo">
                               {v.marca} {v.modelo}
                             </span>
-                            <EstadoDot
-                              color={ESTADOS_VEHICULO[v.estadoVehiculo?.descripcion || 'OPERATIVO']?.dot}
-                            >
-                              {ESTADOS_VEHICULO[v.estadoVehiculo?.descripcion || 'OPERATIVO']?.label}
-                            </EstadoDot>
                           </div>
                         </button>
                       );
@@ -634,16 +620,8 @@ function Documentacion() {
                       <div className="doc-resumen-header">
                         <div>
                           <div className="doc-unidad-title-row">
-                            <h2>Unidad {vehiculoSeleccionado.numeroInterno}</h2>
+                            <h2>Coche {vehiculoSeleccionado.numeroInterno}</h2>
                             <span className="doc-unidad-patente">{vehiculoSeleccionado.dominio}</span>
-                            <EstadoDot
-                              color={
-                                ESTADOS_VEHICULO[vehiculoSeleccionado.estadoVehiculo?.descripcion]?.dot
-                              }
-                              size="md"
-                            >
-                              {ESTADOS_VEHICULO[vehiculoSeleccionado.estadoVehiculo?.descripcion]?.label}
-                            </EstadoDot>
                           </div>
                           <p className="doc-unidad-specs">
                             {vehiculoSeleccionado.tipoVehiculo?.descripcion} • {vehiculoSeleccionado.marca}{' '}
@@ -736,19 +714,19 @@ function Documentacion() {
                   <div className="doc-filter-pills">
                     <button
                       type="button"
-                      className={`doc-pill-btn ${filtroEstadoChofer === 'VENCIDOS' ? 'is-active is-vencidos' : ''}`}
+                      className={`doc-pill-btn is-vencidos ${filtroEstadoChofer === 'VENCIDOS' ? 'is-active' : ''}`}
                       onClick={() => setFiltroEstadoChofer((prev) => (prev === 'VENCIDOS' ? null : 'VENCIDOS'))}
                       title="Filtrar choferes con documentos vencidos"
                     >
-                      ⛔ Vencidos
+                      Vencidos
                     </button>
                     <button
                       type="button"
-                      className={`doc-pill-btn ${filtroEstadoChofer === 'PENDIENTES' ? 'is-active is-pendientes' : ''}`}
+                      className={`doc-pill-btn is-pendientes ${filtroEstadoChofer === 'PENDIENTES' ? 'is-active' : ''}`}
                       onClick={() => setFiltroEstadoChofer((prev) => (prev === 'PENDIENTES' ? null : 'PENDIENTES'))}
                       title="Filtrar choferes con documentos pendientes de carga"
                     >
-                      ⚠️ Pendientes
+                      Pendientes
                     </button>
                   </div>
                 </div>
