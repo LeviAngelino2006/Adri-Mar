@@ -417,27 +417,32 @@
   }
 }
 
-/* Columna Izquierda: Identificación y Badges */
+/* Columna Izquierda: Identificación y Badges centrados con tamaño mejorado */
 .doc-col-izq {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-2) var(--space-3);
 }
 
 .doc-titulo-mayus {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.28rem;
   font-weight: 800;
   letter-spacing: 0.5px;
   color: var(--color-text);
   text-transform: uppercase;
-  line-height: 1.3;
+  line-height: 1.25;
+  text-align: center;
 }
 
 .doc-badges-fila {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-2);
   flex-wrap: wrap;
 }
@@ -507,7 +512,7 @@
 .doc-dato-fila {
   display: flex;
   align-items: baseline;
-  gap: var(--space-2);
+  gap: 6px;
   min-width: 0;
 }
 
@@ -517,7 +522,6 @@
 
 .doc-dato-label {
   color: var(--color-text-secondary);
-  min-width: 85px;
   font-weight: 600;
   font-size: 0.8125rem;
   flex-shrink: 0;
@@ -570,22 +574,40 @@
   text-align: center;
 }
 
-/* Nivel Inferior: Barra Horizontal con Los 5 Botones centrados y justificados */
+/* Nivel Inferior: Los 5 Botones uno al lado del otro en una sola fila */
 .doc-card-acciones-fila {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
   padding-top: var(--space-4);
   border-top: 1px solid var(--color-border);
+  flex-wrap: nowrap;
 }
 
 .doc-card-acciones-fila .btn {
-  flex: 1 1 130px;
-  max-width: 210px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 6px 6px;
+  font-size: 0.8125rem;
+  white-space: nowrap;
   justify-content: center;
   text-align: center;
+}
+
+.doc-card-acciones-fila .btn:only-child {
+  flex: 0 1 220px;
+  margin: 0 auto;
+}
+
+@media (max-width: 680px) {
+  .doc-card-acciones-fila {
+    flex-wrap: wrap;
+  }
+  .doc-card-acciones-fila .btn {
+    flex: 1 1 120px;
+  }
 }
 
 .doc-card-actions-left {
