@@ -65,6 +65,8 @@ async function main() {
 
   console.log(`Administrador inicial listo: ${admin.nombreUsuario}`);
 
+  // orden: de mayor a menor capacidad/tamaño real del vehículo, para que el
+  // selector del frontend los muestre en ese orden sin ordenar alfabético.
   const TIPOS_VEHICULO = [
     { descripcion: 'Colectivo', orden: 1 },
     { descripcion: 'Minibus', orden: 2 },
@@ -103,6 +105,9 @@ async function main() {
 
   console.log(`Estados de viaje listos: ${ESTADOS_VIAJE.join(', ')}`);
 
+  // MANTENIMIENTO no se usa todavía (queda previsto para el futuro módulo de
+  // mantenimiento preventivo), pero se siembra ya para no necesitar otra
+  // migración cuando llegue ese momento.
   const ORIGENES_LECTURA = [
     'ALTA_VEHICULO',
     'INICIO_VIAJE',
@@ -121,6 +126,7 @@ async function main() {
 
   console.log(`Orígenes de lectura listos: ${ORIGENES_LECTURA.join(', ')}`);
 
+  // Reusado tal cual para el pago al cliente y el pago al chofer.
   const ESTADOS_PAGO = ['PENDIENTE', 'PAGADO', 'PARCIAL'];
   for (const descripcion of ESTADOS_PAGO) {
     await prisma.estadoPago.upsert({
