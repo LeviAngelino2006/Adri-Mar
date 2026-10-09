@@ -1,9 +1,68 @@
 const documentoService = require('../services/documentoService');
 
+// Los errores del servicio traen su status HTTP; el resto sigue al manejador
+// general de Express.
+function responderError(err, res, next) {
+  if (err.status) {
+    return res.status(err.status).json({ error: err.message });
+  }
+  return next(err);
+}
+
+// Los handlers se arman una vez por categoría de titular; `param` es el nombre
+// del parámetro de ruta que trae su id (vehiculoId / choferId).
+function crearHandlers(categoria, param) {
+  const titularDe = (req) => ({ categoria, id: req.params[param] });
+
+  return {
+    async carpeta(req, res, next) {
+      try {
+        res.json(await documentoService.obtenerCarpeta(titularDe(req)));
+      } catch (err) {
+        responderError(err, res, next);
+      }
+    },
+
+    async historial(req, res, next) {
+      try {
+        const historial = await documentoService.obtenerHistorial(titularDe(req), req.params.tipoDocumentoId);
+        res.json({ historial });
+      } catch (err) {
+        responderError(err, res, next);
+      }
+    },
+
+    async registrar(req, res, next) {
+      try {
+        const { tipoDocumentoId, fechaEmision, fechaVencimiento, observaciones } = req.body ?? {};
+        const documento = await documentoService.registrarDocumento(
+          titularDe(req),
+          { tipoDocumentoId, fechaEmision, fechaVencimiento, observaciones },
+          req.file,
+          req.usuario.id
+        );
+        res.status(201).json({ mensaje: 'Documento registrado exitosamente.', documento });
+      } catch (err) {
+        responderError(err, res, next);
+      }
+    },
+
+    async eliminar(req, res, next) {
+      try {
+        res.json(await documentoService.eliminarDocumento(titularDe(req), req.params.documentoId));
+      } catch (err) {
+        responderError(err, res, next);
+      }
+    },
+  };
+}
+
+const vehiculo = crearHandlers('VEHICULO', 'vehiculoId');
+const chofer = crearHandlers('CHOFER', 'choferId');
+
 async function obtenerAlertas(req, res, next) {
   try {
-    const resumen = await documentoService.obtenerAlertasVencimiento();
-    return res.json(resumen);
+    res.json(await documentoService.obtenerAlertasVencimiento());
   } catch (err) {
     next(err);
   }
@@ -11,90 +70,17 @@ async function obtenerAlertas(req, res, next) {
 
 async function listarTipos(req, res, next) {
   try {
-    const { aplicaA } = req.query;
-    const tipos = await documentoService.listarTipos(aplicaA || 'VEHICULO');
+    const { categoria } = req.query;
+    const tipos = await documentoService.listarTipos(categoria || 'VEHICULO');
     res.json({ tipos });
   } catch (err) {
-    next(err);
-  }
-}
-
-async function obtenerPorVehiculo(req, res, next) {
-  try {
-    const { vehiculoId } = req.params;
-    const resultado = await documentoService.obtenerDocumentacionVehiculo(vehiculoId);
-    res.json(resultado);
-  } catch (err) {
-    if (err.status) {
-      return res.status(err.status).json({ error: err.message });
-    }
-    next(err);
-  }
-}
-
-async function obtenerHistorial(req, res, next) {
-  try {
-    const { vehiculoId, tipoDocumentoId } = req.params;
-    const historial = await documentoService.obtenerHistorialDocumento(vehiculoId, tipoDocumentoId);
-    res.json({ historial });
-  } catch (err) {
-    if (err.status) {
-      return res.status(err.status).json({ error: err.message });
-    }
-    next(err);
-  }
-}
-
-async function registrarDocumentoVehiculo(req, res, next) {
-  try {
-    const { vehiculoId } = req.params;
-    const { tipoDocumentoId, fechaEmision, fechaVencimiento, observaciones } = req.body;
-    const file = req.file;
-    const usuarioId = req.usuario.id;
-
-    if (!tipoDocumentoId) {
-      return res.status(400).json({ error: 'El campo tipoDocumentoId es obligatorio.' });
-    }
-
-    const documento = await documentoService.registrarDocumentoVehiculo({
-      vehiculoId,
-      tipoDocumentoId,
-      fechaEmision,
-      fechaVencimiento,
-      observaciones,
-      file,
-      usuarioId,
-    });
-
-    res.status(201).json({
-      mensaje: 'Documento registrado exitosamente.',
-      documento,
-    });
-  } catch (err) {
-    if (err.status) {
-      return res.status(err.status).json({ error: err.message });
-    }
-    next(err);
-  }
-}
-
-async function eliminarDocumentoVehiculo(req, res, next) {
-  try {
-    const { vehiculoId, documentoId } = req.params;
-    const resultado = await documentoService.eliminarDocumentoVehiculo(vehiculoId, documentoId);
-    res.json(resultado);
-  } catch (err) {
-    if (err.status) {
-      return res.status(err.status).json({ error: err.message });
-    }
-    next(err);
+    responderError(err, res, next);
   }
 }
 
 async function obtenerEstadoFlota(req, res, next) {
   try {
-    const vehiculos = await documentoService.obtenerEstadoFlota();
-    res.json({ vehiculos });
+    res.json({ vehiculos: await documentoService.obtenerEstado('VEHICULO') });
   } catch (err) {
     next(err);
   }
@@ -102,79 +88,8 @@ async function obtenerEstadoFlota(req, res, next) {
 
 async function obtenerEstadoChoferes(req, res, next) {
   try {
-    const choferes = await documentoService.obtenerEstadoChoferes();
-    res.json({ choferes });
+    res.json({ choferes: await documentoService.obtenerEstado('CHOFER') });
   } catch (err) {
-    next(err);
-  }
-}
-
-async function obtenerPorChofer(req, res, next) {
-  try {
-    const { choferId } = req.params;
-    const resultado = await documentoService.obtenerDocumentacionChofer(choferId);
-    res.json(resultado);
-  } catch (err) {
-    if (err.status) {
-      return res.status(err.status).json({ error: err.message });
-    }
-    next(err);
-  }
-}
-
-async function obtenerHistorialChofer(req, res, next) {
-  try {
-    const { choferId, tipoDocumentoId } = req.params;
-    const historial = await documentoService.obtenerHistorialDocumentoChofer(choferId, tipoDocumentoId);
-    res.json({ historial });
-  } catch (err) {
-    if (err.status) {
-      return res.status(err.status).json({ error: err.message });
-    }
-    next(err);
-  }
-}
-
-async function registrarDocumentoChofer(req, res, next) {
-  try {
-    const { choferId } = req.params;
-    const { tipoDocumentoId, fechaEmision, fechaVencimiento, observaciones } = req.body;
-    const file = req.file;
-    const usuarioId = req.usuario.id;
-
-    const documento = await documentoService.registrarDocumentoChofer(
-      choferId,
-      {
-        tipoDocumentoId,
-        fechaEmision,
-        fechaVencimiento,
-        observaciones,
-      },
-      file,
-      usuarioId
-    );
-
-    res.status(201).json({
-      mensaje: 'Documento registrado con éxito.',
-      documento,
-    });
-  } catch (err) {
-    if (err.status) {
-      return res.status(err.status).json({ error: err.message });
-    }
-    next(err);
-  }
-}
-
-async function eliminarDocumentoChofer(req, res, next) {
-  try {
-    const { choferId, documentoId } = req.params;
-    const resultado = await documentoService.eliminarDocumentoChofer(choferId, documentoId);
-    res.json(resultado);
-  } catch (err) {
-    if (err.status) {
-      return res.status(err.status).json({ error: err.message });
-    }
     next(err);
   }
 }
@@ -182,14 +97,14 @@ async function eliminarDocumentoChofer(req, res, next) {
 module.exports = {
   obtenerAlertas,
   listarTipos,
-  obtenerPorVehiculo,
-  obtenerHistorial,
-  registrarDocumentoVehiculo,
-  eliminarDocumentoVehiculo,
   obtenerEstadoFlota,
   obtenerEstadoChoferes,
-  obtenerPorChofer,
-  obtenerHistorialChofer,
-  registrarDocumentoChofer,
-  eliminarDocumentoChofer,
+  obtenerPorVehiculo: vehiculo.carpeta,
+  obtenerHistorial: vehiculo.historial,
+  registrarDocumentoVehiculo: vehiculo.registrar,
+  eliminarDocumentoVehiculo: vehiculo.eliminar,
+  obtenerPorChofer: chofer.carpeta,
+  obtenerHistorialChofer: chofer.historial,
+  registrarDocumentoChofer: chofer.registrar,
+  eliminarDocumentoChofer: chofer.eliminar,
 };

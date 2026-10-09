@@ -1,6 +1,6 @@
 /**
  * Script de limpieza puntual: elimina documentación residual de vehículos en
- * estado DADO_DE_BAJA que todavía tengan registros en documentos_vehiculo y
+ * estado DADO_DE_BAJA que todavía tengan registros en documentos y
  * archivos en Supabase Storage.
  *
  * Ejecutar manualmente una sola vez:
@@ -43,7 +43,7 @@ async function main() {
       }
     }
 
-    await prisma.documentoVehiculo.deleteMany({
+    await prisma.documento.deleteMany({
       where: { vehiculoId: v.id },
     });
 

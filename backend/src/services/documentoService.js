@@ -1,6 +1,45 @@
+const crypto = require('crypto');
 const path = require('path');
 const prisma = require('./prismaClient');
 const storageService = require('./storageService');
+
+// Un documento pertenece a un vehículo o a un chofer. Todo el servicio se
+// escribe una sola vez y recibe el titular como { categoria, id }, donde
+// categoria es la descripcion de CategoriaDocumento ('VEHICULO' | 'CHOFER').
+//
+// No hay un flag "vigente": cada fila de `documentos` es una versión y la
+// vigente es la más reciente por titular y tipo (ver ORDEN_RECIENTE). Eliminar
+// la última versión deja vigente a la anterior sin lógica extra.
+
+const ID_MAXIMO = 2147483647; // INTEGER de Postgres
+const MAX_HISTORICOS = 2; // versiones viejas que se conservan además de la vigente
+const DIAS_UMBRAL_POR_VENCER = 30;
+
+// Adri-mar opera solo en Córdoba (UTC-3 todo el año): mismo criterio de offset
+// fijo que aFechaCordoba() en viajeService, en vez de depender de la zona
+// horaria del servidor.
+const CORDOBA_OFFSET_MS = 3 * 60 * 60 * 1000;
+const MS_POR_DIA = 24 * 60 * 60 * 1000;
+
+// Más reciente primero; el id desempata dos cargas en el mismo instante.
+const ORDEN_RECIENTE = [{ creadoEn: 'desc' }, { id: 'desc' }];
+
+const SELECT_USUARIO = { select: { id: true, nombre: true, apellido: true } };
+const INCLUDE_TIPO = { include: { categoriaDocumento: true } };
+
+function errorHttp(status, mensaje) {
+  const error = new Error(mensaje);
+  error.status = status;
+  return error;
+}
+
+function parsearId(valor, mensaje) {
+  const texto = String(valor ?? '').trim();
+  if (!/^\d+$/.test(texto)) throw errorHttp(400, mensaje);
+  const id = Number(texto);
+  if (id < 1 || id > ID_MAXIMO) throw errorHttp(400, mensaje);
+  return id;
+}
 
 function sanearNombreArchivo(nombreOriginal) {
   if (!nombreOriginal) return null;
@@ -11,461 +50,366 @@ function sanearNombreArchivo(nombreOriginal) {
   }
 }
 
-function calcularEstadoVigencia(doc) {
+// --- Vigencia ---------------------------------------------------------------
+
+// Día calendario de Córdoba de un instante, como días desde la época.
+function diaCordoba(fecha) {
+  const iso = new Date(fecha.getTime() - CORDOBA_OFFSET_MS).toISOString().slice(0, 10);
+  return Date.parse(`${iso}T00:00:00Z`) / MS_POR_DIA;
+}
+
+// Días de calendario (en Córdoba) entre hoy y el vencimiento; negativo si ya
+// venció, 0 si vence hoy. null si no tiene vencimiento.
+function diasHastaVencimiento(fechaVencimiento, ahora = new Date()) {
+  if (!fechaVencimiento) return null;
+  return diaCordoba(new Date(fechaVencimiento)) - diaCordoba(ahora);
+}
+
+// Único cálculo de vigencia: lo usan la carpeta, el estado de flota/choferes y
+// las alertas. Sin documento es PENDIENTE; sin fecha de vencimiento, VIGENTE.
+function calcularEstadoVigencia(doc, ahora = new Date()) {
   if (!doc) return 'PENDIENTE';
-  if (!doc.fechaVencimiento) return 'VIGENTE';
-
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-
-  const vencimiento = new Date(doc.fechaVencimiento);
-  vencimiento.setHours(0, 0, 0, 0);
-
-  const diffTime = vencimiento.getTime() - hoy.getTime();
-  const diffDias = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  if (diffDias < 0) {
-    return 'VENCIDO';
-  }
-  if (diffDias <= 30) {
-    return 'POR_VENCER';
-  }
+  const dias = diasHastaVencimiento(doc.fechaVencimiento, ahora);
+  if (dias === null) return 'VIGENTE';
+  if (dias < 0) return 'VENCIDO';
+  if (dias <= DIAS_UMBRAL_POR_VENCER) return 'POR_VENCER';
   return 'VIGENTE';
 }
 
+// --- Titulares --------------------------------------------------------------
+
+const TITULARES = {
+  VEHICULO: {
+    campo: 'vehiculoId',
+    carpetaStorage: 'vehiculos',
+    noEncontrado: 'Vehículo no encontrado',
+    buscar: (id) =>
+      prisma.vehiculo.findUnique({
+        where: { id },
+        include: { tipoVehiculo: true, estadoVehiculo: true },
+      }),
+    ficha: (vehiculo) => ({ vehiculo }),
+  },
+  CHOFER: {
+    campo: 'choferId',
+    carpetaStorage: 'choferes',
+    noEncontrado: 'Chofer no encontrado',
+    buscar: (id) =>
+      prisma.usuario.findUnique({
+        where: { id },
+        include: { perfil: true, estadoUsuario: true },
+      }),
+    ficha: (chofer) => ({
+      chofer: {
+        id: chofer.id,
+        nombre: chofer.nombre,
+        apellido: chofer.apellido,
+        dni: chofer.dni,
+        email: chofer.email,
+        telefono: chofer.telefono,
+        nombreUsuario: chofer.nombreUsuario,
+        perfil: chofer.perfil,
+        estadoUsuario: chofer.estadoUsuario,
+        habilitadoParaConducir: chofer.habilitadoParaConducir,
+      },
+    }),
+  },
+};
+
+function descriptorDe(categoria) {
+  const descriptor = TITULARES[categoria];
+  if (!descriptor) throw errorHttp(400, 'La categoría de documento es inválida. Valores: VEHICULO, CHOFER.');
+  return descriptor;
+}
+
+// Valida el id y que el titular exista. Devuelve la entidad (vehículo/usuario).
+async function buscarTitular({ categoria, id }) {
+  const descriptor = descriptorDe(categoria);
+  const titularId = parsearId(id, 'El identificador del titular no es válido.');
+  const entidad = await descriptor.buscar(titularId);
+  if (!entidad) throw errorHttp(404, descriptor.noEncontrado);
+  return { descriptor, entidad, id: titularId };
+}
+
+// Busca el tipo y exige que pertenezca a la categoría del titular.
+async function buscarTipoParaTitular(tipoDocumentoId, categoria) {
+  const tipoId = parsearId(tipoDocumentoId, 'El tipo de documento es inválido.');
+  const tipo = await prisma.tipoDocumento.findUnique({
+    where: { id: tipoId },
+    include: { categoriaDocumento: true },
+  });
+  if (!tipo) throw errorHttp(404, 'Tipo de documento no encontrado.');
+  if (tipo.categoriaDocumento.descripcion !== categoria) {
+    throw errorHttp(400, `El tipo de documento '${tipo.descripcion}' no aplica a ${categoria === 'VEHICULO' ? 'vehículos' : 'choferes'}.`);
+  }
+  return tipo;
+}
+
+async function agregarSignedUrl(doc) {
+  return doc.archivoPath ? storageService.generarSignedUrl(doc.archivoPath, 3600) : null;
+}
+
+// --- Catálogo ---------------------------------------------------------------
+
 /**
- * Obtiene el catálogo de tipos de documentos disponibles.
- * @param {string} aplicaA - 'VEHICULO' o 'CHOFER'
+ * Tipos de documento de una categoría ('VEHICULO' o 'CHOFER').
  */
-async function listarTipos(aplicaA = 'VEHICULO') {
+async function listarTipos(categoria = 'VEHICULO') {
+  descriptorDe(categoria);
   return prisma.tipoDocumento.findMany({
-    where: { aplicaA },
-    orderBy: { orden: 'asc' },
+    where: { categoriaDocumento: { descripcion: categoria } },
+    include: INCLUDE_TIPO.include,
+    orderBy: { id: 'asc' },
   });
 }
 
+// --- Consultas --------------------------------------------------------------
+
+function resumirCarpeta(carpeta, totalRequeridos) {
+  const totalCargados = carpeta.filter((item) => item.cargado).length;
+  const totalVencidos = carpeta.filter((item) => item.documento?.estadoVigencia === 'VENCIDO').length;
+  const totalPorVencer = carpeta.filter((item) => item.documento?.estadoVigencia === 'POR_VENCER').length;
+  return {
+    totalRequeridos,
+    totalCargados,
+    totalVencidos,
+    totalPorVencer,
+    alDia: totalCargados === totalRequeridos && totalVencidos === 0,
+  };
+}
+
 /**
- * Obtiene la carpeta de documentación completa de un vehículo.
- * Retorna todos los tipos reglamentarios con su estado (cargado o pendiente)
- * y genera Signed URLs temporales para los documentos cargados con PDF.
+ * Carpeta de documentación completa de un titular: todos los tipos de su
+ * categoría con la versión vigente (o pendiente) y Signed URLs temporales.
  */
-async function obtenerDocumentacionVehiculo(vehiculoId) {
-  const vehiculo = await prisma.vehiculo.findUnique({
-    where: { id: parseInt(vehiculoId, 10) },
-    include: {
-      tipoVehiculo: true,
-      estadoVehiculo: true,
-    },
-  });
+async function obtenerCarpeta(titular) {
+  const { descriptor, entidad, id } = await buscarTitular(titular);
 
-  if (!vehiculo) {
-    const error = new Error('Vehículo no encontrado');
-    error.status = 404;
-    throw error;
-  }
-
-  const tipos = await prisma.tipoDocumento.findMany({
-    where: { aplicaA: 'VEHICULO' },
-    orderBy: { orden: 'asc' },
-  });
-
-  const documentosVigentes = await prisma.documentoVehiculo.findMany({
-    where: {
-      vehiculoId: vehiculo.id,
-      esVigente: true,
-    },
-    include: {
-      tipoDocumento: true,
-      usuario: {
-        select: {
-          id: true,
-          nombre: true,
-          apellido: true,
-        },
-      },
-    },
+  const tipos = await listarTipos(titular.categoria);
+  const vigentes = await prisma.documento.findMany({
+    where: { [descriptor.campo]: id },
+    distinct: ['tipoDocumentoId'],
+    orderBy: ORDEN_RECIENTE,
+    include: { tipoDocumento: INCLUDE_TIPO, usuario: SELECT_USUARIO },
   });
 
   const carpeta = await Promise.all(
     tipos.map(async (tipo) => {
-      const doc = documentosVigentes.find((d) => d.tipoDocumentoId === tipo.id) || null;
-
-      let signedUrl = null;
-      if (doc && doc.archivoPath) {
-        signedUrl = await storageService.generarSignedUrl(doc.archivoPath, 3600);
-      }
-
-      const estadoVigencia = calcularEstadoVigencia(doc);
-
+      const doc = vigentes.find((d) => d.tipoDocumentoId === tipo.id) || null;
+      if (!doc) return { tipo, cargado: false, documento: null };
       return {
         tipo,
-        cargado: !!doc,
-        documento: doc
-          ? {
-              ...doc,
-              signedUrl,
-              estadoVigencia,
-            }
-          : null,
+        cargado: true,
+        documento: {
+          ...doc,
+          esVigente: true,
+          signedUrl: await agregarSignedUrl(doc),
+          estadoVigencia: calcularEstadoVigencia(doc),
+        },
       };
     })
   );
 
-  const totalRequeridos = tipos.length;
-  const totalCargados = carpeta.filter((item) => item.cargado).length;
-  const totalVencidos = carpeta.filter(
-    (item) => item.cargado && item.documento.estadoVigencia === 'VENCIDO'
-  ).length;
-  const totalPorVencer = carpeta.filter(
-    (item) => item.cargado && item.documento.estadoVigencia === 'POR_VENCER'
-  ).length;
-
   return {
-    vehiculo,
-    resumen: {
-      totalRequeridos,
-      totalCargados,
-      totalVencidos,
-      totalPorVencer,
-      alDia: totalCargados === totalRequeridos && totalVencidos === 0,
-    },
+    ...descriptor.ficha(entidad),
+    resumen: resumirCarpeta(carpeta, tipos.length),
     documentos: carpeta,
   };
 }
 
 /**
- * Consulta el historial de renovaciones de un tipo de documento para un vehículo.
+ * Historial de versiones de un tipo para un titular, de la más reciente a la
+ * más vieja. esVigente es calculado: true solo en la más reciente.
  */
-async function obtenerHistorialDocumento(vehiculoId, tipoDocumentoId) {
-  const vId = parseInt(vehiculoId, 10);
-  const tId = parseInt(tipoDocumentoId, 10);
+async function obtenerHistorial(titular, tipoDocumentoId) {
+  const { descriptor, id } = await buscarTitular(titular);
+  const tipo = await buscarTipoParaTitular(tipoDocumentoId, titular.categoria);
 
-  const historial = await prisma.documentoVehiculo.findMany({
-    where: {
-      vehiculoId: vId,
-      tipoDocumentoId: tId,
-    },
-    orderBy: { creadoEn: 'desc' },
-    include: {
-      tipoDocumento: true,
-      usuario: {
-        select: {
-          id: true,
-          nombre: true,
-          apellido: true,
-        },
-      },
-    },
+  const versiones = await prisma.documento.findMany({
+    where: { [descriptor.campo]: id, tipoDocumentoId: tipo.id },
+    orderBy: ORDEN_RECIENTE,
+    include: { tipoDocumento: INCLUDE_TIPO, usuario: SELECT_USUARIO },
   });
 
   return Promise.all(
-    historial.map(async (doc) => {
-      let signedUrl = null;
-      if (doc.archivoPath) {
-        signedUrl = await storageService.generarSignedUrl(doc.archivoPath, 3600);
-      }
-      return {
-        ...doc,
-        signedUrl,
-        estadoVigencia: calcularEstadoVigencia(doc),
-      };
-    })
+    versiones.map(async (doc, indice) => ({
+      ...doc,
+      esVigente: indice === 0,
+      signedUrl: await agregarSignedUrl(doc),
+      estadoVigencia: calcularEstadoVigencia(doc),
+    }))
   );
 }
 
+// --- Registro ---------------------------------------------------------------
+
+function parsearFecha(valor, mensaje) {
+  if (!valor) return null;
+  const fecha = new Date(valor.length === 10 ? `${valor}T12:00:00Z` : valor);
+  if (isNaN(fecha.getTime())) throw errorHttp(400, mensaje);
+  return fecha;
+}
+
+// Borra del Storage solo los paths que ninguna fila sigue usando. Se llama
+// DESPUÉS de confirmar la transacción: un rollback no puede dejar filas
+// apuntando a archivos ya borrados.
+async function eliminarArchivosHuerfanos(paths) {
+  for (const archivoPath of paths) {
+    await storageService.eliminarArchivo(archivoPath).catch((err) => {
+      console.warn(`No se pudo eliminar el archivo en Storage (${archivoPath}):`, err.message);
+    });
+  }
+}
+
+// Paths de los documentos eliminados que ya no usa ninguna fila. Renovar sin
+// PDF nuevo reutiliza el archivoPath anterior, así que varias versiones
+// pueden compartir el mismo archivo. Corre dentro de la transacción, ya con
+// las filas borradas.
+async function pathsSinUso(tx, eliminados) {
+  const paths = [...new Set(eliminados.map((d) => d.archivoPath).filter(Boolean))];
+  const huerfanos = [];
+  for (const archivoPath of paths) {
+    const restantes = await tx.documento.count({ where: { archivoPath } });
+    if (restantes === 0) huerfanos.push(archivoPath);
+  }
+  return huerfanos;
+}
+
 /**
- * Registra o renueva un documento para un vehículo.
- * Si ya existía un documento vigente para ese tipo, lo pasa a esVigente = false.
+ * Registra una versión nueva de un documento (alta o renovación). Máximo 2
+ * versiones viejas + la vigente: la creación y la purga van en una sola
+ * transacción.
  */
-async function registrarDocumentoVehiculo({
-  vehiculoId,
-  tipoDocumentoId,
-  fechaEmision,
-  fechaVencimiento,
-  observaciones,
-  file,
-  usuarioId,
-}) {
-  const vId = parseInt(vehiculoId, 10);
-  const tId = parseInt(tipoDocumentoId, 10);
+async function registrarDocumento(titular, datos, file, usuarioId) {
+  const { tipoDocumentoId, fechaEmision, fechaVencimiento, observaciones } = datos;
+  const { descriptor, id } = await buscarTitular(titular);
 
-  const vehiculo = await prisma.vehiculo.findUnique({
-    where: { id: vId },
-    include: { estadoVehiculo: true },
+  if (tipoDocumentoId === undefined || tipoDocumentoId === null || tipoDocumentoId === '') {
+    throw errorHttp(400, 'El tipo de documento es obligatorio.');
+  }
+  const tipo = await buscarTipoParaTitular(tipoDocumentoId, titular.categoria);
+
+  const docPrevio = await prisma.documento.findFirst({
+    where: { [descriptor.campo]: id, tipoDocumentoId: tipo.id },
+    orderBy: ORDEN_RECIENTE,
   });
 
-  if (!vehiculo) {
-    const error = new Error('El vehículo especificado no existe.');
-    error.status = 404;
-    throw error;
+  if (tipo.requiereArchivo && !file && !docPrevio?.archivoPath) {
+    throw errorHttp(400, `El tipo de documento '${tipo.descripcion}' requiere adjuntar un archivo en formato PDF.`);
+  }
+  if (tipo.requiereVencimiento && !fechaVencimiento) {
+    throw errorHttp(400, `La fecha de vencimiento es obligatoria para '${tipo.descripcion}'.`);
   }
 
-  const tipoDocumento = await prisma.tipoDocumento.findUnique({
-    where: { id: tId },
-  });
-
-  if (!tipoDocumento || tipoDocumento.aplicaA !== 'VEHICULO') {
-    const error = new Error('El tipo de documento es inválido o no aplica a vehículos.');
-    error.status = 400;
-    throw error;
+  const parsedEmision = parsearFecha(fechaEmision, 'La fecha de emisión ingresada no es válida.');
+  const parsedVencimiento = parsearFecha(fechaVencimiento, 'La fecha de vencimiento ingresada no es válida.');
+  if (parsedEmision && parsedVencimiento && parsedVencimiento < parsedEmision) {
+    throw errorHttp(400, 'La fecha de vencimiento no puede ser anterior a la fecha de emisión.');
   }
 
-  const docPrevio = await prisma.documentoVehiculo.findFirst({
-    where: { vehiculoId: vId, tipoDocumentoId: tId, esVigente: true },
-  });
-
-  // Validación: requiere archivo (si es nuevo o no hay archivo previo)
-  if (tipoDocumento.requiereArchivo && !file && !docPrevio?.archivoPath) {
-    const error = new Error(
-      `El tipo de documento '${tipoDocumento.descripcion}' requiere adjuntar un archivo en formato PDF.`
-    );
-    error.status = 400;
-    throw error;
-  }
-
-  // Validación: requiere vencimiento
-  if (tipoDocumento.requiereVencimiento && !fechaVencimiento) {
-    const error = new Error(
-      `La fecha de vencimiento es obligatoria para '${tipoDocumento.descripcion}'.`
-    );
-    error.status = 400;
-    throw error;
-  }
-
-  let parsedEmision = null;
-  if (fechaEmision) {
-    parsedEmision = new Date(fechaEmision.length === 10 ? `${fechaEmision}T12:00:00Z` : fechaEmision);
-    if (isNaN(parsedEmision.getTime())) {
-      const error = new Error('La fecha de emisión ingresada no es válida.');
-      error.status = 400;
-      throw error;
-    }
-  }
-
-  let parsedVencimiento = null;
-  if (fechaVencimiento) {
-    parsedVencimiento = new Date(
-      fechaVencimiento.length === 10 ? `${fechaVencimiento}T12:00:00Z` : fechaVencimiento
-    );
-    if (isNaN(parsedVencimiento.getTime())) {
-      const error = new Error('La fecha de vencimiento ingresada no es válida.');
-      error.status = 400;
-      throw error;
-    }
-
-    if (parsedEmision && parsedVencimiento < parsedEmision) {
-      const error = new Error('La fecha de vencimiento no puede ser anterior a la fecha de emisión.');
-      error.status = 400;
-      throw error;
-    }
-  }
-
-  let storagePath = null;
-  let nombreOriginal = null;
+  let archivoPath = null;
+  let nombreArchivo = null;
+  let archivoSubido = false;
 
   if (file) {
-    const timestamp = Date.now();
-    const ext = path.extname(file.originalname) || '.pdf';
-    nombreOriginal = sanearNombreArchivo(file.originalname);
-    storagePath = `vehiculos/${vId}/${tipoDocumento.codigo}_${timestamp}${ext}`;
-
-    await storageService.subirArchivo(file.buffer, storagePath, file.mimetype || 'application/pdf');
+    const extension = path.extname(file.originalname) || '.pdf';
+    nombreArchivo = sanearNombreArchivo(file.originalname);
+    // El sufijo aleatorio evita que dos cargas en el mismo milisegundo pisen el mismo archivo.
+    const sufijo = crypto.randomBytes(4).toString('hex');
+    archivoPath = `${descriptor.carpetaStorage}/${id}/${tipo.descripcion}_${Date.now()}_${sufijo}${extension}`;
+    await storageService.subirArchivo(file.buffer, archivoPath, file.mimetype || 'application/pdf');
+    archivoSubido = true;
   } else if (docPrevio?.archivoPath) {
-    storagePath = docPrevio.archivoPath;
-    nombreOriginal = docPrevio.nombreOriginal;
+    // Renovación sin PDF nuevo: comparte el archivo de la versión anterior.
+    archivoPath = docPrevio.archivoPath;
+    nombreArchivo = docPrevio.nombreArchivo;
   }
 
-  // Versionado: Marcar cualquier documento previo vigente de este tipo como no vigente
-  await prisma.documentoVehiculo.updateMany({
-    where: {
-      vehiculoId: vId,
-      tipoDocumentoId: tId,
-      esVigente: true,
-    },
-    data: {
-      esVigente: false,
-    },
-  });
-
-  const nuevoDocumento = await prisma.documentoVehiculo.create({
-    data: {
-      vehiculoId: vId,
-      tipoDocumentoId: tId,
-      archivoPath: storagePath,
-      nombreOriginal,
-      fechaEmision: parsedEmision,
-      fechaVencimiento: parsedVencimiento,
-      observaciones: observaciones?.trim() || null,
-      esVigente: true,
-      usuarioId,
-    },
-    include: {
-      tipoDocumento: true,
-      usuario: {
-        select: {
-          id: true,
-          nombre: true,
-          apellido: true,
+  let resultado;
+  try {
+    resultado = await prisma.$transaction(async (tx) => {
+      const nuevo = await tx.documento.create({
+        data: {
+          tipoDocumentoId: tipo.id,
+          [descriptor.campo]: id,
+          archivoPath,
+          nombreArchivo,
+          fechaEmision: parsedEmision,
+          fechaVencimiento: parsedVencimiento,
+          observaciones: observaciones?.trim() || null,
+          usuarioId,
         },
-      },
-    },
-  });
+        include: { tipoDocumento: INCLUDE_TIPO, usuario: SELECT_USUARIO },
+      });
 
-  // Regla de negocio: El historial guarda como máximo los últimos 2 sin contar el actual.
-  // Al superar el límite de 3 (2 viejos + 1 actual), se elimina el más viejo en Supabase y DB.
-  await purgarHistorialExcedenteVehiculo(vId, tId);
+      const versiones = await tx.documento.findMany({
+        where: { [descriptor.campo]: id, tipoDocumentoId: tipo.id },
+        orderBy: ORDEN_RECIENTE,
+      });
+      const sobrantes = versiones.slice(1 + MAX_HISTORICOS);
 
-  let signedUrl = null;
-  if (nuevoDocumento.archivoPath) {
-    signedUrl = await storageService.generarSignedUrl(nuevoDocumento.archivoPath, 3600);
+      let huerfanos = [];
+      if (sobrantes.length > 0) {
+        await tx.documento.deleteMany({ where: { id: { in: sobrantes.map((d) => d.id) } } });
+        huerfanos = await pathsSinUso(tx, sobrantes);
+      }
+      return { nuevo, huerfanos };
+    });
+  } catch (err) {
+    // El PDF nuevo ya está en Storage pero ninguna fila lo referencia.
+    if (archivoSubido) await eliminarArchivosHuerfanos([archivoPath]);
+    throw err;
   }
+
+  await eliminarArchivosHuerfanos(resultado.huerfanos);
 
   return {
-    ...nuevoDocumento,
-    signedUrl,
-    estadoVigencia: calcularEstadoVigencia(nuevoDocumento),
+    ...resultado.nuevo,
+    esVigente: true,
+    signedUrl: await agregarSignedUrl(resultado.nuevo),
+    estadoVigencia: calcularEstadoVigencia(resultado.nuevo),
   };
 }
 
 /**
- * Mantiene un máximo de 2 documentos históricos (además del vigente actual).
- * Si hay más de 2 históricos, elimina los más antiguos en Supabase Storage y DB.
+ * Elimina una versión (y su archivo, si ninguna otra versión lo usa). Si era
+ * la vigente, la anterior pasa a serlo sola.
  */
-async function purgarHistorialExcedenteVehiculo(vehiculoId, tipoDocumentoId) {
-  const vId = parseInt(vehiculoId, 10);
-  const tId = parseInt(tipoDocumentoId, 10);
+async function eliminarDocumento(titular, documentoId) {
+  const { descriptor, id } = await buscarTitular(titular);
+  const docId = parsearId(documentoId, 'El identificador del documento no es válido.');
 
-  const historicos = await prisma.documentoVehiculo.findMany({
-    where: {
-      vehiculoId: vId,
-      tipoDocumentoId: tId,
-      esVigente: false,
-    },
-    orderBy: {
-      creadoEn: 'desc',
-    },
+  const doc = await prisma.documento.findFirst({
+    where: { id: docId, [descriptor.campo]: id },
   });
+  if (!doc) throw errorHttp(404, 'Documento no encontrado.');
 
-  if (historicos.length > 2) {
-    const sobrantes = historicos.slice(2);
-    for (const doc of sobrantes) {
-      if (doc.archivoPath) {
-        await storageService.eliminarArchivo(doc.archivoPath).catch(() => {});
-      }
-      await prisma.documentoVehiculo.delete({
-        where: { id: doc.id },
-      });
-    }
-  }
+  const huerfanos = await prisma.$transaction(async (tx) => {
+    await tx.documento.delete({ where: { id: doc.id } });
+    return pathsSinUso(tx, [doc]);
+  });
+  await eliminarArchivosHuerfanos(huerfanos);
+
+  return { ok: true, mensaje: 'Documento eliminado correctamente.' };
 }
 
-/**
- * Elimina un documento específico y su archivo asociado en Supabase Storage.
- * Si era el vigente, restaura la vigencia de la versión previa si existe.
- */
-async function eliminarDocumentoVehiculo(vehiculoId, documentoId) {
-  const vId = parseInt(vehiculoId, 10);
-  const docId = parseInt(documentoId, 10);
+// --- Estado de flota / choferes ---------------------------------------------
 
-  const doc = await prisma.documentoVehiculo.findFirst({
-    where: {
-      id: docId,
-      vehiculoId: vId,
-    },
-  });
+const DOCUMENTOS_VIGENTES = {
+  distinct: ['tipoDocumentoId'],
+  orderBy: ORDEN_RECIENTE,
+  select: { id: true, tipoDocumentoId: true, fechaVencimiento: true },
+};
 
-  if (!doc) {
-    const error = new Error('Documento no encontrado.');
-    error.status = 404;
-    throw error;
-  }
-
-  if (doc.archivoPath) {
-    await storageService.eliminarArchivo(doc.archivoPath);
-  }
-
-  await prisma.documentoVehiculo.delete({
-    where: { id: docId },
-  });
-
-  if (doc.esVigente) {
-    const versionAnterior = await prisma.documentoVehiculo.findFirst({
-      where: {
-        vehiculoId: vId,
-        tipoDocumentoId: doc.tipoDocumentoId,
-      },
-      orderBy: { creadoEn: 'desc' },
-    });
-
-    if (versionAnterior) {
-      await prisma.documentoVehiculo.update({
-        where: { id: versionAnterior.id },
-        data: { esVigente: true },
-      });
-    }
-  }
-
-  return { mensaje: 'Documento eliminado correctamente.' };
-}
-
-/**
- * Obtiene el resumen de documentación de toda la flota de vehículos activos.
- * Permite filtrar rápidamente por unidades con vencidos o con pendientes.
- */
-async function obtenerEstadoFlota() {
-  const tipos = await prisma.tipoDocumento.findMany({
-    where: { aplicaA: 'VEHICULO' },
-    select: { id: true, codigo: true, requiereVencimiento: true },
-  });
-  const totalRequeridos = tipos.length;
-
-  const vehiculos = await prisma.vehiculo.findMany({
-    where: {
-      estadoVehiculo: {
-        descripcion: { not: 'DADO_DE_BAJA' },
-      },
-    },
-    include: {
-      tipoVehiculo: true,
-      estadoVehiculo: true,
-      documentos: {
-        where: { esVigente: true },
-        select: {
-          id: true,
-          tipoDocumentoId: true,
-          fechaVencimiento: true,
-        },
-      },
-    },
-    orderBy: { numeroInterno: 'asc' },
-  });
-
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-
-  return vehiculos.map((v) => {
-    const totalCargados = v.documentos.length;
-    const tienePendientes = totalCargados < totalRequeridos;
-
-    let tieneVencidos = false;
-    let tienePorVencer = false;
-
-    for (const doc of v.documentos) {
-      if (doc.fechaVencimiento) {
-        const venc = new Date(doc.fechaVencimiento);
-        venc.setHours(0, 0, 0, 0);
-        const diffDias = Math.ceil((venc.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
-        if (diffDias < 0) {
-          tieneVencidos = true;
-        } else if (diffDias <= 30) {
-          tienePorVencer = true;
-        }
-      }
-    }
-
-    const alDia = !tienePendientes && !tieneVencidos;
-
-    return {
+const LISTADOS = {
+  VEHICULO: {
+    listar: () =>
+      prisma.vehiculo.findMany({
+        where: { estadoVehiculo: { descripcion: { not: 'DADO_DE_BAJA' } } },
+        include: { tipoVehiculo: true, estadoVehiculo: true, documentos: DOCUMENTOS_VIGENTES },
+        orderBy: { numeroInterno: 'asc' },
+      }),
+    serializar: (v) => ({
       id: v.id,
       dominio: v.dominio,
       numeroInterno: v.numeroInterno,
@@ -476,445 +420,18 @@ async function obtenerEstadoFlota() {
       kilometraje: v.kilometraje,
       tipoVehiculo: v.tipoVehiculo,
       estadoVehiculo: v.estadoVehiculo,
-      totalCargados,
-      totalRequeridos,
-      tieneVencidos,
-      tienePorVencer,
-      tienePendientes,
-      alDia,
-    };
-  });
-}
-
-/**
- * Obtiene la carpeta de documentación completa de un chofer.
- */
-async function obtenerDocumentacionChofer(choferId) {
-  const cId = parseInt(choferId, 10);
-  const chofer = await prisma.usuario.findUnique({
-    where: { id: cId },
-    include: {
-      perfil: true,
-      estadoUsuario: true,
-    },
-  });
-
-  if (!chofer) {
-    const error = new Error('Chofer no encontrado');
-    error.status = 404;
-    throw error;
-  }
-
-  const tipos = await prisma.tipoDocumento.findMany({
-    where: { aplicaA: 'CHOFER' },
-    orderBy: { orden: 'asc' },
-  });
-
-  const docsCargados = await prisma.documentoChofer.findMany({
-    where: {
-      choferId: cId,
-      esVigente: true,
-    },
-    include: {
-      tipoDocumento: true,
-      usuario: {
-        select: {
-          id: true,
-          nombre: true,
-          apellido: true,
+    }),
+  },
+  CHOFER: {
+    listar: () =>
+      prisma.usuario.findMany({
+        where: {
+          OR: [{ perfil: { descripcion: 'CHOFER' } }, { habilitadoParaConducir: true }],
         },
-      },
-    },
-  });
-
-  const docsPorTipo = new Map();
-  for (const doc of docsCargados) {
-    docsPorTipo.set(doc.tipoDocumentoId, doc);
-  }
-
-  const carpeta = await Promise.all(
-    tipos.map(async (tipo) => {
-      const doc = docsPorTipo.get(tipo.id);
-      let signedUrl = null;
-
-      if (doc && doc.archivoPath) {
-        signedUrl = await storageService.generarSignedUrl(doc.archivoPath, 3600);
-      }
-
-      const estadoVigencia = calcularEstadoVigencia(doc);
-
-      return {
-        tipo,
-        cargado: !!doc,
-        documento: doc
-          ? {
-              ...doc,
-              signedUrl,
-              estadoVigencia,
-            }
-          : null,
-      };
-    })
-  );
-
-  const totalRequeridos = tipos.length;
-  const totalCargados = carpeta.filter((item) => item.cargado).length;
-  const totalVencidos = carpeta.filter(
-    (item) => item.cargado && item.documento.estadoVigencia === 'VENCIDO'
-  ).length;
-  const totalPorVencer = carpeta.filter(
-    (item) => item.cargado && item.documento.estadoVigencia === 'POR_VENCER'
-  ).length;
-
-  return {
-    chofer: {
-      id: chofer.id,
-      nombre: chofer.nombre,
-      apellido: chofer.apellido,
-      dni: chofer.dni,
-      email: chofer.email,
-      telefono: chofer.telefono,
-      nombreUsuario: chofer.nombreUsuario,
-      perfil: chofer.perfil,
-      estadoUsuario: chofer.estadoUsuario,
-      habilitadoParaConducir: chofer.habilitadoParaConducir,
-    },
-    resumen: {
-      totalRequeridos,
-      totalCargados,
-      totalVencidos,
-      totalPorVencer,
-      alDia: totalCargados === totalRequeridos && totalVencidos === 0,
-    },
-    documentos: carpeta,
-  };
-}
-
-/**
- * Consulta el historial de renovaciones de un tipo de documento para un chofer.
- */
-async function obtenerHistorialDocumentoChofer(choferId, tipoDocumentoId) {
-  const cId = parseInt(choferId, 10);
-  const tId = parseInt(tipoDocumentoId, 10);
-
-  const historial = await prisma.documentoChofer.findMany({
-    where: {
-      choferId: cId,
-      tipoDocumentoId: tId,
-    },
-    orderBy: { creadoEn: 'desc' },
-    include: {
-      tipoDocumento: true,
-      usuario: {
-        select: {
-          id: true,
-          nombre: true,
-          apellido: true,
-        },
-      },
-    },
-  });
-
-  return Promise.all(
-    historial.map(async (doc) => {
-      let signedUrl = null;
-      if (doc.archivoPath) {
-        signedUrl = await storageService.generarSignedUrl(doc.archivoPath, 3600);
-      }
-      return {
-        ...doc,
-        signedUrl,
-        estadoVigencia: calcularEstadoVigencia(doc),
-      };
-    })
-  );
-}
-
-/**
- * Registra o renueva un documento de un chofer.
- */
-async function registrarDocumentoChofer(choferId, data, file, usuarioId) {
-  const cId = parseInt(choferId, 10);
-  const { tipoDocumentoId, fechaEmision, fechaVencimiento, observaciones } = data;
-  const tId = parseInt(tipoDocumentoId, 10);
-
-  if (isNaN(tId)) {
-    const error = new Error('El tipo de documento es obligatorio.');
-    error.status = 400;
-    throw error;
-  }
-
-  const chofer = await prisma.usuario.findUnique({
-    where: { id: cId },
-  });
-  if (!chofer) {
-    const error = new Error('Chofer no encontrado');
-    error.status = 404;
-    throw error;
-  }
-
-  const tipoDocumento = await prisma.tipoDocumento.findUnique({
-    where: { id: tId },
-  });
-  if (!tipoDocumento || tipoDocumento.aplicaA !== 'CHOFER') {
-    const error = new Error('Tipo de documento no válido para choferes.');
-    error.status = 400;
-    throw error;
-  }
-
-  const docPrevio = await prisma.documentoChofer.findFirst({
-    where: { choferId: cId, tipoDocumentoId: tId, esVigente: true },
-  });
-
-  if (tipoDocumento.requiereArchivo && !file && !docPrevio?.archivoPath) {
-    const error = new Error(
-      `El tipo de documento '${tipoDocumento.descripcion}' requiere adjuntar un archivo en formato PDF.`
-    );
-    error.status = 400;
-    throw error;
-  }
-
-  if (tipoDocumento.requiereVencimiento && !fechaVencimiento) {
-    const error = new Error(
-      `La fecha de vencimiento es obligatoria para '${tipoDocumento.descripcion}'.`
-    );
-    error.status = 400;
-    throw error;
-  }
-
-  let parsedEmision = null;
-  if (fechaEmision) {
-    parsedEmision = new Date(fechaEmision.length === 10 ? `${fechaEmision}T12:00:00Z` : fechaEmision);
-    if (isNaN(parsedEmision.getTime())) {
-      const error = new Error('La fecha de emisión ingresada no es válida.');
-      error.status = 400;
-      throw error;
-    }
-  }
-
-  let parsedVencimiento = null;
-  if (fechaVencimiento) {
-    parsedVencimiento = new Date(
-      fechaVencimiento.length === 10 ? `${fechaVencimiento}T12:00:00Z` : fechaVencimiento
-    );
-    if (isNaN(parsedVencimiento.getTime())) {
-      const error = new Error('La fecha de vencimiento ingresada no es válida.');
-      error.status = 400;
-      throw error;
-    }
-  }
-
-  if (parsedEmision && parsedVencimiento && parsedEmision > parsedVencimiento) {
-    const error = new Error('La fecha de emisión no puede ser posterior a la fecha de vencimiento.');
-    error.status = 400;
-    throw error;
-  }
-
-  let storagePath = null;
-  let nombreOriginal = null;
-
-  if (file) {
-    nombreOriginal = sanearNombreArchivo(file.originalname);
-    const extension = path.extname(file.originalname) || '.pdf';
-    const timestamp = Date.now();
-    storagePath = `choferes/${cId}/${tipoDocumento.codigo}_${timestamp}${extension}`;
-
-    await storageService.subirArchivo(file.buffer, storagePath, file.mimetype);
-  } else if (docPrevio?.archivoPath) {
-    storagePath = docPrevio.archivoPath;
-    nombreOriginal = docPrevio.nombreOriginal;
-  }
-
-  await prisma.documentoChofer.updateMany({
-    where: {
-      choferId: cId,
-      tipoDocumentoId: tId,
-      esVigente: true,
-    },
-    data: {
-      esVigente: false,
-    },
-  });
-
-  const nuevoDocumento = await prisma.documentoChofer.create({
-    data: {
-      choferId: cId,
-      tipoDocumentoId: tId,
-      archivoPath: storagePath,
-      nombreOriginal,
-      fechaEmision: parsedEmision,
-      fechaVencimiento: parsedVencimiento,
-      observaciones: observaciones?.trim() || null,
-      esVigente: true,
-      usuarioId,
-    },
-    include: {
-      tipoDocumento: true,
-      usuario: {
-        select: {
-          id: true,
-          nombre: true,
-          apellido: true,
-        },
-      },
-    },
-  });
-
-  // Regla de negocio: El historial guarda como máximo los últimos 2 sin contar el actual.
-  // Al superar el límite de 3 (2 viejos + 1 actual), se elimina el más viejo en Supabase y DB.
-  await purgarHistorialExcedenteChofer(cId, tId);
-
-  let signedUrl = null;
-  if (nuevoDocumento.archivoPath) {
-    signedUrl = await storageService.generarSignedUrl(nuevoDocumento.archivoPath, 3600);
-  }
-
-  return {
-    ...nuevoDocumento,
-    signedUrl,
-    estadoVigencia: calcularEstadoVigencia(nuevoDocumento),
-  };
-}
-
-/**
- * Mantiene un máximo de 2 documentos históricos de chofer (además del vigente actual).
- * Si hay más de 2 históricos, elimina los más antiguos en Supabase Storage y DB.
- */
-async function purgarHistorialExcedenteChofer(choferId, tipoDocumentoId) {
-  const cId = parseInt(choferId, 10);
-  const tId = parseInt(tipoDocumentoId, 10);
-
-  const historicos = await prisma.documentoChofer.findMany({
-    where: {
-      choferId: cId,
-      tipoDocumentoId: tId,
-      esVigente: false,
-    },
-    orderBy: {
-      creadoEn: 'desc',
-    },
-  });
-
-  if (historicos.length > 2) {
-    const sobrantes = historicos.slice(2);
-    for (const doc of sobrantes) {
-      if (doc.archivoPath) {
-        await storageService.eliminarArchivo(doc.archivoPath).catch(() => {});
-      }
-      await prisma.documentoChofer.delete({
-        where: { id: doc.id },
-      });
-    }
-  }
-}
-
-/**
- * Elimina un documento del chofer.
- */
-async function eliminarDocumentoChofer(choferId, documentoId) {
-  const cId = parseInt(choferId, 10);
-  const docId = parseInt(documentoId, 10);
-
-  const doc = await prisma.documentoChofer.findUnique({
-    where: { id: docId },
-  });
-
-  if (!doc || doc.choferId !== cId) {
-    const error = new Error('Documento no encontrado para este chofer.');
-    error.status = 404;
-    throw error;
-  }
-
-  if (doc.archivoPath) {
-    await storageService.eliminarArchivo(doc.archivoPath).catch((err) => {
-      console.warn(`No se pudo eliminar el archivo físico en Storage (${doc.archivoPath}):`, err.message);
-    });
-  }
-
-  await prisma.documentoChofer.delete({
-    where: { id: docId },
-  });
-
-  if (doc.esVigente) {
-    const ultimoAnterior = await prisma.documentoChofer.findFirst({
-      where: {
-        choferId: cId,
-        tipoDocumentoId: doc.tipoDocumentoId,
-      },
-      orderBy: { creadoEn: 'desc' },
-    });
-
-    if (ultimoAnterior) {
-      await prisma.documentoChofer.update({
-        where: { id: ultimoAnterior.id },
-        data: { esVigente: true },
-      });
-    }
-  }
-
-  return { ok: true, mensaje: 'Documento eliminado correctamente.' };
-}
-
-/**
- * Retorna el estado documental general de todos los choferes habilitados o con perfil CHOFER.
- */
-async function obtenerEstadoChoferes() {
-  const tipos = await prisma.tipoDocumento.findMany({
-    where: { aplicaA: 'CHOFER' },
-  });
-  const totalRequeridos = tipos.length;
-
-  const choferes = await prisma.usuario.findMany({
-    where: {
-      OR: [
-        { perfil: { descripcion: 'CHOFER' } },
-        { habilitadoParaConducir: true },
-      ],
-    },
-    include: {
-      perfil: true,
-      estadoUsuario: true,
-      documentosChofer: {
-        where: { esVigente: true },
-        select: {
-          id: true,
-          tipoDocumentoId: true,
-          fechaVencimiento: true,
-        },
-      },
-    },
-    orderBy: [
-      { apellido: 'asc' },
-      { nombre: 'asc' },
-    ],
-  });
-
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-
-  return choferes.map((c) => {
-    const totalCargados = c.documentosChofer.length;
-    const tienePendientes = totalCargados < totalRequeridos;
-
-    let tieneVencidos = false;
-    let tienePorVencer = false;
-
-    for (const doc of c.documentosChofer) {
-      if (doc.fechaVencimiento) {
-        const venc = new Date(doc.fechaVencimiento);
-        venc.setHours(0, 0, 0, 0);
-        const diffDias = Math.ceil((venc.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
-        if (diffDias < 0) {
-          tieneVencidos = true;
-        } else if (diffDias <= 30) {
-          tienePorVencer = true;
-        }
-      }
-    }
-
-    const alDia = !tienePendientes && !tieneVencidos;
-
-    return {
+        include: { perfil: true, estadoUsuario: true, documentos: DOCUMENTOS_VIGENTES },
+        orderBy: [{ apellido: 'asc' }, { nombre: 'asc' }],
+      }),
+    serializar: (c) => ({
       id: c.id,
       nombre: c.nombre,
       apellido: c.apellido,
@@ -925,154 +442,109 @@ async function obtenerEstadoChoferes() {
       perfil: c.perfil,
       estadoUsuario: c.estadoUsuario,
       habilitadoParaConducir: c.habilitadoParaConducir,
+    }),
+  },
+};
+
+/**
+ * Resumen de documentación de todos los titulares de una categoría (flota de
+ * vehículos activos o choferes), para filtrar por vencidos o pendientes.
+ */
+async function obtenerEstado(categoria) {
+  descriptorDe(categoria);
+  const listado = LISTADOS[categoria];
+  const totalRequeridos = await prisma.tipoDocumento.count({
+    where: { categoriaDocumento: { descripcion: categoria } },
+  });
+  const titulares = await listado.listar();
+  const ahora = new Date();
+
+  return titulares.map((titular) => {
+    const estados = titular.documentos.map((doc) => calcularEstadoVigencia(doc, ahora));
+    const totalCargados = titular.documentos.length;
+    const tienePendientes = totalCargados < totalRequeridos;
+    const tieneVencidos = estados.includes('VENCIDO');
+
+    return {
+      ...listado.serializar(titular),
       totalCargados,
       totalRequeridos,
       tieneVencidos,
-      tienePorVencer,
+      tienePorVencer: estados.includes('POR_VENCER'),
       tienePendientes,
-      alDia,
+      alDia: !tienePendientes && !tieneVencidos,
     };
   });
 }
 
-const DIAS_UMBRAL_PROXIMO_VENCIMIENTO = 30;
+// --- Alertas ----------------------------------------------------------------
 
-function calcularEstadoDocumento(fechaVencimiento) {
-  if (!fechaVencimiento) return { estado: 'VIGENTE', diasRestantes: 999 };
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const fechaVenc = new Date(fechaVencimiento);
-  fechaVenc.setHours(0, 0, 0, 0);
+const ALERTAS = {
+  VEHICULO: {
+    campo: 'vehiculoId',
+    where: { vehiculoId: { not: null }, vehiculo: { estadoVehiculo: { descripcion: { not: 'DADO_DE_BAJA' } } } },
+    include: { vehiculo: { select: { id: true, dominio: true, numeroInterno: true, marca: true, modelo: true } } },
+    titular: (doc) => ({ vehiculo: doc.vehiculo }),
+  },
+  CHOFER: {
+    campo: 'choferId',
+    where: { choferId: { not: null }, chofer: { estadoUsuario: { descripcion: 'ACTIVO' } } },
+    include: { chofer: { select: { id: true, nombre: true, apellido: true, nombreUsuario: true } } },
+    titular: (doc) => ({ usuario: doc.chofer }),
+  },
+};
 
-  const diffTiempo = fechaVenc - hoy;
-  const diffDias = Math.ceil(diffTiempo / (1000 * 60 * 60 * 24));
+async function alertasDe(categoria, ahora) {
+  const alerta = ALERTAS[categoria];
+  // Se toma la versión vigente de cada titular y tipo y recién después se
+  // filtra por vencimiento: una versión vieja próxima a vencer no es alerta si
+  // ya hay una más nueva.
+  const vigentes = await prisma.documento.findMany({
+    where: alerta.where,
+    distinct: [alerta.campo, 'tipoDocumentoId'],
+    orderBy: ORDEN_RECIENTE,
+    include: { tipoDocumento: true, ...alerta.include },
+  });
 
-  if (diffDias < 0) {
-    return { estado: 'VENCIDO', diasRestantes: diffDias };
-  } else if (diffDias <= DIAS_UMBRAL_PROXIMO_VENCIMIENTO) {
-    return { estado: 'PROXIMO_A_VENCER', diasRestantes: diffDias };
-  } else {
-    return { estado: 'VIGENTE', diasRestantes: diffDias };
-  }
+  return vigentes
+    .map((doc) => ({ doc, diasRestantes: diasHastaVencimiento(doc.fechaVencimiento, ahora) }))
+    .filter(({ diasRestantes }) => diasRestantes !== null && diasRestantes <= DIAS_UMBRAL_POR_VENCER)
+    .map(({ doc, diasRestantes }) => ({
+      id: doc.id,
+      tipo: doc.tipoDocumento.descripcion,
+      fechaVencimiento: doc.fechaVencimiento,
+      observaciones: doc.observaciones,
+      ...alerta.titular(doc),
+      estado: calcularEstadoVigencia(doc, ahora),
+      diasRestantes,
+      categoria,
+    }));
 }
 
 async function obtenerAlertasVencimiento() {
-  const fechaLimite = new Date();
-  fechaLimite.setDate(fechaLimite.getDate() + DIAS_UMBRAL_PROXIMO_VENCIMIENTO);
+  const ahora = new Date();
+  const [vehiculos, choferes] = await Promise.all([alertasDe('VEHICULO', ahora), alertasDe('CHOFER', ahora)]);
 
-  const docsVehiculos = await prisma.documentoVehiculo.findMany({
-    where: {
-      esVigente: true,
-      fechaVencimiento: {
-        lte: fechaLimite,
-      },
-      // Solo vehículos que NO estén dados de baja
-      vehiculo: {
-        estadoVehiculo: {
-          descripcion: { not: 'DADO_DE_BAJA' },
-        },
-      },
-    },
-    include: {
-      tipoDocumento: true,
-      vehiculo: {
-        select: {
-          id: true,
-          dominio: true,
-          numeroInterno: true,
-          marca: true,
-          modelo: true,
-        },
-      },
-    },
-    orderBy: { fechaVencimiento: 'asc' },
-  });
-
-  const docsChoferes = await prisma.documentoChofer.findMany({
-    where: {
-      esVigente: true,
-      fechaVencimiento: {
-        lte: fechaLimite,
-      },
-      // Solo choferes activos
-      chofer: {
-        estadoUsuario: {
-          descripcion: 'ACTIVO',
-        },
-      },
-    },
-    include: {
-      tipoDocumento: true,
-      chofer: {
-        select: {
-          id: true,
-          nombre: true,
-          apellido: true,
-          nombreUsuario: true,
-        },
-      },
-    },
-    orderBy: { fechaVencimiento: 'asc' },
-  });
-
-  const vehiculosConEstado = docsVehiculos.map((doc) => {
-    const { estado, diasRestantes } = calcularEstadoDocumento(doc.fechaVencimiento);
-    return {
-      id: doc.id,
-      tipo: doc.tipoDocumento.descripcion,
-      codigoTipo: doc.tipoDocumento.codigo,
-      fechaVencimiento: doc.fechaVencimiento,
-      observaciones: doc.observaciones,
-      vehiculo: doc.vehiculo,
-      estado,
-      diasRestantes,
-      categoria: 'VEHICULO',
-    };
-  });
-
-  const choferesConEstado = docsChoferes.map((doc) => {
-    const { estado, diasRestantes } = calcularEstadoDocumento(doc.fechaVencimiento);
-    return {
-      id: doc.id,
-      tipo: doc.tipoDocumento.descripcion,
-      codigoTipo: doc.tipoDocumento.codigo,
-      fechaVencimiento: doc.fechaVencimiento,
-      observaciones: doc.observaciones,
-      usuario: doc.chofer,
-      estado,
-      diasRestantes,
-      categoria: 'USUARIO',
-    };
-  });
-
-  const todos = [...vehiculosConEstado, ...choferesConEstado].sort(
+  const todos = [...vehiculos, ...choferes].sort(
     (a, b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento)
   );
 
   return {
     vencidos: todos.filter((d) => d.estado === 'VENCIDO').length,
-    proximosAVencer: todos.filter((d) => d.estado === 'PROXIMO_A_VENCER').length,
+    proximosAVencer: todos.filter((d) => d.estado === 'POR_VENCER').length,
     totalAlertas: todos.length,
     documentos: todos,
   };
 }
 
 module.exports = {
-  calcularEstadoDocumento,
-  obtenerAlertasVencimiento,
+  calcularEstadoVigencia,
+  diasHastaVencimiento,
   listarTipos,
-  obtenerDocumentacionVehiculo,
-  obtenerHistorialDocumento,
-  registrarDocumentoVehiculo,
-  eliminarDocumentoVehiculo,
-  obtenerEstadoFlota,
-  obtenerDocumentacionChofer,
-  obtenerHistorialDocumentoChofer,
-  registrarDocumentoChofer,
-  eliminarDocumentoChofer,
-  obtenerEstadoChoferes,
-  purgarHistorialExcedenteVehiculo,
-  purgarHistorialExcedenteChofer,
+  obtenerCarpeta,
+  obtenerHistorial,
+  registrarDocumento,
+  eliminarDocumento,
+  obtenerEstado,
+  obtenerAlertasVencimiento,
 };
-
-

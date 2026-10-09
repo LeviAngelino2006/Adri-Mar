@@ -291,7 +291,7 @@ async function darDeBajaVehiculo(id) {
   }
 
   // Purgar toda la documentación asociada (DB + Supabase Storage)
-  const documentos = await prisma.documentoVehiculo.findMany({
+  const documentos = await prisma.documento.findMany({
     where: { vehiculoId: actual.id },
   });
 
@@ -307,7 +307,7 @@ async function darDeBajaVehiculo(id) {
   }
 
   if (documentos.length > 0) {
-    await prisma.documentoVehiculo.deleteMany({
+    await prisma.documento.deleteMany({
       where: { vehiculoId: actual.id },
     });
   }
