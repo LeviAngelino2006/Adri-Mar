@@ -15,6 +15,10 @@ async function crear(req, res) {
     fechaInicio,
     fechaFin,
     kilometrosEstimados,
+    cantidadPasajeros,
+    choferesCandidatos,
+    vehiculosCandidatos,
+    paradas,
     clienteId,
     origenId,
     destinoId,
@@ -29,6 +33,10 @@ async function crear(req, res) {
         fechaInicio,
         fechaFin,
         kilometrosEstimados,
+        cantidadPasajeros,
+        choferesCandidatos,
+        vehiculosCandidatos,
+        paradas,
         clienteId,
         origenId,
         destinoId,
@@ -81,6 +89,10 @@ async function actualizar(req, res) {
     fechaInicio,
     fechaFin,
     kilometrosEstimados,
+    cantidadPasajeros,
+    choferesCandidatos,
+    vehiculosCandidatos,
+    paradas,
     clienteId,
     origenId,
     destinoId,
@@ -95,6 +107,10 @@ async function actualizar(req, res) {
         fechaInicio,
         fechaFin,
         kilometrosEstimados,
+        cantidadPasajeros,
+        choferesCandidatos,
+        vehiculosCandidatos,
+        paradas,
         clienteId,
         origenId,
         destinoId,
@@ -155,6 +171,41 @@ async function actualizarDatosAdministrativos(req, res) {
     if (err instanceof viajeService.NoEncontradoError) {
       return res.status(404).json({ error: 'Viaje no encontrado' });
     }
+    if (err instanceof viajeService.ValidacionError) {
+      return res.status(400).json({ errores: err.errores });
+    }
+    throw err;
+  }
+}
+
+// Disponibilidad de los candidatos de un viaje existente (y, con ?todos=true, de
+// todos los choferes y vehículos). Informativa: nunca bloquea nada.
+async function disponibilidadDeViaje(req, res) {
+  try {
+    const disponibilidad = await viajeService.disponibilidadDeViaje(req.params.id, {
+      todos: req.query.todos === 'true',
+    });
+    return res.json(disponibilidad);
+  } catch (err) {
+    if (err instanceof viajeService.NoEncontradoError) {
+      return res.status(404).json({ error: 'Viaje no encontrado' });
+    }
+    if (err instanceof viajeService.ValidacionError) {
+      return res.status(400).json({ errores: err.errores });
+    }
+    throw err;
+  }
+}
+
+// Lo mismo para el alta, cuando el viaje todavía no existe: se consulta con las
+// fechas y los ids que el formulario tiene en pantalla.
+async function disponibilidad(req, res) {
+  const { fechaInicio, fechaFin, choferIds, vehiculoIds } = req.body;
+
+  try {
+    const resultado = await viajeService.disponibilidadParaAlta({ fechaInicio, fechaFin, choferIds, vehiculoIds });
+    return res.json(resultado);
+  } catch (err) {
     if (err instanceof viajeService.ValidacionError) {
       return res.status(400).json({ errores: err.errores });
     }
@@ -253,6 +304,8 @@ module.exports = {
   actualizar,
   actualizarDatosAdministrativos,
   confirmar,
+  disponibilidadDeViaje,
+  disponibilidad,
   listarEstadosPago,
   listarMetodosPago,
   cancelar,

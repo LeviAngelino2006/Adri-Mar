@@ -47,5 +47,21 @@ router.patch(
   autorizar('ADMINISTRADOR', 'ENCARGADO'),
   viajeController.confirmar
 );
+// Disponibilidad de choferes y vehículos (informativa, nunca bloquea). Solo
+// gestores: es información de planificación. POST /disponibilidad es para el
+// alta (el viaje todavía no existe) y GET /:id/disponibilidad para uno que ya
+// existe; no chocan con /:id porque ese solo existe para PUT.
+router.post(
+  '/disponibilidad',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  viajeController.disponibilidad
+);
+router.get(
+  '/:id/disponibilidad',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  viajeController.disponibilidadDeViaje
+);
 
 module.exports = router;

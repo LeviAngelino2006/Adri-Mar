@@ -101,10 +101,30 @@ export interface SelectorBuscarOCrearProps {
 /** No incluido en bundle.js: depende del cliente HTTP de la app. */
 export declare function SelectorBuscarOCrear(props: SelectorBuscarOCrearProps): ReactElement;
 
+export interface SelectorMultipleProps {
+  id?: string;
+  /** Todo lo elegible; quien lo usa arma la etiqueta. */
+  opciones: { id: string | number; etiqueta: string }[];
+  /** Ids elegidos, en orden de elección. El componente es controlado. */
+  valor: (string | number)[];
+  onChange: (ids: (string | number)[]) => void;
+  /** Aviso informativo debajo del chip de cada id; nunca bloquea. */
+  avisos?: Record<string | number, string>;
+  /** Por defecto 'Agregar…'. */
+  placeholder?: string;
+  disabled?: boolean;
+}
+/** No incluido en bundle.js. */
+export declare function SelectorMultiple(props: SelectorMultipleProps): ReactElement;
+
 export interface RutaViajeProps {
   /** Lugar de origen; sin valor muestra "No registrado" atenuado. */
   origen?: { nombre: string } | null;
   destino?: { nombre: string } | null;
+  /** Paradas intermedias de la API, ya ordenadas. */
+  paradas?: { orden: number; ubicacion: { nombre: string } }[];
+  /** 'resumen' (una línea, "… · 2 paradas") o 'completa' (secuencia vertical). Por defecto 'resumen'. */
+  variante?: 'resumen' | 'completa';
 }
 export declare function RutaViaje(props: RutaViajeProps): ReactElement;
 

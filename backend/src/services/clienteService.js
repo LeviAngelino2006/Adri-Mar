@@ -15,11 +15,14 @@ class ValidacionError extends Error {
   }
 }
 
+// Busca contra nombreNormalizado (ya en minúscula y sin acentos) pasando el
+// texto por la misma normalizarNombre, así "rio" encuentra "Río Tercero" sin
+// necesidad de mode: 'insensitive' ni de la extensión unaccent de Postgres.
 async function buscar(texto) {
-  const textoTrim = (texto || '').trim();
+  const textoNormalizado = normalizarNombre(texto);
 
   return prisma.cliente.findMany({
-    where: textoTrim ? { nombre: { contains: textoTrim, mode: 'insensitive' } } : undefined,
+    where: textoNormalizado ? { nombreNormalizado: { contains: textoNormalizado } } : undefined,
     select: SELECT_PUBLICO,
     orderBy: { nombre: 'asc' },
     take: LIMITE_BUSQUEDA,

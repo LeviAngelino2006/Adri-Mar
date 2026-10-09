@@ -22,6 +22,9 @@ let viajesParaListar = [];
 let lecturasPorViaje = {};
 // Correcciones: { [idLecturaCorregida]: kmCorregido }.
 let correcciones = {};
+// Viaje que devuelve viaje.findUnique (el que se edita con PUT); null → un
+// PROGRAMADO vacío.
+let viajeActual = null;
 
 const idLectura = (viajeId, origen) => viajeId * 10 + (origen === 'INICIO_VIAJE' ? 1 : 2);
 
@@ -76,7 +79,15 @@ const existe = (ids) => async ({ where: { id } }) => (ids.includes(id) ? { id } 
 
 const prismaFalso = {
   cliente: { findUnique: existe([1]) },
-  ubicacion: { findUnique: existe([1, 2]) },
+  // Solo existencia: al crear/editar un A_CONFIRMAR no se valida habilitación
+  // ni solapamiento, así que estos dobles NO traen estadoUsuario/estadoVehiculo
+  // — si alguna ruta intentara validar disponibilidad, reventaría.
+  usuario: { findUnique: existe([5]), findMany: async ({ where }) => where.id.in.filter((i) => i === 5).map((id) => ({ id })) },
+  vehiculo: { findUnique: existe([7]), findMany: async ({ where }) => where.id.in.filter((i) => i === 7).map((id) => ({ id })) },
+  ubicacion: {
+    findUnique: existe([1, 2]),
+    findMany: async ({ where }) => where.id.in.filter((i) => [1, 2].includes(i)).map((id) => ({ id })),
+  },
   estadoPago: { findUnique: existe([1, 2, 3]) },
   metodoPago: { findUnique: existe([1, 2, 3]) },
   estadoViaje: {
@@ -104,11 +115,20 @@ const prismaFalso = {
       return null;
     },
   },
+  // Los candidatos y el rollback se prueban en viajesCandidatos.test.js (con un
+  // doble con estado); acá solo hace falta que las rutas que ahora usan
+  // transacción no revienten.
+  $transaction: async (fn) => fn(prismaFalso),
+  viajeChoferCandidato: { deleteMany: async () => ({}), createMany: async () => ({}) },
+  viajeVehiculoCandidato: { deleteMany: async () => ({}), createMany: async () => ({}) },
+  viajeParada: { deleteMany: async () => ({}), createMany: async () => ({}) },
   viaje: {
     create: async ({ data }) => {
       llamadas.create.push(data);
+      // Los create anidados de candidatos no son columnas del viaje.
+      const { choferesCandidatos: _c, vehiculosCandidatos: _v, paradas: _p, ...columnas } = data;
       return viajeBase({
-        ...data,
+        ...columnas,
         estadoViaje: { descripcion: data.estadoViajeId === 1 ? 'A_CONFIRMAR' : 'PROGRAMADO' },
       });
     },
@@ -116,7 +136,7 @@ const prismaFalso = {
       llamadas.update.push(data);
       return viajeBase(data);
     },
-    findUnique: async () => viajeBase(),
+    findUnique: async () => viajeActual ?? viajeBase(),
     findMany: async () => viajesParaListar,
   },
 };
@@ -149,6 +169,7 @@ beforeEach(() => {
   viajesParaListar = [];
   lecturasPorViaje = {};
   correcciones = {};
+  viajeActual = null;
 });
 
 function tokenDe(perfil) {
@@ -166,7 +187,17 @@ async function pedir(metodo, ruta, { perfil, body } = {}) {
   return { status: respuesta.status, json: await respuesta.json() };
 }
 
-const CORE = { clienteId: 1, origenId: 1, destinoId: 2 };
+// fechaInicio es obligatoria al crear y al editar en cualquier estado, así que
+// forma parte del payload mínimo válido.
+const CORE = { clienteId: 1, origenId: 1, destinoId: 2, fechaInicio: '2026-10-20T08:00' };
+
+// En A_CONFIRMAR no hay chofer/vehículo asignado: se usan los candidatos.
+const OPERATIVOS_COMPLETOS = {
+  choferesCandidatos: [5],
+  vehiculosCandidatos: [7],
+  fechaFin: '2026-10-20T12:00',
+  kilometrosEstimados: 120,
+};
 
 const DATOS_ADMINISTRATIVOS_VALIDOS = {
   precio: '150000.5',
@@ -268,6 +299,200 @@ describe('POST /viajes con datosAdministrativos', () => {
       }
     });
   }
+});
+
+// --- Estado inicial, fecha obligatoria y pasajeros (Fase 1) -----------------
+
+describe('POST /viajes: estado inicial', () => {
+  test('con todos los datos operativos completos igual nace A_CONFIRMAR, sin validar disponibilidad', async () => {
+    const { status, json } = await pedir('POST', '/viajes', {
+      perfil: 'ENCARGADO',
+      body: { ...CORE, ...OPERATIVOS_COMPLETOS },
+    });
+
+    assert.equal(status, 201);
+    assert.equal(json.viaje.estado, 'A_CONFIRMAR');
+    assert.equal(llamadas.create[0].estadoViajeId, 1);
+    // El asignado queda en null; los que vinieron son candidatos.
+    assert.equal(llamadas.create[0].choferId, null);
+    assert.equal(llamadas.create[0].vehiculoId, null);
+    assert.deepEqual(llamadas.create[0].choferesCandidatos, { create: [{ usuarioId: 5 }] });
+    assert.deepEqual(llamadas.create[0].vehiculosCandidatos, { create: [{ vehiculoId: 7 }] });
+  });
+
+  test('con solo los datos core también nace A_CONFIRMAR', async () => {
+    const { status, json } = await pedir('POST', '/viajes', { perfil: 'ADMINISTRADOR', body: { ...CORE } });
+
+    assert.equal(status, 201);
+    assert.equal(json.viaje.estado, 'A_CONFIRMAR');
+  });
+});
+
+describe('fechaInicio obligatoria', () => {
+  for (const [nombre, valor] of [['ausente', undefined], ['null', null], ['vacía', ''], ['inválida', 'no-es-fecha']]) {
+    test(`POST sin fechaInicio (${nombre}): 400 y no se crea nada`, async () => {
+      const { fechaInicio: _omitida, ...sinFecha } = CORE;
+      const body = valor === undefined ? sinFecha : { ...sinFecha, fechaInicio: valor };
+
+      const { status, json } = await pedir('POST', '/viajes', { perfil: 'ADMINISTRADOR', body });
+
+      assert.equal(status, 400);
+      assert.ok('fechaInicio' in json.errores);
+      assert.equal(llamadas.create.length, 0);
+    });
+  }
+
+  test('POST sin fechaInicio aunque vengan los otros 4 operativos: 400', async () => {
+    const { fechaInicio: _omitida, ...sinFecha } = CORE;
+    const { status, json } = await pedir('POST', '/viajes', {
+      perfil: 'ADMINISTRADOR',
+      body: { ...sinFecha, ...OPERATIVOS_COMPLETOS },
+    });
+
+    assert.equal(status, 400);
+    assert.ok('fechaInicio' in json.errores);
+  });
+
+  test('PUT de un A_CONFIRMAR sin fechaInicio: 400 y no actualiza', async () => {
+    viajeActual = viajeBase({ estadoViaje: { descripcion: 'A_CONFIRMAR' } });
+    const { fechaInicio: _omitida, ...sinFecha } = CORE;
+
+    const { status, json } = await pedir('PUT', '/viajes/1', { perfil: 'ENCARGADO', body: sinFecha });
+
+    assert.equal(status, 400);
+    assert.ok('fechaInicio' in json.errores);
+    assert.equal(llamadas.update.length, 0);
+  });
+
+  test('PUT de un A_CONFIRMAR con fechaInicio: 200', async () => {
+    viajeActual = viajeBase({ estadoViaje: { descripcion: 'A_CONFIRMAR' } });
+
+    const { status } = await pedir('PUT', '/viajes/1', { perfil: 'ENCARGADO', body: { ...CORE } });
+
+    assert.equal(status, 200);
+    // "2026-10-20T08:00" se interpreta como hora de Córdoba (UTC-3).
+    assert.equal(llamadas.update[0].fechaInicio.toISOString(), '2026-10-20T11:00:00.000Z');
+  });
+});
+
+describe('cantidadPasajeros', () => {
+  test('POST sin pasajeros: OK y se guarda null', async () => {
+    const { status, json } = await pedir('POST', '/viajes', { perfil: 'ADMINISTRADOR', body: { ...CORE } });
+
+    assert.equal(status, 201);
+    assert.equal(llamadas.create[0].cantidadPasajeros, null);
+    assert.equal(json.viaje.cantidadPasajeros, null);
+  });
+
+  for (const [nombre, valor] of [['null', null], ['vacío', '']]) {
+    test(`POST con pasajeros ${nombre}: OK y se guarda null`, async () => {
+      const { status } = await pedir('POST', '/viajes', {
+        perfil: 'ADMINISTRADOR',
+        body: { ...CORE, cantidadPasajeros: valor },
+      });
+
+      assert.equal(status, 201);
+      assert.equal(llamadas.create[0].cantidadPasajeros, null);
+    });
+  }
+
+  test('POST con pasajeros válidos: se guardan y vuelven en la respuesta', async () => {
+    const { status, json } = await pedir('POST', '/viajes', {
+      perfil: 'ADMINISTRADOR',
+      body: { ...CORE, cantidadPasajeros: 45 },
+    });
+
+    assert.equal(status, 201);
+    assert.equal(llamadas.create[0].cantidadPasajeros, 45);
+    assert.equal(json.viaje.cantidadPasajeros, 45);
+  });
+
+  test('no se compara con los asientos del vehículo (un número grande es válido)', async () => {
+    const { status } = await pedir('POST', '/viajes', {
+      perfil: 'ADMINISTRADOR',
+      body: { ...CORE, ...OPERATIVOS_COMPLETOS, cantidadPasajeros: 500 },
+    });
+
+    assert.equal(status, 201);
+  });
+
+  const INVALIDOS = [
+    ['cero', 0],
+    ['negativo', -3],
+    ['decimal', 2.5],
+    ['texto', 'abc'],
+    ['booleano', true],
+  ];
+  for (const [nombre, valor] of INVALIDOS) {
+    test(`POST con pasajeros ${nombre}: 400 y no se crea nada`, async () => {
+      const { status, json } = await pedir('POST', '/viajes', {
+        perfil: 'ADMINISTRADOR',
+        body: { ...CORE, cantidadPasajeros: valor },
+      });
+
+      assert.equal(status, 400);
+      assert.ok('cantidadPasajeros' in json.errores);
+      assert.equal(llamadas.create.length, 0);
+    });
+  }
+
+  test('PUT de un A_CONFIRMAR: guarda pasajeros, y si no vienen los borra (reemplazo completo)', async () => {
+    viajeActual = viajeBase({ estadoViaje: { descripcion: 'A_CONFIRMAR' } });
+
+    await pedir('PUT', '/viajes/1', { perfil: 'ENCARGADO', body: { ...CORE, cantidadPasajeros: 30 } });
+    await pedir('PUT', '/viajes/1', { perfil: 'ENCARGADO', body: { ...CORE } });
+
+    assert.equal(llamadas.update[0].cantidadPasajeros, 30);
+    assert.equal(llamadas.update[1].cantidadPasajeros, null);
+  });
+
+  test('PUT con pasajeros inválidos: 400 y no actualiza', async () => {
+    viajeActual = viajeBase({ estadoViaje: { descripcion: 'A_CONFIRMAR' } });
+
+    const { status, json } = await pedir('PUT', '/viajes/1', {
+      perfil: 'ENCARGADO',
+      body: { ...CORE, cantidadPasajeros: 0 },
+    });
+
+    assert.equal(status, 400);
+    assert.ok('cantidadPasajeros' in json.errores);
+    assert.equal(llamadas.update.length, 0);
+  });
+
+  test('POST con fechaInicio ausente y pasajeros = 0: el 400 trae los dos errores juntos', async () => {
+    const { fechaInicio: _omitida, ...sinFecha } = CORE;
+
+    const { status, json } = await pedir('POST', '/viajes', {
+      perfil: 'ADMINISTRADOR',
+      body: { ...sinFecha, cantidadPasajeros: 0 },
+    });
+
+    assert.equal(status, 400);
+    assert.deepEqual(Object.keys(json.errores).sort(), ['cantidadPasajeros', 'fechaInicio']);
+    assert.equal(llamadas.create.length, 0);
+  });
+
+  test('PUT con fechaInicio ausente y pasajeros = 0: el 400 trae los dos errores juntos', async () => {
+    viajeActual = viajeBase({ estadoViaje: { descripcion: 'A_CONFIRMAR' } });
+    const { fechaInicio: _omitida, ...sinFecha } = CORE;
+
+    const { status, json } = await pedir('PUT', '/viajes/1', {
+      perfil: 'ENCARGADO',
+      body: { ...sinFecha, cantidadPasajeros: 0 },
+    });
+
+    assert.equal(status, 400);
+    assert.deepEqual(Object.keys(json.errores).sort(), ['cantidadPasajeros', 'fechaInicio']);
+    assert.equal(llamadas.update.length, 0);
+  });
+
+  test('los pasajeros se ven en el listado para cualquier perfil que ve el viaje', async () => {
+    viajesParaListar = [viajeBase({ cantidadPasajeros: 12 })];
+
+    const { json } = await pedir('GET', '/viajes', { perfil: 'PERSONAL_TALLER' });
+
+    assert.equal(json.viajes[0].cantidadPasajeros, 12);
+  });
 });
 
 // --- PATCH de datos administrativos ----------------------------------------

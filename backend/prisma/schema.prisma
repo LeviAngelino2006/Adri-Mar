@@ -44,6 +44,7 @@ model Usuario {
   documentosVehiculo          DocumentoVehiculo[]
   documentosChofer            DocumentoChofer[]   @relation("DocumentosDelChofer")
   documentosChoferRegistrados DocumentoChofer[]   @relation("DocumentosChoferRegistradosPor")
+  viajesCandidato             ViajeChoferCandidato[]
 
   @@map("usuarios")
 }
@@ -83,6 +84,7 @@ model Vehiculo {
   viajes           Viaje[]
   lecturasOdometro LecturaOdometro[]
   documentos       DocumentoVehiculo[]
+  viajesCandidato  ViajeVehiculoCandidato[]
 
   @@map("vehiculos")
 }
@@ -127,9 +129,15 @@ model Viaje {
   chofer              Usuario?          @relation(fields: [choferId], references: [id], onDelete: Restrict)
   vehiculoId          Int?              @map("vehiculo_id")
   vehiculo            Vehiculo?         @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  // Nullable porque los viajes históricos no tienen este dato y no hay forma
+  // de reconstruirlo retroactivamente. La obligatoriedad para viajes nuevos (y
+  // al editar, en cualquier estado) se valida en viajeService, no acá.
   fechaInicio         DateTime?         @map("fecha_inicio")
   fechaFin            DateTime?         @map("fecha_fin")
   kilometrosEstimados Int?              @map("kilometros_estimados")
+  // Dato informativo, opcional en todos los estados: no se valida contra
+  // Vehiculo.asientos ni restringe nada.
+  cantidadPasajeros   Int?              @map("cantidad_pasajeros")
   odometroInicial     Int?              @map("odometro_inicial")
   odometroFinal       Int?              @map("odometro_final")
   estadoViajeId       Int               @map("estado_viaje_id")
@@ -138,6 +146,13 @@ model Viaje {
   horaFinReal         DateTime?         @map("hora_fin_real")
   observacionFinal    String?           @map("observacion_final")
   lecturasOdometro    LecturaOdometro[]
+  // Choferes y vehículos posibles mientras el viaje está A_CONFIRMAR. Al
+  // confirmar se elige uno de cada uno (choferId/vehiculoId) y estas filas se
+  // borran en la misma transacción: no se guardan como historial.
+  choferesCandidatos  ViajeChoferCandidato[]
+  vehiculosCandidatos ViajeVehiculoCandidato[]
+  // Puntos intermedios ORDENADOS entre origen y destino (ver ViajeParada).
+  paradas             ViajeParada[]
   origenId            Int?              @map("origen_id")
   origen              Ubicacion?        @relation("ViajeOrigen", fields: [origenId], references: [id])
   destinoId           Int?              @map("destino_id")
@@ -169,6 +184,7 @@ model Ubicacion {
   creadoEn          DateTime @default(now()) @map("creado_en")
   viajesOrigen      Viaje[]  @relation("ViajeOrigen")
   viajesDestino     Viaje[]  @relation("ViajeDestino")
+  viajesParada      ViajeParada[]
 
   @@index([nombre])
   @@unique([nombreNormalizado])
@@ -267,4 +283,46 @@ model DocumentoChofer {
   @@index([choferId, esVigente])
   @@index([tipoDocumentoId])
   @@map("documentos_chofer")
+}
+
+// Chofer posible para un viaje A_CONFIRMAR. Viaje.choferId sigue siendo "el
+// asignado" y queda en null hasta confirmar. Cascade al borrar el viaje;
+// Restrict al borrar el usuario (mismo criterio que Viaje.choferId).
+model ViajeChoferCandidato {
+  viajeId   Int     @map("viaje_id")
+  usuarioId Int     @map("usuario_id")
+  viaje     Viaje   @relation(fields: [viajeId], references: [id], onDelete: Cascade)
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@id([viajeId, usuarioId])
+  @@map("viaje_chofer_candidato")
+}
+
+model ViajeVehiculoCandidato {
+  viajeId    Int      @map("viaje_id")
+  vehiculoId Int      @map("vehiculo_id")
+  viaje      Viaje    @relation(fields: [viajeId], references: [id], onDelete: Cascade)
+  vehiculo   Vehiculo @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+
+  @@id([viajeId, vehiculoId])
+  @@map("viaje_vehiculo_candidato")
+}
+
+// Punto intermedio de un viaje, entre origen y destino. Sirve para estimar
+// kilómetros, tiempo y presupuesto: no tiene datos propios (ni hora, ni
+// pasajeros), no cambia chofer ni vehículo, no registra odómetro y el chofer no
+// interactúa con ella. `orden` (1..n) lo asigna viajeService según la posición
+// en el arreglo recibido. Una misma ubicación puede repetirse en un viaje
+// mientras no sea consecutiva (ida y vuelta). Cascade al borrar el viaje;
+// Restrict al borrar la ubicación.
+model ViajeParada {
+  id          Int       @id @default(autoincrement())
+  viajeId     Int       @map("viaje_id")
+  ubicacionId Int       @map("ubicacion_id")
+  orden       Int
+  viaje       Viaje     @relation(fields: [viajeId], references: [id], onDelete: Cascade)
+  ubicacion   Ubicacion @relation(fields: [ubicacionId], references: [id], onDelete: Restrict)
+
+  @@unique([viajeId, orden])
+  @@map("viaje_paradas")
 }

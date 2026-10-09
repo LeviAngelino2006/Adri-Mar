@@ -4,6 +4,7 @@ import './ConfirmModal.css';
 function ConfirmModal({
   open,
   tone = 'danger',
+  size = 'default',
   icon,
   title,
   description,
@@ -17,7 +18,7 @@ function ConfirmModal({
   return (
     <div className="confirm-modal-backdrop" onClick={onCancel}>
       <div
-        className="confirm-modal"
+        className={size === 'wide' ? 'confirm-modal confirm-modal-wide' : 'confirm-modal'}
         role="alertdialog"
         aria-modal="true"
         aria-label={title}

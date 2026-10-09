@@ -1,0 +1,116 @@
+.selector-multiple {
+  position: relative;
+}
+
+/* Ancla de la lista desplegable: la lista se posiciona respecto del buscador y
+   no del componente entero, que ahora también incluye los chips debajo. */
+.selector-multiple-buscador {
+  position: relative;
+}
+
+.selector-multiple-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Cada chip lleva su aviso debajo, así que el item es una columna. */
+.selector-multiple-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  max-width: 100%;
+}
+
+.selector-multiple-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  min-height: 32px;
+  padding: 2px 2px 2px var(--space-3);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--brand-700);
+  background-color: var(--brand-50);
+  border: 1px solid var(--brand-200);
+  border-radius: var(--radius-full);
+}
+
+.selector-multiple-chip-aviso {
+  color: var(--state-warning-text);
+  background-color: var(--state-warning-bg);
+  border-color: var(--state-warning-border);
+}
+
+/* Botón de quitar: 32px de área táctil dentro de la píldora. */
+.selector-multiple-quitar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  min-height: 0;
+  padding: 0;
+  color: inherit;
+  background: none;
+  border: none;
+  border-radius: var(--radius-full);
+}
+
+@media (hover: hover) {
+  .selector-multiple-quitar:hover {
+    background-color: color-mix(in srgb, currentColor 12%, transparent);
+  }
+}
+
+.selector-multiple-quitar:active {
+  background-color: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.selector-multiple-aviso {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--state-warning-text);
+}
+
+.selector-multiple-lista {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.selector-multiple-opcion {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+/* La opción activa sigue al teclado y al mouse; el :active da la respuesta al toque. */
+.selector-multiple-opcion-activa,
+.selector-multiple-opcion:active {
+  background-color: var(--brand-50);
+}
+
+.selector-multiple-estado {
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}

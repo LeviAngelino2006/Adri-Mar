@@ -19,6 +19,7 @@ import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { aInputCordoba } from '../utils/fechaCordoba';
+import { paradasDesdeViaje } from '../utils/paradas';
 import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import './Viajes.css';
@@ -64,27 +65,24 @@ function viajeAValoresForm(viaje) {
     clienteNombre: viaje.cliente?.nombre || '',
     choferId: viaje.choferId || '',
     vehiculoId: viaje.vehiculoId || '',
+    choferesCandidatos: (viaje.choferesCandidatos ?? []).map((c) => c.id),
+    vehiculosCandidatos: (viaje.vehiculosCandidatos ?? []).map((c) => c.id),
     origenId: viaje.origenId || '',
     origenNombre: viaje.origen?.nombre || '',
     destinoId: viaje.destinoId || '',
     destinoNombre: viaje.destino?.nombre || '',
+    paradas: paradasDesdeViaje(viaje),
     fechaInicio: aInputCordoba(viaje.fechaInicio),
     fechaFin: aInputCordoba(viaje.fechaFin),
     kilometrosEstimados: viaje.kilometrosEstimados ?? '',
+    cantidadPasajeros: viaje.cantidadPasajeros ?? '',
   };
 }
 
-// El backend devuelve el viaje con su estado real luego de crear/editar: si
-// quedaron los cinco campos operativos completos queda PROGRAMADO, si no
-// queda A_CONFIRMAR (ver viajeService.crearViaje). Al editar, el estado
-// nunca cambia por este camino (actualizarViaje no promueve — eso es
-// exclusivo de "Confirmar viaje"), así que este mismo mensaje también sirve
-// para reflejar fielmente una edición sin regresión.
-function mensajeSegunEstado(estado) {
-  return estado === 'A_CONFIRMAR'
-    ? 'Guardado como A confirmar — completalo cuando tengas los datos.'
-    : 'Viaje programado correctamente.';
-}
+// Todo viaje nace A_CONFIRMAR (ver viajeService.crearViaje): el único camino a
+// Programado es "Confirmar viaje". Editar nunca cambia el estado.
+const MENSAJE_CREADO = 'Viaje creado como A confirmar';
+const MENSAJE_EDITADO = 'Cambios guardados correctamente.';
 
 function Viajes() {
   const { usuario } = useAuth();
@@ -200,10 +198,13 @@ function Viajes() {
   }
 
   async function handleGuardarForm(datos) {
-    const { data } = editando
-      ? await api.put(`/viajes/${editando.id}`, datos)
-      : await api.post('/viajes', datos);
-    setMensaje(mensajeSegunEstado(data.viaje.estado));
+    if (editando) {
+      await api.put(`/viajes/${editando.id}`, datos);
+      setMensaje(MENSAJE_EDITADO);
+    } else {
+      await api.post('/viajes', datos);
+      setMensaje(MENSAJE_CREADO);
+    }
     setMostrarForm(false);
     setEditando(null);
     cargarViajes();
@@ -274,7 +275,7 @@ function Viajes() {
         <ListadoHeader titulo="Viajes">
           {puedeGestionar && (
             <Button variant="primary" onClick={abrirNuevo}>
-              + Programar viaje
+              + Crear viaje
             </Button>
           )}
         </ListadoHeader>
@@ -288,14 +289,17 @@ function Viajes() {
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
           </button>
-          <h1>{editando ? 'Editar viaje' : 'Programar viaje'}</h1>
+          <h1>{editando ? 'Editar viaje' : 'Crear viaje'}</h1>
           <Card className="form-card">
             <ViajeForm
               valoresIniciales={editando ? viajeAValoresForm(editando) : undefined}
               estadoActual={editando?.estado}
+              candidatosActuales={
+                editando && { choferes: editando.choferesCandidatos, vehiculos: editando.vehiculosCandidatos }
+              }
               onSubmit={handleGuardarForm}
-              textoBoton={editando ? 'Guardar cambios' : 'Programar viaje'}
-              textoEnviando={editando ? 'Guardando…' : 'Programando…'}
+              textoBoton={editando ? 'Guardar cambios' : 'Crear viaje'}
+              textoEnviando={editando ? 'Guardando…' : 'Creando…'}
               onCancelar={cerrarForm}
               conDatosAdministrativos={puedeGestionar && !editando}
             />

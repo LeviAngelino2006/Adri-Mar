@@ -7,8 +7,15 @@ const SOLO_FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 // Usado por cualquier lectura de viaje que vaya a pasar por serializarViaje
 // (necesita las 10 relaciones resueltas: las 5 operativas de siempre más las
-// 5 de datos administrativos agregadas en la tarea de Precio/Cliente/pagos).
+// 5 de datos administrativos agregadas en la tarea de Precio/Cliente/pagos,
+// y los candidatos). Los candidatos se cargan siempre, aunque
+// serializarViaje los omita para quien no es gestor: son tablas chicas y así
+// ninguna lectura puede olvidarse de incluirlos.
 const INCLUDE_RELACIONES_VIAJE = {
+  choferesCandidatos: { include: { usuario: true } },
+  vehiculosCandidatos: { include: { vehiculo: true } },
+  // Siempre ordenadas: serializarViaje las devuelve tal cual vienen.
+  paradas: { include: { ubicacion: true }, orderBy: { orden: 'asc' } },
   chofer: true,
   vehiculo: true,
   estadoViaje: true,
@@ -110,7 +117,12 @@ function campoAusente(valor) {
 // dependen de si el viaje es A_CONFIRMAR o no). clienteId se sumó acá en esta
 // tarea; antes vivía (por error de alcance) como uno de los 9 campos
 // opcionales de datos-administrativos.
-function validarCamposCore({ clienteId, origenId, destinoId }) {
+//
+// origen == destino solo es un error si el viaje NO tiene paradas: con al menos
+// una parada es un ida y vuelta legítimo (Río Tercero → Córdoba → Río Tercero).
+// El caso con paradas lo cubre errorDeSecuencia (no pueden ser consecutivos
+// iguales ni origen/destino con una parada en el medio de igual nombre).
+function validarCamposCore({ clienteId, origenId, destinoId }, { hayParadas = false } = {}) {
   const errores = {};
 
   const clienteIdNumero = Number(clienteId);
@@ -134,7 +146,7 @@ function validarCamposCore({ clienteId, origenId, destinoId }) {
     errores.destinoId = 'El destino elegido no es válido';
   }
 
-  if (!errores.origenId && !errores.destinoId && origenIdNumero === destinoIdNumero) {
+  if (!errores.origenId && !errores.destinoId && !hayParadas && origenIdNumero === destinoIdNumero) {
     errores.destinoId = 'El destino no puede ser el mismo que el origen';
   }
 
@@ -147,14 +159,19 @@ function validarCamposCore({ clienteId, origenId, destinoId }) {
 
 // Los 5 campos operativos (quién maneja, qué vehículo, cuándo, cuántos km).
 // `obligatorios` decide el modo:
-//  - true: idéntico al validarDatos de siempre — los 5 son obligatorios,
-//    mismos mensajes de error (usado al crear/editar con los 5 completos, al
-//    editar un viaje PROGRAMADO, y al confirmar).
+//  - true: los 5 son obligatorios, mismos mensajes de error de siempre (usado
+//    al editar un viaje PROGRAMADO y al confirmar).
 //  - false: un campo ausente no es error, simplemente resuelve a `null`
 //    explícito (nunca `undefined` — actualizarViaje/crearViaje son reemplazo
 //    completo, no actualización parcial, así que un campo que no vino tiene
 //    que BORRARSE, no "dejarse como estaba"). Si el campo SÍ vino, igual se le
 //    exige formato válido — la obligatoriedad se relaja, no la validación.
+//    Usado al crear (todo viaje nace A_CONFIRMAR) y al editar un A_CONFIRMAR.
+//
+// La excepción es `fechaInicio`: es obligatoria en AMBOS modos, o sea al crear
+// y al editar en cualquier estado. El encargado confirma "el día anterior", así
+// que sin fecha no hay forma de saber cuándo hacerlo. La columna sigue siendo
+// nullable en la base solo por los viajes históricos.
 function validarCamposOperativos(
   { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados },
   { obligatorios }
@@ -187,7 +204,7 @@ function validarCamposOperativos(
   }
 
   if (campoAusente(fechaInicio)) {
-    if (obligatorios) errores.fechaInicio = 'La fecha y hora de inicio es obligatoria';
+    errores.fechaInicio = 'La fecha y hora de inicio es obligatoria';
     datos.fechaInicio = null;
   } else {
     const fecha = aFechaCordobaOInstancia(fechaInicio);
@@ -233,8 +250,26 @@ function validarCamposOperativos(
   return datos;
 }
 
-function todosLosCincoPresentes({ choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados }) {
-  return [choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados].every((v) => !campoAusente(v));
+// Dato informativo (cuántas personas viajan): opcional en todos los estados
+// porque no siempre se conoce al crear el viaje. Ausente, null o vacío → null
+// (reemplazo completo, igual que los campos operativos). Si viene, entero > 0.
+// A propósito NO se compara con Vehiculo.asientos: no restringe nada.
+//
+// No lanza: devuelve `{ valor, errores }` para que el caller junte este error
+// con los de los campos operativos en un solo ValidacionError (el 400 trae
+// todos los campos inválidos juntos, ver validarYArmarOperativos).
+function validarCantidadPasajeros(cantidadPasajeros) {
+  if (campoAusente(cantidadPasajeros)) return { valor: null, errores: {} };
+
+  const numero = typeof cantidadPasajeros === 'boolean' ? NaN : Number(cantidadPasajeros);
+  if (!Number.isInteger(numero) || numero <= 0) {
+    return {
+      valor: null,
+      errores: { cantidadPasajeros: 'La cantidad de pasajeros debe ser un número entero mayor a 0' },
+    };
+  }
+
+  return { valor: numero, errores: {} };
 }
 
 async function obtenerEstadoViajePorDescripcion(descripcion) {
@@ -243,6 +278,25 @@ async function obtenerEstadoViajePorDescripcion(descripcion) {
     throw new Error(`Estado de viaje "${descripcion}" no configurado`);
   }
   return estado;
+}
+
+// Las reglas de habilitación, sin mensajes: las comparten validarChofer /
+// validarVehiculo (que las traducen a un error de validación al crear, editar,
+// confirmar y comenzar) y calcularDisponibilidad (que las traduce a un motivo
+// para mostrar). Así la regla vive en un solo lugar.
+const PROBLEMA_CHOFER = { INACTIVO: 'INACTIVO', NO_HABILITADO: 'NO_HABILITADO' };
+
+function problemaDeChofer(chofer) {
+  if (chofer.estadoUsuario.descripcion !== 'ACTIVO') return PROBLEMA_CHOFER.INACTIVO;
+  if (!chofer.habilitadoParaConducir) return PROBLEMA_CHOFER.NO_HABILITADO;
+  return null;
+}
+
+// Devuelve la descripción del estado cuando no es OPERATIVO (EN_TALLER,
+// DADO_DE_BAJA); null si el vehículo está habilitado.
+function problemaDeVehiculo(vehiculo) {
+  const estado = vehiculo.estadoVehiculo.descripcion;
+  return estado === ESTADO_VEHICULO_HABILITADO ? null : estado;
 }
 
 async function validarChofer(choferId) {
@@ -254,10 +308,11 @@ async function validarChofer(choferId) {
   if (!chofer) {
     throw new ValidacionError({ choferId: 'El chofer elegido no existe' });
   }
-  if (chofer.estadoUsuario.descripcion !== 'ACTIVO') {
+  const problema = problemaDeChofer(chofer);
+  if (problema === PROBLEMA_CHOFER.INACTIVO) {
     throw new ValidacionError({ choferId: 'El chofer elegido está inactivo' });
   }
-  if (!chofer.habilitadoParaConducir) {
+  if (problema === PROBLEMA_CHOFER.NO_HABILITADO) {
     throw new ValidacionError({ choferId: 'El chofer elegido no está habilitado para conducir' });
   }
 
@@ -273,7 +328,7 @@ async function validarVehiculo(vehiculoId) {
   if (!vehiculo) {
     throw new ValidacionError({ vehiculoId: 'El vehículo elegido no existe' });
   }
-  if (vehiculo.estadoVehiculo.descripcion !== ESTADO_VEHICULO_HABILITADO) {
+  if (problemaDeVehiculo(vehiculo)) {
     throw new ValidacionError({
       vehiculoId: 'El vehículo elegido no está disponible (debe estar Operativo)',
     });
@@ -345,30 +400,39 @@ async function validarMetodoPago(id, campo) {
   return metodoPago;
 }
 
-async function existeSolapamiento({ campo, id, fechaInicio, fechaFin, excluirViajeId }) {
-  const estadoProgramado = await obtenerEstadoViajePorDescripcion('PROGRAMADO');
+// Única consulta de solapamiento del sistema: devuelve el viaje PROGRAMADO que
+// se superpone (para poder mostrar su horario) o null. Solo cuentan los
+// PROGRAMADO: un A_CONFIRMAR todavía no reserva a nadie.
+//
+// `estadoProgramadoId` es opcional: quien consulta muchos candidatos de una vez
+// (calcularDisponibilidad) lo resuelve una sola vez en vez de repetir la
+// búsqueda del estado en cada consulta.
+async function buscarSolapamiento({ campo, id, fechaInicio, fechaFin, excluirViajeId, estadoProgramadoId }) {
+  const programadoId = estadoProgramadoId ?? (await obtenerEstadoViajePorDescripcion('PROGRAMADO')).id;
 
-  const conflicto = await prisma.viaje.findFirst({
+  return prisma.viaje.findFirst({
     where: {
       [campo]: id,
-      estadoViajeId: estadoProgramado.id,
+      estadoViajeId: programadoId,
       fechaInicio: { lt: fechaFin },
       fechaFin: { gt: fechaInicio },
       ...(excluirViajeId ? { id: { not: excluirViajeId } } : {}),
     },
   });
+}
 
-  return Boolean(conflicto);
+async function existeSolapamiento(parametros) {
+  return Boolean(await buscarSolapamiento(parametros));
 }
 
 // Validación de negocio completa de los 5 campos operativos, YA bien
 // formados y YA todos presentes (ver validarCamposOperativos con
 // obligatorios:true antes de esto): chofer y vehículo habilitados, y sin
-// solapamiento. Reusada por crearViaje (camino "los 5 completos"),
-// actualizarViaje (edición de un viaje PROGRAMADO) y confirmarViaje — las
-// tres rutas que necesitan la validación completa, nunca duplicada. En la
-// edición/confirmación hay que excluir el propio viaje de la búsqueda de
-// solapamiento (si no, siempre "chocaría" contra su propio horario actual).
+// solapamiento. La usan actualizarViaje (edición de un viaje PROGRAMADO) y
+// confirmarViaje — crearViaje ya NO: todo viaje nace A_CONFIRMAR, así que
+// esta validación recién corre al confirmar. Hay que excluir el propio viaje
+// de la búsqueda de solapamiento (si no, siempre "chocaría" contra su propio
+// horario actual).
 async function validarDisponibilidadOperativa({ choferId, vehiculoId, fechaInicio, fechaFin }, { excluirViajeId } = {}) {
   await validarChofer(choferId);
   await validarVehiculo(vehiculoId);
@@ -404,8 +468,8 @@ async function validarDisponibilidadOperativa({ choferId, vehiculoId, fechaInici
 
 // Valida clienteId/origenId/destinoId (siempre obligatorios, existencia en
 // BD) — compartido por crearViaje y actualizarViaje, en cualquier estado.
-async function validarYArmarCore({ clienteId, origenId, destinoId }) {
-  const core = validarCamposCore({ clienteId, origenId, destinoId });
+async function validarYArmarCore({ clienteId, origenId, destinoId }, { hayParadas = false } = {}) {
+  const core = validarCamposCore({ clienteId, origenId, destinoId }, { hayParadas });
 
   await validarCliente(core.clienteId, 'clienteId');
   await validarUbicacion(core.origenId, 'origenId');
@@ -418,10 +482,26 @@ async function validarYArmarCore({ clienteId, origenId, destinoId }) {
 //  - `obligatorios: true` → los 5 tienen que estar y pasar la validación de
 //    negocio completa (habilitación + solapamiento).
 //  - `obligatorios: false` → los que vengan presentes solo se validan por
-//    existencia (sin elegibilidad de negocio); los ausentes quedan en null.
+//    existencia (sin elegibilidad de negocio); los ausentes quedan en null
+//    (salvo fechaInicio, que es obligatoria siempre).
 // `excluirViajeId` solo importa en modo obligatorio (solapamiento).
-async function validarYArmarOperativos(campos, { obligatorios, excluirViajeId } = {}) {
-  const datos = validarCamposOperativos(campos, { obligatorios });
+// `erroresPrevios` son errores de formato de otros campos del mismo payload
+// (hoy, cantidadPasajeros) que ya se detectaron: se juntan con los de formato
+// de los operativos para que un único 400 los traiga a todos. Las validaciones
+// contra la base (existencia, disponibilidad) solo corren si el formato de
+// todo está bien.
+async function validarYArmarOperativos(campos, { obligatorios, excluirViajeId, erroresPrevios = {} } = {}) {
+  let datos;
+  const errores = { ...erroresPrevios };
+  try {
+    datos = validarCamposOperativos(campos, { obligatorios });
+  } catch (err) {
+    if (!(err instanceof ValidacionError)) throw err;
+    Object.assign(errores, err.errores);
+  }
+  if (Object.keys(errores).length > 0) {
+    throw new ValidacionError(errores);
+  }
 
   if (obligatorios) {
     await validarDisponibilidadOperativa(datos, { excluirViajeId });
@@ -463,6 +543,21 @@ function serializarDatosAdministrativos(viaje) {
     metodoPagoChofer: viaje.metodoPagoChofer
       ? { id: viaje.metodoPagoChofer.id, descripcion: viaje.metodoPagoChofer.descripcion }
       : null,
+  };
+}
+
+function serializarCandidatos(viaje) {
+  return {
+    choferesCandidatos: (viaje.choferesCandidatos ?? []).map(({ usuario }) => ({
+      id: usuario.id,
+      nombre: usuario.nombre,
+      apellido: usuario.apellido,
+    })),
+    vehiculosCandidatos: (viaje.vehiculosCandidatos ?? []).map(({ vehiculo }) => ({
+      id: vehiculo.id,
+      dominio: vehiculo.dominio,
+      numeroInterno: vehiculo.numeroInterno,
+    })),
   };
 }
 
@@ -527,6 +622,12 @@ async function serializarViaje(viaje, usuarioSolicitante) {
     origen: viaje.origen ? { id: viaje.origen.id, nombre: viaje.origen.nombre } : null,
     destinoId: viaje.destinoId,
     destino: viaje.destino ? { id: viaje.destino.id, nombre: viaje.destino.nombre } : null,
+    // Paradas intermedias, ordenadas. No son un dato administrativo ni de
+    // planificación interna: las ven todos los perfiles que ven el viaje.
+    paradas: (viaje.paradas ?? []).map((parada) => ({
+      orden: parada.orden,
+      ubicacion: { id: parada.ubicacion.id, nombre: parada.ubicacion.nombre },
+    })),
     // Cliente es un dato core del viaje, visible para todos los perfiles.
     clienteId: viaje.clienteId,
     cliente: viaje.cliente ? { id: viaje.cliente.id, nombre: viaje.cliente.nombre } : null,
@@ -535,9 +636,17 @@ async function serializarViaje(viaje, usuarioSolicitante) {
     // perfiles NO viaja ninguna (se omiten, no se devuelven en null — ver
     // serializarDatosAdministrativos).
     ...(puedeVerDatosAdministrativos(usuarioSolicitante) ? serializarDatosAdministrativos(viaje) : {}),
+    // Candidatos: mismo criterio que los datos administrativos (solo
+    // Administrador/Encargado; para el resto las claves se omiten, no van en
+    // []): quién "podría" hacer un viaje es información de planificación que
+    // un chofer no tiene por qué ver. Fuera de A_CONFIRMAR van vacíos.
+    ...(puedeVerDatosAdministrativos(usuarioSolicitante) ? serializarCandidatos(viaje) : {}),
     fechaInicio: viaje.fechaInicio,
     fechaFin: viaje.fechaFin,
     kilometrosEstimados: viaje.kilometrosEstimados,
+    // Dato informativo, no administrativo: lo ven todos los perfiles que ven
+    // el viaje. null si no se cargó.
+    cantidadPasajeros: viaje.cantidadPasajeros ?? null,
     horaInicioReal: viaje.horaInicioReal,
     horaFinReal: viaje.horaFinReal,
     odometroInicial: vigenteInicio ? vigenteInicio.valorKm : null,
@@ -551,12 +660,167 @@ async function serializarViaje(viaje, usuarioSolicitante) {
   };
 }
 
-// Un solo endpoint, dos resultados posibles: si los 5 campos operativos
-// vienen completos, comportamiento idéntico a como era antes de esta tarea
-// (validación completa, PROGRAMADO). Si falta alguno, el viaje se crea
-// A_CONFIRMAR con lo que sí vino (validado solo por existencia) y el resto en
-// null. clienteId/origenId/destinoId son siempre obligatorios en los dos
-// casos — no son parte de esta bifurcación.
+// --- Paradas ----------------------------------------------------------------
+//
+// Puntos intermedios ORDENADOS entre origen y destino. El front manda solo los
+// ids de ubicación en el orden del recorrido; el `orden` (1..n) lo asigna el
+// backend según la posición. A diferencia de los candidatos, una ubicación SÍ
+// puede repetirse (un ida y vuelta pasa dos veces por el mismo lugar); lo único
+// que no puede es repetirse de forma CONSECUTIVA.
+
+// Es el límite de puntos intermedios de los links de Google Maps.
+const MAX_PARADAS = 9;
+
+// Forma de la lista (todavía sin tocar la base): ausente/null → [], si viene
+// tiene que ser un arreglo de enteros positivos y no pasar el máximo.
+function validarFormatoParadas(valor) {
+  if (valor === undefined || valor === null) return { ids: [], errores: {} };
+
+  if (!Array.isArray(valor)) {
+    return { ids: [], errores: { paradas: 'Debe ser una lista de ids de ubicaciones' } };
+  }
+
+  const ids = valor.map((v) => (typeof v === 'number' || typeof v === 'string' ? Number(v) : NaN));
+  if (ids.some((n) => !Number.isInteger(n) || n <= 0)) {
+    return { ids: [], errores: { paradas: 'La lista tiene ubicaciones que no son válidas' } };
+  }
+  if (ids.length > MAX_PARADAS) {
+    return { ids: [], errores: { paradas: `Máximo ${MAX_PARADAS} paradas` } };
+  }
+
+  return { ids, errores: {} };
+}
+
+// Revisa la secuencia COMPLETA [origen, ...paradas, destino]: dos puntos
+// consecutivos no pueden ser la misma ubicación. Devuelve el mensaje del primer
+// problema o null. Con 0 paradas, origen == destino no se reporta acá: ya lo
+// cubre validarCamposCore con su mensaje de siempre, en destinoId.
+function errorDeSecuencia(origenId, paradas, destinoId) {
+  const secuencia = [origenId, ...paradas, destinoId];
+
+  for (let i = 1; i < secuencia.length; i += 1) {
+    if (secuencia[i] !== secuencia[i - 1]) continue;
+
+    const esDestino = i === secuencia.length - 1;
+    if (!esDestino) return `La parada ${i} es igual al punto anterior`;
+    if (paradas.length > 0) return `La parada ${paradas.length} es igual al destino`;
+  }
+
+  return null;
+}
+
+// Existencia de todas las ubicaciones de la lista (un findMany, no uno por id).
+async function validarExistenciaParadas(ids) {
+  if (ids.length === 0) return;
+
+  const unicos = [...new Set(ids)];
+  const encontradas = await prisma.ubicacion.findMany({ where: { id: { in: unicos } }, select: { id: true } });
+  if (encontradas.length !== unicos.length) {
+    throw new ValidacionError({ paradas: 'Alguna parada elegida no existe' });
+  }
+}
+
+// Reemplazo completo dentro de una transacción: primero deleteMany y recién
+// después createMany, así reordenar no choca contra @@unique([viajeId, orden]).
+async function reemplazarParadas(tx, viajeId, ids) {
+  await tx.viajeParada.deleteMany({ where: { viajeId } });
+  if (ids.length > 0) {
+    await tx.viajeParada.createMany({
+      data: ids.map((ubicacionId, indice) => ({ viajeId, ubicacionId, orden: indice + 1 })),
+    });
+  }
+}
+
+// Forma de la lista + secuencia, ya con el core validado (hacen falta los ids
+// de origen y destino numéricos). Devuelve los ids y los errores para juntarlos
+// con los de los demás campos.
+function validarParadasDelRecorrido(formato, core) {
+  const errores = { ...formato.errores };
+  if (Object.keys(errores).length === 0) {
+    const mensaje = errorDeSecuencia(core.origenId, formato.ids, core.destinoId);
+    if (mensaje) errores.paradas = mensaje;
+  }
+  return { ids: formato.ids, errores };
+}
+
+// --- Candidatos -------------------------------------------------------------
+//
+// Mientras un viaje está A_CONFIRMAR no tiene chofer ni vehículo asignado
+// (choferId/vehiculoId en null): tiene listas de choferes y vehículos POSIBLES,
+// y recién al confirmar se elige uno de cada uno. Por eso en A_CONFIRMAR no se
+// aceptan choferId/vehiculoId sueltos (400, en vez de ignorarlos en silencio:
+// un cliente que los mande tiene que enterarse de que no se guardaron), y en
+// PROGRAMADO no se aceptan candidatos.
+
+const ERROR_ASIGNADO_EN_A_CONFIRMAR =
+  'Un viaje A confirmar no lleva asignado: indicá los posibles en los candidatos';
+
+// Forma de una lista de ids (todavía sin tocar la base): ausente/null → [], si
+// viene tiene que ser un arreglo de enteros positivos sin repetidos.
+function validarFormatoListaIds(valor, campo) {
+  if (valor === undefined || valor === null) return { ids: [], errores: {} };
+
+  if (!Array.isArray(valor)) {
+    return { ids: [], errores: { [campo]: 'Debe ser una lista de ids' } };
+  }
+
+  const ids = valor.map((v) => (typeof v === 'number' || typeof v === 'string' ? Number(v) : NaN));
+  if (ids.some((n) => !Number.isInteger(n) || n <= 0)) {
+    return { ids: [], errores: { [campo]: 'La lista tiene ids que no son válidos' } };
+  }
+  if (new Set(ids).size !== ids.length) {
+    return { ids: [], errores: { [campo]: 'La lista tiene elementos repetidos' } };
+  }
+
+  return { ids, errores: {} };
+}
+
+function validarFormatoCandidatos({ choferesCandidatos, vehiculosCandidatos }) {
+  const choferes = validarFormatoListaIds(choferesCandidatos, 'choferesCandidatos');
+  const vehiculos = validarFormatoListaIds(vehiculosCandidatos, 'vehiculosCandidatos');
+  return {
+    choferes: choferes.ids,
+    vehiculos: vehiculos.ids,
+    errores: { ...choferes.errores, ...vehiculos.errores },
+  };
+}
+
+// Existencia pura (un findMany por lista, no uno por id), igual que el resto de
+// las validaciones de A_CONFIRMAR: si un candidato está inactivo o en taller no
+// es un error, es justamente lo que informa la disponibilidad.
+async function validarExistenciaCandidatos({ choferes, vehiculos }) {
+  const errores = {};
+
+  if (choferes.length > 0) {
+    const encontrados = await prisma.usuario.findMany({ where: { id: { in: choferes } }, select: { id: true } });
+    if (encontrados.length !== choferes.length) errores.choferesCandidatos = 'Algún chofer elegido no existe';
+  }
+  if (vehiculos.length > 0) {
+    const encontrados = await prisma.vehiculo.findMany({ where: { id: { in: vehiculos } }, select: { id: true } });
+    if (encontrados.length !== vehiculos.length) errores.vehiculosCandidatos = 'Algún vehículo elegido no existe';
+  }
+
+  if (Object.keys(errores).length > 0) {
+    throw new ValidacionError(errores);
+  }
+}
+
+// Errores previos de un viaje A_CONFIRMAR (create/edit): asignado suelto o
+// candidatos con mal formato. Se juntan con los de los campos operativos.
+function erroresCandidatosAConfirmar({ choferId, vehiculoId }, candidatos) {
+  const errores = { ...candidatos.errores };
+  if (!campoAusente(choferId)) errores.choferId = ERROR_ASIGNADO_EN_A_CONFIRMAR;
+  if (!campoAusente(vehiculoId)) errores.vehiculoId = ERROR_ASIGNADO_EN_A_CONFIRMAR;
+  return errores;
+}
+
+// Todo viaje nace A_CONFIRMAR, vengan o no los 5 campos operativos: el
+// encargado primero anota el viaje y recién después lo confirma. El único
+// camino a PROGRAMADO es `confirmarViaje`, que es donde corre la validación de
+// disponibilidad (habilitación + solapamiento). choferId/vehiculoId quedan en
+// null: en su lugar van las listas de candidatos (choferesCandidatos /
+// vehiculosCandidatos). clienteId/origenId/destinoId y fechaInicio son siempre
+// obligatorios.
 //
 // `datosAdministrativos` es opcional (solo lo manda el formulario de alta de
 // Administrador/Encargado): se valida con las mismas reglas que el PATCH
@@ -569,6 +833,10 @@ async function crearViaje(
     fechaInicio,
     fechaFin,
     kilometrosEstimados,
+    cantidadPasajeros,
+    choferesCandidatos,
+    vehiculosCandidatos,
+    paradas: paradasPayload,
     clienteId,
     origenId,
     destinoId,
@@ -576,16 +844,31 @@ async function crearViaje(
   },
   usuarioSolicitante
 ) {
-  const core = await validarYArmarCore({ clienteId, origenId, destinoId });
+  const formatoParadas = validarFormatoParadas(paradasPayload);
+  const core = await validarYArmarCore({ clienteId, origenId, destinoId }, { hayParadas: formatoParadas.ids.length > 0 });
+  const paradas = validarParadasDelRecorrido(formatoParadas, core);
 
-  const camposOperativos = { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados };
-  const completo = todosLosCincoPresentes(camposOperativos);
-
-  const operativos = await validarYArmarOperativos(camposOperativos, { obligatorios: completo });
+  const pasajeros = validarCantidadPasajeros(cantidadPasajeros);
+  const candidatos = validarFormatoCandidatos({ choferesCandidatos, vehiculosCandidatos });
+  // choferId/vehiculoId no se pasan a validarYArmarOperativos: en A_CONFIRMAR
+  // el asignado es siempre null (si vinieron, ya son un error previo).
+  const operativos = await validarYArmarOperativos(
+    { fechaInicio, fechaFin, kilometrosEstimados },
+    {
+      obligatorios: false,
+      erroresPrevios: {
+        ...pasajeros.errores,
+        ...erroresCandidatosAConfirmar({ choferId, vehiculoId }, candidatos),
+        ...paradas.errores,
+      },
+    }
+  );
+  await validarExistenciaCandidatos(candidatos);
+  await validarExistenciaParadas(paradas.ids);
 
   const administrativos = await validarYArmarDatosAdministrativosOpcionales(datosAdministrativos);
 
-  const estado = await obtenerEstadoViajePorDescripcion(completo ? 'PROGRAMADO' : 'A_CONFIRMAR');
+  const estado = await obtenerEstadoViajePorDescripcion('A_CONFIRMAR');
 
   const viaje = await prisma.viaje.create({
     data: {
@@ -595,10 +878,16 @@ async function crearViaje(
       fechaInicio: operativos.fechaInicio,
       fechaFin: operativos.fechaFin,
       kilometrosEstimados: operativos.kilometrosEstimados,
+      cantidadPasajeros: pasajeros.valor,
       clienteId: core.clienteId,
       origenId: core.origenId,
       destinoId: core.destinoId,
       estadoViajeId: estado.id,
+      // Create anidado: Prisma lo ejecuta en una sola transacción, así el
+      // viaje se crea con sus candidatos o no se crea.
+      choferesCandidatos: { create: candidatos.choferes.map((usuarioId) => ({ usuarioId })) },
+      vehiculosCandidatos: { create: candidatos.vehiculos.map((vehiculoId) => ({ vehiculoId })) },
+      paradas: { create: paradas.ids.map((ubicacionId, indice) => ({ ubicacionId, orden: indice + 1 })) },
     },
     include: INCLUDE_RELACIONES_VIAJE,
   });
@@ -643,9 +932,34 @@ async function obtenerViaje(id) {
 // completando los 5 campos de un A_CONFIRMAR; esa transición es exclusiva de
 // `confirmarViaje`, a propósito, para no tener dos caminos que promuevan un
 // viaje.
+//
+// Según el estado actual el viaje se asigna de una de dos maneras:
+//  - PROGRAMADO: 1 chofer y 1 vehículo, validación completa. Los candidatos no
+//    aplican (si vienen no vacíos, 400).
+//  - A_CONFIRMAR: choferId/vehiculoId sueltos no se aceptan (400); se usan las
+//    listas de candidatos, que se REEMPLAZAN por completo (deleteMany +
+//    createMany) junto con el update del viaje, todo en una transacción.
+//
+// Las paradas se editan en los dos estados, también como reemplazo completo en
+// la misma transacción que el update (un PUT sin `paradas` las borra, como
+// cualquier otro campo ausente). En EN_VIAJE, FINALIZADO o CANCELADO no se
+// puede editar nada (EstadoNoEditableError, más arriba).
 async function actualizarViaje(
   id,
-  { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados, clienteId, origenId, destinoId },
+  {
+    choferId,
+    vehiculoId,
+    fechaInicio,
+    fechaFin,
+    kilometrosEstimados,
+    cantidadPasajeros,
+    choferesCandidatos,
+    vehiculosCandidatos,
+    paradas: paradasPayload,
+    clienteId,
+    origenId,
+    destinoId,
+  },
   usuarioSolicitante
 ) {
   const actual = await obtenerViaje(id);
@@ -655,27 +969,85 @@ async function actualizarViaje(
     throw new EstadoNoEditableError(estadoActual);
   }
 
-  const core = await validarYArmarCore({ clienteId, origenId, destinoId });
+  const formatoParadas = validarFormatoParadas(paradasPayload);
+  const core = await validarYArmarCore({ clienteId, origenId, destinoId }, { hayParadas: formatoParadas.ids.length > 0 });
+  const paradas = validarParadasDelRecorrido(formatoParadas, core);
 
   const modoCompleto = estadoActual === 'PROGRAMADO';
-  const operativos = await validarYArmarOperativos(
-    { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados },
-    { obligatorios: modoCompleto, excluirViajeId: actual.id }
-  );
+  const pasajeros = validarCantidadPasajeros(cantidadPasajeros);
+  const candidatos = validarFormatoCandidatos({ choferesCandidatos, vehiculosCandidatos });
 
-  const viaje = await prisma.viaje.update({
-    where: { id: actual.id },
-    data: {
-      choferId: operativos.choferId,
-      vehiculoId: operativos.vehiculoId,
-      fechaInicio: operativos.fechaInicio,
-      fechaFin: operativos.fechaFin,
-      kilometrosEstimados: operativos.kilometrosEstimados,
-      clienteId: core.clienteId,
-      origenId: core.origenId,
-      destinoId: core.destinoId,
-    },
-    include: INCLUDE_RELACIONES_VIAJE,
+  const datosViaje = {
+    cantidadPasajeros: pasajeros.valor,
+    clienteId: core.clienteId,
+    origenId: core.origenId,
+    destinoId: core.destinoId,
+  };
+
+  if (modoCompleto) {
+    const erroresPrevios = { ...pasajeros.errores, ...candidatos.errores, ...paradas.errores };
+    if (candidatos.choferes.length > 0) {
+      erroresPrevios.choferesCandidatos = 'Los candidatos solo aplican a viajes A confirmar';
+    }
+    if (candidatos.vehiculos.length > 0) {
+      erroresPrevios.vehiculosCandidatos = 'Los candidatos solo aplican a viajes A confirmar';
+    }
+
+    const operativos = await validarYArmarOperativos(
+      { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados },
+      { obligatorios: true, excluirViajeId: actual.id, erroresPrevios }
+    );
+    await validarExistenciaParadas(paradas.ids);
+
+    const viaje = await prisma.$transaction(async (tx) => {
+      await reemplazarParadas(tx, actual.id, paradas.ids);
+      return tx.viaje.update({
+        where: { id: actual.id },
+        data: { ...datosViaje, ...operativos },
+        include: INCLUDE_RELACIONES_VIAJE,
+      });
+    });
+
+    return await serializarViaje(viaje, usuarioSolicitante);
+  }
+
+  const operativos = await validarYArmarOperativos(
+    { fechaInicio, fechaFin, kilometrosEstimados },
+    {
+      obligatorios: false,
+      excluirViajeId: actual.id,
+      erroresPrevios: {
+        ...pasajeros.errores,
+        ...erroresCandidatosAConfirmar({ choferId, vehiculoId }, candidatos),
+        ...paradas.errores,
+      },
+    }
+  );
+  await validarExistenciaCandidatos(candidatos);
+  await validarExistenciaParadas(paradas.ids);
+
+  const viaje = await prisma.$transaction(async (tx) => {
+    // Reemplazo completo de las listas (candidatos y paradas) + update del
+    // viaje: si cualquier paso falla no queda el viaje a medio cambiar.
+    await reemplazarParadas(tx, actual.id, paradas.ids);
+    await tx.viajeChoferCandidato.deleteMany({ where: { viajeId: actual.id } });
+    await tx.viajeVehiculoCandidato.deleteMany({ where: { viajeId: actual.id } });
+    if (candidatos.choferes.length > 0) {
+      await tx.viajeChoferCandidato.createMany({
+        data: candidatos.choferes.map((usuarioId) => ({ viajeId: actual.id, usuarioId })),
+      });
+    }
+    if (candidatos.vehiculos.length > 0) {
+      await tx.viajeVehiculoCandidato.createMany({
+        data: candidatos.vehiculos.map((vehiculoId) => ({ viajeId: actual.id, vehiculoId })),
+      });
+    }
+
+    return tx.viaje.update({
+      where: { id: actual.id },
+      data: { ...datosViaje, ...operativos },
+      include: INCLUDE_RELACIONES_VIAJE,
+    });
   });
 
   return await serializarViaje(viaje, usuarioSolicitante);
@@ -691,9 +1063,12 @@ function presente(payload, campo) {
 // el viaje ya tenía guardado con lo que venga en el payload (el payload gana
 // campo por campo, si está presente) y exige que el resultado tenga los 5
 // completos — si no, 400 nombrando cuáles faltan, mismos mensajes que
-// crear/editar en modo obligatorio. Con los 5 completos corre la MISMA
-// validación de negocio que crearViaje/actualizarViaje (validarDisponibilidadOperativa
-// — no se duplica) y, si pasa, pasa a PROGRAMADO.
+// editar en modo obligatorio. Como un A_CONFIRMAR no tiene asignado,
+// choferId/vehiculoId tienen que venir en el payload: pueden ser o no
+// candidatos ("elegir otro" está permitido). Con los 5 completos corre la
+// MISMA validación de negocio que actualizarViaje sobre un PROGRAMADO
+// (validarDisponibilidadOperativa — no se duplica) y, si pasa, pasa a
+// PROGRAMADO y borra los candidatos, todo en una transacción.
 class EstadoNoConfirmableError extends Error {
   constructor(estadoActual) {
     super(`El viaje está en estado ${estadoActual}`);
@@ -721,22 +1096,228 @@ async function confirmarViaje(id, payload = {}, usuarioSolicitante) {
     { obligatorios: true, excluirViajeId: actual.id }
   );
 
+  const estadoAConfirmar = await obtenerEstadoViajePorDescripcion('A_CONFIRMAR');
   const estadoProgramado = await obtenerEstadoViajePorDescripcion('PROGRAMADO');
 
-  const viaje = await prisma.viaje.update({
-    where: { id: actual.id },
-    data: {
-      choferId: operativos.choferId,
-      vehiculoId: operativos.vehiculoId,
-      fechaInicio: operativos.fechaInicio,
-      fechaFin: operativos.fechaFin,
-      kilometrosEstimados: operativos.kilometrosEstimados,
-      estadoViajeId: estadoProgramado.id,
-    },
-    include: INCLUDE_RELACIONES_VIAJE,
+  // Pasar a PROGRAMADO y borrar los candidatos son UNA sola transacción: los
+  // candidatos no se guardan una vez confirmado (decisión de negocio), y un
+  // viaje PROGRAMADO que conserva candidatos (o uno A_CONFIRMAR sin ellos) sería
+  // un estado inconsistente.
+  await prisma.$transaction(async (tx) => {
+    // updateMany condicional contra el estado de origen (mismo patrón que
+    // comenzarViaje): si dos confirmaciones del MISMO viaje llegan a la vez, el
+    // chequeo de estado de arriba pudo leer A_CONFIRMAR en las dos. El WHERE
+    // por estado es la garantía dura — la segunda encuentra count 0.
+    const actualizados = await tx.viaje.updateMany({
+      where: { id: actual.id, estadoViajeId: estadoAConfirmar.id },
+      data: {
+        choferId: operativos.choferId,
+        vehiculoId: operativos.vehiculoId,
+        fechaInicio: operativos.fechaInicio,
+        fechaFin: operativos.fechaFin,
+        kilometrosEstimados: operativos.kilometrosEstimados,
+        estadoViajeId: estadoProgramado.id,
+      },
+    });
+    // El error se lanza ACÁ, antes de los deleteMany: la confirmación perdedora
+    // no tiene que borrar los candidatos (ya los borró la ganadora) ni dejar
+    // nada hecho a medias.
+    if (actualizados.count === 0) {
+      const viajeActual = await tx.viaje.findUnique({
+        where: { id: actual.id },
+        include: { estadoViaje: true },
+      });
+      throw new EstadoNoConfirmableError(viajeActual.estadoViaje.descripcion);
+    }
+
+    await tx.viajeChoferCandidato.deleteMany({ where: { viajeId: actual.id } });
+    await tx.viajeVehiculoCandidato.deleteMany({ where: { viajeId: actual.id } });
   });
 
+  const viaje = await obtenerViaje(actual.id);
   return await serializarViaje(viaje, usuarioSolicitante);
+}
+
+// --- Disponibilidad ---------------------------------------------------------
+//
+// Informa, para una ventana de tiempo, si cada chofer/vehículo está disponible
+// y por qué no. Es informativa: nunca bloquea un guardado (al confirmar, la
+// validación que cuenta sigue siendo validarDisponibilidadOperativa). Reusa las
+// mismas piezas que esa validación — problemaDeChofer/problemaDeVehiculo para
+// la habilitación y buscarSolapamiento para el horario — así que las reglas
+// no se duplican.
+
+const MS_POR_DIA = 24 * 60 * 60 * 1000;
+const CORDOBA_OFFSET_MS = 3 * 60 * 60 * 1000;
+const FORMATO_HORA_CORDOBA = new Intl.DateTimeFormat('es-AR', {
+  timeZone: 'America/Argentina/Cordoba',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+// Sin fechaFin (todavía no se sabe cuándo termina) se chequea contra el día
+// completo de fechaInicio, de 00:00 a 24:00 hora de Córdoba.
+function rangoDelDiaCordoba(fecha) {
+  const diaCordoba = new Date(fecha.getTime() - CORDOBA_OFFSET_MS).toISOString().slice(0, 10);
+  const inicio = aFechaCordoba(`${diaCordoba}T00:00`);
+  return { inicio, fin: new Date(inicio.getTime() + MS_POR_DIA) };
+}
+
+function motivoDeChofer(chofer) {
+  const problema = problemaDeChofer(chofer);
+  if (problema === PROBLEMA_CHOFER.INACTIVO) return 'Usuario dado de baja';
+  if (problema === PROBLEMA_CHOFER.NO_HABILITADO) return 'No habilitado para conducir';
+  return null;
+}
+
+function motivoDeVehiculo(vehiculo) {
+  const problema = problemaDeVehiculo(vehiculo);
+  if (!problema) return null;
+  if (problema === 'EN_TALLER') return 'Vehículo en taller';
+  if (problema === 'DADO_DE_BAJA') return 'Vehículo dado de baja';
+  return 'Vehículo no operativo';
+}
+
+async function calcularDisponibilidad({ fechaInicio, fechaFin, choferIds, vehiculoIds, excluirViajeId }) {
+  const ventana = fechaFin ? { inicio: fechaInicio, fin: fechaFin } : rangoDelDiaCordoba(fechaInicio);
+  const estadoProgramado = await obtenerEstadoViajePorDescripcion('PROGRAMADO');
+
+  const [usuarios, vehiculos] = await Promise.all([
+    choferIds.length > 0
+      ? prisma.usuario.findMany({ where: { id: { in: choferIds } }, include: { estadoUsuario: true } })
+      : [],
+    vehiculoIds.length > 0
+      ? prisma.vehiculo.findMany({ where: { id: { in: vehiculoIds } }, include: { estadoVehiculo: true } })
+      : [],
+  ]);
+
+  async function evaluar({ id, entidad, campo, motivoDeHabilitacion }) {
+    if (!entidad) return { id, disponible: false, motivo: 'No encontrado' };
+
+    const motivoHabilitacion = motivoDeHabilitacion(entidad);
+    if (motivoHabilitacion) return { id, disponible: false, motivo: motivoHabilitacion };
+
+    const conflicto = await buscarSolapamiento({
+      campo,
+      id,
+      fechaInicio: ventana.inicio,
+      fechaFin: ventana.fin,
+      excluirViajeId,
+      estadoProgramadoId: estadoProgramado.id,
+    });
+    if (conflicto) {
+      const horario = `${FORMATO_HORA_CORDOBA.format(conflicto.fechaInicio)}–${FORMATO_HORA_CORDOBA.format(conflicto.fechaFin)}`;
+      return { id, disponible: false, motivo: `Se superpone con otro viaje programado (${horario})` };
+    }
+
+    return { id, disponible: true, motivo: null };
+  }
+
+  const usuariosPorId = new Map(usuarios.map((u) => [u.id, u]));
+  const vehiculosPorId = new Map(vehiculos.map((v) => [v.id, v]));
+
+  const [choferes, resultadoVehiculos] = await Promise.all([
+    Promise.all(
+      choferIds.map((id) =>
+        evaluar({ id, entidad: usuariosPorId.get(id), campo: 'choferId', motivoDeHabilitacion: motivoDeChofer })
+      )
+    ),
+    Promise.all(
+      vehiculoIds.map((id) =>
+        evaluar({ id, entidad: vehiculosPorId.get(id), campo: 'vehiculoId', motivoDeHabilitacion: motivoDeVehiculo })
+      )
+    ),
+  ]);
+
+  return { choferes, vehiculos: resultadoVehiculos };
+}
+
+function sinRepetidos(ids) {
+  return [...new Set(ids)];
+}
+
+// Disponibilidad de los candidatos de un viaje existente, con sus propias
+// fechas (y excluyéndolo a él mismo del solapamiento). Con `todos` evalúa
+// además a todos los choferes activos y habilitados y a todos los vehículos no
+// dados de baja (los de taller aparecen, con su motivo), para el "Elegir
+// otro…" del modal de confirmar.
+async function disponibilidadDeViaje(id, { todos = false } = {}) {
+  const actual = await obtenerViaje(id);
+
+  if (!actual.fechaInicio) {
+    throw new ValidacionError({ fechaInicio: 'El viaje no tiene fecha de inicio' });
+  }
+
+  let choferIds = actual.choferesCandidatos.map((c) => c.usuarioId);
+  let vehiculoIds = actual.vehiculosCandidatos.map((c) => c.vehiculoId);
+
+  if (todos) {
+    const [usuarios, vehiculos] = await Promise.all([
+      prisma.usuario.findMany({
+        where: { habilitadoParaConducir: true, estadoUsuario: { descripcion: 'ACTIVO' } },
+        select: { id: true },
+      }),
+      prisma.vehiculo.findMany({
+        where: { estadoVehiculo: { descripcion: { not: 'DADO_DE_BAJA' } } },
+        select: { id: true },
+      }),
+    ]);
+    choferIds = sinRepetidos([...choferIds, ...usuarios.map((u) => u.id)]);
+    vehiculoIds = sinRepetidos([...vehiculoIds, ...vehiculos.map((v) => v.id)]);
+  }
+
+  return calcularDisponibilidad({
+    fechaInicio: actual.fechaInicio,
+    fechaFin: actual.fechaFin,
+    choferIds,
+    vehiculoIds,
+    excluirViajeId: actual.id,
+  });
+}
+
+// Equivalente para el alta, cuando el viaje todavía no existe: recibe las
+// fechas y los ids directamente. Valida solo la forma — un id que no exista
+// vuelve como no disponible ("No encontrado") en vez de cortar la consulta.
+async function disponibilidadParaAlta({ fechaInicio, fechaFin, choferIds, vehiculoIds } = {}) {
+  const errores = {};
+
+  let inicio = null;
+  if (campoAusente(fechaInicio)) {
+    errores.fechaInicio = 'La fecha y hora de inicio es obligatoria';
+  } else {
+    inicio = aFechaCordobaOInstancia(fechaInicio);
+    if (!inicio || Number.isNaN(inicio.getTime())) {
+      inicio = null;
+      errores.fechaInicio = 'La fecha y hora de inicio no es válida';
+    }
+  }
+
+  let fin = null;
+  if (!campoAusente(fechaFin)) {
+    fin = aFechaCordobaOInstancia(fechaFin);
+    if (!fin || Number.isNaN(fin.getTime())) {
+      fin = null;
+      errores.fechaFin = 'La fecha y hora de fin no es válida';
+    } else if (inicio && fin <= inicio) {
+      errores.fechaFin = 'La fecha y hora de fin debe ser posterior al inicio';
+    }
+  }
+
+  const choferes = validarFormatoListaIds(choferIds, 'choferIds');
+  const vehiculos = validarFormatoListaIds(vehiculoIds, 'vehiculoIds');
+  Object.assign(errores, choferes.errores, vehiculos.errores);
+
+  if (Object.keys(errores).length > 0) {
+    throw new ValidacionError(errores);
+  }
+
+  return calcularDisponibilidad({
+    fechaInicio: inicio,
+    fechaFin: fin,
+    choferIds: choferes.ids,
+    vehiculoIds: vehiculos.ids,
+  });
 }
 
 // `null` explícito siempre es válido (borra el dato); cualquier otro valor se
@@ -1221,6 +1802,8 @@ module.exports = {
   listarEstadosPago,
   listarMetodosPago,
   confirmarViaje,
+  disponibilidadDeViaje,
+  disponibilidadParaAlta,
   cancelarViaje,
   comenzarViaje,
   finalizarViaje,
