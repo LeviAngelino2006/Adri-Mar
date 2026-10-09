@@ -12,6 +12,8 @@ import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import { PERFILES, PERFIL_COLORS } from '../constants/perfiles';
+import EstadoBadge from '../components/ui/EstadoBadge';
+import { ListadoCard, ListadoHeader, ListadoToolbar } from '../components/Listado';
 import './Usuarios.css';
 
 const ICONO_ALERTA = (
@@ -43,7 +45,7 @@ function perfilLabel(perfil) {
 }
 
 function estadoDotColor(activo) {
-  return activo ? '#16a34a' : '#94a3b8';
+  return activo ? 'var(--state-success-solid)' : 'var(--state-neutral-text)';
 }
 
 function ordenarPorPerfil(usuarios) {
@@ -95,6 +97,14 @@ function Usuarios() {
     const t = setTimeout(() => setMensaje(''), 3500);
     return () => clearTimeout(t);
   }, [mensaje]);
+
+  // La ficha y el formulario reemplazan al listado dentro de la misma ruta: sin
+  // esto conservan el scroll de la vista anterior (aparecen desplazados hacia
+  // abajo, y el listado también al cancelar o guardar desde los botones del final).
+  const seleccionadoId = seleccionado?.id ?? null;
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [seleccionadoId, mostrarForm]);
 
   function seleccionar(u) {
     setMostrarForm(false);
@@ -211,12 +221,11 @@ function Usuarios() {
   return (
     <Layout>
       {!mostrarForm && !seleccionado && (
-        <div className="usuarios-header">
-          <h1>Gestionar usuarios</h1>
+        <ListadoHeader titulo="Usuarios">
           <Button variant="primary" onClick={abrirNuevo}>
             + Nuevo usuario
           </Button>
-        </div>
+        </ListadoHeader>
       )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
@@ -247,7 +256,7 @@ function Usuarios() {
                   <input name="email" type="email" value={form.email} onChange={handleChange} />
                 </FormField>
 
-                <FormField id="telefono" label="Teléfono" error={errores.telefono} hint="Opcional">
+                <FormField id="telefono" label="Teléfono" error={errores.telefono}>
                   <input name="telefono" type="tel" value={form.telefono} onChange={handleChange} />
                 </FormField>
 
@@ -306,11 +315,9 @@ function Usuarios() {
 
       {!mostrarForm && !seleccionado && (
         <>
-          <div className="usuarios-filtros">
-            <FormField id="busqueda" label="Buscar por nombre o usuario">
-              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-            </FormField>
-          </div>
+          <ListadoToolbar
+            busqueda={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Buscar por nombre o usuario' }}
+          />
 
           {cargando && (
             <div className="loading-state">
@@ -319,88 +326,34 @@ function Usuarios() {
             </div>
           )}
 
-          {!cargando && usuarios.length === 0 && (
-            <Card className="usuarios-empty">No se encontraron usuarios</Card>
-          )}
+          {!cargando && usuarios.length === 0 && <div className="listado-vacio">No se encontraron usuarios</div>}
 
           {!cargando && usuarios.length > 0 && (
-            <>
-              <div className="usuarios-table-wrap">
-                <table className="usuarios-table">
-                  <thead>
-                    <tr>
-                      <th>Nombre</th>
-                      <th>Perfil</th>
-                      <th>Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ordenarPorPerfil(usuarios).map((u) => {
-                      const colores = PERFIL_COLORS[u.perfil] || {};
-                      return (
-                        <tr
-                          key={u.id}
-                          className="usuarios-row"
-                          tabIndex={0}
-                          onClick={() => seleccionar(u)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              seleccionar(u);
-                            }
-                          }}
-                        >
-                          <td>
-                            <div className="usuarios-nombre">
-                              <span
-                                className="usuarios-avatar"
-                                style={{ backgroundColor: colores.bg, color: colores.text }}
-                              >
-                                {initials(u.nombre, u.apellido)}
-                              </span>
-                              <span>
-                                {u.nombre} {u.apellido}
-                              </span>
-                            </div>
-                          </td>
-                          <td>{perfilLabel(u.perfil)}</td>
-                          <td>
-                            <EstadoDot color={estadoDotColor(u.activo)}>
-                              {u.activo ? 'Activo' : 'Inactivo'}
-                            </EstadoDot>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="usuarios-cards">
-                {ordenarPorPerfil(usuarios).map((u) => {
-                  const colores = PERFIL_COLORS[u.perfil] || {};
-                  return (
-                    <button type="button" className="usuarios-card" key={u.id} onClick={() => seleccionar(u)}>
-                      <span
-                        className="usuarios-avatar"
-                        style={{ backgroundColor: colores.bg, color: colores.text }}
-                      >
+            <div className="listado-cards">
+              {ordenarPorPerfil(usuarios).map((u) => {
+                const colores = PERFIL_COLORS[u.perfil] || {};
+                return (
+                  <ListadoCard
+                    key={u.id}
+                    marcaSinFondo
+                    marca={
+                      <span className="usuarios-avatar" style={{ backgroundColor: colores.bg, color: colores.text }}>
                         {initials(u.nombre, u.apellido)}
                       </span>
-                      <div className="usuarios-card-info">
-                        <span className="usuarios-card-nombre">
-                          {u.nombre} {u.apellido}
-                        </span>
-                        <span className="usuarios-card-perfil-sub">{perfilLabel(u.perfil)}</span>
-                      </div>
-                      <EstadoDot color={estadoDotColor(u.activo)}>
+                    }
+                    titulo={`${u.nombre} ${u.apellido}`}
+                    estado={
+                      <EstadoBadge tono={u.activo ? 'success' : 'neutral'} size="sm">
                         {u.activo ? 'Activo' : 'Inactivo'}
-                      </EstadoDot>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
+                      </EstadoBadge>
+                    }
+                    sub={perfilLabel(u.perfil)}
+                    pie={[`@${u.nombreUsuario}`]}
+                    onClick={() => seleccionar(u)}
+                  />
+                );
+              })}
+            </div>
           )}
         </>
       )}

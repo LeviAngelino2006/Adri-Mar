@@ -1,6 +1,7 @@
 const viajeService = require('../services/viajeService');
 
 const ETIQUETA_ESTADO = {
+  A_CONFIRMAR: 'A confirmar',
   PROGRAMADO: 'Programado',
   EN_VIAJE: 'En viaje',
   FINALIZADO: 'Finalizado',
@@ -8,16 +9,33 @@ const ETIQUETA_ESTADO = {
 };
 
 async function crear(req, res) {
-  const { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados } = req.body;
+  const {
+    choferId,
+    vehiculoId,
+    fechaInicio,
+    fechaFin,
+    kilometrosEstimados,
+    clienteId,
+    origenId,
+    destinoId,
+    datosAdministrativos,
+  } = req.body;
 
   try {
-    const viaje = await viajeService.crearViaje({
-      choferId,
-      vehiculoId,
-      fechaInicio,
-      fechaFin,
-      kilometrosEstimados,
-    });
+    const viaje = await viajeService.crearViaje(
+      {
+        choferId,
+        vehiculoId,
+        fechaInicio,
+        fechaFin,
+        kilometrosEstimados,
+        clienteId,
+        origenId,
+        destinoId,
+        datosAdministrativos,
+      },
+      req.usuario
+    );
     return res.status(201).json({ viaje });
   } catch (err) {
     if (err instanceof viajeService.ValidacionError) {
@@ -29,35 +47,60 @@ async function crear(req, res) {
 
 async function listar(req, res) {
   const { estado, choferId, vehiculoId, fechaDesde, fechaHasta } = req.query;
-  const viajes = await viajeService.listarViajes({ estado, choferId, vehiculoId, fechaDesde, fechaHasta });
+  const viajes = await viajeService.listarViajes(
+    { estado, choferId, vehiculoId, fechaDesde, fechaHasta },
+    req.usuario
+  );
   return res.json({ viajes });
 }
 
 // Viajes del usuario autenticado como chofer. El choferId SIEMPRE sale del
 // JWT (req.usuario.id), nunca de la query string: un usuario no puede pedir
-// los viajes de otro cambiando un parámetro.
+// los viajes de otro cambiando un parámetro. excluirAConfirmar: true siempre
+// — A_CONFIRMAR es una etapa de planificación que el chofer no tiene por qué
+// ver todavía, ni siquiera si pide ?estado=A_CONFIRMAR explícito.
 async function misViajes(req, res) {
   const { estado, fechaDesde, fechaHasta } = req.query;
-  const viajes = await viajeService.listarViajes({
-    estado,
-    choferId: req.usuario.id,
-    fechaDesde,
-    fechaHasta,
-  });
+  const viajes = await viajeService.listarViajes(
+    {
+      estado,
+      choferId: req.usuario.id,
+      fechaDesde,
+      fechaHasta,
+      excluirAConfirmar: true,
+    },
+    req.usuario
+  );
   return res.json({ viajes });
 }
 
 async function actualizar(req, res) {
-  const { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados } = req.body;
+  const {
+    choferId,
+    vehiculoId,
+    fechaInicio,
+    fechaFin,
+    kilometrosEstimados,
+    clienteId,
+    origenId,
+    destinoId,
+  } = req.body;
 
   try {
-    const viaje = await viajeService.actualizarViaje(req.params.id, {
-      choferId,
-      vehiculoId,
-      fechaInicio,
-      fechaFin,
-      kilometrosEstimados,
-    });
+    const viaje = await viajeService.actualizarViaje(
+      req.params.id,
+      {
+        choferId,
+        vehiculoId,
+        fechaInicio,
+        fechaFin,
+        kilometrosEstimados,
+        clienteId,
+        origenId,
+        destinoId,
+      },
+      req.usuario
+    );
     return res.json({ viaje });
   } catch (err) {
     if (err instanceof viajeService.NoEncontradoError) {
@@ -66,7 +109,7 @@ async function actualizar(req, res) {
     if (err instanceof viajeService.EstadoNoEditableError) {
       const etiqueta = ETIQUETA_ESTADO[err.estadoActual] || err.estadoActual;
       return res.status(409).json({
-        error: `No se puede modificar un viaje en estado ${etiqueta}. Solo se pueden modificar viajes Programados.`,
+        error: `No se puede modificar un viaje en estado ${etiqueta}. Solo se pueden modificar viajes A confirmar o Programados.`,
       });
     }
     if (err instanceof viajeService.ValidacionError) {
@@ -76,9 +119,62 @@ async function actualizar(req, res) {
   }
 }
 
+async function confirmar(req, res) {
+  try {
+    const viaje = await viajeService.confirmarViaje(req.params.id, req.body, req.usuario);
+    return res.json({ viaje });
+  } catch (err) {
+    if (err instanceof viajeService.NoEncontradoError) {
+      return res.status(404).json({ error: 'Viaje no encontrado' });
+    }
+    if (err instanceof viajeService.EstadoNoConfirmableError) {
+      const etiqueta = ETIQUETA_ESTADO[err.estadoActual] || err.estadoActual;
+      return res.status(409).json({
+        error: `No se puede confirmar un viaje en estado ${etiqueta}. Solo se pueden confirmar viajes A confirmar.`,
+      });
+    }
+    if (err instanceof viajeService.ValidacionError) {
+      return res.status(400).json({ errores: err.errores });
+    }
+    throw err;
+  }
+}
+
+// A diferencia de `actualizar` (que desestructura campo por campo), acá se
+// pasa req.body TAL CUAL al service: esta acción es una actualización
+// parcial donde "la clave no vino" y "la clave vino en undefined" tienen que
+// seguir siendo distinguibles. Desestructurar y reconstruir el objeto (como
+// hace `actualizar`) perdería esa distinción, porque `{ precio } = req.body`
+// seguido de `{ precio }` deja la clave "precio" presente (con valor
+// undefined) aunque el campo nunca haya venido en el body.
+async function actualizarDatosAdministrativos(req, res) {
+  try {
+    const viaje = await viajeService.actualizarDatosAdministrativos(req.params.id, req.body, req.usuario);
+    return res.json({ viaje });
+  } catch (err) {
+    if (err instanceof viajeService.NoEncontradoError) {
+      return res.status(404).json({ error: 'Viaje no encontrado' });
+    }
+    if (err instanceof viajeService.ValidacionError) {
+      return res.status(400).json({ errores: err.errores });
+    }
+    throw err;
+  }
+}
+
+async function listarEstadosPago(req, res) {
+  const estadosPago = await viajeService.listarEstadosPago();
+  return res.json({ estadosPago });
+}
+
+async function listarMetodosPago(req, res) {
+  const metodosPago = await viajeService.listarMetodosPago();
+  return res.json({ metodosPago });
+}
+
 async function cancelar(req, res) {
   try {
-    const viaje = await viajeService.cancelarViaje(req.params.id);
+    const viaje = await viajeService.cancelarViaje(req.params.id, req.usuario);
     return res.json({ viaje });
   } catch (err) {
     if (err instanceof viajeService.NoEncontradoError) {
@@ -125,10 +221,10 @@ async function comenzar(req, res) {
 }
 
 async function finalizar(req, res) {
-  const { odometroFinal } = req.body;
+  const { odometroFinal, observacion } = req.body;
 
   try {
-    const viaje = await viajeService.finalizarViaje(req.params.id, { odometroFinal }, req.usuario);
+    const viaje = await viajeService.finalizarViaje(req.params.id, { odometroFinal, observacion }, req.usuario);
     return res.json({ viaje });
   } catch (err) {
     if (err instanceof viajeService.NoEncontradoError) {
@@ -150,4 +246,16 @@ async function finalizar(req, res) {
   }
 }
 
-module.exports = { crear, listar, misViajes, actualizar, cancelar, comenzar, finalizar };
+module.exports = {
+  crear,
+  listar,
+  misViajes,
+  actualizar,
+  actualizarDatosAdministrativos,
+  confirmar,
+  listarEstadosPago,
+  listarMetodosPago,
+  cancelar,
+  comenzar,
+  finalizar,
+};

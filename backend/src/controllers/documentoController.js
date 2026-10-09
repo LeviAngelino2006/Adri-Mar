@@ -1,5 +1,14 @@
 const documentoService = require('../services/documentoService');
 
+async function obtenerAlertas(req, res, next) {
+  try {
+    const resumen = await documentoService.obtenerAlertasVencimiento();
+    return res.json(resumen);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function listarTipos(req, res, next) {
   try {
     const { aplicaA } = req.query;
@@ -171,6 +180,7 @@ async function eliminarDocumentoChofer(req, res, next) {
 }
 
 module.exports = {
+  obtenerAlertas,
   listarTipos,
   obtenerPorVehiculo,
   obtenerHistorial,
@@ -183,4 +193,3 @@ module.exports = {
   registrarDocumentoChofer,
   eliminarDocumentoChofer,
 };
-

@@ -1,0 +1,23 @@
+.datos-admin {
+  margin-top: var(--space-4);
+}
+
+.datos-admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.datos-admin-header h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.datos-admin-pie {
+  padding: var(--space-4) var(--space-6) var(--space-5);
+  border-top: 1px solid var(--color-border);
+}

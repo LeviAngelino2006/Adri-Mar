@@ -1,4 +1,4 @@
-import { diferenciaDiasCordoba, fechaCordobaISO } from './fechaCordoba';
+import { fechaCordobaISO } from './fechaCordoba';
 
 export function formatearFechaHora(valor) {
   // Se fuerza la zona horaria de Córdoba (la única en la que opera Adri-mar)
@@ -28,6 +28,13 @@ function diaYMes(fecha) {
   return `${FORMATO_DIA_MES.format(fecha)} ${FORMATO_MES_CORTO.format(fecha)}`;
 }
 
+// "05 oct 08:00" en hora de Córdoba: un solo instante, sin año, para espacios
+// angostos donde la hora sola sería ambigua si el viaje cruza de día.
+export function formatearDiaYHora(valor) {
+  const fecha = new Date(valor);
+  return `${diaYMes(fecha)} ${FORMATO_HORA.format(fecha)}`;
+}
+
 // Formato compacto del rango de un viaje: "05 oct · 08:00 - 18:00" si
 // empieza y termina el mismo día calendario (Córdoba), o
 // "05 oct 08:00 → 06 oct 18:00" si cruza de día.
@@ -43,22 +50,9 @@ export function formatearRangoCompacto(fechaInicio, fechaFin) {
   return `${diaYMes(inicio)} ${FORMATO_HORA.format(inicio)} → ${diaYMes(fin)} ${FORMATO_HORA.format(fin)}`;
 }
 
-// Igual que formatearRangoCompacto pero sin la fecha, solo el horario (para
-// contextos donde la fecha ya se comunica por otro lado, como el badge de
-// día relativo en "Tus próximos viajes" del Dashboard). Cuando cruza a un
-// día calendario distinto (Córdoba) agrega un sufijo corto "(+N día/s)" en
-// vez de la fecha completa, para no dejar ambiguo un viaje cuyo horario de
-// inicio y fin coincide (ej. dura exactamente 24hs): sin esto, "23:10 →
-// 23:10" se leería como si no durara nada.
-export function formatearHorarioCompacto(fechaInicio, fechaFin) {
-  const inicio = new Date(fechaInicio);
-  const fin = new Date(fechaFin);
-  const diasDeDiferencia = diferenciaDiasCordoba(fechaInicio, fechaFin);
-  const cruzaDias = diasDeDiferencia !== 0;
-  const separador = cruzaDias ? '→' : '-';
-  const sufijo = cruzaDias ? ` (+${diasDeDiferencia} día${diasDeDiferencia === 1 ? '' : 's'})` : '';
-
-  return `${FORMATO_HORA.format(inicio)} ${separador} ${FORMATO_HORA.format(fin)}${sufijo}`;
+// Kilómetros con separador de miles es-AR: 110030 -> "110.030".
+export function formatearKm(valor) {
+  return Number(valor).toLocaleString('es-AR');
 }
 
 export function nombreChofer(chofer) {
@@ -67,4 +61,32 @@ export function nombreChofer(chofer) {
 
 export function nombreVehiculo(vehiculo) {
   return `${vehiculo.numeroInterno} - ${vehiculo.dominio}`;
+}
+
+// Montos en pesos argentinos (ej. "$ 1.234,50"). Los valores nulos los
+// resuelve el caller (cada pantalla decide su propio placeholder).
+export function formatearMonto(valor) {
+  return Number(valor).toLocaleString('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 2,
+  });
+}
+
+// Solo la fecha (sin hora), en hora de Córdoba — para fechas de pago, que son
+// un día calendario y no un instante.
+export function formatearSoloFecha(valor) {
+  return new Date(valor).toLocaleDateString('es-AR', {
+    timeZone: TZ_CORDOBA,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+// Los catálogos (EstadoPago/MetodoPago) se guardan en mayúsculas ("PAGADO");
+// para mostrarlos al usuario se pasan a "Pagado".
+export function capitalizarCatalogo(descripcion) {
+  if (!descripcion) return '';
+  return descripcion.charAt(0).toUpperCase() + descripcion.slice(1).toLowerCase();
 }

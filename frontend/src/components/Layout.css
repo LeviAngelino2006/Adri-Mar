@@ -39,7 +39,7 @@
 .layout-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 23, 42, 0.4);
+  background-color: var(--overlay);
   z-index: 25;
 }
 
@@ -97,7 +97,16 @@
   font-size: 0.9375rem;
 }
 
-.layout-nav-link:hover {
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .layout-nav-link:hover {
+    background-color: var(--brand-50);
+    color: var(--brand-700);
+    text-decoration: none;
+  }
+}
+
+.layout-nav-link:active {
   background-color: var(--brand-50);
   color: var(--brand-700);
   text-decoration: none;
@@ -124,7 +133,7 @@
   width: 32px;
   height: 32px;
   flex: 0 0 auto;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background-color: var(--brand-100);
   color: var(--brand-700);
   font-weight: 700;
@@ -164,7 +173,15 @@
   min-height: auto;
 }
 
-.layout-logout:hover {
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .layout-logout:hover {
+    color: var(--state-error-text);
+    background: none;
+  }
+}
+
+.layout-logout:active {
   color: var(--state-error-text);
   background: none;
 }

@@ -19,20 +19,15 @@ export function aInputCordoba(fechaIso) {
   return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 }
 
-// Fecha de hoy ("YYYY-MM-DD") en hora de Córdoba, sin importar la zona
-// horaria del navegador de quien esté mirando la pantalla. Mismo criterio de
-// zona horaria que aFechaCordoba() en el backend: se usa para pedirle a la
-// API viajes cuyo fechaInicio sea a partir de "hoy" en Córdoba, no en UTC.
+// Formateador de fecha calendario ("YYYY-MM-DD") en hora de Córdoba, sin
+// importar la zona horaria del navegador de quien esté mirando la pantalla.
+// Mismo criterio de zona horaria que aFechaCordoba() en el backend.
 const FORMATEADOR_FECHA_CORDOBA = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'America/Argentina/Cordoba',
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
 });
-
-export function hoyEnCordoba() {
-  return FORMATEADOR_FECHA_CORDOBA.format(new Date());
-}
 
 // Fecha calendario ("YYYY-MM-DD") en hora de Córdoba de cualquier instante
 // (no solo "hoy"), reusando el mismo formateador para no duplicar el cálculo
@@ -41,28 +36,17 @@ export function fechaCordobaISO(fechaIso) {
   return FORMATEADOR_FECHA_CORDOBA.format(new Date(fechaIso));
 }
 
-// Diferencia en días de calendario (Córdoba) entre dos instantes cualquiera.
-// Compara los componentes Y-M-D como UTC puro (no instantes), así el
-// resultado no se ve afectado por la hora del día de cada extremo.
-export function diferenciaDiasCordoba(fechaDesde, fechaHasta) {
-  const [anio1, mes1, dia1] = fechaCordobaISO(fechaDesde).split('-').map(Number);
-  const [anio2, mes2, dia2] = fechaCordobaISO(fechaHasta).split('-').map(Number);
-  const utc1 = Date.UTC(anio1, mes1 - 1, dia1);
-  const utc2 = Date.UTC(anio2, mes2 - 1, dia2);
-  return Math.round((utc2 - utc1) / (24 * 60 * 60 * 1000));
-}
-
-// Diferencia en días de calendario (Córdoba) entre una fecha y "hoy".
-export function diasDesdeHoyEnCordoba(fechaIso) {
-  return diferenciaDiasCordoba(new Date(), fechaIso);
-}
-
-// Badge de día relativo ("Hoy"/"Mañana"/"En N días") para listados de
-// viajes próximos. No distingue días pasados porque estos helpers solo se
-// usan con viajes ya filtrados a partir de hoy.
-export function etiquetaDiaRelativo(fechaIso) {
-  const dias = diasDesdeHoyEnCordoba(fechaIso);
-  if (dias <= 0) return 'Hoy';
-  if (dias === 1) return 'Mañana';
-  return `En ${dias} días`;
+// Porcentaje (0 a 100) del viaje transcurrido entre fechaInicio y fechaFin.
+// Los valores de la API son instantes absolutos y "ahora" también, así que el
+// cociente no depende de la zona horaria del navegador: es el mismo criterio
+// de "hora de Córdoba" del resto de la app. Un viaje cuyo fin ya pasó queda en
+// 100 (llena, sin ninguna marca de atraso).
+export function porcentajeProgresoViaje(fechaInicio, fechaFin, ahora = Date.now()) {
+  const inicio = new Date(fechaInicio).getTime();
+  const fin = new Date(fechaFin).getTime();
+  const total = fin - inicio;
+  if (Number.isNaN(total)) return 0;
+  if (total <= 0) return ahora >= fin ? 100 : 0;
+  const porcentaje = ((ahora - inicio) / total) * 100;
+  return Math.min(100, Math.max(0, Math.round(porcentaje)));
 }

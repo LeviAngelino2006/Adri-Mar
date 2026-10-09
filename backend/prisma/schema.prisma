@@ -51,6 +51,7 @@ model Usuario {
 model TipoVehiculo {
   id          Int        @id @default(autoincrement()) @map("id_tipovehiculo")
   descripcion String     @unique
+  orden       Int
   vehiculos   Vehiculo[]
 
   @@map("tipos_vehiculo")
@@ -102,26 +103,88 @@ model EstadoViaje {
   @@map("estado_viaje")
 }
 
+model EstadoPago {
+  id                        Int     @id @default(autoincrement()) @map("id_estadopago")
+  descripcion               String  @unique
+  viajesEstadoPagoCliente   Viaje[] @relation("ViajeEstadoPagoCliente")
+  viajesEstadoPagoChofer    Viaje[] @relation("ViajeEstadoPagoChofer")
+
+  @@map("estado_pago")
+}
+
+model MetodoPago {
+  id                        Int     @id @default(autoincrement()) @map("id_metodopago")
+  descripcion               String  @unique
+  viajesMetodoPagoCliente   Viaje[] @relation("ViajeMetodoPagoCliente")
+  viajesMetodoPagoChofer    Viaje[] @relation("ViajeMetodoPagoChofer")
+
+  @@map("metodo_pago")
+}
+
 model Viaje {
   id                  Int               @id @default(autoincrement())
-  choferId            Int               @map("chofer_id")
-  chofer              Usuario           @relation(fields: [choferId], references: [id])
-  vehiculoId          Int               @map("vehiculo_id")
-  vehiculo            Vehiculo          @relation(fields: [vehiculoId], references: [id])
-  fechaInicio         DateTime          @map("fecha_inicio")
-  fechaFin            DateTime          @map("fecha_fin")
-  kilometrosEstimados Int               @map("kilometros_estimados")
+  choferId            Int?              @map("chofer_id")
+  chofer              Usuario?          @relation(fields: [choferId], references: [id], onDelete: Restrict)
+  vehiculoId          Int?              @map("vehiculo_id")
+  vehiculo            Vehiculo?         @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  fechaInicio         DateTime?         @map("fecha_inicio")
+  fechaFin            DateTime?         @map("fecha_fin")
+  kilometrosEstimados Int?              @map("kilometros_estimados")
   odometroInicial     Int?              @map("odometro_inicial")
   odometroFinal       Int?              @map("odometro_final")
   estadoViajeId       Int               @map("estado_viaje_id")
   estadoViaje         EstadoViaje       @relation(fields: [estadoViajeId], references: [id])
   horaInicioReal      DateTime?         @map("hora_inicio_real")
   horaFinReal         DateTime?         @map("hora_fin_real")
+  observacionFinal    String?           @map("observacion_final")
   lecturasOdometro    LecturaOdometro[]
+  origenId            Int?              @map("origen_id")
+  origen              Ubicacion?        @relation("ViajeOrigen", fields: [origenId], references: [id])
+  destinoId           Int?              @map("destino_id")
+  destino             Ubicacion?        @relation("ViajeDestino", fields: [destinoId], references: [id])
+  precio              Decimal?          @db.Decimal(12, 2)
+  clienteId           Int?              @map("cliente_id")
+  cliente             Cliente?          @relation(fields: [clienteId], references: [id])
+  estadoPagoClienteId Int?              @map("estado_pago_cliente_id")
+  estadoPagoCliente   EstadoPago?       @relation("ViajeEstadoPagoCliente", fields: [estadoPagoClienteId], references: [id])
+  fechaPagoCliente    DateTime?         @map("fecha_pago_cliente")
+  metodoPagoClienteId Int?              @map("metodo_pago_cliente_id")
+  metodoPagoCliente   MetodoPago?       @relation("ViajeMetodoPagoCliente", fields: [metodoPagoClienteId], references: [id])
+  pagoChofer          Decimal?          @db.Decimal(12, 2) @map("pago_chofer")
+  estadoPagoChoferId  Int?              @map("estado_pago_chofer_id")
+  estadoPagoChofer    EstadoPago?       @relation("ViajeEstadoPagoChofer", fields: [estadoPagoChoferId], references: [id])
+  fechaPagoChofer     DateTime?         @map("fecha_pago_chofer")
+  metodoPagoChoferId  Int?              @map("metodo_pago_chofer_id")
+  metodoPagoChofer    MetodoPago?       @relation("ViajeMetodoPagoChofer", fields: [metodoPagoChoferId], references: [id])
   creadoEn            DateTime          @default(now()) @map("creado_en")
   actualizadoEn       DateTime          @updatedAt @map("actualizado_en")
 
   @@map("viajes")
+}
+
+model Ubicacion {
+  id                Int      @id @default(autoincrement())
+  nombre            String
+  nombreNormalizado String   @map("nombre_normalizado")
+  creadoEn          DateTime @default(now()) @map("creado_en")
+  viajesOrigen      Viaje[]  @relation("ViajeOrigen")
+  viajesDestino     Viaje[]  @relation("ViajeDestino")
+
+  @@index([nombre])
+  @@unique([nombreNormalizado])
+  @@map("ubicaciones")
+}
+
+model Cliente {
+  id                Int      @id @default(autoincrement())
+  nombre            String
+  nombreNormalizado String   @map("nombre_normalizado")
+  creadoEn          DateTime @default(now()) @map("creado_en")
+  viajes            Viaje[]
+
+  @@index([nombre])
+  @@unique([nombreNormalizado])
+  @@map("clientes")
 }
 
 model LecturaOdometro {
@@ -205,4 +268,3 @@ model DocumentoChofer {
   @@index([tipoDocumentoId])
   @@map("documentos_chofer")
 }
-

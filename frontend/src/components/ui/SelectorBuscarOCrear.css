@@ -1,0 +1,57 @@
+.selector-buscar-crear {
+  position: relative;
+}
+
+.selector-buscar-crear-lista {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.selector-buscar-crear-lista li + li {
+  margin-top: 2px;
+}
+
+.selector-buscar-crear-lista button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: var(--space-2) var(--space-3);
+  min-height: auto;
+  border-radius: var(--radius-sm);
+}
+
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .selector-buscar-crear-lista button:hover {
+    background-color: var(--brand-50);
+  }
+}
+
+.selector-buscar-crear-lista button:active {
+  background-color: var(--brand-50);
+}
+
+.selector-buscar-crear-opcion-nueva {
+  color: var(--brand-600);
+  font-weight: 500;
+}
+
+.selector-buscar-crear-estado {
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}

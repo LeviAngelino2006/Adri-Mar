@@ -1,168 +1,7 @@
-.viajes-listado-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-6);
-}
-
-.viajes-listado-header h1 {
-  margin: 0;
-}
-
-.viajes-listado-toolbar {
-  margin-bottom: var(--space-4);
-}
-
-.filtros-toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font: inherit;
-  font-weight: 600;
-  font-size: 0.875rem;
-  color: var(--color-text);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-4);
-  cursor: pointer;
-}
-
-.filtros-toggle-btn:hover {
-  border-color: var(--brand-500);
-}
-
-.filtros-toggle-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background-color: var(--brand-600);
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.viajes-listado-filtros {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  margin-bottom: var(--space-6);
-}
-
-@media (min-width: 900px) {
-  .viajes-listado-filtros {
-    flex-direction: row;
-    align-items: flex-end;
-    flex-wrap: wrap;
-  }
-
-  .viajes-listado-filtros .form-field {
-    flex: 1;
-    min-width: 160px;
-    margin-bottom: 0;
-  }
-}
-
-.viajes-listado-empty {
-  text-align: center;
-  color: var(--color-text-secondary);
-}
-
-/* Tarjetas de viaje (vista única, en todos los tamaños de pantalla): lista
-   vertical de ancho completo, una card por fila — no es una grilla. */
-.viajes-listado-cards {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.viajes-listado-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  width: 100%;
-  text-align: left;
-  font: inherit;
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  box-shadow: var(--shadow-sm);
-}
-
-button.viajes-listado-card {
-  cursor: pointer;
-}
-
-button.viajes-listado-card:hover {
-  border-color: var(--brand-500);
-  box-shadow: var(--shadow-md);
-}
-
-button.viajes-listado-card:focus-visible {
-  outline: 2px solid var(--brand-600);
-  outline-offset: 2px;
-}
-
-.viajes-listado-card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.viajes-listado-card-titulo {
-  font-weight: 600;
-  font-size: 1rem;
-  color: var(--color-text);
-  min-width: 0;
-  overflow-wrap: break-word;
-}
-
-.viajes-listado-card-estado {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-}
-
 .viajes-detalle-estado {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-}
-
-.viajes-listado-card-header .estado-dot-label {
-  flex-shrink: 0;
-}
-
-.viajes-listado-card-vehiculo {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-}
-
-.viajes-listado-card-detalle {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
 }
 
 /* Ficha de detalle */
@@ -183,46 +22,81 @@ button.viajes-listado-card:focus-visible {
   margin: 0;
 }
 
-.viajes-detalle-list {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-4) var(--space-6);
-  margin: 0 0 var(--space-4);
-}
-
-.viajes-detalle-list .detalle-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.viajes-detalle-list dt {
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
-  margin: 0;
-}
-
-.viajes-detalle-list dd {
-  margin: 0;
-  color: var(--color-text);
-  font-size: 1rem;
-}
-
-@media (min-width: 640px) {
-  .viajes-detalle-list {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 900px) {
-  .viajes-detalle-list {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
 .viajes-detalle-actions {
   display: flex;
   gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+/* Ficha agrupada en secciones (viaje): una Card con bloques titulados. */
+.detalle-card {
+  padding: 0;
+}
+
+.detalle-seccion {
+  padding: var(--space-5) var(--space-6);
+}
+
+.detalle-seccion + .detalle-seccion {
+  border-top: 1px solid var(--color-border);
+}
+
+.detalle-seccion-titulo {
+  margin: 0 0 var(--space-4);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.detalle-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4) var(--space-6);
+  margin: 0;
+}
+
+@media (min-width: 640px) {
+  .detalle-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.detalle-grid .detalle-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.detalle-grid dt {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.detalle-grid dd {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.detalle-grid .detalle-item-ancho {
+  grid-column: 1 / -1;
+}
+
+.detalle-grid .detalle-item-destacado dd {
+  font-weight: 600;
+}
+
+.detalle-grid .detalle-item-ancho dd {
+  white-space: pre-wrap;
+}
+
+/* Los botones de acción van debajo de la Card de la ficha. */
+.detalle-card + .viajes-detalle-actions {
+  margin-top: var(--space-4);
 }

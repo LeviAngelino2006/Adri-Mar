@@ -28,5 +28,24 @@ router.patch(
 // choferId), así que vive en viajeService.puedeOperarViaje, no acá.
 router.patch('/:id/comenzar', autenticar, viajeController.comenzar);
 router.patch('/:id/finalizar', autenticar, viajeController.finalizar);
+// Puramente administrativo/financiero: a diferencia de comenzar/finalizar, acá
+// NO hay bypass de "dueño del viaje" — el chofer nunca puede tocar esto, sin
+// importar si es su propio viaje. Funciona en cualquier estado del viaje a
+// propósito (no hay autorizar() adicional por estado, como si tiene PUT /:id
+// con PROGRAMADO).
+router.patch(
+  '/:id/datos-administrativos',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  viajeController.actualizarDatosAdministrativos
+);
+// Decisión de planificación, no operativa: sin bypass de dueño, exclusivo de
+// gestor, igual que PUT /:id (a diferencia de comenzar/finalizar).
+router.patch(
+  '/:id/confirmar',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  viajeController.confirmar
+);
 
 module.exports = router;

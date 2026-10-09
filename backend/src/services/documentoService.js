@@ -840,7 +840,119 @@ async function obtenerEstadoChoferes() {
   });
 }
 
+const DIAS_UMBRAL_PROXIMO_VENCIMIENTO = 30;
+
+function calcularEstadoDocumento(fechaVencimiento) {
+  if (!fechaVencimiento) return { estado: 'VIGENTE', diasRestantes: 999 };
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const fechaVenc = new Date(fechaVencimiento);
+  fechaVenc.setHours(0, 0, 0, 0);
+
+  const diffTiempo = fechaVenc - hoy;
+  const diffDias = Math.ceil(diffTiempo / (1000 * 60 * 60 * 24));
+
+  if (diffDias < 0) {
+    return { estado: 'VENCIDO', diasRestantes: diffDias };
+  } else if (diffDias <= DIAS_UMBRAL_PROXIMO_VENCIMIENTO) {
+    return { estado: 'PROXIMO_A_VENCER', diasRestantes: diffDias };
+  } else {
+    return { estado: 'VIGENTE', diasRestantes: diffDias };
+  }
+}
+
+async function obtenerAlertasVencimiento() {
+  const fechaLimite = new Date();
+  fechaLimite.setDate(fechaLimite.getDate() + DIAS_UMBRAL_PROXIMO_VENCIMIENTO);
+
+  const docsVehiculos = await prisma.documentoVehiculo.findMany({
+    where: {
+      esVigente: true,
+      fechaVencimiento: {
+        lte: fechaLimite,
+      },
+    },
+    include: {
+      tipoDocumento: true,
+      vehiculo: {
+        select: {
+          id: true,
+          dominio: true,
+          numeroInterno: true,
+          marca: true,
+          modelo: true,
+        },
+      },
+    },
+    orderBy: { fechaVencimiento: 'asc' },
+  });
+
+  const docsChoferes = await prisma.documentoChofer.findMany({
+    where: {
+      esVigente: true,
+      fechaVencimiento: {
+        lte: fechaLimite,
+      },
+    },
+    include: {
+      tipoDocumento: true,
+      chofer: {
+        select: {
+          id: true,
+          nombre: true,
+          apellido: true,
+          nombreUsuario: true,
+        },
+      },
+    },
+    orderBy: { fechaVencimiento: 'asc' },
+  });
+
+  const vehiculosConEstado = docsVehiculos.map((doc) => {
+    const { estado, diasRestantes } = calcularEstadoDocumento(doc.fechaVencimiento);
+    return {
+      id: doc.id,
+      tipo: doc.tipoDocumento.descripcion,
+      codigoTipo: doc.tipoDocumento.codigo,
+      fechaVencimiento: doc.fechaVencimiento,
+      observaciones: doc.observaciones,
+      vehiculo: doc.vehiculo,
+      estado,
+      diasRestantes,
+      categoria: 'VEHICULO',
+    };
+  });
+
+  const choferesConEstado = docsChoferes.map((doc) => {
+    const { estado, diasRestantes } = calcularEstadoDocumento(doc.fechaVencimiento);
+    return {
+      id: doc.id,
+      tipo: doc.tipoDocumento.descripcion,
+      codigoTipo: doc.tipoDocumento.codigo,
+      fechaVencimiento: doc.fechaVencimiento,
+      observaciones: doc.observaciones,
+      usuario: doc.chofer,
+      estado,
+      diasRestantes,
+      categoria: 'USUARIO',
+    };
+  });
+
+  const todos = [...vehiculosConEstado, ...choferesConEstado].sort(
+    (a, b) => new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento)
+  );
+
+  return {
+    vencidos: todos.filter((d) => d.estado === 'VENCIDO').length,
+    proximosAVencer: todos.filter((d) => d.estado === 'PROXIMO_A_VENCER').length,
+    totalAlertas: todos.length,
+    documentos: todos,
+  };
+}
+
 module.exports = {
+  calcularEstadoDocumento,
+  obtenerAlertasVencimiento,
   listarTipos,
   obtenerDocumentacionVehiculo,
   obtenerHistorialDocumento,

@@ -65,16 +65,21 @@ async function main() {
 
   console.log(`Administrador inicial listo: ${admin.nombreUsuario}`);
 
-  const TIPOS_VEHICULO = ['Colectivo', 'Trafi'];
-  for (const descripcion of TIPOS_VEHICULO) {
+  const TIPOS_VEHICULO = [
+    { descripcion: 'Colectivo', orden: 1 },
+    { descripcion: 'Minibus', orden: 2 },
+    { descripcion: 'Trafic', orden: 3 },
+    { descripcion: 'Utilitario', orden: 4 },
+  ];
+  for (const { descripcion, orden } of TIPOS_VEHICULO) {
     await prisma.tipoVehiculo.upsert({
       where: { descripcion },
-      update: {},
-      create: { descripcion },
+      update: { orden },
+      create: { descripcion, orden },
     });
   }
 
-  console.log(`Tipos de vehículo listos: ${TIPOS_VEHICULO.join(', ')}`);
+  console.log(`Tipos de vehículo listos: ${TIPOS_VEHICULO.map((t) => t.descripcion).join(', ')}`);
 
   const ESTADOS_VEHICULO = ['OPERATIVO', 'EN_TALLER', 'DADO_DE_BAJA'];
   for (const descripcion of ESTADOS_VEHICULO) {
@@ -87,7 +92,7 @@ async function main() {
 
   console.log(`Estados de vehículo listos: ${ESTADOS_VEHICULO.join(', ')}`);
 
-  const ESTADOS_VIAJE = ['PROGRAMADO', 'EN_VIAJE', 'FINALIZADO', 'CANCELADO'];
+  const ESTADOS_VIAJE = ['A_CONFIRMAR', 'PROGRAMADO', 'EN_VIAJE', 'FINALIZADO', 'CANCELADO'];
   for (const descripcion of ESTADOS_VIAJE) {
     await prisma.estadoViaje.upsert({
       where: { descripcion },
@@ -98,9 +103,6 @@ async function main() {
 
   console.log(`Estados de viaje listos: ${ESTADOS_VIAJE.join(', ')}`);
 
-  // MANTENIMIENTO no se usa todavía (queda previsto para el futuro módulo de
-  // mantenimiento preventivo), pero se siembra ya para no necesitar otra
-  // migración cuando llegue ese momento.
   const ORIGENES_LECTURA = [
     'ALTA_VEHICULO',
     'INICIO_VIAJE',
@@ -118,6 +120,28 @@ async function main() {
   }
 
   console.log(`Orígenes de lectura listos: ${ORIGENES_LECTURA.join(', ')}`);
+
+  const ESTADOS_PAGO = ['PENDIENTE', 'PAGADO', 'PARCIAL'];
+  for (const descripcion of ESTADOS_PAGO) {
+    await prisma.estadoPago.upsert({
+      where: { descripcion },
+      update: {},
+      create: { descripcion },
+    });
+  }
+
+  console.log(`Estados de pago listos: ${ESTADOS_PAGO.join(', ')}`);
+
+  const METODOS_PAGO = ['EFECTIVO', 'BANCO', 'CHEQUE'];
+  for (const descripcion of METODOS_PAGO) {
+    await prisma.metodoPago.upsert({
+      where: { descripcion },
+      update: {},
+      create: { descripcion },
+    });
+  }
+
+  console.log(`Métodos de pago listos: ${METODOS_PAGO.join(', ')}`);
 
   const TIPOS_DOCUMENTO = [
     {
@@ -184,7 +208,6 @@ async function main() {
       requiereArchivo: true,
       orden: 8,
     },
-    // Documentos reglamentarios para Choferes (SCRUM-39)
     {
       codigo: 'LICENCIA_CONDUCIR',
       descripcion: 'Licencia de conducir profesional',

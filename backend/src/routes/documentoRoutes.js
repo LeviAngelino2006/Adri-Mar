@@ -5,6 +5,14 @@ const upload = require('../middlewares/upload');
 
 const router = Router();
 
+// Alertas globales de vencimiento
+router.get(
+  '/alertas',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
+  documentoController.obtenerAlertas
+);
+
 // Catálogo de tipos de documento
 router.get(
   '/tipos',
@@ -37,7 +45,7 @@ router.get(
   documentoController.obtenerHistorial
 );
 
-// Registro / actualización de documento (soporta archivo PDF opcional según tipo)
+// Registro / actualización de documento
 router.post(
   '/vehiculos/:vehiculoId',
   autenticar,
@@ -61,9 +69,7 @@ router.delete(
   documentoController.eliminarDocumentoVehiculo
 );
 
-// ================= RUTAS PARA DOCUMENTACIÓN DE CHOFERES (SCRUM-39) =================
-
-// Resumen de estado de documentación de todos los choferes
+// RUTAS PARA DOCUMENTACIÓN DE CHOFERES
 router.get(
   '/estado-choferes',
   autenticar,
@@ -71,7 +77,6 @@ router.get(
   documentoController.obtenerEstadoChoferes
 );
 
-// Consulta de carpeta documental de un chofer
 router.get(
   '/choferes/:choferId',
   autenticar,
@@ -79,7 +84,6 @@ router.get(
   documentoController.obtenerPorChofer
 );
 
-// Historial de versiones de un documento del chofer
 router.get(
   '/choferes/:choferId/tipos/:tipoDocumentoId/historial',
   autenticar,
@@ -87,7 +91,6 @@ router.get(
   documentoController.obtenerHistorialChofer
 );
 
-// Registro / actualización de documento del chofer
 router.post(
   '/choferes/:choferId',
   autenticar,
@@ -103,7 +106,6 @@ router.post(
   documentoController.registrarDocumentoChofer
 );
 
-// Eliminación de documento del chofer
 router.delete(
   '/choferes/:choferId/:documentoId',
   autenticar,
@@ -112,4 +114,3 @@ router.delete(
 );
 
 module.exports = router;
-

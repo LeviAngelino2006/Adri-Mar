@@ -33,37 +33,43 @@ function Login() {
 
   return (
     <main className="login-page">
-      <Card className="login-card">
-        <img src={logo} alt="Adri-Mar Gestión" className="login-logo" />
-        <h1 className="sr-only">Iniciar sesión</h1>
-        <form onSubmit={handleSubmit} noValidate>
-          <FormField id="nombreUsuario" label="Usuario">
-            <input
-              type="text"
-              value={nombreUsuario}
-              onChange={(e) => setNombreUsuario(e.target.value)}
-              autoComplete="username"
-              required
-            />
-          </FormField>
+      <div className="login-brand">
+        <p className="login-brand-titulo">Adri-Mar Gestión</p>
+        <p className="login-brand-sub">Viajes, flota y mantenimiento</p>
+      </div>
+      <div className="login-main">
+        <Card className="login-card">
+          <img src={logo} alt="Adri-Mar Gestión" className="login-logo" />
+          <h1 className="sr-only">Iniciar sesión</h1>
+          <form onSubmit={handleSubmit} noValidate>
+            <FormField id="nombreUsuario" label="Usuario">
+              <input
+                type="text"
+                value={nombreUsuario}
+                onChange={(e) => setNombreUsuario(e.target.value)}
+                autoComplete="username"
+                required
+              />
+            </FormField>
 
-          <FormField id="contrasena" label="Contraseña">
-            <input
-              type="password"
-              value={contrasena}
-              onChange={(e) => setContrasena(e.target.value)}
-              autoComplete="current-password"
-              required
-            />
-          </FormField>
+            <FormField id="contrasena" label="Contraseña">
+              <input
+                type="password"
+                value={contrasena}
+                onChange={(e) => setContrasena(e.target.value)}
+                autoComplete="current-password"
+                required
+              />
+            </FormField>
 
-          {error && <Alert variant="error">{error}</Alert>}
+            {error && <Alert variant="error">{error}</Alert>}
 
-          <Button type="submit" variant="primary" loading={enviando} className="login-submit">
-            {enviando ? 'Ingresando…' : 'Ingresar'}
-          </Button>
-        </form>
-      </Card>
+            <Button type="submit" variant="primary" loading={enviando} className="login-submit">
+              {enviando ? 'Ingresando…' : 'Ingresar'}
+            </Button>
+          </form>
+        </Card>
+      </div>
     </main>
   );
 }

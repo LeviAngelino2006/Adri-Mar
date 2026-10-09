@@ -3,7 +3,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
-import EstadoDot from '../components/ui/EstadoDot';
+import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
 import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
@@ -12,17 +12,16 @@ import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import ViajeForm from '../components/ViajeForm';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
-import IndicadorVencimiento from '../components/ui/IndicadorVencimiento';
+import ModalConfirmarViaje from '../components/ModalConfirmarViaje';
+import TarjetaViaje from '../components/TarjetaViaje';
+import { ListadoHeader, ListadoToolbar } from '../components/Listado';
+import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
+import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { aInputCordoba } from '../utils/fechaCordoba';
-import { formatearFechaHora, formatearRangoCompacto, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { ordenarPorInterno } from '../utils/vehiculos';
 import './Viajes.css';
-
-const ICONO_FILTRO = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="4 4 20 4 14 12.5 14 19 10 21 10 12.5 4 4" />
-  </svg>
-);
 
 const ICONO_ALERTA = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -36,6 +35,7 @@ const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
 
 const ESTADOS_FILTRO = [
   { value: '', label: 'Todos' },
+  { value: 'A_CONFIRMAR', label: 'A confirmar' },
   { value: 'PROGRAMADO', label: 'Programado' },
   { value: 'EN_VIAJE', label: 'En viaje' },
   { value: 'FINALIZADO', label: 'Finalizado' },
@@ -60,12 +60,30 @@ function dedupePorId(lista) {
 
 function viajeAValoresForm(viaje) {
   return {
-    choferId: viaje.choferId,
-    vehiculoId: viaje.vehiculoId,
+    clienteId: viaje.clienteId || '',
+    clienteNombre: viaje.cliente?.nombre || '',
+    choferId: viaje.choferId || '',
+    vehiculoId: viaje.vehiculoId || '',
+    origenId: viaje.origenId || '',
+    origenNombre: viaje.origen?.nombre || '',
+    destinoId: viaje.destinoId || '',
+    destinoNombre: viaje.destino?.nombre || '',
     fechaInicio: aInputCordoba(viaje.fechaInicio),
     fechaFin: aInputCordoba(viaje.fechaFin),
-    kilometrosEstimados: viaje.kilometrosEstimados,
+    kilometrosEstimados: viaje.kilometrosEstimados ?? '',
   };
+}
+
+// El backend devuelve el viaje con su estado real luego de crear/editar: si
+// quedaron los cinco campos operativos completos queda PROGRAMADO, si no
+// queda A_CONFIRMAR (ver viajeService.crearViaje). Al editar, el estado
+// nunca cambia por este camino (actualizarViaje no promueve — eso es
+// exclusivo de "Confirmar viaje"), así que este mismo mensaje también sirve
+// para reflejar fielmente una edición sin regresión.
+function mensajeSegunEstado(estado) {
+  return estado === 'A_CONFIRMAR'
+    ? 'Guardado como A confirmar — completalo cuando tengas los datos.'
+    : 'Viaje programado correctamente.';
 }
 
 function Viajes() {
@@ -92,20 +110,24 @@ function Viajes() {
   // el modal compartido de odómetro (ver ModalOdometroViaje).
   const [pedidoOdometro, setPedidoOdometro] = useState(null);
 
+  // Viaje A_CONFIRMAR sobre el que se abrió el modal de "Confirmar viaje", o
+  // null si está cerrado.
+  const [pedidoConfirmar, setPedidoConfirmar] = useState(null);
+
   // Las opciones de los selects de chofer/vehículo salen de los viajes ya
   // programados (se cargan una sola vez, sin filtros) en vez de pedirle la
   // lista completa a /usuarios o /vehiculos, porque Personal de Taller puede
   // ver este listado pero no tiene acceso a esos otros endpoints.
   useEffect(() => {
+    // .filter(Boolean) porque un viaje A_CONFIRMAR puede no tener todavía
+    // chofer/vehículo asignado (son null hasta que se complete o confirme).
     api.get('/viajes').then(({ data }) => {
       setOpcionesChofer(
-        dedupePorId(data.viajes.map((v) => v.chofer)).sort((a, b) => nombreChofer(a).localeCompare(nombreChofer(b)))
-      );
-      setOpcionesVehiculo(
-        dedupePorId(data.viajes.map((v) => v.vehiculo)).sort((a, b) =>
-          nombreVehiculo(a).localeCompare(nombreVehiculo(b))
+        dedupePorId(data.viajes.map((v) => v.chofer).filter(Boolean)).sort((a, b) =>
+          nombreChofer(a).localeCompare(nombreChofer(b))
         )
       );
+      setOpcionesVehiculo(ordenarPorInterno(dedupePorId(data.viajes.map((v) => v.vehiculo).filter(Boolean))));
     });
   }, []);
 
@@ -133,6 +155,15 @@ function Viajes() {
     const t = setTimeout(() => setMensaje(''), 3500);
     return () => clearTimeout(t);
   }, [mensaje]);
+
+  // La ficha y el formulario reemplazan al listado dentro de la misma ruta: sin
+  // esto conservan el scroll de la vista anterior (la ficha o el formulario
+  // aparecen desplazados hacia abajo, y el listado también al cancelar o
+  // guardar desde los botones del final).
+  const seleccionadoId = seleccionado?.id ?? null;
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [seleccionadoId, mostrarForm]);
 
   function handleFiltroChange(e) {
     const { name, value } = e.target;
@@ -169,13 +200,10 @@ function Viajes() {
   }
 
   async function handleGuardarForm(datos) {
-    if (editando) {
-      await api.put(`/viajes/${editando.id}`, datos);
-      setMensaje('Viaje modificado correctamente.');
-    } else {
-      await api.post('/viajes', datos);
-      setMensaje('Viaje programado correctamente.');
-    }
+    const { data } = editando
+      ? await api.put(`/viajes/${editando.id}`, datos)
+      : await api.post('/viajes', datos);
+    setMensaje(mensajeSegunEstado(data.viaje.estado));
     setMostrarForm(false);
     setEditando(null);
     cargarViajes();
@@ -222,17 +250,34 @@ function Viajes() {
     cargarViajes();
   }
 
+  function pedirConfirmar(viaje) {
+    setErrorCancelar('');
+    setPedidoConfirmar(viaje);
+  }
+
+  function manejarExitoDatosAdministrativos(viajeActualizado) {
+    setMensaje('Datos administrativos guardados correctamente.');
+    setSeleccionado(viajeActualizado);
+    cargarViajes();
+  }
+
+  function manejarExitoConfirmar(viajeActualizado) {
+    setMensaje('Viaje confirmado correctamente. Quedó Programado.');
+    setPedidoConfirmar(null);
+    setSeleccionado(viajeActualizado);
+    cargarViajes();
+  }
+
   return (
     <Layout>
       {!mostrarForm && !seleccionado && (
-        <div className="viajes-listado-header">
-          <h1>Viajes</h1>
+        <ListadoHeader titulo="Viajes">
           {puedeGestionar && (
             <Button variant="primary" onClick={abrirNuevo}>
               + Programar viaje
             </Button>
           )}
-        </div>
+        </ListadoHeader>
       )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
@@ -247,10 +292,12 @@ function Viajes() {
           <Card className="form-card">
             <ViajeForm
               valoresIniciales={editando ? viajeAValoresForm(editando) : undefined}
+              estadoActual={editando?.estado}
               onSubmit={handleGuardarForm}
               textoBoton={editando ? 'Guardar cambios' : 'Programar viaje'}
               textoEnviando={editando ? 'Guardando…' : 'Programando…'}
               onCancelar={cerrarForm}
+              conDatosAdministrativos={puedeGestionar && !editando}
             />
           </Card>
         </>
@@ -258,21 +305,12 @@ function Viajes() {
 
       {!mostrarForm && !seleccionado && (
         <>
-          <div className="viajes-listado-toolbar">
-            <button
-              type="button"
-              className="filtros-toggle-btn"
-              aria-expanded={mostrarFiltros}
-              onClick={() => setMostrarFiltros((m) => !m)}
-            >
-              {ICONO_FILTRO}
-              Filtros
-              {filtrosActivos > 0 && <span className="filtros-toggle-badge">{filtrosActivos}</span>}
-            </button>
-          </div>
+          <ListadoToolbar
+            filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos: filtrosActivos }}
+          />
 
           {mostrarFiltros && (
-            <form className="viajes-listado-filtros" onSubmit={(e) => e.preventDefault()}>
+            <form className="listado-filtros" onSubmit={(e) => e.preventDefault()}>
               <FormField id="estado" label="Estado">
                 <select name="estado" value={filtros.estado} onChange={handleFiltroChange}>
                   {ESTADOS_FILTRO.map((e) => (
@@ -322,29 +360,12 @@ function Viajes() {
             </div>
           )}
 
-          {!cargando && viajes.length === 0 && <Card className="viajes-listado-empty">No se encontraron viajes</Card>}
+          {!cargando && viajes.length === 0 && <div className="listado-vacio">No se encontraron viajes</div>}
 
           {!cargando && viajes.length > 0 && (
-            <div className="viajes-listado-cards">
+            <div className="listado-cards">
               {viajes.map((v) => (
-                <button type="button" key={v.id} className="viajes-listado-card" onClick={() => seleccionar(v)}>
-                  <div className="viajes-listado-card-header">
-                    <span className="viajes-listado-card-titulo">{nombreChofer(v.chofer)}</span>
-                    <div className="viajes-listado-card-estado">
-                      <EstadoDot color={ESTADOS_VIAJE[v.estado].dot} size="md">
-                        {ESTADOS_VIAJE[v.estado].label}
-                      </EstadoDot>
-                      <IndicadorVencimiento viaje={v} />
-                    </div>
-                  </div>
-                  <span className="viajes-listado-card-vehiculo">
-                    {nombreVehiculo(v.vehiculo)} ({v.vehiculo.marca} {v.vehiculo.modelo})
-                  </span>
-                  <div className="viajes-listado-card-detalle">
-                    <span>{formatearRangoCompacto(v.fechaInicio, v.fechaFin)}</span>
-                    <span>{v.kilometrosEstimados} km estimados</span>
-                  </div>
-                </button>
+                <TarjetaViaje key={v.id} viaje={v} onClick={() => seleccionar(v)} />
               ))}
             </div>
           )}
@@ -361,91 +382,65 @@ function Viajes() {
             </button>
 
             <div className="viajes-detalle-header">
-              <h1>Viaje de {nombreChofer(seleccionado.chofer)}</h1>
+              <h1>{seleccionado.chofer ? `Viaje de ${nombreChofer(seleccionado.chofer)}` : 'Viaje a confirmar'}</h1>
               <div className="viajes-detalle-estado">
-                <EstadoDot color={ESTADOS_VIAJE[seleccionado.estado].dot} size="md">
+                <EstadoBadge tono={ESTADOS_VIAJE[seleccionado.estado].tono}>
                   {ESTADOS_VIAJE[seleccionado.estado].label}
-                </EstadoDot>
-                <IndicadorVencimiento viaje={seleccionado} size="md" />
+                </EstadoBadge>
               </div>
             </div>
 
-            <Card className="viajes-detalle" role="region" aria-label="Ficha del viaje">
-              <dl className="viajes-detalle-list">
-                <div className="detalle-item">
-                  <dt>Chofer</dt>
-                  <dd>{nombreChofer(seleccionado.chofer)}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Vehículo</dt>
-                  <dd>
-                    {nombreVehiculo(seleccionado.vehiculo)} ({seleccionado.vehiculo.marca} {seleccionado.vehiculo.modelo})
-                  </dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Fecha y hora de inicio</dt>
-                  <dd>{formatearFechaHora(seleccionado.fechaInicio)}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Fecha y hora de fin</dt>
-                  <dd>{formatearFechaHora(seleccionado.fechaFin)}</dd>
-                </div>
-                {seleccionado.horaInicioReal && (
-                  <div className="detalle-item">
-                    <dt>Hora real de inicio</dt>
-                    <dd>{formatearFechaHora(seleccionado.horaInicioReal)}</dd>
-                  </div>
-                )}
-                {seleccionado.horaFinReal && (
-                  <div className="detalle-item">
-                    <dt>Hora real de fin</dt>
-                    <dd>{formatearFechaHora(seleccionado.horaFinReal)}</dd>
-                  </div>
-                )}
-                <div className="detalle-item">
-                  <dt>Kilómetros estimados</dt>
-                  <dd>{seleccionado.kilometrosEstimados}</dd>
-                </div>
-                <div className="detalle-item">
-                  <dt>Kilometraje actual del vehículo</dt>
-                  <dd>{seleccionado.vehiculo.kilometraje} km</dd>
-                </div>
-                {seleccionado.estado === 'FINALIZADO' && seleccionado.kmRealizados != null && (
-                  <div className="detalle-item">
-                    <dt>Km realizados</dt>
-                    <dd>{seleccionado.kmRealizados} km</dd>
-                  </div>
-                )}
-              </dl>
+            <FichaViaje viaje={seleccionado} />
 
-              {seleccionado.estado === 'PROGRAMADO' && (puedeOperarEsteViaje || puedeGestionar) && (
-                <div className="viajes-detalle-actions">
-                  {puedeOperarEsteViaje && (
-                    <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
-                      Comenzar
-                    </Button>
-                  )}
-                  {puedeGestionar && (
-                    <>
-                      <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                        Editar
-                      </Button>
-                      <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
-                        Cancelar
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )}
+            {seleccionado.estado === 'A_CONFIRMAR' && puedeGestionar && (
+              <div className="viajes-detalle-actions">
+                <Button variant="primary" onClick={() => pedirConfirmar(seleccionado)}>
+                  Confirmar viaje
+                </Button>
+                <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                  Editar
+                </Button>
+                <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
+                  Cancelar
+                </Button>
+              </div>
+            )}
 
-              {seleccionado.estado === 'EN_VIAJE' && puedeOperarEsteViaje && (
-                <div className="viajes-detalle-actions">
-                  <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
-                    Finalizar
+            {seleccionado.estado === 'PROGRAMADO' && (puedeOperarEsteViaje || puedeGestionar) && (
+              <div className="viajes-detalle-actions">
+                {puedeOperarEsteViaje && (
+                  <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
+                    Comenzar
                   </Button>
-                </div>
-              )}
-            </Card>
+                )}
+                {puedeGestionar && (
+                  <>
+                    <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                      Editar
+                    </Button>
+                    <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
+                      Cancelar
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {seleccionado.estado === 'EN_VIAJE' && puedeOperarEsteViaje && (
+              <div className="viajes-detalle-actions">
+                <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
+                  Finalizar
+                </Button>
+              </div>
+            )}
+
+            {puedeGestionar && (
+              <DatosAdministrativosViaje
+                key={seleccionado.id}
+                viaje={seleccionado}
+                onGuardado={manejarExitoDatosAdministrativos}
+              />
+            )}
           </>
         );
       })()}
@@ -458,9 +453,14 @@ function Viajes() {
         description={
           cancelando && (
             <>
-              Vas a cancelar el viaje de <strong>{nombreChofer(cancelando.chofer)}</strong> en{' '}
-              <strong>{nombreVehiculo(cancelando.vehiculo)}</strong> del{' '}
-              <strong>{formatearFechaHora(cancelando.fechaInicio)}</strong>. Esta acción no se puede deshacer.
+              Vas a cancelar el viaje {cancelando.chofer && <>de <strong>{nombreChofer(cancelando.chofer)}</strong> </>}
+              {cancelando.vehiculo && <>en <strong>{nombreVehiculo(cancelando.vehiculo)}</strong> </>}
+              {cancelando.fechaInicio ? (
+                <>del <strong>{formatearFechaHora(cancelando.fechaInicio)}</strong>. </>
+              ) : (
+                '(todavía a confirmar). '
+              )}
+              Esta acción no se puede deshacer.
             </>
           )
         }
@@ -474,6 +474,12 @@ function Viajes() {
         accion={pedidoOdometro?.accion}
         onCerrar={() => setPedidoOdometro(null)}
         onExito={manejarExitoOdometro}
+      />
+
+      <ModalConfirmarViaje
+        viaje={pedidoConfirmar}
+        onCerrar={() => setPedidoConfirmar(null)}
+        onExito={manejarExitoConfirmar}
       />
     </Layout>
   );

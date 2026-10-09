@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Artefactos de corridas de Playwright (frontend/e2e)
+test-results/
+playwright-report/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
