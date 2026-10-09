@@ -30,6 +30,8 @@ Dentro de `.form-card` (720px) y `.form-grid` (dos columnas desde 640px, una col
 ## Confirmar viaje (modal)
 - `ConfirmModal` `size="wide"`. Chofer y vehículo: un radio por candidato; los no disponibles van deshabilitados con el motivo a la derecha. Al final, "Elegir otro…" despliega un `select` con el resto de los elegibles, donde los no disponibles también van deshabilitados con el motivo en la etiqueta. Sin candidatos se muestra directamente el `select`.
 - Fechas de inicio y fin y kilómetros vienen precargados y son obligatorios (con asterisco).
+- Si el viaje no tiene candidatos (la lista llegó vacía), arriba de los selects va un `Alert` info que lo explica: "Este viaje no tiene choferes ni vehículos posibles cargados. Elegí uno de la lista." Si falta solo uno de los dos, el texto habla solo de ese ("… no tiene choferes posibles cargados…" arriba del select de chofer, o "… vehículos posibles …" arriba del de vehículo). Si el viaje llega sin las claves de candidatos no se afirma nada.
+- Es el mismo modal, con los mismos datos, desde el detalle de Viajes y desde el panel "Viajes por confirmar" del Dashboard: los dos le pasan el viaje tal cual lo devuelve la API.
 - Si no se pudo consultar la disponibilidad, todo queda habilitado: el backend valida igual al confirmar.
 
 ## Scroll
