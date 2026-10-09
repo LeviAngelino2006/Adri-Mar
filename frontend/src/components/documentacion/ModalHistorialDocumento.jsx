@@ -1,120 +1,85 @@
 import { useEffect, useState } from 'react';
 import api from '../../services/api';
+import Alert from '../ui/Alert';
 import Button from '../ui/Button';
+import EstadoBadge from '../ui/EstadoBadge';
 import Spinner from '../ui/Spinner';
-import { formatearNombreArchivo } from '../../utils/archivoFormato';
+import ModalMarco from './ModalMarco';
 import { etiquetaTipoDocumento } from '../../constants/tiposDocumento';
-import { formatearSoloFecha } from '../../utils/viajeFormato';
-import './ModalDocumentacion.css';
+import { formatearFechaCorta } from '../../utils/documentacion';
 
-function ModalHistorialDocumento({
-  open,
-  onClose,
-  vehiculo,
-  chofer,
-  tipoDocumento,
-  onVerPdf,
-}) {
+// Versiones de un documento, de la más nueva a la más vieja (el backend guarda la
+// vigente y hasta dos anteriores). Se monta solo mientras está abierto.
+function ModalHistorialDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, onVerPdf, onClose }) {
   const [historial, setHistorial] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
+  const endpoint = chofer
+    ? `/documentos/choferes/${chofer.id}/tipos/${tipoDocumento.id}/historial`
+    : `/documentos/vehiculos/${vehiculo.id}/tipos/${tipoDocumento.id}/historial`;
+
   useEffect(() => {
-    if (open && (vehiculo || chofer) && tipoDocumento) {
-      setCargando(true);
-      setError('');
-      const endpoint = chofer
-        ? `/documentos/choferes/${chofer.id}/tipos/${tipoDocumento.id}/historial`
-        : `/documentos/vehiculos/${vehiculo.id}/tipos/${tipoDocumento.id}/historial`;
-
-      api
-        .get(endpoint)
-        .then(({ data }) => setHistorial(data.historial || []))
-        .catch((err) => setError(err.response?.data?.error || 'Error al cargar historial'))
-        .finally(() => setCargando(false));
-    }
-  }, [open, vehiculo, chofer, tipoDocumento]);
-
-  if (!open || (!vehiculo && !chofer) || !tipoDocumento) return null;
+    api
+      .get(endpoint)
+      .then(({ data }) => setHistorial(data.historial || []))
+      .catch((err) => setError(err.response?.data?.error || 'No se pudo cargar el historial.'))
+      .finally(() => setCargando(false));
+  }, [endpoint]);
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="modal-card modal-historial-card" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-doc-header">
-          <div>
-            <h2>Historial de Versiones</h2>
-            <p className="modal-doc-subtitle">
-              {etiquetaTipoDocumento(tipoDocumento.descripcion)} —{' '}
-              {chofer ? (
-                <strong>{chofer.nombre} {chofer.apellido}</strong>
-              ) : (
-                <>Unidad <strong>{vehiculo.numeroInterno}</strong> ({vehiculo.dominio})</>
+    <ModalMarco
+      titulo={`Historial de ${etiquetaTipoDocumento(tipoDocumento.descripcion)}`}
+      subtitulo={subtitulo}
+      onClose={onClose}
+      variante="ancho"
+      pie={
+        <Button variant="secondary" onClick={onClose}>
+          Cerrar
+        </Button>
+      }
+    >
+      {cargando && (
+        <div className="loading-state">
+          <Spinner label="Cargando historial" />
+          <span>Cargando historial…</span>
+        </div>
+      )}
+
+      {error && <Alert variant="error">{error}</Alert>}
+
+      {!cargando && !error && historial.length === 0 && (
+        <p className="doc-versiones-vacio">No hay versiones de este documento.</p>
+      )}
+
+      {historial.length > 0 && (
+        <ul className="doc-versiones">
+          {historial.map((version) => (
+            <li key={version.id} className="doc-version">
+              <div className="doc-version-info">
+                <p className="doc-version-linea">
+                  <EstadoBadge tono={version.esVigente ? 'success' : 'neutral'} size="sm">
+                    {version.esVigente ? 'Vigente' : 'Anterior'}
+                  </EstadoBadge>{' '}
+                  {version.fechaVencimiento
+                    ? `Vence el ${formatearFechaCorta(version.fechaVencimiento)}`
+                    : 'Sin vencimiento'}
+                </p>
+                <p className="doc-version-meta">
+                  Cargado el {formatearFechaCorta(version.creadoEn)}
+                  {version.usuario ? ` por ${version.usuario.nombre} ${version.usuario.apellido}` : ''}
+                </p>
+              </div>
+              {version.tieneArchivo && (
+                <Button variant="secondary" onClick={() => onVerPdf(version)}>
+                  Ver PDF
+                </Button>
               )}
-            </p>
-          </div>
-          <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Cerrar modal">
-            ✕
-          </button>
-        </div>
-
-        {cargando ? (
-          <div className="modal-historial-loading">
-            <Spinner />
-            <p>Cargando historial...</p>
-          </div>
-        ) : error ? (
-          <p className="error-text">{error}</p>
-        ) : historial.length === 0 ? (
-          <p className="modal-historial-vacio">No hay registros históricos para este documento.</p>
-        ) : (
-          <div className="modal-historial-table-container">
-            <table className="modal-historial-table">
-              <thead>
-                <tr>
-                  <th>Estado</th>
-                  <th>Vencimiento</th>
-                  <th>Subido el</th>
-                  <th>Registrado por</th>
-                  <th>Archivo</th>
-                  <th>Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historial.map((h) => (
-                  <tr key={h.id} className={h.esVigente ? 'fila-vigente' : 'fila-historica'}>
-                    <td>
-                      <span className={`badge-vigencia ${h.esVigente ? 'vigente' : 'historico'}`}>
-                        {h.esVigente ? '● Vigente actual' : '○ Histórico'}
-                      </span>
-                    </td>
-                    <td>{h.fechaVencimiento ? formatearSoloFecha(h.fechaVencimiento) : '—'}</td>
-                    <td>{formatearSoloFecha(h.creadoEn)}</td>
-                    <td>{h.usuario ? `${h.usuario.nombre} ${h.usuario.apellido}` : '—'}</td>
-                    <td>{formatearNombreArchivo(h.nombreArchivo) || 'Sin archivo PDF'}</td>
-                    <td>
-                      {h.tieneArchivo && (
-                        <Button
-                          variant="secondary"
-                          onClick={() => onVerPdf(h)}
-                        >
-                          Ver PDF
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <div className="modal-doc-actions">
-          <Button variant="secondary" onClick={onClose}>
-            Cerrar
-          </Button>
-        </div>
-      </div>
-    </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </ModalMarco>
   );
 }
 
