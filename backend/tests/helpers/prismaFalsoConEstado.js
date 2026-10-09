@@ -65,15 +65,16 @@ function crearEntorno() {
   };
 
   function sembrar() {
-    const usuario = (id, nombre, apellido, { habilitado = true, estado = 'ACTIVO' } = {}) => ({
+    const usuario = (id, nombre, apellido, { habilitado = true, estado = 'ACTIVO', telefono = null } = {}) => ({
       id,
       nombre,
       apellido,
+      telefono,
       habilitadoParaConducir: habilitado,
       estadoUsuario: { descripcion: estado },
     });
     reemplazar(db.usuarios, [
-      usuario(5, 'Ana', 'Pérez'),
+      usuario(5, 'Ana', 'Pérez', { telefono: '03571 15-612345' }),
       usuario(6, 'Beto', 'Gómez'),
       usuario(7, 'Carla', 'Ruiz', { habilitado: false }),
       usuario(8, 'Dani', 'Soto', { estado: 'INACTIVO' }),

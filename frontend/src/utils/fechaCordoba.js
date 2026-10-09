@@ -36,6 +36,27 @@ export function fechaCordobaISO(fechaIso) {
   return FORMATEADOR_FECHA_CORDOBA.format(new Date(fechaIso));
 }
 
+// Suma (o resta, con negativos) días a una fecha CALENDARIO "YYYY-MM-DD". Es
+// aritmética de calendario pura, hecha en UTC sobre la fecha sin hora: no
+// depende de la zona horaria ni de ningún horario de verano, y maneja fin de mes,
+// fin de año y años bisiestos.
+export function sumarDiasFechaISO(fechaISO, dias) {
+  const [anio, mes, dia] = fechaISO.split('-').map(Number);
+  return new Date(Date.UTC(anio, mes - 1, dia + dias)).toISOString().slice(0, 10);
+}
+
+// "Hoy" y "mañana" como fecha calendario ("YYYY-MM-DD") en hora de Córdoba. Se
+// parte del día de Córdoba de `ahora` y recién ahí se suma el día: sumarle 24 h al
+// instante, o tomar el día en UTC, daría el día equivocado entre las 21:00 y las
+// 24:00 de Córdoba (cuando en UTC ya es el día siguiente).
+export function hoyCordobaISO(ahora = Date.now()) {
+  return fechaCordobaISO(ahora);
+}
+
+export function mananaCordobaISO(ahora = Date.now()) {
+  return sumarDiasFechaISO(hoyCordobaISO(ahora), 1);
+}
+
 // Porcentaje (0 a 100) del viaje transcurrido entre fechaInicio y fechaFin.
 // Los valores de la API son instantes absolutos y "ahora" también, así que el
 // cociente no depende de la zona horaria del navegador: es el mismo criterio

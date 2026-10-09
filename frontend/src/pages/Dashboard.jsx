@@ -11,10 +11,14 @@ import Toast from '../components/ui/Toast';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import RutaViaje from '../components/RutaViaje';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
+import PanelViajesPorConfirmar from '../components/PanelViajesPorConfirmar';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { formatearDiaYHora, nombreVehiculo } from '../utils/viajeFormato';
 import { porcentajeProgresoViaje } from '../utils/fechaCordoba';
 import './Dashboard.css';
+
+// Los que gestionan viajes (ver el panel de viajes por confirmar).
+const PERFILES_GESTORES = ['ADMINISTRADOR', 'ENCARGADO'];
 
 const MAX_VIAJES_INICIAL = 3;
 const INTERVALO_PROGRESO_MS = 60 * 1000;
@@ -352,6 +356,8 @@ function Dashboard() {
       <p className="dashboard-greeting">
         Hola, {usuario.nombre} {usuario.apellido}
       </p>
+
+      {PERFILES_GESTORES.includes(usuario.perfil) && <PanelViajesPorConfirmar />}
 
       {usuario.habilitadoParaConducir && <ViajesDelChofer />}
 

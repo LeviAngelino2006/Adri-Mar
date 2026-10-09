@@ -27,6 +27,30 @@
   animation: toast-in 0.2s ease;
 }
 
+/* Acción del toast: texto en el color inverso, en negrita y subrayado, con un área
+   táctil de 44px de alto. */
+.toast-accion {
+  flex-shrink: 0;
+  margin-left: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 1px solid color-mix(in srgb, var(--color-inverse-text) 30%, transparent);
+}
+
+.toast-accion a,
+.toast-accion button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-inverse-text);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .toast {
     animation: none;

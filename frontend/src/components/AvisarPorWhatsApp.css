@@ -1,0 +1,21 @@
+/* Un <a> con el aspecto de .btn-secondary: sin el subrayado global de a:hover. */
+.avisar-whatsapp-enlace,
+.avisar-whatsapp-enlace:hover {
+  text-decoration: none;
+}
+
+/* Botón deshabilitado + el motivo visible debajo. */
+.avisar-whatsapp {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  max-width: 100%;
+}
+
+.avisar-whatsapp-motivo {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}

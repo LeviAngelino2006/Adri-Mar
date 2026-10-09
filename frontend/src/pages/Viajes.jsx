@@ -13,13 +13,16 @@ import ConfirmModal from '../components/ui/ConfirmModal';
 import ViajeForm from '../components/ViajeForm';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import ModalConfirmarViaje from '../components/ModalConfirmarViaje';
+import AvisarPorWhatsApp from '../components/AvisarPorWhatsApp';
 import TarjetaViaje from '../components/TarjetaViaje';
 import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
+import { DURACION_TOAST_CON_ACCION_MS, DURACION_TOAST_MS } from '../constants/toast';
 import { aInputCordoba } from '../utils/fechaCordoba';
 import { paradasDesdeViaje } from '../utils/paradas';
+import { avisoWhatsApp } from '../utils/whatsapp';
 import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import './Viajes.css';
@@ -96,6 +99,9 @@ function Viajes() {
   const [opcionesChofer, setOpcionesChofer] = useState([]);
   const [opcionesVehiculo, setOpcionesVehiculo] = useState([]);
   const [mensaje, setMensaje] = useState('');
+  // Viaje recién confirmado: el toast de éxito ofrece avisarle al chofer por
+  // WhatsApp. Va atado al mensaje, así no se arrastra a los toasts siguientes.
+  const [viajeAvisable, setViajeAvisable] = useState(null);
   const [seleccionado, setSeleccionado] = useState(null);
 
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -148,11 +154,26 @@ function Viajes() {
     cargarViajes();
   }, [cargarViajes]);
 
+  // El toast ofrece avisar por WhatsApp solo si hay un link posible (chofer con
+  // teléfono utilizable); con acción dura más, para dar tiempo a tocarla.
+  const urlAviso = viajeAvisable ? avisoWhatsApp(viajeAvisable).url : null;
+
   useEffect(() => {
     if (!mensaje) return;
-    const t = setTimeout(() => setMensaje(''), 3500);
+    const t = setTimeout(
+      () => {
+        setMensaje('');
+        setViajeAvisable(null);
+      },
+      urlAviso ? DURACION_TOAST_CON_ACCION_MS : DURACION_TOAST_MS
+    );
     return () => clearTimeout(t);
-  }, [mensaje]);
+  }, [mensaje, urlAviso]);
+
+  function mostrarMensaje(texto, viajeParaAvisar = null) {
+    setMensaje(texto);
+    setViajeAvisable(viajeParaAvisar);
+  }
 
   // La ficha y el formulario reemplazan al listado dentro de la misma ruta: sin
   // esto conservan el scroll de la vista anterior (la ficha o el formulario
@@ -200,10 +221,10 @@ function Viajes() {
   async function handleGuardarForm(datos) {
     if (editando) {
       await api.put(`/viajes/${editando.id}`, datos);
-      setMensaje(MENSAJE_EDITADO);
+      mostrarMensaje(MENSAJE_EDITADO);
     } else {
       await api.post('/viajes', datos);
-      setMensaje(MENSAJE_CREADO);
+      mostrarMensaje(MENSAJE_CREADO);
     }
     setMostrarForm(false);
     setEditando(null);
@@ -219,7 +240,7 @@ function Viajes() {
     setErrorCancelar('');
     try {
       await api.patch(`/viajes/${cancelando.id}/cancelar`);
-      setMensaje('Viaje cancelado correctamente.');
+      mostrarMensaje('Viaje cancelado correctamente.');
       setCancelando(null);
       setSeleccionado(null);
       cargarViajes();
@@ -240,7 +261,7 @@ function Viajes() {
   }
 
   function manejarExitoOdometro(viajeActualizado, mensajeExito) {
-    setMensaje(mensajeExito);
+    mostrarMensaje(mensajeExito);
     setPedidoOdometro(null);
     // Tanto al comenzar como al finalizar, la ficha se actualiza en el lugar
     // en vez de volver al listado: el usuario ve de inmediato el nuevo
@@ -257,13 +278,13 @@ function Viajes() {
   }
 
   function manejarExitoDatosAdministrativos(viajeActualizado) {
-    setMensaje('Datos administrativos guardados correctamente.');
+    mostrarMensaje('Datos administrativos guardados correctamente.');
     setSeleccionado(viajeActualizado);
     cargarViajes();
   }
 
   function manejarExitoConfirmar(viajeActualizado) {
-    setMensaje('Viaje confirmado correctamente. Quedó Programado.');
+    mostrarMensaje('Viaje confirmado correctamente. Quedó Programado.', viajeActualizado);
     setPedidoConfirmar(null);
     setSeleccionado(viajeActualizado);
     cargarViajes();
@@ -281,7 +302,11 @@ function Viajes() {
         </ListadoHeader>
       )}
 
-      {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
+      {mensaje && !mostrarForm && (
+        <Toast action={urlAviso ? <AvisarPorWhatsApp viaje={viajeAvisable} variante="enlace" /> : undefined}>
+          {mensaje}
+        </Toast>
+      )}
       {errorCancelar && <Alert variant="error">{errorCancelar}</Alert>}
 
       {mostrarForm && (
@@ -419,6 +444,7 @@ function Viajes() {
                 )}
                 {puedeGestionar && (
                   <>
+                    <AvisarPorWhatsApp viaje={seleccionado} />
                     <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
                       Editar
                     </Button>

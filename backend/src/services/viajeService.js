@@ -602,6 +602,11 @@ async function serializarViaje(viaje, usuarioSolicitante) {
           id: viaje.chofer.id,
           nombre: viaje.chofer.nombre,
           apellido: viaje.chofer.apellido,
+          // El teléfono es un dato personal: solo lo ven los gestores, que lo
+          // necesitan para avisarle al chofer por WhatsApp. Para el resto la
+          // clave se omite (no va en null: null diría "no tiene teléfono"). Mismo
+          // criterio que los datos administrativos y los candidatos.
+          ...(puedeVerDatosAdministrativos(usuarioSolicitante) ? { telefono: viaje.chofer.telefono ?? null } : {}),
         }
       : null,
     vehiculoId: viaje.vehiculoId,
