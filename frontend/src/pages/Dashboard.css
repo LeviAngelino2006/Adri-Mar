@@ -277,7 +277,7 @@
 }
 
 .alertas-item-clickeable:hover {
-  background-color: var(--color-surface-hover, rgba(0, 0, 0, 0.04));
+  background-color: var(--brand-50);
 }
 
 .alertas-item-clickeable:focus-visible {

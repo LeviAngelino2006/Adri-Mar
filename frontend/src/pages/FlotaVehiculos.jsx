@@ -403,12 +403,14 @@ function FlotaVehiculos() {
             </dl>
 
             <div className="flota-detalle-actions">
-              <Button
-                variant="secondary"
-                onClick={() => navigate(`/documentacion?vehiculoId=${seleccionado.id}`)}
-              >
-                📄 Ver Documentación
-              </Button>
+              {puedeGestionar && (
+                <Button
+                  variant="secondary"
+                  onClick={() => navigate(`/documentacion?vehiculoId=${seleccionado.id}`)}
+                >
+                  📄 Ver Documentación
+                </Button>
+              )}
               {puedeGestionar && seleccionado.estado !== 'DADO_DE_BAJA' && (
                 <>
                   <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
@@ -435,10 +437,6 @@ function FlotaVehiculos() {
               <p>
                 Vas a dar de baja el vehículo de dominio <strong>{seleccionado.dominio}</strong> (interno{' '}
                 <strong>{seleccionado.numeroInterno}</strong>). Esta acción no se puede deshacer.
-              </p>
-              <p style={{ marginTop: '0.5rem', color: 'var(--color-danger)' }}>
-                ⚠️ Se eliminará permanentemente toda la documentación adjunta del vehículo y ya
-                no recibirá alertas de vencimiento.
               </p>
             </>
           )
