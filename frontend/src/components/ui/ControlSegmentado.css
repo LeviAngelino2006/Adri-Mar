@@ -1,0 +1,45 @@
+.control-segmentado {
+  display: inline-flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+.control-segmentado-opcion {
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.control-segmentado-opcion.is-activa {
+  background-color: var(--brand-100);
+  color: var(--brand-700);
+}
+
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .control-segmentado-opcion:not(.is-activa):hover {
+    background-color: var(--brand-50);
+    color: var(--brand-700);
+  }
+}
+
+.control-segmentado-opcion:not(.is-activa):active {
+  background-color: var(--brand-50);
+  color: var(--brand-700);
+}
+
+.control-segmentado-opcion:focus-visible {
+  outline: 2px solid var(--brand-600);
+  outline-offset: 2px;
+}
