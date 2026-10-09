@@ -7,25 +7,33 @@ import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
 import Alert from '../components/ui/Alert';
 import EstadoDot from '../components/ui/EstadoDot';
-import ConfirmModal from '../components/ui/ConfirmModal';
 import ModalSubirDocumento from '../components/documentacion/ModalSubirDocumento';
 import ModalVisorPdf from '../components/documentacion/ModalVisorPdf';
 import ModalHistorialDocumento from '../components/documentacion/ModalHistorialDocumento';
 import { useAuth } from '../context/AuthContext';
-import { ESTADOS_VEHICULO } from '../constants/estadosVehiculo';
 import { etiquetaTipoDocumento, ordenarPorTipoDocumento } from '../constants/tiposDocumento';
 import api from '../services/api';
-import { eliminarDocumentoVehiculo, eliminarDocumentoChofer } from '../services/documentosApi';
+import { obtenerUrlArchivo } from '../services/documentosApi';
+import { descargarPdf } from '../utils/descargarPdf';
+import { ordenarPorInterno } from '../utils/vehiculos';
+import { formatearSoloFecha } from '../utils/viajeFormato';
+import { DURACION_TOAST_MS } from '../constants/toast';
 import { formatearNombreArchivo } from '../utils/archivoFormato';
 import './Documentacion.css';
 
 const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
 
-function ordenarPorInterno(vehiculos) {
-  return [...vehiculos].sort(
-    (a, b) => (parseInt(a.numeroInterno, 10) || 0) - (parseInt(b.numeroInterno, 10) || 0)
-  );
+// Id de la URL (?vehiculoId= / ?choferId=) o null si falta o no es válido.
+function idDeUrl(valor) {
+  const id = Number.parseInt(valor, 10);
+  return Number.isInteger(id) && id > 0 ? id : null;
 }
+
+function estadoDotColor(activo) {
+  return activo ? 'var(--state-success-solid)' : 'var(--state-neutral-text)';
+}
+
+const esChoferActivo = (chofer) => chofer?.estadoUsuario?.descripcion === 'ACTIVO';
 
 function GridDocumentos({
   documentos,
@@ -34,7 +42,6 @@ function GridDocumentos({
   onDescargarPdf,
   onHistorial,
   onSubir,
-  onEliminar,
 }) {
   if (!documentos || documentos.length === 0) {
     return (
@@ -82,7 +89,7 @@ function GridDocumentos({
                       <div className="doc-dato-fila">
                         <span className="doc-dato-label">Vencimiento:</span>
                         <span className="doc-dato-valor doc-venc-val">
-                          {new Date(documento.fechaVencimiento).toLocaleDateString()}
+                          {formatearSoloFecha(documento.fechaVencimiento)}
                         </span>
                       </div>
                     )}
@@ -91,7 +98,7 @@ function GridDocumentos({
                       <div className="doc-dato-fila">
                         <span className="doc-dato-label">Emisión:</span>
                         <span className="doc-dato-valor">
-                          {new Date(documento.fechaEmision).toLocaleDateString()}
+                          {formatearSoloFecha(documento.fechaEmision)}
                         </span>
                       </div>
                     )}
@@ -124,20 +131,18 @@ function GridDocumentos({
 
             {/* Nivel Inferior: Barra Horizontal con Los 5 Botones (Eliminar al final) */}
             <div className="doc-card-acciones-fila">
-              {cargado && documento?.signedUrl && (
+              {cargado && documento?.tieneArchivo && (
                 <Button
                   variant="secondary"
-                  size="sm"
                   onClick={() => onVerPdf(documento)}
                 >
                   Ver PDF
                 </Button>
               )}
 
-              {cargado && documento?.signedUrl && (
+              {cargado && documento?.tieneArchivo && (
                 <Button
                   variant="secondary"
-                  size="sm"
                   onClick={() => onDescargarPdf(documento)}
                 >
                   Descargar PDF
@@ -147,7 +152,6 @@ function GridDocumentos({
               {cargado && (
                 <Button
                   variant="secondary"
-                  size="sm"
                   onClick={() => onHistorial(tipo)}
                 >
                   Historial
@@ -157,20 +161,9 @@ function GridDocumentos({
               {puedeGestionar && (
                 <Button
                   variant={cargado ? 'secondary' : 'primary'}
-                  size="sm"
                   onClick={() => onSubir(tipo, documento)}
                 >
                   {cargado ? 'Actualizar' : 'Subir documento'}
-                </Button>
-              )}
-
-              {puedeGestionar && cargado && (
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={() => onEliminar(documento)}
-                >
-                  Eliminar
                 </Button>
               )}
             </div>
@@ -187,6 +180,11 @@ function Documentacion() {
   const puedeGestionar = PUEDE_GESTIONAR.includes(usuario?.perfil);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  // El id de la URL (desde la Flota o una alerta) se lee una sola vez: después la
+  // selección vive en el estado y la URL solo la refleja.
+  const [vehiculoIdInicial] = useState(() => idDeUrl(searchParams.get('vehiculoId')));
+  const [choferIdInicial] = useState(() => idDeUrl(searchParams.get('choferId')));
 
   // Pestaña activa ('vehiculos' | 'choferes')
   const [tabActiva, setTabActiva] = useState(() => {
@@ -218,11 +216,16 @@ function Documentacion() {
 
   // Modales compartidos
   const [modalSubir, setModalSubir] = useState({ open: false, tipo: null, docActual: null });
-  const [modalVisor, setModalVisor] = useState({ open: false, documento: null });
+  const [modalVisor, setModalVisor] = useState({ open: false, documento: null, url: null });
   const [modalHistorial, setModalHistorial] = useState({ open: false, tipo: null });
+  const [errorArchivo, setErrorArchivo] = useState('');
 
-  // Modal de confirmación de eliminación de documento
-  const [modalEliminar, setModalEliminar] = useState({ open: false, documento: null, eliminando: false, error: '' });
+  // El Toast no se oculta solo: lo hace quien lo monta.
+  useEffect(() => {
+    if (!toast) return undefined;
+    const t = setTimeout(() => setToast(''), DURACION_TOAST_MS);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   // Cargar lista de vehículos con estado de flota
   const cargarFlota = useCallback(() => {
@@ -233,30 +236,21 @@ function Documentacion() {
         const ordenados = ordenarPorInterno(data.vehiculos || []);
         setVehiculos(ordenados);
 
-        const vIdParam = searchParams.get('vehiculoId');
-        if (vIdParam) {
-          const encontrado = ordenados.find((v) => v.id === parseInt(vIdParam, 10));
-          if (encontrado) {
-            setVehiculoSeleccionado(encontrado);
-            return;
+        setVehiculoSeleccionado((prev) => {
+          // Un vehículo seleccionado que no está en la lista (dado de baja) se
+          // conserva: nunca se reemplaza por otro. Su carpeta se carga igual.
+          if (prev) return ordenados.find((v) => v.id === prev.id) || prev;
+          if (vehiculoIdInicial) {
+            return ordenados.find((v) => v.id === vehiculoIdInicial) || { id: vehiculoIdInicial };
           }
-        }
-
-        if (ordenados.length > 0) {
-          setVehiculoSeleccionado((prev) => {
-            if (prev) {
-              const actualizado = ordenados.find((v) => v.id === prev.id);
-              return actualizado || ordenados[0];
-            }
-            return ordenados[0];
-          });
-        }
+          return ordenados[0] || null;
+        });
       })
       .catch((err) => {
         console.error('Error al cargar estado de flota:', err);
       })
       .finally(() => setCargandoVehiculos(false));
-  }, [searchParams]);
+  }, [vehiculoIdInicial]);
 
   // Cargar lista de choferes con estado de documentación
   const cargarChoferes = useCallback(() => {
@@ -267,30 +261,21 @@ function Documentacion() {
         const lista = data.choferes || [];
         setChoferes(lista);
 
-        const cIdParam = searchParams.get('choferId');
-        if (cIdParam) {
-          const encontrado = lista.find((c) => c.id === parseInt(cIdParam, 10));
-          if (encontrado) {
-            setChoferSeleccionado(encontrado);
-            return;
+        setChoferSeleccionado((prev) => {
+          // Mismo criterio que con los vehículos: la selección no salta a otro
+          // chofer si el elegido no figura en la lista (usuario inactivo).
+          if (prev) return lista.find((c) => c.id === prev.id) || prev;
+          if (choferIdInicial) {
+            return lista.find((c) => c.id === choferIdInicial) || { id: choferIdInicial };
           }
-        }
-
-        if (lista.length > 0) {
-          setChoferSeleccionado((prev) => {
-            if (prev) {
-              const actualizado = lista.find((c) => c.id === prev.id);
-              return actualizado || lista[0];
-            }
-            return lista[0];
-          });
-        }
+          return lista[0] || null;
+        });
       })
       .catch((err) => {
         console.error('Error al cargar estado de choferes:', err);
       })
       .finally(() => setCargandoChoferes(false));
-  }, [searchParams]);
+  }, [choferIdInicial]);
 
   // Cargar carpeta de documentación del vehículo seleccionado
   const cargarCarpetaVehiculo = useCallback((vehiculoId) => {
@@ -382,11 +367,15 @@ function Documentacion() {
     });
   }
 
-  function abrirVisor(documento) {
-    setModalVisor({
-      open: true,
-      documento,
-    });
+  // La URL firmada se pide al tocar el botón, no al cargar la carpeta.
+  async function abrirVisor(documento) {
+    setErrorArchivo('');
+    try {
+      const url = await obtenerUrlArchivo(documento.id);
+      setModalVisor({ open: true, documento, url });
+    } catch (err) {
+      setErrorArchivo(err.response?.data?.error || 'No se pudo abrir el archivo. Intentá nuevamente.');
+    }
   }
 
   function abrirHistorial(tipo) {
@@ -396,21 +385,16 @@ function Documentacion() {
     });
   }
 
-  async function descargarPdf(documento) {
-    if (!documento?.signedUrl) return;
+  async function descargarDocumento(documento) {
+    setErrorArchivo('');
     try {
-      const response = await fetch(documento.signedUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = documento.nombreArchivo || `${documento.tipoDocumento?.descripcion || 'documento'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch {
-      window.open(documento.signedUrl, '_blank');
+      const url = await obtenerUrlArchivo(documento.id);
+      await descargarPdf(url, {
+        nombreArchivo: documento.nombreArchivo,
+        codigoTipo: documento.tipoDocumento?.descripcion,
+      });
+    } catch (err) {
+      setErrorArchivo(err.response?.data?.error || 'No se pudo descargar el archivo. Intentá nuevamente.');
     }
   }
 
@@ -426,35 +410,6 @@ function Documentacion() {
         cargarCarpetaChofer(choferSeleccionado.id);
       }
       cargarChoferes();
-    }
-  }
-
-  function abrirEliminar(documento) {
-    setModalEliminar({ open: true, documento, eliminando: false, error: '' });
-  }
-
-  async function confirmarEliminar() {
-    const { documento } = modalEliminar;
-    if (!documento) return;
-    setModalEliminar((prev) => ({ ...prev, eliminando: true, error: '' }));
-    try {
-      if (tabActiva === 'vehiculos') {
-        await eliminarDocumentoVehiculo(vehiculoSeleccionado.id, documento.id);
-        cargarCarpetaVehiculo(vehiculoSeleccionado.id);
-        cargarFlota();
-      } else {
-        await eliminarDocumentoChofer(choferSeleccionado.id, documento.id);
-        cargarCarpetaChofer(choferSeleccionado.id);
-        cargarChoferes();
-      }
-      setModalEliminar({ open: false, documento: null, eliminando: false, error: '' });
-      setToast('Documento eliminado correctamente.');
-    } catch (err) {
-      setModalEliminar((prev) => ({
-        ...prev,
-        eliminando: false,
-        error: err.response?.data?.error || 'No se pudo eliminar el documento.',
-      }));
     }
   }
 
@@ -502,6 +457,21 @@ function Documentacion() {
     return true;
   });
 
+  // Mientras la carpeta del seleccionado está cargada se muestran sus datos
+  // (sirve para un vehículo dado de baja, que no está en la lista de la flota).
+  const vehiculoMostrado =
+    vehiculoSeleccionado && carpetaData?.vehiculo?.id === vehiculoSeleccionado.id
+      ? carpetaData.vehiculo
+      : vehiculoSeleccionado;
+  const choferMostrado =
+    choferSeleccionado && carpetaChoferData?.chofer?.id === choferSeleccionado.id
+      ? carpetaChoferData.chofer
+      : choferSeleccionado;
+  // La documentación de un vehículo dado de baja o de un usuario inactivo se
+  // puede consultar, pero no modificar.
+  const vehiculoDeBaja = vehiculoMostrado?.estadoVehiculo?.descripcion === 'DADO_DE_BAJA';
+  const choferInactivo = Boolean(choferMostrado?.estadoUsuario) && !esChoferActivo(choferMostrado);
+
   return (
     <Layout>
       <div className="doc-page-container">
@@ -528,6 +498,8 @@ function Documentacion() {
             </button>
           </div>
         </div>
+
+        {errorArchivo && <Alert variant="error">{errorArchivo}</Alert>}
 
         {/* CONTENIDO PESTAÑA: VEHÍCULOS */}
         {tabActiva === 'vehiculos' && (
@@ -610,10 +582,10 @@ function Documentacion() {
                 ) : cargandoCarpeta ? (
                   <div className="doc-loading-state">
                     <Spinner />
-                    <p>Cargando legajo digital de la unidad {vehiculoSeleccionado.numeroInterno}...</p>
+                    <p>Cargando legajo digital de la unidad {vehiculoSeleccionado.numeroInterno ?? ''}...</p>
                   </div>
                 ) : errorCarpeta ? (
-                  <Alert variant="danger">{errorCarpeta}</Alert>
+                  <Alert variant="error">{errorCarpeta}</Alert>
                 ) : carpetaData ? (
                   <div className="doc-carpeta-wrapper">
                     {/* Ficha resumen de la unidad */}
@@ -621,20 +593,19 @@ function Documentacion() {
                       <div className="doc-resumen-header">
                         <div>
                           <div className="doc-unidad-title-row">
-                            <h2>Coche {vehiculoSeleccionado.numeroInterno}</h2>
-                            <span className="doc-unidad-patente">{vehiculoSeleccionado.dominio}</span>
+                            <h2>Coche {vehiculoMostrado.numeroInterno}</h2>
+                            <span className="doc-unidad-patente">{vehiculoMostrado.dominio}</span>
                           </div>
                           <p className="doc-unidad-specs">
-                            {vehiculoSeleccionado.tipoVehiculo?.descripcion} • {vehiculoSeleccionado.marca}{' '}
-                            {vehiculoSeleccionado.modelo} ({vehiculoSeleccionado.anio}) •{' '}
-                            {vehiculoSeleccionado.kilometraje?.toLocaleString()} km
+                            {vehiculoMostrado.tipoVehiculo?.descripcion} • {vehiculoMostrado.marca}{' '}
+                            {vehiculoMostrado.modelo} ({vehiculoMostrado.anio}) •{' '}
+                            {vehiculoMostrado.kilometraje?.toLocaleString()} km
                           </p>
                         </div>
 
                         <div className="doc-resumen-actions">
                           <Button
                             variant="secondary"
-                            size="sm"
                             onClick={() => navigate('/vehiculos')}
                           >
                             Ver ficha en Flota ↗
@@ -676,15 +647,20 @@ function Documentacion() {
                       </div>
                     </Card>
 
+                    {vehiculoDeBaja && (
+                      <Alert variant="info">
+                        Vehículo dado de baja: la documentación es de solo consulta
+                      </Alert>
+                    )}
+
                     {/* Tarjetas de Documentos del Vehículo */}
                     <GridDocumentos
                       documentos={carpetaData.documentos}
-                      puedeGestionar={puedeGestionar}
+                      puedeGestionar={puedeGestionar && !vehiculoDeBaja}
                       onVerPdf={abrirVisor}
-                      onDescargarPdf={descargarPdf}
+                      onDescargarPdf={descargarDocumento}
                       onHistorial={abrirHistorial}
                       onSubir={abrirSubir}
-                      onEliminar={abrirEliminar}
                     />
                   </div>
                 ) : null}
@@ -769,8 +745,8 @@ function Documentacion() {
                             <span className="doc-vehiculo-modelo">
                               {c.telefono || c.email || 'Sin datos de contacto'}
                             </span>
-                            <EstadoDot color={c.activo ? 'green' : 'gray'}>
-                              {c.activo ? 'Activo' : 'Inactivo'}
+                            <EstadoDot color={estadoDotColor(esChoferActivo(c))}>
+                              {esChoferActivo(c) ? 'Activo' : 'Inactivo'}
                             </EstadoDot>
                           </div>
                         </button>
@@ -791,10 +767,10 @@ function Documentacion() {
                 ) : cargandoCarpetaChofer ? (
                   <div className="doc-loading-state">
                     <Spinner />
-                    <p>Cargando legajo de {choferSeleccionado.nombre} {choferSeleccionado.apellido}...</p>
+                    <p>Cargando legajo de {choferSeleccionado.nombre ?? ''} {choferSeleccionado.apellido ?? ''}...</p>
                   </div>
                 ) : errorCarpetaChofer ? (
-                  <Alert variant="danger">{errorCarpetaChofer}</Alert>
+                  <Alert variant="error">{errorCarpetaChofer}</Alert>
                 ) : carpetaChoferData ? (
                   <div className="doc-carpeta-wrapper">
                     {/* Ficha resumen del chofer */}
@@ -802,17 +778,14 @@ function Documentacion() {
                       <div className="doc-resumen-header">
                         <div>
                           <div className="doc-unidad-title-row">
-                            <h2>{choferSeleccionado.nombre} {choferSeleccionado.apellido}</h2>
-                            <span className="doc-unidad-patente">DNI {choferSeleccionado.dni || 'Sin DNI'}</span>
-                            <EstadoDot
-                              color={choferSeleccionado.activo ? 'green' : 'gray'}
-                              size="md"
-                            >
-                              {choferSeleccionado.activo ? 'Chofer Activo' : 'Chofer Inactivo'}
+                            <h2>{choferMostrado.nombre} {choferMostrado.apellido}</h2>
+                            <span className="doc-unidad-patente">DNI {choferMostrado.dni || 'Sin DNI'}</span>
+                            <EstadoDot color={estadoDotColor(!choferInactivo)} size="md">
+                              {choferInactivo ? 'Chofer Inactivo' : 'Chofer Activo'}
                             </EstadoDot>
                           </div>
                           <p className="doc-unidad-specs">
-                            Email: {choferSeleccionado.email || '—'} • Teléfono: {choferSeleccionado.telefono || '—'}
+                            Email: {choferMostrado.email || '—'} • Teléfono: {choferMostrado.telefono || '—'}
                           </p>
                         </div>
 
@@ -820,7 +793,6 @@ function Documentacion() {
                           {puedeGestionar && (
                             <Button
                               variant="secondary"
-                              size="sm"
                               onClick={() => navigate('/usuarios')}
                             >
                               Gestionar Usuarios ↗
@@ -863,15 +835,20 @@ function Documentacion() {
                       </div>
                     </Card>
 
+                    {choferInactivo && (
+                      <Alert variant="info">
+                        Usuario inactivo: la documentación es de solo consulta
+                      </Alert>
+                    )}
+
                     {/* Tarjetas de Documentos del Chofer */}
                     <GridDocumentos
                       documentos={carpetaChoferData.documentos}
-                      puedeGestionar={puedeGestionar}
+                      puedeGestionar={puedeGestionar && !choferInactivo}
                       onVerPdf={abrirVisor}
-                      onDescargarPdf={descargarPdf}
+                      onDescargarPdf={descargarDocumento}
                       onHistorial={abrirHistorial}
                       onSubir={abrirSubir}
-                      onEliminar={abrirEliminar}
                     />
                   </div>
                 ) : null}
@@ -884,8 +861,8 @@ function Documentacion() {
         <ModalSubirDocumento
           open={modalSubir.open}
           onClose={() => setModalSubir({ open: false, tipo: null, docActual: null })}
-          vehiculo={tabActiva === 'vehiculos' ? vehiculoSeleccionado : null}
-          chofer={tabActiva === 'choferes' ? choferSeleccionado : null}
+          vehiculo={tabActiva === 'vehiculos' ? vehiculoMostrado : null}
+          chofer={tabActiva === 'choferes' ? choferMostrado : null}
           tipoDocumento={modalSubir.tipo}
           documentoActual={modalSubir.docActual}
           onSuccess={handleSuccessDoc}
@@ -894,18 +871,19 @@ function Documentacion() {
         {/* Modal Visor de PDF */}
         <ModalVisorPdf
           open={modalVisor.open}
-          onClose={() => setModalVisor({ open: false, documento: null })}
+          onClose={() => setModalVisor({ open: false, documento: null, url: null })}
           documento={modalVisor.documento}
-          vehiculo={tabActiva === 'vehiculos' ? vehiculoSeleccionado : null}
-          chofer={tabActiva === 'choferes' ? choferSeleccionado : null}
+          url={modalVisor.url}
+          vehiculo={tabActiva === 'vehiculos' ? vehiculoMostrado : null}
+          chofer={tabActiva === 'choferes' ? choferMostrado : null}
         />
 
         {/* Modal Historial de Versiones */}
         <ModalHistorialDocumento
           open={modalHistorial.open}
           onClose={() => setModalHistorial({ open: false, tipo: null })}
-          vehiculo={tabActiva === 'vehiculos' ? vehiculoSeleccionado : null}
-          chofer={tabActiva === 'choferes' ? choferSeleccionado : null}
+          vehiculo={tabActiva === 'vehiculos' ? vehiculoMostrado : null}
+          chofer={tabActiva === 'choferes' ? choferMostrado : null}
           tipoDocumento={modalHistorial.tipo}
           onVerPdf={(docHist) => {
             setModalHistorial({ open: false, tipo: null });
@@ -913,33 +891,8 @@ function Documentacion() {
           }}
         />
 
-        {/* Modal de Confirmación de Eliminación de Documento */}
-        <ConfirmModal
-          open={modalEliminar.open}
-          tone="danger"
-          icon="🗑️"
-          title="Eliminar documento"
-          description={
-            <>
-              <p>
-                Vas a eliminar este documento de forma permanente. El archivo PDF adjunto
-                también se borrará del almacenamiento.
-              </p>
-              {modalEliminar.error && (
-                <p style={{ color: 'var(--color-danger)', marginTop: '0.5rem', fontWeight: 500 }}>
-                  {modalEliminar.error}
-                </p>
-              )}
-            </>
-          }
-          confirmLabel={modalEliminar.eliminando ? 'Eliminando…' : 'Eliminar permanentemente'}
-          cancelLabel="Cancelar"
-          onConfirm={confirmarEliminar}
-          onCancel={() => setModalEliminar({ open: false, documento: null, eliminando: false, error: '' })}
-        />
-
         {/* Notificación Toast */}
-        {toast && <Toast onClose={() => setToast('')}>{toast}</Toast>}
+        {toast && <Toast>{toast}</Toast>}
       </div>
     </Layout>
   );

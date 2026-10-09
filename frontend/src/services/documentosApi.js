@@ -5,12 +5,9 @@ export async function obtenerAlertasVencimientos() {
   return data;
 }
 
-export async function eliminarDocumentoVehiculo(vehiculoId, documentoId) {
-  const { data } = await api.delete(`/documentos/vehiculos/${vehiculoId}/${documentoId}`);
-  return data;
-}
-
-export async function eliminarDocumentoChofer(choferId, documentoId) {
-  const { data } = await api.delete(`/documentos/choferes/${choferId}/${documentoId}`);
-  return data;
+// URL firmada (5 minutos) del PDF de una versión. Se pide en el momento de ver
+// o descargar el archivo: así no vence con la página abierta.
+export async function obtenerUrlArchivo(documentoId) {
+  const { data } = await api.get(`/documentos/${documentoId}/archivo`);
+  return data.url;
 }

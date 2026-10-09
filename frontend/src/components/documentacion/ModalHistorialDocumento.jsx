@@ -4,6 +4,7 @@ import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
 import { formatearNombreArchivo } from '../../utils/archivoFormato';
 import { etiquetaTipoDocumento } from '../../constants/tiposDocumento';
+import { formatearSoloFecha } from '../../utils/viajeFormato';
 import './ModalDocumentacion.css';
 
 function ModalHistorialDocumento({
@@ -86,15 +87,14 @@ function ModalHistorialDocumento({
                         {h.esVigente ? '● Vigente actual' : '○ Histórico'}
                       </span>
                     </td>
-                    <td>{h.fechaVencimiento ? new Date(h.fechaVencimiento).toLocaleDateString() : '—'}</td>
-                    <td>{new Date(h.creadoEn).toLocaleDateString()}</td>
+                    <td>{h.fechaVencimiento ? formatearSoloFecha(h.fechaVencimiento) : '—'}</td>
+                    <td>{formatearSoloFecha(h.creadoEn)}</td>
                     <td>{h.usuario ? `${h.usuario.nombre} ${h.usuario.apellido}` : '—'}</td>
                     <td>{formatearNombreArchivo(h.nombreArchivo) || 'Sin archivo PDF'}</td>
                     <td>
-                      {h.signedUrl && (
+                      {h.tieneArchivo && (
                         <Button
                           variant="secondary"
-                          size="sm"
                           onClick={() => onVerPdf(h)}
                         >
                           Ver PDF
