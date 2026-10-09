@@ -15,7 +15,7 @@ import RutaViaje from '../components/RutaViaje';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import PanelViajesPorConfirmar from '../components/PanelViajesPorConfirmar';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
-import { formatearDiaYHora, nombreVehiculo } from '../utils/viajeFormato';
+import { formatearDiaYHora, formatearSoloFecha, nombreVehiculo } from '../utils/viajeFormato';
 import { porcentajeProgresoViaje } from '../utils/fechaCordoba';
 import './Dashboard.css';
 
@@ -348,7 +348,7 @@ function SeccionAlertasDocumentacion() {
                     <span className="alertas-sujeto">• {sujeto}</span>
                   </div>
                   <span className="alertas-fecha">
-                    Fecha vencimiento: {new Date(doc.fechaVencimiento).toLocaleDateString('es-AR')} — {textoDias}
+                    Fecha vencimiento: {formatearSoloFecha(doc.fechaVencimiento)} — {textoDias}
                   </span>
                 </div>
                 <EstadoBadge tono={tono}>
