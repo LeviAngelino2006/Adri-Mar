@@ -111,6 +111,42 @@ export function lineaFechasDocumento(tipo, documento, ahora = Date.now()) {
   return { texto, vencido };
 }
 
+// Fecha de vencimiento de un documento del panel Documentación del Dashboard,
+// con las frases de TarjetaDocumento en minúscula: "venció el 02 oct, hace 7
+// días", "vence hoy", "vence el 13 oct, en 4 días". El año va solo si no es el
+// año en curso.
+export function fraseVencimientoAlerta(fechaVencimiento, ahora = Date.now()) {
+  const fecha = formatearFechaCorta(fechaVencimiento, { anio: 'si-distinto', ahora });
+  const dias = diasHasta(fechaVencimiento, ahora);
+  if (dias < 0) return `venció el ${fecha}, hace ${textoDias(-dias)}`;
+  if (dias === 0) return 'vence hoy';
+  return `vence el ${fecha}, en ${textoDias(dias)}`;
+}
+
+// "ITV · venció el 02 oct, hace 7 días": la línea de cada documento del panel.
+// `alerta` es un elemento de `documentos` de GET /documentos/alertas.
+export function lineaAlertaDocumento(alerta, ahora = Date.now()) {
+  return `${etiquetaTipoDocumento(alerta.tipo)} · ${fraseVencimientoAlerta(alerta.fechaVencimiento, ahora)}`;
+}
+
+// Primero los vencidos, del más atrasado al menos atrasado; después los por
+// vencer, del más próximo al más lejano. Las dos mitades son orden ascendente por
+// fecha de vencimiento.
+export function ordenarAlertas(alertas) {
+  const peso = (alerta) => (alerta.estado === 'VENCIDO' ? 0 : 1);
+  return [...alertas].sort(
+    (a, b) => peso(a) - peso(b) || new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento)
+  );
+}
+
+// "2 vencidos · 3 por vencer", sin la parte en cero ("" si no hay ninguna).
+export function resumenAlertas({ vencidos, proximosAVencer }) {
+  const partes = [];
+  if (vencidos > 0) partes.push(`${vencidos} ${plural(vencidos, 'vencido', 'vencidos')}`);
+  if (proximosAVencer > 0) partes.push(`${proximosAVencer} por vencer`);
+  return partes.join(' · ');
+}
+
 // Iniciales para el avatar de un chofer.
 export function iniciales(nombre, apellido) {
   return `${nombre?.[0] ?? ''}${apellido?.[0] ?? ''}`.toUpperCase();

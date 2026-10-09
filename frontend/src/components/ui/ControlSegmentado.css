@@ -1,45 +1,98 @@
+/* Neutro, sin azul: la opción activa queda en blanco sobre el gris del
+   contenedor. Dentro de la barra del listado va a la derecha de todo y, debajo
+   de 640px, pasa arriba a todo el ancho (sin las cantidades). Solo tokens. */
 .control-segmentado {
   display: inline-flex;
-  gap: var(--space-1);
-  padding: var(--space-1);
-  background-color: var(--color-surface);
+  flex: 0 0 auto;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-4);
+  border-radius: var(--radius-sm);
+  background-color: var(--state-neutral-bg);
 }
 
 .control-segmentado-opcion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
   min-height: 44px;
-  padding: 0 var(--space-5);
+  padding: 0 var(--space-4);
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: none;
   font: inherit;
   font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
+  font-weight: 500;
+  color: var(--state-neutral-text);
   cursor: pointer;
 }
 
+.control-segmentado-opcion + .control-segmentado-opcion {
+  border-left: 1px solid var(--color-border);
+}
+
+.control-segmentado-opcion:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.control-segmentado-opcion:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.control-segmentado-opcion svg {
+  flex-shrink: 0;
+}
+
 .control-segmentado-opcion.is-activa {
-  background-color: var(--brand-100);
-  color: var(--brand-700);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.control-segmentado-cantidad {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.control-segmentado-opcion:not(.is-activa) .control-segmentado-cantidad {
+  color: var(--state-neutral-text);
 }
 
 /* Hover solo con mouse; ver a:hover en index.css. */
 @media (hover: hover) {
   .control-segmentado-opcion:not(.is-activa):hover {
-    background-color: var(--brand-50);
-    color: var(--brand-700);
+    color: var(--color-text);
+    background-color: var(--color-bg);
   }
 }
 
 .control-segmentado-opcion:not(.is-activa):active {
-  background-color: var(--brand-50);
-  color: var(--brand-700);
+  color: var(--color-text);
+  background-color: var(--color-bg);
 }
 
 .control-segmentado-opcion:focus-visible {
+  position: relative;
   outline: 2px solid var(--brand-600);
   outline-offset: 2px;
+}
+
+.listado-toolbar .control-segmentado {
+  margin-left: auto;
+}
+
+@media (max-width: 639px) {
+  .listado-toolbar .control-segmentado {
+    order: -1;
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+
+  .listado-toolbar .control-segmentado-opcion {
+    flex: 1;
+  }
+
+  .listado-toolbar .control-segmentado-cantidad {
+    display: none;
+  }
 }

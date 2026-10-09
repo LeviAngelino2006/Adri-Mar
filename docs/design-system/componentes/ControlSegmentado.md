@@ -1,4 +1,4 @@
-Control para cambiar de vista dentro de la misma pantalla, con un botón por opción y una sola activa. Se usa en Documentación (Vehículos | Choferes).
+Control para cambiar de vista dentro de la misma pantalla, con un botón por opción y una sola activa. Se usa en Documentación (Vehículos | Choferes), dentro de la barra del listado.
 
 ## Cuándo usarlo
 - Para alternar entre vistas hermanas de un mismo conjunto de datos, donde el cambio reemplaza el contenido de abajo y no cambia de ruta (Vehículos | Choferes).
@@ -6,17 +6,25 @@ Control para cambiar de vista dentro de la misma pantalla, con un botón por opc
 - No lo uses para filtrar (eso es `Filtros`) ni para acciones (eso es `Button`).
 
 ## Lo que provee quien lo usa
-- `opciones`: arreglo de `{ valor, etiqueta }`. Etiquetas en sentence case y en plural cuando nombran un conjunto ("Vehículos", "Choferes").
+- `opciones`: arreglo de `{ valor, etiqueta, icono?, cantidad? }`. Etiquetas en sentence case y en plural cuando nombran un conjunto ("Vehículos", "Choferes").
+  - `icono`: SVG de 18px con `currentColor` y `aria-hidden`. En Documentación, colectivo para Vehículos (`IconoVehiculo` con `tamano={18}`) y persona para Choferes.
+  - `cantidad`: el total de registros de la vista, sin aplicar búsqueda ni filtro de estado. Va en `<span class="control-segmentado-cantidad">14</span>`. Si es `null` o `undefined` no se muestra (por ejemplo, mientras la lista carga o si falló).
 - `valor`: el valor de la opción activa. Es un componente controlado.
 - `onChange`: recibe el `valor` de la opción tocada.
 - `ariaLabel`: nombre del grupo para lectores de pantalla ("Vista de documentación").
 - Guardá la vista en la URL (`?tab=choferes`) para que se pueda enlazar y funcione el botón Atrás.
+- En un listado, pasalo a `ListadoToolbar` con la prop `vistas` (las mismas props): se renderiza después de Filtros.
 
 ## Estilos
-- Contenedor: `display: inline-flex`, gap `space-1`, padding `space-1`, `color-surface`, borde `color-border`, `radius-md` y margen inferior `space-4`.
-- Botón: alto mínimo 44px, padding `0 space-5`, sin borde, `radius-sm`, 15px y 600 en `color-text-secondary`.
-- Activo: fondo `brand-100` y texto `brand-700`.
-- Hover (solo inactivos): `brand-50` y `brand-700`, dentro de `@media (hover: hover)`; el mismo estilo en `:active`, fuera de la media query. Foco: outline 2px `brand-600`, offset 2px.
+- Neutro, sin azul. Contenedor: `inline-flex`, borde `color-border`, `radius-sm`, fondo `state-neutral-bg`. Sin margen propio.
+- Botón: alto mínimo 44px, padding `0 space-4`, gap `space-2`, 15px y 500 en `state-neutral-text`. Las opciones se separan con un borde izquierdo `color-border`; la primera y la última llevan el radio del contenedor.
+- Activa: fondo `color-surface`, texto `color-text` y 600.
+- Cantidad: 400, `color-text-secondary` y números tabulares (`state-neutral-text` en las opciones inactivas).
+- Hover (solo inactivas): texto `color-text` y fondo `color-bg`, dentro de `@media (hover: hover)`; el mismo estilo en `:active`, fuera de la media query. Foco: outline 2px `brand-600`, offset 2px.
+
+## En la barra del listado
+- Escritorio: va a la derecha de todo (`margin-left: auto`), después del buscador y de Filtros. Es también el orden en el DOM.
+- Debajo de 640px: pasa arriba (`order: -1`), a todo el ancho y con las opciones en partes iguales, y se ocultan las cantidades. El buscador y Filtros quedan en la línea de abajo.
 
 ## Accesibilidad
 - Marcado: un `div` con `role="group"` y `aria-label`, y un `<button type="button">` por opción con `aria-pressed` (`true` en la activa). No es un `tablist`: no hay paneles asociados.

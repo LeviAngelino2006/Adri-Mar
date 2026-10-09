@@ -31,7 +31,7 @@ let ModalConfirmarViaje;
 let ContenidoPorConfirmar;
 
 before(async () => {
-  vite = await createServer({ root: RAIZ, server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
+  vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
   ModalConfirmarViaje = (await vite.ssrLoadModule('/src/components/ModalConfirmarViaje.jsx')).default;
   ({ ContenidoPorConfirmar } = await vite.ssrLoadModule('/src/components/PanelViajesPorConfirmar.jsx'));
 });

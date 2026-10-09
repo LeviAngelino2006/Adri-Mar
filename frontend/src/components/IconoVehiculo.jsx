@@ -1,3 +1,5 @@
+import { cloneElement } from 'react';
+
 // Ícono del tipo de vehículo para la marca de las tarjetas de Flota y de
 // Documentación: colectivo, o combi para cualquier otro tipo.
 const ICONO_COLECTIVO = (
@@ -14,8 +16,10 @@ const ICONO_COMBI = (
   </svg>
 );
 
-function IconoVehiculo({ tipo }) {
-  return tipo === 'Colectivo' ? ICONO_COLECTIVO : ICONO_COMBI;
+// `tamano` en px (20 en las tarjetas; 18 en el control de vistas de Documentación).
+function IconoVehiculo({ tipo, tamano = 20 }) {
+  const icono = tipo === 'Colectivo' ? ICONO_COLECTIVO : ICONO_COMBI;
+  return tamano === 20 ? icono : cloneElement(icono, { width: tamano, height: tamano });
 }
 
 export default IconoVehiculo;

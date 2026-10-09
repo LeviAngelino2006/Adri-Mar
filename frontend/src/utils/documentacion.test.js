@@ -7,6 +7,10 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   contadoresResumen,
+  fraseVencimientoAlerta,
+  lineaAlertaDocumento,
+  ordenarAlertas,
+  resumenAlertas,
   diasHasta,
   formatearFechaCorta,
   iniciales,
@@ -171,5 +175,44 @@ describe('iniciales', () => {
   test('primera letra del nombre y del apellido, en mayúsculas', () => {
     assert.equal(iniciales('ana', 'pérez'), 'AP');
     assert.equal(iniciales('Ana', undefined), 'A');
+  });
+});
+
+describe('panel Documentación del Dashboard', () => {
+  const alerta = (id, estado, fecha, tipo = 'ITV') => ({ id, estado, tipo, fechaVencimiento: dia(fecha) });
+
+  test('frases de vencimiento en minúscula, con singular y año solo si cambia', () => {
+    assert.equal(fraseVencimientoAlerta(dia('2026-10-02'), AHORA), 'venció el 02 oct, hace 7 días');
+    assert.equal(fraseVencimientoAlerta(dia('2026-10-08'), AHORA), 'venció el 08 oct, hace 1 día');
+    assert.equal(fraseVencimientoAlerta(dia('2026-10-09'), AHORA), 'vence hoy');
+    assert.equal(fraseVencimientoAlerta(dia('2026-10-10'), AHORA), 'vence el 10 oct, en 1 día');
+    assert.equal(fraseVencimientoAlerta(dia('2026-10-13'), AHORA), 'vence el 13 oct, en 4 días');
+    assert.equal(fraseVencimientoAlerta(dia('2027-01-05'), AHORA), 'vence el 05 ene 2027, en 88 días');
+  });
+
+  test('la línea lleva el tipo de documento', () => {
+    assert.equal(
+      lineaAlertaDocumento(alerta(1, 'POR_VENCER', '2026-10-09', 'LICENCIA_CONDUCIR'), AHORA),
+      'Licencia de conducir profesional · vence hoy'
+    );
+  });
+
+  test('primero los vencidos (más atrasado primero), después los por vencer (más próximo primero)', () => {
+    const ordenadas = ordenarAlertas([
+      alerta('pv lejos', 'POR_VENCER', '2026-10-20'),
+      alerta('v reciente', 'VENCIDO', '2026-10-08'),
+      alerta('pv cerca', 'POR_VENCER', '2026-10-10'),
+      alerta('v viejo', 'VENCIDO', '2026-09-01'),
+    ]);
+    assert.deepEqual(
+      ordenadas.map((a) => a.id),
+      ['v viejo', 'v reciente', 'pv cerca', 'pv lejos']
+    );
+  });
+
+  test('resumen sin la parte en cero', () => {
+    assert.equal(resumenAlertas({ vencidos: 2, proximosAVencer: 3 }), '2 vencidos · 3 por vencer');
+    assert.equal(resumenAlertas({ vencidos: 1, proximosAVencer: 0 }), '1 vencido');
+    assert.equal(resumenAlertas({ vencidos: 0, proximosAVencer: 1 }), '1 por vencer');
   });
 });

@@ -10,7 +10,7 @@ import ModalConfirmarViaje from './ModalConfirmarViaje';
 import AvisarPorWhatsApp from './AvisarPorWhatsApp';
 import { DURACION_TOAST_CON_ACCION_MS, DURACION_TOAST_MS } from '../constants/toast';
 import { agruparPorConfirmar, rangoHoyYManana } from '../utils/viajesPorConfirmar';
-import { formatearDiaYHora } from '../utils/viajeFormato';
+import { formatearHora } from '../utils/viajeFormato';
 import { avisoWhatsApp } from '../utils/whatsapp';
 import './PanelViajesPorConfirmar.css';
 
@@ -27,22 +27,23 @@ function GrupoDia({ titulo, viajes, onConfirmar }) {
   if (viajes.length === 0) return null;
 
   return (
-    <section className="por-confirmar-grupo" aria-label={titulo}>
-      <h3 className="por-confirmar-dia">{titulo}</h3>
-      <ul className="por-confirmar-lista">
+    <section aria-label={titulo}>
+      <h3 className="dashboard-grupo-dia">{titulo}</h3>
+      <ul className="dashboard-lista">
         {viajes.map((viaje) => (
-          <li key={viaje.id} className="por-confirmar-item">
-            <div className="por-confirmar-icono">{ICONO_CALENDARIO}</div>
-            <div className="por-confirmar-info">
-              <span className="por-confirmar-ruta">
-                <RutaViaje origen={viaje.origen} destino={viaje.destino} paradas={viaje.paradas} />
+          <li key={viaje.id}>
+            <div className="por-confirmar-fila">
+              <span className="hora-col">{formatearHora(viaje.fechaInicio)}</span>
+              <span className="dashboard-fila-info">
+                <span className="dashboard-fila-titulo">
+                  <RutaViaje origen={viaje.origen} destino={viaje.destino} paradas={viaje.paradas} />
+                </span>
+                {viaje.cliente && <span className="dashboard-fila-meta">{viaje.cliente.nombre}</span>}
               </span>
-              <span className="por-confirmar-salida">{formatearDiaYHora(viaje.fechaInicio)}</span>
-              {viaje.cliente && <span className="por-confirmar-cliente">{viaje.cliente.nombre}</span>}
+              <Button variant="secondary" className="por-confirmar-accion" onClick={() => onConfirmar(viaje)}>
+                Confirmar
+              </Button>
             </div>
-            <Button variant="primary" className="por-confirmar-accion" onClick={() => onConfirmar(viaje)}>
-              Confirmar
-            </Button>
           </li>
         ))}
       </ul>
