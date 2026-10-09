@@ -295,10 +295,10 @@ function SeccionAlertasDocumentacion() {
         {!sinAlertas && (
           <div className="dashboard-alertas-resumen">
             {alertas.vencidos > 0 && (
-              <EstadoBadge tono="error">{alertas.vencidos} Vencidos</EstadoBadge>
+              <EstadoBadge tono="error">{alertas.vencidos} vencidos</EstadoBadge>
             )}
             {alertas.proximosAVencer > 0 && (
-              <EstadoBadge tono="warning">{alertas.proximosAVencer} Por vencer</EstadoBadge>
+              <EstadoBadge tono="warning">{alertas.proximosAVencer} por vencer</EstadoBadge>
             )}
           </div>
         )}
@@ -320,9 +320,13 @@ function SeccionAlertasDocumentacion() {
         <ul className="alertas-lista">
           {alertas.documentos.map((doc) => {
             const esVehiculo = doc.categoria === 'VEHICULO';
-            const sujeto = esVehiculo
-              ? `${doc.vehiculo.marca} ${doc.vehiculo.modelo} (${doc.vehiculo.dominio})`
-              : `${doc.usuario.nombre} ${doc.usuario.apellido}`;
+            const sujeto = esVehiculo ? (
+              <>
+                {doc.vehiculo.numeroInterno} - <span className="patente">{doc.vehiculo.dominio}</span>
+              </>
+            ) : (
+              `${doc.usuario.nombre} ${doc.usuario.apellido}`
+            );
 
             const tono = doc.estado === 'VENCIDO' ? 'error' : 'warning';
             const textoDias =
@@ -352,7 +356,7 @@ function SeccionAlertasDocumentacion() {
                   </span>
                 </div>
                 <EstadoBadge tono={tono}>
-                  {doc.estado === 'VENCIDO' ? 'Vencido' : 'Próximo a vencer'}
+                  {doc.estado === 'VENCIDO' ? 'Vencido' : 'Por vencer'}
                 </EstadoBadge>
               </li>
             );
