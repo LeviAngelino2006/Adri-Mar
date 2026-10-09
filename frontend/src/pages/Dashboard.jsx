@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { obtenerAlertasVencimientos } from '../services/documentosApi';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
@@ -233,6 +234,115 @@ function ViajesDelChofer() {
   );
 }
 
+function SeccionAlertasDocumentacion() {
+  const navigate = useNavigate();
+  const [alertas, setAlertas] = useState(null);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    obtenerAlertasVencimientos()
+      .then((res) => setAlertas(res))
+      .catch((err) => console.error('Error al cargar alertas:', err))
+      .finally(() => setCargando(false));
+  }, []);
+
+  if (cargando) {
+    return (
+      <Card className="dashboard-panel">
+        <h2>Alertas de documentación</h2>
+        <div className="loading-state">
+          <Spinner label="Cargando alertas" />
+          <span>Cargando alertas…</span>
+        </div>
+      </Card>
+    );
+  }
+
+  const sinAlertas = !alertas || alertas.totalAlertas === 0;
+
+  function irADocumentacion(doc) {
+    if (doc.categoria === 'VEHICULO') {
+      navigate(`/documentacion?vehiculoId=${doc.vehiculo.id}`);
+    } else {
+      navigate(`/documentacion?tab=choferes&choferId=${doc.usuario.id}`);
+    }
+  }
+
+  return (
+    <Card className="dashboard-panel">
+      <div className="dashboard-alertas-header">
+        <h2>Alertas de documentación</h2>
+        {!sinAlertas && (
+          <div className="dashboard-alertas-resumen">
+            {alertas.vencidos > 0 && (
+              <EstadoBadge tono="error">{alertas.vencidos} Vencidos</EstadoBadge>
+            )}
+            {alertas.proximosAVencer > 0 && (
+              <EstadoBadge tono="warning">{alertas.proximosAVencer} Por vencer</EstadoBadge>
+            )}
+          </div>
+        )}
+      </div>
+
+      {sinAlertas ? (
+        <div className="dashboard-empty">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 9v4" />
+            <path d="M12 17h.01" />
+            <path d="M10.3 3.9L2.5 17a1.8 1.8 0 0 0 1.6 2.7h15.8a1.8 1.8 0 0 0 1.6-2.7L13.7 3.9a1.8 1.8 0 0 0-3.2 0z" />
+          </svg>
+          <span>Sin alertas por ahora</span>
+          <span className="dashboard-empty-hint">
+            Toda la documentación registrada de vehículos y choferes está al día
+          </span>
+        </div>
+      ) : (
+        <ul className="alertas-lista">
+          {alertas.documentos.map((doc) => {
+            const esVehiculo = doc.categoria === 'VEHICULO';
+            const sujeto = esVehiculo
+              ? `${doc.vehiculo.marca} ${doc.vehiculo.modelo} (${doc.vehiculo.dominio})`
+              : `${doc.usuario.nombre} ${doc.usuario.apellido}`;
+
+            const tono = doc.estado === 'VENCIDO' ? 'error' : 'warning';
+            const textoDias =
+              doc.diasRestantes < 0
+                ? `Vencido hace ${Math.abs(doc.diasRestantes)} día(s)`
+                : doc.diasRestantes === 0
+                ? 'Vence hoy'
+                : `Vence en ${doc.diasRestantes} día(s)`;
+
+            return (
+              <li
+                key={`${doc.categoria}-${doc.id}`}
+                className="alertas-item alertas-item-clickeable"
+                onClick={() => irADocumentacion(doc)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && irADocumentacion(doc)}
+                title="Ir a la documentación"
+              >
+                <div className="alertas-info">
+                  <div className="alertas-titulo">
+                    <span className="alertas-tipo">{doc.tipo}</span>
+                    <span className="alertas-sujeto">• {sujeto}</span>
+                  </div>
+                  <span className="alertas-fecha">
+                    Fecha vencimiento: {new Date(doc.fechaVencimiento).toLocaleDateString('es-AR')} — {textoDias}
+                  </span>
+                </div>
+                <EstadoBadge tono={tono}>
+                  {doc.estado === 'VENCIDO' ? 'Vencido' : 'Próximo a vencer'}
+                </EstadoBadge>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
 function Dashboard() {
   const { usuario } = useAuth();
 
@@ -245,20 +355,7 @@ function Dashboard() {
 
       {usuario.habilitadoParaConducir && <ViajesDelChofer />}
 
-      <Card className="dashboard-panel">
-        <h2>Alertas</h2>
-        <div className="dashboard-empty">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 9v4" />
-            <path d="M12 17h.01" />
-            <path d="M10.3 3.9L2.5 17a1.8 1.8 0 0 0 1.6 2.7h15.8a1.8 1.8 0 0 0 1.6-2.7L13.7 3.9a1.8 1.8 0 0 0-3.2 0z" />
-          </svg>
-          <span>Sin alertas por ahora</span>
-          <span className="dashboard-empty-hint">
-            Documentación vencida y vencimientos próximos van a aparecer acá
-          </span>
-        </div>
-      </Card>
+      <SeccionAlertasDocumentacion />
     </Layout>
   );
 }
