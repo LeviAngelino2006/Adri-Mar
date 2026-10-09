@@ -4,7 +4,7 @@ Ficha de detalle de un registro. Patrón de página con dos variantes: la ficha 
 Estructura:
 - `.back-link` ("← Volver al listado"), y `.viajes-detalle-header` con el `h1` y el `EstadoBadge` md.
 - Una `Card` con `.detalle-card` y una `<section class="detalle-seccion">` por bloque. Cada sección tiene `<h2 class="detalle-seccion-titulo">` (13px, 600, mayúsculas, `color-text-secondary`) y un `<dl class="detalle-grid">` con un `.detalle-item` (`dt` + `dd`) por dato. Las secciones se separan con un borde `color-border`.
-- Debajo, `.viajes-detalle-actions` con los `Button`.
+- Debajo, `.viajes-detalle-actions` con los `Button`. En un viaje Programado, los gestores ven también **Avisar por WhatsApp** (ver `AvisarPorWhatsApp`), entre Comenzar y Editar.
 
 Secciones, en este orden y con estos pares (los mismos del formulario `FormularioViaje`):
 1. **Viaje**: Cliente (`.detalle-item-ancho`, `.detalle-item-destacado`) · Cantidad de pasajeros ("—" si no se cargó: es un dato opcional, no un faltante).
