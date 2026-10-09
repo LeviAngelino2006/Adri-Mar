@@ -1,5 +1,5 @@
-// Smoke test de render de ControlSegmentado y de la tarjeta de un documento de la
-// ficha de Documentación. Se corre con `npm test` (node:test).
+// Smoke test de render de ControlSegmentado, de la tarjeta de un documento de la
+// ficha de Documentación y del marco del visor de PDF. Se corre con `npm test` (node:test).
 //
 // Mismo método que confirmarViaje.render.test.mjs: Vite en modo SSR carga los
 // .jsx y se renderiza a HTML con react-dom/server. Verifica la estructura (qué
@@ -21,11 +21,13 @@ const h = React.createElement;
 let vite;
 let ControlSegmentado;
 let TarjetaDocumento;
+let ModalVisorPdf;
 
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
   ControlSegmentado = (await vite.ssrLoadModule('/src/components/ui/ControlSegmentado.jsx')).default;
   TarjetaDocumento = (await vite.ssrLoadModule('/src/components/documentacion/TarjetaDocumento.jsx')).default;
+  ModalVisorPdf = (await vite.ssrLoadModule('/src/components/documentacion/ModalVisorPdf.jsx')).default;
 });
 
 after(() => vite.close());
@@ -125,5 +127,40 @@ describe('TarjetaDocumento', () => {
     assert.match(html, />Vencido</);
     assert.match(html, /is-vencido/);
     assert.match(html, /Venció el 02 ene 2020, hace [\d]+ días/);
+  });
+});
+
+describe('ModalVisorPdf', () => {
+  const documento = {
+    nombreArchivo: 'poliza-2026.pdf',
+    creadoEn: '2026-03-12T15:00:00.000Z',
+    tipoDocumento: { descripcion: 'POLIZA_SEGURO' },
+    usuario: { nombre: 'Ana', apellido: 'Pérez' },
+  };
+  let html;
+  before(() => {
+    html = renderToStaticMarkup(
+      h(ModalVisorPdf, { documento, url: 'https://storage.test/poliza.pdf?token=1', subtitulo: 'Interno 12', onClose() {} })
+    );
+  });
+
+  test('mientras baja el visor muestra un Spinner y ya no usa iframe', () => {
+    assert.match(html, /doc-visor-cargando/);
+    assert.match(html, /role="status"/);
+    assert.doesNotMatch(html, /<iframe/);
+  });
+
+  test('el encabezado y el pie están desde el principio, con las dos acciones', () => {
+    assert.match(html, /Póliza de seguro/);
+    assert.match(html, /Interno 12/);
+    assert.match(html, /poliza-2026\.pdf · Subido el 12 mar 2026 por Ana Pérez/);
+    assert.match(html, /<a class="btn btn-secondary" href="https:\/\/storage\.test\/poliza\.pdf\?token=1"[^>]*target="_blank"[^>]*>Abrir en otra pestaña/);
+    assert.match(html, /btn-primary[^>]*>.*Descargar PDF/);
+  });
+
+  test('es un diálogo modal con la variante visor', () => {
+    assert.match(html, /role="dialog"/);
+    assert.match(html, /aria-modal="true"/);
+    assert.match(html, /doc-modal doc-modal-visor/);
   });
 });
