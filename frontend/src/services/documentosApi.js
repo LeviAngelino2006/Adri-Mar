@@ -5,16 +5,6 @@ export async function obtenerAlertasVencimientos() {
   return data;
 }
 
-export async function crearDocumentoVehiculo(payload) {
-  const { data } = await api.post('/documentos/vehiculos', payload);
-  return data;
-}
-
-export async function crearDocumentoUsuario(payload) {
-  const { data } = await api.post('/documentos/usuarios', payload);
-  return data;
-}
-
 export async function eliminarDocumentoVehiculo(vehiculoId, documentoId) {
   const { data } = await api.delete(`/documentos/vehiculos/${vehiculoId}/${documentoId}`);
   return data;

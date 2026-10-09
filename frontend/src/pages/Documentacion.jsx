@@ -13,6 +13,7 @@ import ModalVisorPdf from '../components/documentacion/ModalVisorPdf';
 import ModalHistorialDocumento from '../components/documentacion/ModalHistorialDocumento';
 import { useAuth } from '../context/AuthContext';
 import { ESTADOS_VEHICULO } from '../constants/estadosVehiculo';
+import { etiquetaTipoDocumento, ordenarPorTipoDocumento } from '../constants/tiposDocumento';
 import api from '../services/api';
 import { eliminarDocumentoVehiculo, eliminarDocumentoChofer } from '../services/documentosApi';
 import { formatearNombreArchivo } from '../utils/archivoFormato';
@@ -45,7 +46,7 @@ function GridDocumentos({
 
   return (
     <div className="doc-grid-documentos">
-      {documentos.map(({ tipo, cargado, documento }) => {
+      {ordenarPorTipoDocumento(documentos, (item) => item.tipo.descripcion).map(({ tipo, cargado, documento }) => {
         const estadoVigencia = documento?.estadoVigencia || 'PENDIENTE';
 
         return (
@@ -59,7 +60,7 @@ function GridDocumentos({
             <div className="doc-card-top-grid">
               {/* Columna Izquierda: Título en Mayúsculas + Badges */}
               <div className="doc-col-izq">
-                <h3 className="doc-titulo-mayus">{tipo.descripcion.toUpperCase()}</h3>
+                <h3 className="doc-titulo-mayus">{etiquetaTipoDocumento(tipo.descripcion).toUpperCase()}</h3>
                 <div className="doc-badges-fila">
                   <span className="doc-badge-req">
                     {tipo.requiereArchivo ? 'Requiere PDF' : 'Solo registro de vigencia'}
@@ -99,9 +100,9 @@ function GridDocumentos({
                       <span className="doc-dato-label">Archivo:</span>
                       <span
                         className="doc-dato-valor doc-archivo-nombre"
-                        title={formatearNombreArchivo(documento.nombreOriginal) || 'Sin archivo'}
+                        title={formatearNombreArchivo(documento.nombreArchivo) || 'Sin archivo'}
                       >
-                        {formatearNombreArchivo(documento.nombreOriginal) ||
+                        {formatearNombreArchivo(documento.nombreArchivo) ||
                           (tipo.requiereArchivo ? 'Sin archivo' : 'Trámite sin PDF')}
                       </span>
                     </div>
@@ -403,7 +404,7 @@ function Documentacion() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = documento.nombreOriginal || `${documento.tipoDocumento?.codigo || 'documento'}.pdf`;
+      a.download = documento.nombreArchivo || `${documento.tipoDocumento?.descripcion || 'documento'}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);

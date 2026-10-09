@@ -65,6 +65,8 @@ async function main() {
 
   console.log(`Administrador inicial listo: ${admin.nombreUsuario}`);
 
+  // orden: de mayor a menor capacidad/tamaño real del vehículo, para que el
+  // selector del frontend los muestre en ese orden sin ordenar alfabético.
   const TIPOS_VEHICULO = [
     { descripcion: 'Colectivo', orden: 1 },
     { descripcion: 'Minibus', orden: 2 },
@@ -103,6 +105,9 @@ async function main() {
 
   console.log(`Estados de viaje listos: ${ESTADOS_VIAJE.join(', ')}`);
 
+  // MANTENIMIENTO no se usa todavía (queda previsto para el futuro módulo de
+  // mantenimiento preventivo), pero se siembra ya para no necesitar otra
+  // migración cuando llegue ese momento.
   const ORIGENES_LECTURA = [
     'ALTA_VEHICULO',
     'INICIO_VIAJE',
@@ -121,6 +126,7 @@ async function main() {
 
   console.log(`Orígenes de lectura listos: ${ORIGENES_LECTURA.join(', ')}`);
 
+  // Reusado tal cual para el pago al cliente y el pago al chofer.
   const ESTADOS_PAGO = ['PENDIENTE', 'PAGADO', 'PARCIAL'];
   for (const descripcion of ESTADOS_PAGO) {
     await prisma.estadoPago.upsert({
@@ -143,108 +149,41 @@ async function main() {
 
   console.log(`Métodos de pago listos: ${METODOS_PAGO.join(', ')}`);
 
+  const CATEGORIAS_DOCUMENTO = ['VEHICULO', 'CHOFER'];
+  for (const descripcion of CATEGORIAS_DOCUMENTO) {
+    await prisma.categoriaDocumento.upsert({
+      where: { descripcion },
+      update: {},
+      create: { descripcion },
+    });
+  }
+
+  console.log(`Categorías de documento listas: ${CATEGORIAS_DOCUMENTO.join(', ')}`);
+
+  // descripcion es el código; la etiqueta visible vive en
+  // frontend/src/constants/tiposDocumento.js.
   const TIPOS_DOCUMENTO = [
-    {
-      codigo: 'POLIZA_SEGURO',
-      descripcion: 'Póliza de seguro',
-      aplicaA: 'VEHICULO',
-      requiereVencimiento: true,
-      requiereArchivo: true,
-      orden: 1,
-    },
-    {
-      codigo: 'CERT_COBERTURA',
-      descripcion: 'Certificado de cobertura',
-      aplicaA: 'VEHICULO',
-      requiereVencimiento: true,
-      requiereArchivo: true,
-      orden: 2,
-    },
-    {
-      codigo: 'PAGO_SEGURO',
-      descripcion: 'Comprobante de pago de seguro',
-      aplicaA: 'VEHICULO',
-      requiereVencimiento: false,
-      requiereArchivo: true,
-      orden: 3,
-    },
-    {
-      codigo: 'ITV',
-      descripcion: 'Inspección Técnica Vehicular (ITV)',
-      aplicaA: 'VEHICULO',
-      requiereVencimiento: true,
-      requiereArchivo: true,
-      orden: 4,
-    },
-    {
-      codigo: 'MATAFUEGOS',
-      descripcion: 'Control de Matafuegos',
-      aplicaA: 'VEHICULO',
-      requiereVencimiento: true,
-      requiereArchivo: false,
-      orden: 5,
-    },
-    {
-      codigo: 'TITULO_VEHICULO',
-      descripcion: 'Título del automotor',
-      aplicaA: 'VEHICULO',
-      requiereVencimiento: false,
-      requiereArchivo: true,
-      orden: 6,
-    },
-    {
-      codigo: 'CEDULA_IDENTIFICACION',
-      descripcion: 'Cédula de identificación (Tarjeta Verde)',
-      aplicaA: 'VEHICULO',
-      requiereVencimiento: false,
-      requiereArchivo: true,
-      orden: 7,
-    },
-    {
-      codigo: 'ALTA_TRANSPORTE',
-      descripcion: 'Certificado de alta de transporte',
-      aplicaA: 'VEHICULO',
-      requiereVencimiento: false,
-      requiereArchivo: true,
-      orden: 8,
-    },
-    {
-      codigo: 'LICENCIA_CONDUCIR',
-      descripcion: 'Licencia de conducir profesional',
-      aplicaA: 'CHOFER',
-      requiereVencimiento: true,
-      requiereArchivo: true,
-      orden: 1,
-    },
-    {
-      codigo: 'DNI_CHOFER',
-      descripcion: 'Documento Nacional de Identidad (DNI)',
-      aplicaA: 'CHOFER',
-      requiereVencimiento: false,
-      requiereArchivo: true,
-      orden: 2,
-    },
-    {
-      codigo: 'EXAMEN_PSICOFISICO',
-      descripcion: 'Examen psicofísico / LINTI',
-      aplicaA: 'CHOFER',
-      requiereVencimiento: true,
-      requiereArchivo: true,
-      orden: 3,
-    },
+    { descripcion: 'POLIZA_SEGURO', categoria: 'VEHICULO', requiereVencimiento: true, requiereArchivo: true },
+    { descripcion: 'CERT_COBERTURA', categoria: 'VEHICULO', requiereVencimiento: true, requiereArchivo: true },
+    { descripcion: 'PAGO_SEGURO', categoria: 'VEHICULO', requiereVencimiento: false, requiereArchivo: true },
+    { descripcion: 'ITV', categoria: 'VEHICULO', requiereVencimiento: true, requiereArchivo: true },
+    { descripcion: 'MATAFUEGOS', categoria: 'VEHICULO', requiereVencimiento: true, requiereArchivo: false },
+    { descripcion: 'TITULO_VEHICULO', categoria: 'VEHICULO', requiereVencimiento: false, requiereArchivo: true },
+    { descripcion: 'CEDULA_IDENTIFICACION', categoria: 'VEHICULO', requiereVencimiento: false, requiereArchivo: true },
+    { descripcion: 'ALTA_TRANSPORTE', categoria: 'VEHICULO', requiereVencimiento: false, requiereArchivo: true },
+    { descripcion: 'LICENCIA_CONDUCIR', categoria: 'CHOFER', requiereVencimiento: true, requiereArchivo: true },
+    { descripcion: 'DNI_CHOFER', categoria: 'CHOFER', requiereVencimiento: false, requiereArchivo: true },
+    { descripcion: 'EXAMEN_PSICOFISICO', categoria: 'CHOFER', requiereVencimiento: true, requiereArchivo: true },
   ];
 
-  for (const tipo of TIPOS_DOCUMENTO) {
+  for (const { descripcion, categoria, requiereVencimiento, requiereArchivo } of TIPOS_DOCUMENTO) {
+    const categoriaDocumento = await prisma.categoriaDocumento.findUnique({
+      where: { descripcion: categoria },
+    });
     await prisma.tipoDocumento.upsert({
-      where: { codigo: tipo.codigo },
-      update: {
-        descripcion: tipo.descripcion,
-        aplicaA: tipo.aplicaA,
-        requiereVencimiento: tipo.requiereVencimiento,
-        requiereArchivo: tipo.requiereArchivo,
-        orden: tipo.orden,
-      },
-      create: tipo,
+      where: { descripcion },
+      update: { categoriaDocumentoId: categoriaDocumento.id, requiereVencimiento, requiereArchivo },
+      create: { descripcion, categoriaDocumentoId: categoriaDocumento.id, requiereVencimiento, requiereArchivo },
     });
   }
 
