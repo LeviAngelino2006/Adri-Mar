@@ -1,7 +1,8 @@
 // Doble de Prisma CON ESTADO para los tests de viajes: tablas en memoria
-// (usuarios, vehículos, ubicaciones, viajes, sus candidatos y sus paradas) y un $transaction con
-// rollback real — lo que no se confirma, se deshace. Lo comparten
-// viajesCandidatos.test.js y viajesParadas.test.js.
+// (usuarios, vehículos, ubicaciones, viajes, sus candidatos y sus paradas, tipos
+// de documento y documentos) y un $transaction con rollback real — lo que no se
+// confirma, se deshace. Lo comparten viajesCandidatos.test.js,
+// viajesParadas.test.js y documentos.test.js.
 //
 // Se usa así (el reemplazo del módulo tiene que ir ANTES de cargar la app):
 //
@@ -55,6 +56,12 @@ function crearEntorno() {
     candVeh: [],
     // Filas de viaje_paradas: { viajeId, ubicacionId, orden }.
     paradas: [],
+    // Catálogo de tipos de documento (con su categoría) y filas de `documentos`.
+    tiposDocumento: [],
+    documentos: [],
+    // Reloj del doble: cada documento creado por el servicio se "crea" un
+    // segundo después que el anterior, para que "el más reciente" sea determinista.
+    relojDocumentos: Date.parse('2026-01-01T00:00:00Z'),
     siguienteId: 100,
     // Hooks para provocar situaciones puntuales desde cada test.
     fallos: {},
@@ -104,6 +111,23 @@ function crearEntorno() {
       { id: 4, nombre: 'Museo del Kempes' },
       { id: 5, nombre: 'Villa del Dique' },
     ]);
+
+    const tipo = (id, descripcion, categoria, requiereVencimiento, requiereArchivo) => ({
+      id,
+      descripcion,
+      categoriaDocumento: { id: categoria === 'VEHICULO' ? 1 : 2, descripcion: categoria },
+      requiereVencimiento,
+      requiereArchivo,
+    });
+    reemplazar(db.tiposDocumento, [
+      tipo(1, 'POLIZA_SEGURO', 'VEHICULO', true, true),
+      tipo(2, 'MATAFUEGOS', 'VEHICULO', true, false),
+      tipo(3, 'TITULO_VEHICULO', 'VEHICULO', false, true),
+      tipo(4, 'LICENCIA_CONDUCIR', 'CHOFER', true, true),
+      tipo(5, 'DNI_CHOFER', 'CHOFER', false, true),
+    ]);
+    reemplazar(db.documentos, []);
+    db.relojDocumentos = Date.parse('2026-01-01T00:00:00Z');
 
     reemplazar(db.viajes, []);
     reemplazar(db.paradas, []);
@@ -186,9 +210,129 @@ function crearEntorno() {
 
   const filaPorId = (id) => db.viajes.find((v) => v.id === id);
 
+  // --- Documentos -----------------------------------------------------------
+  // Soporta solo los filtros que usa documentoService; un filtro desconocido
+  // revienta en vez de ignorarse, para que el doble no oculte consultas mal armadas.
+  function coincideFiltroDocumento(fila, where = {}) {
+    return Object.entries(where).every(([clave, filtro]) => {
+      if (['id', 'vehiculoId', 'choferId', 'tipoDocumentoId', 'archivoPath'].includes(clave)) {
+        if (filtro !== null && typeof filtro === 'object') {
+          if (filtro.in) return filtro.in.includes(fila[clave]);
+          if (filtro.notIn) return !filtro.notIn.includes(fila[clave]);
+          if ('not' in filtro) return fila[clave] !== filtro.not;
+          throw new Error(`filtro no soportado por el doble en documentos.${clave}`);
+        }
+        return fila[clave] === filtro;
+      }
+      if (clave === 'vehiculo') {
+        const vehiculo = db.vehiculos.find((v) => v.id === fila.vehiculoId);
+        const { not } = filtro.estadoVehiculo.descripcion;
+        return Boolean(vehiculo) && vehiculo.estadoVehiculo.descripcion !== not;
+      }
+      if (clave === 'chofer') {
+        const chofer = db.usuarios.find((u) => u.id === fila.choferId);
+        return Boolean(chofer) && chofer.estadoUsuario.descripcion === filtro.estadoUsuario.descripcion;
+      }
+      throw new Error(`filtro no soportado por el doble: documentos.${clave}`);
+    });
+  }
+
+  function ordenarDocumentos(filas, orderBy = []) {
+    const criterios = [].concat(orderBy).flatMap((o) => Object.entries(o));
+    return [...filas].sort((a, b) => {
+      for (const [campo, sentido] of criterios) {
+        const x = a[campo] instanceof Date ? a[campo].getTime() : a[campo];
+        const y = b[campo] instanceof Date ? b[campo].getTime() : b[campo];
+        if (x !== y) return (x < y ? -1 : 1) * (sentido === 'desc' ? -1 : 1);
+      }
+      return 0;
+    });
+  }
+
+  function armarDocumento(fila, include) {
+    const resultado = { ...fila };
+    if (include?.tipoDocumento) {
+      resultado.tipoDocumento = db.tiposDocumento.find((t) => t.id === fila.tipoDocumentoId);
+    }
+    if (include?.usuario) {
+      const u = db.usuarios.find((x) => x.id === fila.usuarioId);
+      resultado.usuario = u ? { id: u.id, nombre: u.nombre, apellido: u.apellido } : null;
+    }
+    if (include?.vehiculo) resultado.vehiculo = db.vehiculos.find((v) => v.id === fila.vehiculoId) ?? null;
+    if (include?.chofer) resultado.chofer = db.usuarios.find((u) => u.id === fila.choferId) ?? null;
+    return resultado;
+  }
+
+  const modeloDocumento = {
+    findMany: async ({ where, orderBy, distinct, include } = {}) => {
+      let filas = ordenarDocumentos(db.documentos.filter((d) => coincideFiltroDocumento(d, where)), orderBy);
+      if (distinct) {
+        // Como la base: queda la primera fila de cada combinación según orderBy.
+        const vistos = new Set();
+        filas = filas.filter((d) => {
+          const clave = distinct.map((c) => d[c]).join('|');
+          if (vistos.has(clave)) return false;
+          vistos.add(clave);
+          return true;
+        });
+      }
+      return filas.map((d) => armarDocumento(d, include));
+    },
+    findFirst: async ({ where, orderBy, include } = {}) => {
+      const [primera] = ordenarDocumentos(db.documentos.filter((d) => coincideFiltroDocumento(d, where)), orderBy);
+      return primera ? armarDocumento(primera, include) : null;
+    },
+    count: async ({ where } = {}) => db.documentos.filter((d) => coincideFiltroDocumento(d, where)).length,
+    create: async ({ data, include }) => {
+      if (db.fallos.createDocumento) throw new Error('falla simulada en el create del documento');
+      db.relojDocumentos += 1000;
+      const fila = {
+        id: db.siguienteId++,
+        vehiculoId: null,
+        choferId: null,
+        archivoPath: null,
+        nombreArchivo: null,
+        fechaEmision: null,
+        fechaVencimiento: null,
+        observaciones: null,
+        creadoEn: new Date(db.relojDocumentos),
+        ...data,
+      };
+      db.documentos.push(fila);
+      return armarDocumento(fila, include);
+    },
+    delete: async ({ where: { id } }) => {
+      const indice = db.documentos.findIndex((d) => d.id === id);
+      if (indice === -1) throw new Error('Record to delete does not exist');
+      return db.documentos.splice(indice, 1)[0];
+    },
+    deleteMany: async ({ where }) => {
+      if (db.fallos.deleteManyDocumentos) throw new Error('falla simulada en el deleteMany de documentos');
+      const borrar = db.documentos.filter((d) => coincideFiltroDocumento(d, where));
+      reemplazar(db.documentos, db.documentos.filter((d) => !borrar.includes(d)));
+      return { count: borrar.length };
+    },
+  };
+
+  // include: { documentos: { distinct, orderBy } } de vehiculo/usuario.
+  function documentosDe(campo, id, relacion) {
+    return modeloDocumento.findMany({ where: { [campo]: id }, orderBy: relacion.orderBy, distinct: relacion.distinct });
+  }
+
+  const modeloTipoDocumento = {
+    findUnique: async ({ where: { id } }) => db.tiposDocumento.find((t) => t.id === id) ?? null,
+    findMany: async ({ where }) =>
+      db.tiposDocumento
+        .filter((t) => t.categoriaDocumento.descripcion === where.categoriaDocumento.descripcion)
+        .sort((a, b) => a.id - b.id),
+    count: async ({ where }) =>
+      db.tiposDocumento.filter((t) => t.categoriaDocumento.descripcion === where.categoriaDocumento.descripcion).length,
+  };
+
   // Los modelos de candidatos y updateMany solo existen DENTRO de la transacción
   // (tx): si alguna ruta los usara por fuera de $transaction, el test revienta.
   const modelosTx = {
+    documento: modeloDocumento,
     // @@unique([viajeId, orden]) como en la base: createMany falla si una fila
     // choca con otra. Por eso reordenar solo funciona si el deleteMany va ANTES.
     viajeParada: {
@@ -252,6 +396,8 @@ function crearEntorno() {
 
   const prisma = {
     cliente: { findUnique: existe([1]) },
+    documento: modeloDocumento,
+    tipoDocumento: modeloTipoDocumento,
     ubicacion: {
       findUnique: async ({ where: { id } }) => db.ubicaciones.find((u) => u.id === id) ?? null,
       findMany: async ({ where }) => db.ubicaciones.filter((u) => where.id.in.includes(u.id)),
@@ -265,8 +411,16 @@ function crearEntorno() {
         if (db.alLeerUsuario) db.alLeerUsuario();
         return db.usuarios.find((u) => u.id === id) ?? null;
       },
-      findMany: async ({ where }) => {
+      findMany: async ({ where, include }) => {
         if (where.id?.in) return db.usuarios.filter((u) => where.id.in.includes(u.id));
+        // Estado de documentación de choferes: perfil CHOFER o habilitado para conducir.
+        if (where.OR) {
+          return Promise.all(
+            db.usuarios
+              .filter((u) => u.habilitadoParaConducir)
+              .map(async (u) => ({ ...u, documentos: await documentosDe('choferId', u.id, include.documentos) }))
+          );
+        }
         return db.usuarios.filter(
           (u) => u.habilitadoParaConducir === where.habilitadoParaConducir && u.estadoUsuario.descripcion === 'ACTIVO'
         );
@@ -274,9 +428,14 @@ function crearEntorno() {
     },
     vehiculo: {
       findUnique: async ({ where: { id } }) => db.vehiculos.find((v) => v.id === id) ?? null,
-      findMany: async ({ where }) => {
-        if (where.id?.in) return db.vehiculos.filter((v) => where.id.in.includes(v.id));
-        return db.vehiculos.filter((v) => v.estadoVehiculo.descripcion !== where.estadoVehiculo.descripcion.not);
+      findMany: async ({ where, include }) => {
+        const filas = where.id?.in
+          ? db.vehiculos.filter((v) => where.id.in.includes(v.id))
+          : db.vehiculos.filter((v) => v.estadoVehiculo.descripcion !== where.estadoVehiculo.descripcion.not);
+        if (!include?.documentos) return filas;
+        return Promise.all(
+          filas.map(async (v) => ({ ...v, documentos: await documentosDe('vehiculoId', v.id, include.documentos) }))
+        );
       },
     },
     viaje: {
@@ -322,6 +481,7 @@ function crearEntorno() {
         candChofer: db.candChofer.map((c) => ({ ...c })),
         candVeh: db.candVeh.map((c) => ({ ...c })),
         paradas: db.paradas.map((p) => ({ ...p })),
+        documentos: db.documentos.map((d) => ({ ...d })),
       };
       try {
         return await fn(modelosTx);
@@ -330,6 +490,7 @@ function crearEntorno() {
         reemplazar(db.candChofer, copia.candChofer);
         reemplazar(db.candVeh, copia.candVeh);
         reemplazar(db.paradas, copia.paradas);
+        reemplazar(db.documentos, copia.documentos);
         throw err;
       }
     },
