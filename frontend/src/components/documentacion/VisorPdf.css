@@ -1,0 +1,126 @@
+/* Visor de PDF (VisorPdf.jsx): barra de controles y área de páginas. Solo tokens.
+   Las clases `.textLayer` y `.react-pdf__Page*` son de react-pdf. */
+.visor-pdf {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg);
+  overflow: hidden;
+}
+
+/* Barra: 44px de alto (más el borde inferior). */
+.visor-pdf-barra {
+  flex: 0 0 auto;
+  box-sizing: content-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  height: 44px;
+  padding: 0 var(--space-2);
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.visor-pdf-grupo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.visor-pdf-barra .visor-pdf-boton {
+  min-width: 44px;
+  padding: 0;
+}
+
+/* El foco va hacia adentro: la barra recorta lo que sobresale. */
+.visor-pdf-barra .visor-pdf-boton:focus-visible {
+  outline-offset: -2px;
+}
+
+.visor-pdf-texto {
+  min-width: 3.5em;
+  text-align: center;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Páginas: una debajo de otra, con scroll vertical (y horizontal si el zoom las ensancha). */
+.visor-pdf-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-4);
+  overflow: auto;
+  scrollbar-gutter: stable;
+  background-color: var(--color-bg);
+}
+
+.visor-pdf-area:focus-visible {
+  outline-offset: -2px;
+}
+
+.visor-pdf-area .doc-visor-cargando {
+  height: 100%;
+}
+
+.visor-pdf-contenido {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  width: max-content;
+  min-width: 100%;
+}
+
+.visor-pdf-pagina {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background-color: var(--color-surface);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  color: var(--brand-600);
+}
+
+.visor-pdf-pagina canvas {
+  display: block;
+}
+
+.visor-pdf-error-pagina {
+  margin: 0;
+  padding: var(--space-4);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+/* El color de la selección sale de la marca (el de react-pdf es azul fijo). */
+.visor-pdf .textLayer ::selection {
+  background: color-mix(in srgb, var(--brand-600) 25%, transparent);
+}
+
+/* Celular: sin controles de zoom (se pellizca la página) y de borde a borde. */
+@media (max-width: 639px) {
+  .visor-pdf-barra .visor-pdf-zoom {
+    display: none;
+  }
+
+  .doc-modal-visor .visor-pdf {
+    margin-inline: calc(-1 * var(--space-4));
+    border-inline: 0;
+    border-radius: 0;
+  }
+
+  .visor-pdf-barra {
+    padding: 0 var(--space-1);
+  }
+}

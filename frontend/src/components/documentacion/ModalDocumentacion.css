@@ -168,19 +168,20 @@
   color: var(--color-text-secondary);
 }
 
-/* Visor de PDF */
-.doc-visor-marco {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background-color: var(--color-bg);
-}
-
+/* Visor de PDF: el marco (cuerpo, pie y pantalla completa en celular). La barra
+   y las páginas están en VisorPdf.css, que baja junto con el visor. */
 .doc-modal-visor .doc-modal-cuerpo {
   flex: 1;
   overflow: hidden;
+}
+
+/* Mientras baja el visor o el documento. */
+.doc-visor-cargando {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-600);
 }
 
 .doc-visor-meta {
@@ -191,4 +192,31 @@
 
 .doc-modal-pie .btn {
   text-decoration: none;
+}
+
+/* Celular: el visor ocupa toda la pantalla, sin márgenes ni radio (el lector de
+   páginas va de borde a borde: ver VisorPdf.css). Los dos botones del pie se reparten el ancho. */
+@media (max-width: 639px) {
+  .doc-modal-overlay:has(.doc-modal-visor) {
+    padding: 0;
+  }
+
+  .doc-modal-visor {
+    max-width: none;
+    padding: var(--space-4);
+    gap: var(--space-3);
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .doc-modal-visor .doc-visor-meta {
+    flex: 1 0 100%;
+  }
+
+  .doc-modal-visor .doc-modal-pie .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: var(--space-2);
+    text-align: center;
+  }
 }
