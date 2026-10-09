@@ -304,6 +304,10 @@ async function registrarDocumentoVehiculo({
     },
   });
 
+  // Regla de negocio: El historial guarda como máximo los últimos 2 sin contar el actual.
+  // Al superar el límite de 3 (2 viejos + 1 actual), se elimina el más viejo en Supabase y DB.
+  await purgarHistorialExcedenteVehiculo(vId, tId);
+
   let signedUrl = null;
   if (nuevoDocumento.archivoPath) {
     signedUrl = await storageService.generarSignedUrl(nuevoDocumento.archivoPath, 3600);
@@ -314,6 +318,38 @@ async function registrarDocumentoVehiculo({
     signedUrl,
     estadoVigencia: calcularEstadoVigencia(nuevoDocumento),
   };
+}
+
+/**
+ * Mantiene un máximo de 2 documentos históricos (además del vigente actual).
+ * Si hay más de 2 históricos, elimina los más antiguos en Supabase Storage y DB.
+ */
+async function purgarHistorialExcedenteVehiculo(vehiculoId, tipoDocumentoId) {
+  const vId = parseInt(vehiculoId, 10);
+  const tId = parseInt(tipoDocumentoId, 10);
+
+  const historicos = await prisma.documentoVehiculo.findMany({
+    where: {
+      vehiculoId: vId,
+      tipoDocumentoId: tId,
+      esVigente: false,
+    },
+    orderBy: {
+      creadoEn: 'desc',
+    },
+  });
+
+  if (historicos.length > 2) {
+    const sobrantes = historicos.slice(2);
+    for (const doc of sobrantes) {
+      if (doc.archivoPath) {
+        await storageService.eliminarArchivo(doc.archivoPath).catch(() => {});
+      }
+      await prisma.documentoVehiculo.delete({
+        where: { id: doc.id },
+      });
+    }
+  }
 }
 
 /**
@@ -710,6 +746,10 @@ async function registrarDocumentoChofer(choferId, data, file, usuarioId) {
     },
   });
 
+  // Regla de negocio: El historial guarda como máximo los últimos 2 sin contar el actual.
+  // Al superar el límite de 3 (2 viejos + 1 actual), se elimina el más viejo en Supabase y DB.
+  await purgarHistorialExcedenteChofer(cId, tId);
+
   let signedUrl = null;
   if (nuevoDocumento.archivoPath) {
     signedUrl = await storageService.generarSignedUrl(nuevoDocumento.archivoPath, 3600);
@@ -720,6 +760,38 @@ async function registrarDocumentoChofer(choferId, data, file, usuarioId) {
     signedUrl,
     estadoVigencia: calcularEstadoVigencia(nuevoDocumento),
   };
+}
+
+/**
+ * Mantiene un máximo de 2 documentos históricos de chofer (además del vigente actual).
+ * Si hay más de 2 históricos, elimina los más antiguos en Supabase Storage y DB.
+ */
+async function purgarHistorialExcedenteChofer(choferId, tipoDocumentoId) {
+  const cId = parseInt(choferId, 10);
+  const tId = parseInt(tipoDocumentoId, 10);
+
+  const historicos = await prisma.documentoChofer.findMany({
+    where: {
+      choferId: cId,
+      tipoDocumentoId: tId,
+      esVigente: false,
+    },
+    orderBy: {
+      creadoEn: 'desc',
+    },
+  });
+
+  if (historicos.length > 2) {
+    const sobrantes = historicos.slice(2);
+    for (const doc of sobrantes) {
+      if (doc.archivoPath) {
+        await storageService.eliminarArchivo(doc.archivoPath).catch(() => {});
+      }
+      await prisma.documentoChofer.delete({
+        where: { id: doc.id },
+      });
+    }
+  }
 }
 
 /**
@@ -985,6 +1057,8 @@ module.exports = {
   registrarDocumentoChofer,
   eliminarDocumentoChofer,
   obtenerEstadoChoferes,
+  purgarHistorialExcedenteVehiculo,
+  purgarHistorialExcedenteChofer,
 };
 
 

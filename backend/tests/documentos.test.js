@@ -30,7 +30,11 @@ require.cache[rutaPrisma] = { id: rutaPrisma, filename: rutaPrisma, loaded: true
 const rutaStorage = require.resolve(path.join(SRC, 'services', 'storageService.js'));
 require.cache[rutaStorage] = { id: rutaStorage, filename: rutaStorage, loaded: true, exports: storageFalso };
 
-const { calcularEstadoDocumento } = require(path.join(SRC, 'services', 'documentoService.js'));
+const {
+  calcularEstadoDocumento,
+  purgarHistorialExcedenteVehiculo,
+  purgarHistorialExcedenteChofer,
+} = require(path.join(SRC, 'services', 'documentoService.js'));
 
 describe('Servicio de Documentación - calcularEstadoDocumento', () => {
   test('calcula correctamente documento VENCIDO si la fecha ya pasó', () => {
@@ -58,5 +62,72 @@ describe('Servicio de Documentación - calcularEstadoDocumento', () => {
     const resultado = calcularEstadoDocumento(en60Dias);
     assert.equal(resultado.estado, 'VIGENTE');
     assert.ok(resultado.diasRestantes > 30);
+  });
+});
+
+describe('Regla de negocio: Límite de historial (máximo 2 viejos sin contar el actual)', () => {
+  test('si hay 2 históricos, no elimina ninguno', async () => {
+    const eliminadosDb = [];
+    const eliminadosStorage = [];
+    prismaFalso.documentoVehiculo.findMany = async () => [
+      { id: 10, archivoPath: 'path10', creadoEn: new Date('2026-03-01') },
+      { id: 9, archivoPath: 'path9', creadoEn: new Date('2026-02-01') },
+    ];
+    prismaFalso.documentoVehiculo.delete = async ({ where }) => {
+      eliminadosDb.push(where.id);
+    };
+    storageFalso.eliminarArchivo = async (p) => {
+      eliminadosStorage.push(p);
+    };
+
+    await purgarHistorialExcedenteVehiculo(58, 1);
+
+    assert.equal(eliminadosDb.length, 0);
+    assert.equal(eliminadosStorage.length, 0);
+  });
+
+  test('si hay 4 históricos (supera límite de 2), elimina los 2 más viejos en DB y Storage', async () => {
+    const eliminadosDb = [];
+    const eliminadosStorage = [];
+    prismaFalso.documentoVehiculo.findMany = async () => [
+      { id: 10, archivoPath: 'vehiculos/58/doc10.pdf', creadoEn: new Date('2026-04-01') },
+      { id: 9, archivoPath: 'vehiculos/58/doc9.pdf', creadoEn: new Date('2026-03-01') },
+      { id: 8, archivoPath: 'vehiculos/58/doc8.pdf', creadoEn: new Date('2026-02-01') },
+      { id: 7, archivoPath: 'vehiculos/58/doc7.pdf', creadoEn: new Date('2026-01-01') },
+    ];
+    prismaFalso.documentoVehiculo.delete = async ({ where }) => {
+      eliminadosDb.push(where.id);
+    };
+    storageFalso.eliminarArchivo = async (p) => {
+      eliminadosStorage.push(p);
+    };
+
+    await purgarHistorialExcedenteVehiculo(58, 1);
+
+    // Debe conservar los 2 más nuevos (10 y 9) y eliminar los 2 más viejos (8 y 7)
+    assert.deepEqual(eliminadosDb, [8, 7]);
+    assert.deepEqual(eliminadosStorage, ['vehiculos/58/doc8.pdf', 'vehiculos/58/doc7.pdf']);
+  });
+
+  test('en choferes: si hay más de 2 históricos, elimina el más viejo en DB y Storage', async () => {
+    const eliminadosDb = [];
+    const eliminadosStorage = [];
+    prismaFalso.documentoChofer.findMany = async () => [
+      { id: 22, archivoPath: 'choferes/5/doc22.pdf', creadoEn: new Date('2026-03-01') },
+      { id: 21, archivoPath: 'choferes/5/doc21.pdf', creadoEn: new Date('2026-02-01') },
+      { id: 20, archivoPath: 'choferes/5/doc20.pdf', creadoEn: new Date('2026-01-01') },
+    ];
+    prismaFalso.documentoChofer.delete = async ({ where }) => {
+      eliminadosDb.push(where.id);
+    };
+    storageFalso.eliminarArchivo = async (p) => {
+      eliminadosStorage.push(p);
+    };
+
+    await purgarHistorialExcedenteChofer(5, 2);
+
+    // Debe conservar 22 y 21, y purgar el más viejo (20)
+    assert.deepEqual(eliminadosDb, [20]);
+    assert.deepEqual(eliminadosStorage, ['choferes/5/doc20.pdf']);
   });
 });
