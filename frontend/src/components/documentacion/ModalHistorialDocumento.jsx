@@ -3,6 +3,7 @@ import api from '../../services/api';
 import Button from '../ui/Button';
 import Spinner from '../ui/Spinner';
 import { formatearNombreArchivo } from '../../utils/archivoFormato';
+import { etiquetaTipoDocumento } from '../../constants/tiposDocumento';
 import './ModalDocumentacion.css';
 
 function ModalHistorialDocumento({
@@ -42,7 +43,7 @@ function ModalHistorialDocumento({
           <div>
             <h2>Historial de Versiones</h2>
             <p className="modal-doc-subtitle">
-              {tipoDocumento.descripcion} —{' '}
+              {etiquetaTipoDocumento(tipoDocumento.descripcion)} —{' '}
               {chofer ? (
                 <strong>{chofer.nombre} {chofer.apellido}</strong>
               ) : (
@@ -88,7 +89,7 @@ function ModalHistorialDocumento({
                     <td>{h.fechaVencimiento ? new Date(h.fechaVencimiento).toLocaleDateString() : '—'}</td>
                     <td>{new Date(h.creadoEn).toLocaleDateString()}</td>
                     <td>{h.usuario ? `${h.usuario.nombre} ${h.usuario.apellido}` : '—'}</td>
-                    <td>{formatearNombreArchivo(h.nombreOriginal) || 'Sin archivo PDF'}</td>
+                    <td>{formatearNombreArchivo(h.nombreArchivo) || 'Sin archivo PDF'}</td>
                     <td>
                       {h.signedUrl && (
                         <Button

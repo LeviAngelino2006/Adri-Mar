@@ -1,5 +1,6 @@
 import Button from '../ui/Button';
 import { formatearNombreArchivo } from '../../utils/archivoFormato';
+import { etiquetaTipoDocumento } from '../../constants/tiposDocumento';
 import './ModalDocumentacion.css';
 
 function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
@@ -12,7 +13,7 @@ function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = formatearNombreArchivo(documento.nombreOriginal) || `${documento.tipoDocumento?.codigo || 'documento'}.pdf`;
+      a.download = formatearNombreArchivo(documento.nombreArchivo) || `${documento.tipoDocumento?.descripcion || 'documento'}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -31,9 +32,9 @@ function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
       <div className="modal-card modal-visor-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-doc-header">
           <div>
-            <h2>{documento.tipoDocumento?.descripcion || 'Visor de Documento'}</h2>
+            <h2>{documento.tipoDocumento ? etiquetaTipoDocumento(documento.tipoDocumento.descripcion) : 'Visor de Documento'}</h2>
             <p className="modal-doc-subtitle">
-              {sujetoLabel} — {formatearNombreArchivo(documento.nombreOriginal) || 'archivo.pdf'}
+              {sujetoLabel} — {formatearNombreArchivo(documento.nombreArchivo) || 'archivo.pdf'}
             </p>
           </div>
           <div className="modal-visor-header-actions">
@@ -57,7 +58,7 @@ function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
         <div className="modal-visor-body">
           <iframe
             src={documento.signedUrl}
-            title={documento.nombreOriginal || 'Visor de PDF'}
+            title={documento.nombreArchivo || 'Visor de PDF'}
             className="modal-visor-iframe"
           />
         </div>

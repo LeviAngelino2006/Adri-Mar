@@ -5,6 +5,7 @@ import Alert from '../ui/Alert';
 import ConfirmModal from '../ui/ConfirmModal';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
+import { etiquetaTipoDocumento } from '../../constants/tiposDocumento';
 import './ModalDocumentacion.css';
 
 function ModalSubirDocumento({
@@ -141,7 +142,7 @@ function ModalSubirDocumento({
           <div>
             <h2>{esRenovacion ? 'Renovar / Actualizar Documento' : 'Registrar Documento'}</h2>
             <p className="modal-doc-subtitle">
-              {tipoDocumento.descripcion} —{' '}
+              {etiquetaTipoDocumento(tipoDocumento.descripcion)} —{' '}
               {chofer ? (
                 <strong>{chofer.nombre} {chofer.apellido}</strong>
               ) : (
@@ -192,7 +193,7 @@ function ModalSubirDocumento({
               <span className="notice-icon">ℹ️</span>
               <div>
                 <strong>Trámite sin archivo digital obligatorio</strong>
-                <p>Este control ({tipoDocumento.descripcion}) registra la vigencia y observaciones en el legajo de la unidad sin requerir PDF.</p>
+                <p>Este control ({etiquetaTipoDocumento(tipoDocumento.descripcion)}) registra la vigencia y observaciones en el legajo de la unidad sin requerir PDF.</p>
               </div>
             </div>
           )}
@@ -263,7 +264,7 @@ function ModalSubirDocumento({
           open={confirmandoEliminar}
           tone="danger"
           title="Eliminar documento"
-          description={`¿Seguro que deseás eliminar este documento (${tipoDocumento.descripcion})? Si existe una versión anterior en el historial, volverá a quedar vigente.`}
+          description={`¿Seguro que deseás eliminar este documento (${etiquetaTipoDocumento(tipoDocumento.descripcion)})? Si existe una versión anterior en el historial, volverá a quedar vigente.`}
           confirmLabel="Eliminar definitivamente"
           loading={eliminando}
           onConfirm={handleEliminar}

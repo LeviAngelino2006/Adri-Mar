@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { obtenerAlertasVencimientos } from '../services/documentosApi';
+import { etiquetaTipoDocumento } from '../constants/tiposDocumento';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
@@ -328,7 +329,7 @@ function SeccionAlertasDocumentacion() {
               >
                 <div className="alertas-info">
                   <div className="alertas-titulo">
-                    <span className="alertas-tipo">{doc.tipo}</span>
+                    <span className="alertas-tipo">{etiquetaTipoDocumento(doc.tipo)}</span>
                     <span className="alertas-sujeto">• {sujeto}</span>
                   </div>
                   <span className="alertas-fecha">
