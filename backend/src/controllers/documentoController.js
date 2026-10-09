@@ -1,8 +1,12 @@
 const documentoService = require('../services/documentoService');
 
-// Los errores del servicio traen su status HTTP; el resto sigue al manejador
-// general de Express.
+// Los errores de campo (ValidacionError) salen como 400 { errores: { campo: mensaje } },
+// igual que en vehículos; los demás errores del servicio traen su status HTTP
+// y salen como { error }. El resto sigue al manejador general de Express.
 function responderError(err, res, next) {
+  if (err.errores) {
+    return res.status(400).json({ errores: err.errores });
+  }
   if (err.status) {
     return res.status(err.status).json({ error: err.message });
   }
@@ -60,6 +64,14 @@ function crearHandlers(categoria, param) {
 const vehiculo = crearHandlers('VEHICULO', 'vehiculoId');
 const chofer = crearHandlers('CHOFER', 'choferId');
 
+async function obtenerArchivo(req, res, next) {
+  try {
+    res.json(await documentoService.obtenerUrlArchivo(req.params.documentoId));
+  } catch (err) {
+    responderError(err, res, next);
+  }
+}
+
 async function obtenerAlertas(req, res, next) {
   try {
     res.json(await documentoService.obtenerAlertasVencimiento());
@@ -95,6 +107,7 @@ async function obtenerEstadoChoferes(req, res, next) {
 }
 
 module.exports = {
+  obtenerArchivo,
   obtenerAlertas,
   listarTipos,
   obtenerEstadoFlota,

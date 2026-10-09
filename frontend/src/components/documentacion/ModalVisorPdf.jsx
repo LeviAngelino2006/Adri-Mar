@@ -1,26 +1,19 @@
 import Button from '../ui/Button';
 import { formatearNombreArchivo } from '../../utils/archivoFormato';
+import { descargarPdf } from '../../utils/descargarPdf';
+import { formatearSoloFecha } from '../../utils/viajeFormato';
 import { etiquetaTipoDocumento } from '../../constants/tiposDocumento';
 import './ModalDocumentacion.css';
 
-function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
-  if (!open || !documento || !documento.signedUrl) return null;
+// `url` es la URL firmada que pidió la página al abrir el visor.
+function ModalVisorPdf({ open, onClose, documento, url, vehiculo, chofer }) {
+  if (!open || !documento || !url) return null;
 
-  async function handleDescargar() {
-    try {
-      const response = await fetch(documento.signedUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = formatearNombreArchivo(documento.nombreArchivo) || `${documento.tipoDocumento?.descripcion || 'documento'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch {
-      window.open(documento.signedUrl, '_blank');
-    }
+  function handleDescargar() {
+    return descargarPdf(url, {
+      nombreArchivo: documento.nombreArchivo,
+      codigoTipo: documento.tipoDocumento?.descripcion,
+    });
   }
 
   const sujetoLabel = chofer
@@ -38,11 +31,11 @@ function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
             </p>
           </div>
           <div className="modal-visor-header-actions">
-            <Button variant="primary" size="sm" onClick={handleDescargar}>
+            <Button variant="primary" onClick={handleDescargar}>
               Descargar PDF
             </Button>
             <a
-              href={documento.signedUrl}
+              href={url}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-link-action"
@@ -57,7 +50,7 @@ function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
 
         <div className="modal-visor-body">
           <iframe
-            src={documento.signedUrl}
+            src={url}
             title={documento.nombreArchivo || 'Visor de PDF'}
             className="modal-visor-iframe"
           />
@@ -65,7 +58,7 @@ function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
 
         <div className="modal-visor-footer">
           <span className="modal-visor-meta">
-            Subido por: {documento.usuario?.nombre} {documento.usuario?.apellido} — {new Date(documento.creadoEn).toLocaleDateString()}
+            Subido por: {documento.usuario?.nombre} {documento.usuario?.apellido} — {formatearSoloFecha(documento.creadoEn)}
           </span>
           <div>
             <Button variant="secondary" onClick={onClose}>

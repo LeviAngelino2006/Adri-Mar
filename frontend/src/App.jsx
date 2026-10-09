@@ -45,15 +45,7 @@ function App() {
           <Route
             path="/documentacion"
             element={
-              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER']}>
-                <Documentacion />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/documentacion/vehiculos"
-            element={
-              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER']}>
+              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO']}>
                 <Documentacion />
               </ProtectedRoute>
             }

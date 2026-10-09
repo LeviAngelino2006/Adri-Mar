@@ -9,12 +9,13 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
+import Alert from '../components/ui/Alert';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import RutaViaje from '../components/RutaViaje';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import PanelViajesPorConfirmar from '../components/PanelViajesPorConfirmar';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
-import { formatearDiaYHora, nombreVehiculo } from '../utils/viajeFormato';
+import { formatearDiaYHora, formatearSoloFecha, nombreVehiculo } from '../utils/viajeFormato';
 import { porcentajeProgresoViaje } from '../utils/fechaCordoba';
 import './Dashboard.css';
 
@@ -243,11 +244,15 @@ function SeccionAlertasDocumentacion() {
   const navigate = useNavigate();
   const [alertas, setAlertas] = useState(null);
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     obtenerAlertasVencimientos()
       .then((res) => setAlertas(res))
-      .catch((err) => console.error('Error al cargar alertas:', err))
+      .catch((err) => {
+        console.error('Error al cargar alertas:', err);
+        setError(true);
+      })
       .finally(() => setCargando(false));
   }, []);
 
@@ -263,7 +268,17 @@ function SeccionAlertasDocumentacion() {
     );
   }
 
-  const sinAlertas = !alertas || alertas.totalAlertas === 0;
+  // Ante un error nunca se muestra "Sin alertas": no se sabe si las hay.
+  if (error) {
+    return (
+      <Card className="dashboard-panel">
+        <h2>Alertas de documentación</h2>
+        <Alert variant="error">No se pudieron cargar las alertas.</Alert>
+      </Card>
+    );
+  }
+
+  const sinAlertas = alertas.totalAlertas === 0;
 
   function irADocumentacion(doc) {
     if (doc.categoria === 'VEHICULO') {
@@ -333,7 +348,7 @@ function SeccionAlertasDocumentacion() {
                     <span className="alertas-sujeto">• {sujeto}</span>
                   </div>
                   <span className="alertas-fecha">
-                    Fecha vencimiento: {new Date(doc.fechaVencimiento).toLocaleDateString('es-AR')} — {textoDias}
+                    Fecha vencimiento: {formatearSoloFecha(doc.fechaVencimiento)} — {textoDias}
                   </span>
                 </div>
                 <EstadoBadge tono={tono}>
@@ -362,7 +377,7 @@ function Dashboard() {
 
       {usuario.habilitadoParaConducir && <ViajesDelChofer />}
 
-      <SeccionAlertasDocumentacion />
+      {PERFILES_GESTORES.includes(usuario.perfil) && <SeccionAlertasDocumentacion />}
     </Layout>
   );
 }
