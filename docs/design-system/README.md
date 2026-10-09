@@ -73,13 +73,14 @@ Las pantallas se arman con las clases de `bundle.css` y los componentes de arrib
 
 - Viajes: `TarjetaViaje` (listado, agrupado por día y con el bloque de fecha), `FormularioViaje` (programar y editar), `ViajeEnCurso` y `ProximosViajes` (Dashboard del chofer) y `ModalOdometro` (comenzar y finalizar).
 - Dashboard: `Dashboard` (encabezado, orden de secciones, paneles y filas `.dashboard-fila`), con `ViajesDeHoy` a todo el ancho y, debajo, `PanelViajesPorConfirmar` y Documentación en dos columnas desde 1024px.
-- Listados: `Listado` (patrón único de Viajes, Flota, Usuarios y Documentación), con las tarjetas `TarjetaViaje` y `TarjetaVehiculo`, `FichaDetalle` (ficha de un registro, agrupada en secciones en los viajes), `Filtros`.
+- Listados: `Listado` (patrón único de Viajes, Flota, Usuarios y Documentación), con las tarjetas `TarjetaViaje` y `TarjetaVehiculo`, `FichaDetalle` (ficha de un viaje, vehículo o usuario: una sola card plana con los datos en pares, en dos columnas desde 640px), `Filtros`.
+- Flota y Usuarios: `FormularioVehiculo` y `FormularioUsuario` (alta y edición, en pares, con asteriscos y hints).
 - Documentación: `Listado` con `ControlSegmentado` (Vehículos | Choferes, con ícono y cantidad) en la misma barra que el buscador y Filtros, a la derecha, y, en la ficha, una `TarjetaDocumento` por documento.
 - Usuarios: `Avatar`, con el color según el perfil.
 - Layout: `Navegacion` (sidebar y topbar), `Login` (panel de marca + card).
 
 - Las pantallas de listado (Viajes, Flota de vehículos, Usuarios y Documentación) siguen el mismo patrón, `Listado`: encabezado (con acción principal, salvo Documentación, que no tiene), barra de búsqueda y filtros, y tarjetas con la misma anatomía, apiladas una debajo de otra a todo el ancho. No hay tablas ni grilla.
-- Las fichas de detalle de un viaje se agrupan en secciones tituladas dentro de una sola `Card`, con los mismos pares de campos que el formulario.
+- Las fichas de detalle (viaje, vehículo y usuario) son una sola `Card` plana con una grilla de pares `dt`/`dd` en dos columnas desde 640px (nunca tres), sin títulos de sección y en el mismo orden que su formulario. Los datos vacíos dicen "No registrado".
 - Encabezado de página: `h1` a la izquierda y la acción principal (`Button` primary, "Nuevo vehículo") a la derecha, con margen inferior `space-6`.
 - Los estados vacíos van centrados, en `color-text-secondary`.
 - Los listados de viajes se agrupan por día de inicio (día de Córdoba), con un título por día ("Hoy · vie 9 oct") y el bloque de fecha (`.fecha-tile`) como marca de cada tarjeta.

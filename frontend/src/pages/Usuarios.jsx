@@ -3,7 +3,6 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
-import EstadoDot from '../components/ui/EstadoDot';
 import Button from '../components/ui/Button';
 import Switch from '../components/ui/Switch';
 import FormField from '../components/ui/FormField';
@@ -14,6 +13,7 @@ import ConfirmModal from '../components/ui/ConfirmModal';
 import { PERFILES, PERFIL_COLORS } from '../constants/perfiles';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import { ListadoCard, ListadoHeader, ListadoToolbar } from '../components/Listado';
+import { formatearDni, formatearFechaCorta } from '../utils/viajeFormato';
 import './Usuarios.css';
 
 const ICONO_ALERTA = (
@@ -44,9 +44,7 @@ function perfilLabel(perfil) {
   return PERFILES.find((p) => p.value === perfil)?.label ?? perfil;
 }
 
-function estadoDotColor(activo) {
-  return activo ? 'var(--state-success-solid)' : 'var(--state-neutral-text)';
-}
+const NO_REGISTRADO = 'No registrado';
 
 function ordenarPorPerfil(usuarios) {
   return [...usuarios].sort(
@@ -240,37 +238,49 @@ function Usuarios() {
           <Card className="form-card">
             <form onSubmit={handleSubmit} noValidate>
               <div className="form-grid">
-                <FormField id="nombre" label="Nombre" error={errores.nombre}>
+                <FormField id="nombre" label="Nombre" required error={errores.nombre}>
                   <input name="nombre" value={form.nombre} onChange={handleChange} />
                 </FormField>
 
-                <FormField id="apellido" label="Apellido" error={errores.apellido}>
+                <FormField id="apellido" label="Apellido" required error={errores.apellido}>
                   <input name="apellido" value={form.apellido} onChange={handleChange} />
                 </FormField>
 
-                <FormField id="dni" label="DNI" error={errores.dni}>
-                  <input name="dni" value={form.dni} onChange={handleChange} />
-                </FormField>
-
-                <FormField id="email" label="Email" error={errores.email}>
-                  <input name="email" type="email" value={form.email} onChange={handleChange} />
+                <FormField id="dni" label="DNI" required hint="7 u 8 dígitos, sin puntos" error={errores.dni}>
+                  <input name="dni" inputMode="numeric" value={form.dni} onChange={handleChange} />
                 </FormField>
 
                 <FormField id="telefono" label="Teléfono" error={errores.telefono}>
                   <input name="telefono" type="tel" value={form.telefono} onChange={handleChange} />
                 </FormField>
 
-                <FormField id="nombreUsuario" label="Nombre de usuario" error={errores.nombreUsuario}>
+                <div className="form-field-ancho">
+                  <FormField id="email" label="Email" required error={errores.email}>
+                    <input name="email" type="email" value={form.email} onChange={handleChange} />
+                  </FormField>
+                </div>
+
+                <FormField id="nombreUsuario" label="Nombre de usuario" required error={errores.nombreUsuario}>
                   <input name="nombreUsuario" value={form.nombreUsuario} onChange={handleChange} />
                 </FormField>
 
-                {!editando && (
-                  <FormField id="contrasena" label="Contraseña" error={errores.contrasena}>
+                {editando ? (
+                  // Al editar no hay contraseña: el hueco deja a Nombre de usuario
+                  // solo en su fila y Perfil sigue empezando a la izquierda.
+                  <div className="form-hueco" aria-hidden="true" />
+                ) : (
+                  <FormField
+                    id="contrasena"
+                    label="Contraseña"
+                    required
+                    hint="Al menos 8 caracteres"
+                    error={errores.contrasena}
+                  >
                     <input name="contrasena" type="password" value={form.contrasena} onChange={handleChange} />
                   </FormField>
                 )}
 
-                <FormField id="perfil" label="Perfil" error={errores.perfil}>
+                <FormField id="perfil" label="Perfil" required error={errores.perfil}>
                   <select name="perfil" value={form.perfil} onChange={handleChange}>
                     <option value="">Seleccionar…</option>
                     {perfilesDisponibles.map((p) => (
@@ -281,7 +291,7 @@ function Usuarios() {
                   </select>
                 </FormField>
 
-                <div className="form-field switch-field">
+                <div className="form-field switch-field switch-field-par">
                   <label
                     htmlFor="habilitadoParaConducir"
                     className={`switch-field-label ${switchBloqueado ? 'switch-field-label-disabled' : ''}`.trim()}
@@ -302,7 +312,7 @@ function Usuarios() {
 
               <div className="form-actions">
                 <Button type="submit" variant="primary" loading={enviando}>
-                  {enviando ? 'Guardando…' : 'Guardar'}
+                  {enviando ? 'Guardando…' : editando ? 'Guardar cambios' : 'Crear usuario'}
                 </Button>
                 <Button type="button" variant="secondary" onClick={cerrarForm}>
                   Cancelar
@@ -368,24 +378,24 @@ function Usuarios() {
             <h1>
               {seleccionado.nombre} {seleccionado.apellido}
             </h1>
-            <EstadoDot color={estadoDotColor(seleccionado.activo)} size="md">
+            <EstadoBadge tono={seleccionado.activo ? 'success' : 'neutral'}>
               {seleccionado.activo ? 'Activo' : 'Inactivo'}
-            </EstadoDot>
+            </EstadoBadge>
           </div>
 
-          <Card className="usuarios-detalle" role="region" aria-label="Ficha del usuario">
-            <dl className="usuarios-detalle-list">
+          <Card className="detalle-card usuarios-detalle" role="region" aria-label="Ficha del usuario">
+            <dl className="detalle-grid">
               <div className="detalle-item">
                 <dt>DNI</dt>
-                <dd>{seleccionado.dni || '—'}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Email</dt>
-                <dd>{seleccionado.email || '—'}</dd>
+                <dd>{seleccionado.dni ? formatearDni(seleccionado.dni) : NO_REGISTRADO}</dd>
               </div>
               <div className="detalle-item">
                 <dt>Teléfono</dt>
-                <dd>{seleccionado.telefono || '—'}</dd>
+                <dd>{seleccionado.telefono || NO_REGISTRADO}</dd>
+              </div>
+              <div className="detalle-item detalle-item-ancho">
+                <dt>Email</dt>
+                <dd>{seleccionado.email || NO_REGISTRADO}</dd>
               </div>
               <div className="detalle-item">
                 <dt>Nombre de usuario</dt>
@@ -401,14 +411,14 @@ function Usuarios() {
               </div>
               <div className="detalle-item">
                 <dt>Registrado el</dt>
-                <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
+                <dd>{formatearFechaCorta(seleccionado.creadoEn)}</dd>
               </div>
             </dl>
 
             {seleccionado.activo && (
-              <div className="usuarios-detalle-actions">
+              <div className="detalle-acciones">
                 <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                  Editar
+                  Editar usuario
                 </Button>
                 <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
                   Dar de baja

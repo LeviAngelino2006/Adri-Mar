@@ -4,6 +4,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  formatearDni,
+  formatearFechaCorta,
   formatearHoraRelativaHoy,
   formatearHorarioViaje,
   partesFechaTile,
@@ -62,5 +64,30 @@ describe('formatearHoraRelativaHoy', () => {
     assert.equal(formatearHoraRelativaHoy('2026-10-09T01:00:00Z', AHORA), 'ayer 22:00');
     assert.equal(formatearHoraRelativaHoy('2026-10-10T05:00:00Z', AHORA), 'mañana 02:00');
     assert.equal(formatearHoraRelativaHoy('2026-10-08T01:00:00Z', AHORA), '07 oct 22:00');
+  });
+});
+
+describe('formatearFechaCorta', () => {
+  test('día con dos dígitos, mes sin punto y año', () => {
+    assert.equal(formatearFechaCorta('2026-03-12T15:00:00Z'), '12 mar 2026');
+    assert.equal(formatearFechaCorta('2026-10-05T15:00:00Z'), '05 oct 2026');
+  });
+
+  test('usa el día de Córdoba, no el de UTC', () => {
+    // 01:30 UTC del 1/1 = 22:30 del 31/12 en Córdoba.
+    assert.equal(formatearFechaCorta('2026-01-01T01:30:00Z'), '31 dic 2025');
+  });
+});
+
+describe('formatearDni', () => {
+  test('agrega los puntos de miles', () => {
+    assert.equal(formatearDni('38456789'), '38.456.789');
+    assert.equal(formatearDni('7456789'), '7.456.789');
+    assert.equal(formatearDni(38456789), '38.456.789');
+  });
+
+  test('un valor no numérico se muestra tal cual', () => {
+    assert.equal(formatearDni('38.456.789'), '38.456.789');
+    assert.equal(formatearDni('M1234567'), 'M1234567');
   });
 });

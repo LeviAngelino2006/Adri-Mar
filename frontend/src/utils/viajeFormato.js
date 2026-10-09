@@ -110,6 +110,23 @@ export function formatearKm(valor) {
   return Number(valor).toLocaleString('es-AR');
 }
 
+const FORMATO_ANIO = new Intl.DateTimeFormat('es-AR', { timeZone: TZ_CORDOBA, year: 'numeric' });
+
+// Fecha sola en hora de Córdoba, para las fichas: "12 mar 2026" (día con dos
+// dígitos, mes abreviado sin punto, año).
+export function formatearFechaCorta(valor) {
+  const fecha = new Date(valor);
+  return `${diaMesSinPunto(fecha)} ${FORMATO_ANIO.format(fecha)}`;
+}
+
+// DNI con separador de miles: "38456789" -> "38.456.789". Si no es solo
+// dígitos (un dato viejo con puntos o letras) se muestra tal cual.
+export function formatearDni(valor) {
+  const texto = String(valor).trim();
+  if (!/^\d+$/.test(texto)) return texto;
+  return texto.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
 export function nombreChofer(chofer) {
   return `${chofer.nombre} ${chofer.apellido}`;
 }
@@ -130,13 +147,15 @@ export function formatearMonto(valor) {
 
 // Solo la fecha (sin hora), en hora de Córdoba — para fechas de pago, que son
 // un día calendario y no un instante.
+const FORMATO_SOLO_FECHA = new Intl.DateTimeFormat('es-AR', {
+  timeZone: TZ_CORDOBA,
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
+
 export function formatearSoloFecha(valor) {
-  return new Date(valor).toLocaleDateString('es-AR', {
-    timeZone: TZ_CORDOBA,
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  return FORMATO_SOLO_FECHA.format(new Date(valor));
 }
 
 // Los catálogos (EstadoPago/MetodoPago) se guardan en mayúsculas ("PAGADO");
