@@ -28,15 +28,6 @@ const MAX_VIAJES_INICIAL = 3;
 const MAX_DOCUMENTOS_INICIAL = 5;
 const INTERVALO_PROGRESO_MS = 60 * 1000;
 
-const ICONO_VIAJE = (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="5" width="18" height="16" rx="2" />
-    <line x1="3" y1="10" x2="21" y2="10" />
-    <line x1="8" y1="3" x2="8" y2="7" />
-    <line x1="16" y1="3" x2="16" y2="7" />
-  </svg>
-);
-
 function ViajeEnCurso({ viaje, onVerDetalle, onFinalizar }) {
   const [ahora, setAhora] = useState(() => Date.now());
 
@@ -110,10 +101,7 @@ function ProximosViajes({ viajes, cargando, onVerDetalle, onComenzar }) {
       )}
 
       {!cargando && viajes.length === 0 && (
-        <div className="dashboard-empty">
-          {ICONO_VIAJE}
-          <span>No tenés viajes programados próximamente</span>
-        </div>
+        <div className="dashboard-empty">No tenés viajes programados próximamente</div>
       )}
 
       {!cargando && viajes.length > 0 && (
@@ -303,11 +291,6 @@ function SeccionDocumentacion() {
 
       {sinAlertas ? (
         <div className="dashboard-empty">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M12 9v4" />
-            <path d="M12 17h.01" />
-            <path d="M10.3 3.9L2.5 17a1.8 1.8 0 0 0 1.6 2.7h15.8a1.8 1.8 0 0 0 1.6-2.7L13.7 3.9a1.8 1.8 0 0 0-3.2 0z" />
-          </svg>
           <span>Sin alertas por ahora</span>
           <span className="dashboard-empty-hint">
             Toda la documentación registrada de vehículos y choferes está al día

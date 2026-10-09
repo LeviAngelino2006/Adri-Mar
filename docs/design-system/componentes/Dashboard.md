@@ -36,7 +36,11 @@ Un Encargado habilitado para conducir ve las tres partes, en ese orden.
 - Orden: primero los vencidos, del más atrasado al menos atrasado; después los por vencer, del más próximo al más lejano.
 - Tope de 5. Si hay más, un `Button` secondary `.dashboard-ver-mas` "Ver N más" / "Ver menos".
 - Click: lleva a la ficha en Documentación (`?vehiculoId=` o `?tab=choferes&choferId=`).
-- Sin alertas: `.dashboard-empty` "Sin alertas por ahora" con la pista "Toda la documentación registrada de vehículos y choferes está al día". Si falla: `Alert` error "No se pudieron cargar las alertas." (nunca "Sin alertas", porque no se sabe si las hay).
+- Sin alertas: `.dashboard-empty` "Sin alertas por ahora", sin ícono, con la pista "Toda la documentación registrada de vehículos y choferes está al día". Si falla: `Alert` error "No se pudieron cargar las alertas." (nunca "Sin alertas", porque no se sabe si las hay).
+
+## Estados vacíos
+- Los estados vacíos del Dashboard son solo texto, sin ícono: `.dashboard-empty` con el texto en `color-text-secondary`, centrado, sin SVG. Es igual en todos los paneles: "No hay viajes para hoy", "Nada pendiente para hoy ni mañana", "No tenés viajes programados próximamente" y "Sin alertas por ahora".
+- Si hace falta una pista, va debajo en `.dashboard-empty-hint` (13px, `color-text-secondary`), como en Documentación.
 
 ## Reglas
 - Fechas y horas en hora de Córdoba (`utils/fechaCordoba.js`, `utils/viajeFormato.js`, `utils/documentacion.js`).

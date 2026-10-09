@@ -50,6 +50,7 @@
   font-size: 1.0625rem;
 }
 
+/* Estados vacíos del Dashboard: solo texto gris centrado, sin ícono. */
 .dashboard-empty {
   display: flex;
   flex-direction: column;

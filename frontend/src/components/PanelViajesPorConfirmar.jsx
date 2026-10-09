@@ -14,15 +14,6 @@ import { formatearHora } from '../utils/viajeFormato';
 import { avisoWhatsApp } from '../utils/whatsapp';
 import './PanelViajesPorConfirmar.css';
 
-const ICONO_CALENDARIO = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <rect x="3" y="5" width="18" height="16" rx="2" />
-    <line x1="3" y1="10" x2="21" y2="10" />
-    <line x1="8" y1="3" x2="8" y2="7" />
-    <line x1="16" y1="3" x2="16" y2="7" />
-  </svg>
-);
-
 function GrupoDia({ titulo, viajes, onConfirmar }) {
   if (viajes.length === 0) return null;
 
@@ -67,12 +58,7 @@ export function ContenidoPorConfirmar({ cargando, error, hoy, manana, onConfirma
   if (error) return <Alert variant="error">No se pudieron cargar los viajes por confirmar</Alert>;
 
   if (hoy.length + manana.length === 0) {
-    return (
-      <div className="por-confirmar-vacio">
-        {ICONO_CALENDARIO}
-        <span>Nada pendiente para hoy ni mañana</span>
-      </div>
-    );
+    return <div className="dashboard-empty">Nada pendiente para hoy ni mañana</div>;
   }
 
   return (
