@@ -1,4 +1,6 @@
 import Card from './ui/Card';
+import RutaViaje from './RutaViaje';
+import BotonVerRecorrido from './BotonVerRecorrido';
 import { formatearDiaYHora, formatearKm, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 
 const NO_REGISTRADO = 'No registrado';
@@ -59,13 +61,25 @@ function FichaViaje({ viaje }) {
         titulo="Viaje"
         items={[
           { etiqueta: 'Cliente', valor: viaje.cliente?.nombre, clase: 'detalle-item-ancho detalle-item-destacado' },
-          { etiqueta: 'Origen', valor: viaje.origen?.nombre },
-          { etiqueta: 'Destino', valor: viaje.destino?.nombre },
           // "—" y no "No registrado": es un dato opcional que a menudo no se
           // conoce al crear, no un faltante.
           { etiqueta: 'Cantidad de pasajeros', valor: viaje.cantidadPasajeros ?? '—' },
         ]}
       />
+      {/* Recorrido completo (origen, paradas, destino) y el botón junto a la
+          secuencia. Siempre se muestra: un viaje histórico sin origen o destino
+          los dice "No registrado". */}
+      <section className="detalle-seccion">
+        <h2 className="detalle-seccion-titulo">Recorrido</h2>
+        <RutaViaje origen={viaje.origen} destino={viaje.destino} paradas={viaje.paradas} variante="completa" />
+        <div className="detalle-recorrido-mapa">
+          <BotonVerRecorrido
+            origen={viaje.origen}
+            paradas={(viaje.paradas ?? []).map((parada) => parada.ubicacion)}
+            destino={viaje.destino}
+          />
+        </div>
+      </section>
       <Seccion
         titulo="Programación"
         items={[

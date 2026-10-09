@@ -19,6 +19,7 @@ import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { aInputCordoba } from '../utils/fechaCordoba';
+import { paradasDesdeViaje } from '../utils/paradas';
 import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import './Viajes.css';
@@ -70,6 +71,7 @@ function viajeAValoresForm(viaje) {
     origenNombre: viaje.origen?.nombre || '',
     destinoId: viaje.destinoId || '',
     destinoNombre: viaje.destino?.nombre || '',
+    paradas: paradasDesdeViaje(viaje),
     fechaInicio: aInputCordoba(viaje.fechaInicio),
     fechaFin: aInputCordoba(viaje.fechaFin),
     kilometrosEstimados: viaje.kilometrosEstimados ?? '',

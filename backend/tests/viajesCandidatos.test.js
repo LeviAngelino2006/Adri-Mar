@@ -15,268 +15,15 @@ const path = require('node:path');
 
 const SRC = path.join(__dirname, '..', 'src');
 
-// --- Doble de Prisma con estado ---------------------------------------------
+// --- Doble de Prisma con estado (compartido, ver helpers/) --------------------
 
-const ESTADOS = { A_CONFIRMAR: 1, PROGRAMADO: 2, EN_VIAJE: 3, FINALIZADO: 4, CANCELADO: 5 };
-const nombreEstado = (id) => Object.keys(ESTADOS).find((k) => ESTADOS[k] === id);
+const { crearEntorno, instalarEnCache, ESTADOS, cba, idsDe } = require('./helpers/prismaFalsoConEstado');
 
-// 2026-10-20 a las HH:mm, hora de Córdoba (UTC-3).
-const cba = (hhmm, dia = '2026-10-20') => new Date(`${dia}T${hhmm}:00-03:00`);
+const { prisma: prismaFalso, db, sembrar, agregarViaje, filaPorId } = crearEntorno();
+// Los arrays de `db` se mutan siempre en el lugar: estas referencias no quedan viejas.
+const { viajes, candChofer, candVeh, fallos, borrados } = db;
 
-let usuarios;
-let vehiculos;
-let viajes;
-let candChofer;
-let candVeh;
-let siguienteId;
-// Hooks para provocar situaciones puntuales desde cada test.
-let fallos;
-let alLeerUsuario;
-// Borrados de candidatos que se llegaron a EJECUTAR (aunque después un rollback
-// los deshaga): permite verificar que no se intentaron.
-let borrados;
-
-function sembrar() {
-  const usuario = (id, nombre, apellido, { habilitado = true, estado = 'ACTIVO' } = {}) => ({
-    id,
-    nombre,
-    apellido,
-    habilitadoParaConducir: habilitado,
-    estadoUsuario: { descripcion: estado },
-  });
-  usuarios = [
-    usuario(5, 'Ana', 'Pérez'),
-    usuario(6, 'Beto', 'Gómez'),
-    usuario(7, 'Carla', 'Ruiz', { habilitado: false }),
-    usuario(8, 'Dani', 'Soto', { estado: 'INACTIVO' }),
-    usuario(10, 'Chofer', 'Token'),
-  ];
-
-  const vehiculo = (id, numeroInterno, dominio, estado = 'OPERATIVO') => ({
-    id,
-    numeroInterno,
-    dominio,
-    marca: 'Mercedes',
-    modelo: 'O500',
-    kilometraje: 1000,
-    estadoVehiculo: { descripcion: estado },
-  });
-  vehiculos = [
-    vehiculo(7, '12', 'AE452KD'),
-    vehiculo(8, '13', 'AE453KD', 'EN_TALLER'),
-    vehiculo(9, '14', 'AE454KD'),
-    vehiculo(10, '15', 'AE455KD', 'DADO_DE_BAJA'),
-  ];
-
-  viajes = [];
-  candChofer = [];
-  candVeh = [];
-  siguienteId = 100;
-  fallos = {};
-  alLeerUsuario = null;
-  borrados = [];
-}
-
-function agregarViaje(sobrescribir = {}) {
-  const { estado = 'A_CONFIRMAR', choferesCandidatos = [], vehiculosCandidatos = [], ...resto } = sobrescribir;
-  const fila = {
-    id: siguienteId++,
-    estadoViajeId: ESTADOS[estado],
-    choferId: null,
-    vehiculoId: null,
-    fechaInicio: cba('08:00'),
-    fechaFin: cba('12:00'),
-    kilometrosEstimados: 100,
-    cantidadPasajeros: null,
-    clienteId: 1,
-    origenId: 1,
-    destinoId: 2,
-    ...resto,
-  };
-  viajes.push(fila);
-  for (const usuarioId of choferesCandidatos) candChofer.push({ viajeId: fila.id, usuarioId });
-  for (const vehiculoId of vehiculosCandidatos) candVeh.push({ viajeId: fila.id, vehiculoId });
-  return fila;
-}
-
-// La fila de la tabla con todas las relaciones que lee serializarViaje.
-function armar(fila) {
-  return {
-    precio: null,
-    pagoChofer: null,
-    estadoPagoClienteId: null,
-    fechaPagoCliente: null,
-    metodoPagoClienteId: null,
-    estadoPagoChoferId: null,
-    fechaPagoChofer: null,
-    metodoPagoChoferId: null,
-    horaInicioReal: null,
-    horaFinReal: null,
-    observacionFinal: null,
-    creadoEn: new Date('2026-01-01T00:00:00Z'),
-    ...fila,
-    estadoViaje: { descripcion: nombreEstado(fila.estadoViajeId) },
-    chofer: usuarios.find((u) => u.id === fila.choferId) ?? null,
-    vehiculo: vehiculos.find((v) => v.id === fila.vehiculoId) ?? null,
-    origen: null,
-    destino: null,
-    cliente: null,
-    estadoPagoCliente: null,
-    metodoPagoCliente: null,
-    estadoPagoChofer: null,
-    metodoPagoChofer: null,
-    choferesCandidatos: candChofer
-      .filter((c) => c.viajeId === fila.id)
-      .map((c) => ({ ...c, usuario: usuarios.find((u) => u.id === c.usuarioId) })),
-    vehiculosCandidatos: candVeh
-      .filter((c) => c.viajeId === fila.id)
-      .map((c) => ({ ...c, vehiculo: vehiculos.find((v) => v.id === c.vehiculoId) })),
-  };
-}
-
-const filaPorId = (id) => viajes.find((v) => v.id === id);
-const idsDe = (lista, campo, viajeId) => lista.filter((c) => c.viajeId === viajeId).map((c) => c[campo]);
-
-function aplicarCambios(fila, data) {
-  for (const [clave, valor] of Object.entries(data)) {
-    if (valor !== undefined) fila[clave] = valor;
-  }
-}
-
-function coincideFiltroEstado(fila, filtro) {
-  if (!filtro) return true;
-  const descripcion = nombreEstado(fila.estadoViajeId);
-  if (filtro.equals !== undefined && descripcion !== filtro.equals) return false;
-  if (filtro.not !== undefined && descripcion === filtro.not) return false;
-  return true;
-}
-
-const existe = (ids) => async ({ where: { id } }) => (ids.includes(id) ? { id } : null);
-
-// Los modelos de candidatos y updateMany solo existen DENTRO de la transacción
-// (tx): si alguna ruta los usara por fuera de $transaction, el test revienta.
-const modelosTx = {
-  viaje: {
-    updateMany: async ({ where, data }) => {
-      const coinciden = viajes.filter((v) => v.id === where.id && v.estadoViajeId === where.estadoViajeId);
-      coinciden.forEach((fila) => aplicarCambios(fila, data));
-      return { count: coinciden.length };
-    },
-    findUnique: async ({ where: { id } }) => {
-      const fila = filaPorId(id);
-      return fila ? armar(fila) : null;
-    },
-    update: async ({ where: { id }, data }) => {
-      const fila = filaPorId(id);
-      aplicarCambios(fila, data);
-      return armar(fila);
-    },
-  },
-  viajeChoferCandidato: {
-    deleteMany: async ({ where: { viajeId } }) => {
-      borrados.push(`choferes:${viajeId}`);
-      candChofer = candChofer.filter((c) => c.viajeId !== viajeId);
-      return {};
-    },
-    createMany: async ({ data }) => {
-      if (fallos.createManyChofer) throw new Error('falla simulada en createMany de choferes');
-      candChofer.push(...data);
-      return {};
-    },
-  },
-  viajeVehiculoCandidato: {
-    deleteMany: async ({ where: { viajeId } }) => {
-      borrados.push(`vehiculos:${viajeId}`);
-      if (fallos.deleteManyVehiculo) throw new Error('falla simulada en deleteMany de vehículos');
-      candVeh = candVeh.filter((c) => c.viajeId !== viajeId);
-      return {};
-    },
-    createMany: async ({ data }) => {
-      candVeh.push(...data);
-      return {};
-    },
-  },
-};
-
-const prismaFalso = {
-  cliente: { findUnique: existe([1]) },
-  ubicacion: { findUnique: existe([1, 2]) },
-  estadoViaje: {
-    findUnique: async ({ where: { descripcion } }) => ({ id: ESTADOS[descripcion], descripcion }),
-  },
-  lecturaOdometro: { findFirst: async () => null },
-  usuario: {
-    findUnique: async ({ where: { id } }) => {
-      if (alLeerUsuario) alLeerUsuario();
-      return usuarios.find((u) => u.id === id) ?? null;
-    },
-    findMany: async ({ where }) => {
-      if (where.id?.in) return usuarios.filter((u) => where.id.in.includes(u.id));
-      return usuarios.filter(
-        (u) => u.habilitadoParaConducir === where.habilitadoParaConducir && u.estadoUsuario.descripcion === 'ACTIVO'
-      );
-    },
-  },
-  vehiculo: {
-    findUnique: async ({ where: { id } }) => vehiculos.find((v) => v.id === id) ?? null,
-    findMany: async ({ where }) => {
-      if (where.id?.in) return vehiculos.filter((v) => where.id.in.includes(v.id));
-      return vehiculos.filter((v) => v.estadoVehiculo.descripcion !== where.estadoVehiculo.descripcion.not);
-    },
-  },
-  viaje: {
-    create: async ({ data }) => {
-      const { choferesCandidatos, vehiculosCandidatos, ...columnas } = data;
-      const fila = { id: siguienteId++, ...columnas };
-      viajes.push(fila);
-      for (const { usuarioId } of choferesCandidatos?.create ?? []) candChofer.push({ viajeId: fila.id, usuarioId });
-      for (const { vehiculoId } of vehiculosCandidatos?.create ?? []) candVeh.push({ viajeId: fila.id, vehiculoId });
-      return armar(fila);
-    },
-    findUnique: async ({ where: { id } }) => {
-      const fila = filaPorId(id);
-      return fila ? armar(fila) : null;
-    },
-    findMany: async ({ where }) =>
-      viajes
-        .filter((v) => coincideFiltroEstado(v, where.estadoViaje?.descripcion))
-        .filter((v) => where.choferId === undefined || v.choferId === where.choferId)
-        .map(armar),
-    // La consulta de solapamiento (buscarSolapamiento).
-    findFirst: async ({ where }) => {
-      const campo = 'choferId' in where ? 'choferId' : 'vehiculoId';
-      return (
-        viajes.find(
-          (v) =>
-            v[campo] === where[campo] &&
-            v.estadoViajeId === where.estadoViajeId &&
-            v.fechaInicio < where.fechaInicio.lt &&
-            v.fechaFin > where.fechaFin.gt &&
-            (!where.id || v.id !== where.id.not)
-        ) ?? null
-      );
-    },
-    update: modelosTx.viaje.update,
-  },
-  // Transacción con rollback real: si la función lanza, el estado vuelve a lo
-  // que había antes de empezar.
-  $transaction: async (fn) => {
-    const copia = {
-      viajes: viajes.map((v) => ({ ...v })),
-      candChofer: candChofer.map((c) => ({ ...c })),
-      candVeh: candVeh.map((c) => ({ ...c })),
-    };
-    try {
-      return await fn(modelosTx);
-    } catch (err) {
-      ({ viajes, candChofer, candVeh } = copia);
-      throw err;
-    }
-  },
-};
-
-const rutaPrisma = require.resolve(path.join(SRC, 'services', 'prismaClient.js'));
-require.cache[rutaPrisma] = { id: rutaPrisma, filename: rutaPrisma, loaded: true, exports: prismaFalso };
+instalarEnCache(SRC, prismaFalso);
 
 const app = require(path.join(SRC, 'app.js'));
 const { generarToken } = require(path.join(SRC, 'services', 'tokenService.js'));
@@ -672,12 +419,12 @@ describe('PATCH /viajes/:id/confirmar', () => {
     const viaje = agregarViaje({ choferesCandidatos: [5, 6], vehiculosCandidatos: [7] });
     // En medio de la validación (después de haber leído A_CONFIRMAR), "otra
     // confirmación" pasa el viaje a PROGRAMADO con otro chofer.
-    alLeerUsuario = () => {
+    db.alLeerUsuario = () => {
       const fila = filaPorId(viaje.id);
       fila.estadoViajeId = ESTADOS.PROGRAMADO;
       fila.choferId = 6;
       fila.vehiculoId = 9;
-      alLeerUsuario = null;
+      db.alLeerUsuario = null;
     };
 
     const { status } = await pedir('PATCH', `/viajes/${viaje.id}/confirmar`, {

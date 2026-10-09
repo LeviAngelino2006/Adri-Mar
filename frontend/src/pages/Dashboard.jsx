@@ -54,7 +54,7 @@ function ViajeEnCurso({ viaje, onVerDetalle, onFinalizar }) {
         <EstadoBadge tono={ESTADOS_VIAJE.EN_VIAJE.tono}>{ESTADOS_VIAJE.EN_VIAJE.label}</EstadoBadge>
       </div>
       <div className="viaje-en-curso-ruta">
-        <RutaViaje origen={viaje.origen} destino={viaje.destino} />
+        <RutaViaje origen={viaje.origen} destino={viaje.destino} paradas={viaje.paradas} />
       </div>
       <div className="viaje-en-curso-progreso">
         <div className="viaje-en-curso-hora">
@@ -124,7 +124,7 @@ function ProximosViajes({ viajes, cargando, onVerDetalle, onComenzar }) {
                   <div className="proximos-viajes-icono">{ICONO_CALENDARIO}</div>
                   <div className="proximos-viajes-info">
                     <span className="proximos-viajes-ruta">
-                      <RutaViaje origen={v.origen} destino={v.destino} />
+                      <RutaViaje origen={v.origen} destino={v.destino} paradas={v.paradas} />
                     </span>
                     <span className="proximos-viajes-salida">{formatearDiaYHora(v.fechaInicio)}</span>
                     <span className="proximos-viajes-vehiculo">{nombreVehiculo(v.vehiculo)}</span>

@@ -163,6 +163,8 @@ model Viaje {
   // borran en la misma transacción: no se guardan como historial.
   choferesCandidatos  ViajeChoferCandidato[]
   vehiculosCandidatos ViajeVehiculoCandidato[]
+  // Puntos intermedios ORDENADOS entre origen y destino (ver ViajeParada).
+  paradas             ViajeParada[]
   // Nullable porque los viajes históricos no tienen este dato y no hay forma
   // de reconstruirlo retroactivamente (quedan en null para siempre). La
   // obligatoriedad para viajes nuevos se valida en viajeService, no acá.
@@ -205,6 +207,7 @@ model Ubicacion {
   creadoEn          DateTime @default(now()) @map("creado_en")
   viajesOrigen      Viaje[]  @relation("ViajeOrigen")
   viajesDestino     Viaje[]  @relation("ViajeDestino")
+  viajesParada      ViajeParada[]
 
   @@index([nombre])
   @@unique([nombreNormalizado])
@@ -266,4 +269,23 @@ model ViajeVehiculoCandidato {
 
   @@id([viajeId, vehiculoId])
   @@map("viaje_vehiculo_candidato")
+}
+
+// Punto intermedio de un viaje, entre origen y destino. Sirve para estimar
+// kilómetros, tiempo y presupuesto: no tiene datos propios (ni hora, ni
+// pasajeros), no cambia chofer ni vehículo, no registra odómetro y el chofer no
+// interactúa con ella. `orden` (1..n) lo asigna viajeService según la posición
+// en el arreglo recibido. Una misma ubicación puede repetirse en un viaje
+// mientras no sea consecutiva (ida y vuelta). Cascade al borrar el viaje;
+// Restrict al borrar la ubicación.
+model ViajeParada {
+  id          Int       @id @default(autoincrement())
+  viajeId     Int       @map("viaje_id")
+  ubicacionId Int       @map("ubicacion_id")
+  orden       Int
+  viaje       Viaje     @relation(fields: [viajeId], references: [id], onDelete: Cascade)
+  ubicacion   Ubicacion @relation(fields: [ubicacionId], references: [id], onDelete: Restrict)
+
+  @@unique([viajeId, orden])
+  @@map("viaje_paradas")
 }

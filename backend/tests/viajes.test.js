@@ -84,7 +84,10 @@ const prismaFalso = {
   // — si alguna ruta intentara validar disponibilidad, reventaría.
   usuario: { findUnique: existe([5]), findMany: async ({ where }) => where.id.in.filter((i) => i === 5).map((id) => ({ id })) },
   vehiculo: { findUnique: existe([7]), findMany: async ({ where }) => where.id.in.filter((i) => i === 7).map((id) => ({ id })) },
-  ubicacion: { findUnique: existe([1, 2]) },
+  ubicacion: {
+    findUnique: existe([1, 2]),
+    findMany: async ({ where }) => where.id.in.filter((i) => [1, 2].includes(i)).map((id) => ({ id })),
+  },
   estadoPago: { findUnique: existe([1, 2, 3]) },
   metodoPago: { findUnique: existe([1, 2, 3]) },
   estadoViaje: {
@@ -118,11 +121,12 @@ const prismaFalso = {
   $transaction: async (fn) => fn(prismaFalso),
   viajeChoferCandidato: { deleteMany: async () => ({}), createMany: async () => ({}) },
   viajeVehiculoCandidato: { deleteMany: async () => ({}), createMany: async () => ({}) },
+  viajeParada: { deleteMany: async () => ({}), createMany: async () => ({}) },
   viaje: {
     create: async ({ data }) => {
       llamadas.create.push(data);
       // Los create anidados de candidatos no son columnas del viaje.
-      const { choferesCandidatos: _c, vehiculosCandidatos: _v, ...columnas } = data;
+      const { choferesCandidatos: _c, vehiculosCandidatos: _v, paradas: _p, ...columnas } = data;
       return viajeBase({
         ...columnas,
         estadoViaje: { descripcion: data.estadoViajeId === 1 ? 'A_CONFIRMAR' : 'PROGRAMADO' },
