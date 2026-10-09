@@ -32,11 +32,15 @@ instalarEnCache(SRC, prismaFalso);
 // se pidió eliminar (en orden).
 const archivos = new Set();
 const borrados = [];
+const llamadasFirma = [];
 const storageFalso = {
   subirArchivo: async (buffer, ruta) => {
     archivos.add(ruta);
   },
-  generarSignedUrl: async (ruta) => `http://storage.test/${ruta}`,
+  generarSignedUrl: async (ruta, segundos) => {
+    llamadasFirma.push({ ruta, segundos });
+    return `http://storage.test/${ruta}`;
+  },
   eliminarArchivo: async (ruta) => {
     borrados.push(ruta);
     archivos.delete(ruta);
@@ -79,16 +83,17 @@ async function leer(respuesta) {
 }
 
 async function pedir(metodo, ruta, perfil = 'ADMINISTRADOR') {
+  // '/../' deja salir de /api/documentos para tocar otros módulos (p. ej. la baja de un vehículo).
   return leer(await fetch(`${base}${ruta}`, { method: metodo, headers: { Authorization: `Bearer ${tokenDe(perfil)}` } }));
 }
 
 // POST multipart como el del front: campos de texto + `archivo` opcional.
-async function subir(ruta, campos, { pdf = false } = {}) {
+async function subir(ruta, campos, { pdf = false } = {}, perfil = 'ADMINISTRADOR') {
   const form = new FormData();
   for (const [clave, valor] of Object.entries(campos)) form.append(clave, valor);
   if (pdf) form.append('archivo', new Blob(['%PDF-1.4 prueba'], { type: 'application/pdf' }), 'poliza.pdf');
   return leer(
-    await fetch(`${base}${ruta}`, { method: 'POST', headers: { Authorization: `Bearer ${tokenDe('ADMINISTRADOR')}` }, body: form })
+    await fetch(`${base}${ruta}`, { method: 'POST', headers: { Authorization: `Bearer ${tokenDe(perfil)}` }, body: form })
   );
 }
 
@@ -222,7 +227,7 @@ describe('Archivos compartidos y purga del historial', () => {
     assert.equal(documentos.length, 3);
     assert.deepEqual(borrados, []);
     assert.ok(archivos.has(archivo));
-    assert.equal((await vigenteDeLaCarpeta()).signedUrl, `http://storage.test/${archivo}`);
+    assert.equal((await vigenteDeLaCarpeta()).tieneArchivo, true);
   });
 
   test('con 4 versiones quedan 3 y solo se borran de Supabase los archivos que ya no usa nadie', async () => {
@@ -324,7 +329,7 @@ describe('Validaciones de categoría e ids', () => {
     const abc = await subir('/vehiculos/7', { tipoDocumentoId: 'abc', fechaVencimiento: VENCE }, { pdf: true });
     assert.equal(abc.status, 400);
     const inexistente = await subir('/vehiculos/7', { tipoDocumentoId: 999, fechaVencimiento: VENCE }, { pdf: true });
-    assert.equal(inexistente.status, 404);
+    assert.equal(inexistente.status, 400);
     const ausente = await subir('/vehiculos/7', { fechaVencimiento: VENCE }, { pdf: true });
     assert.equal(ausente.status, 400);
     const vehiculoInexistente = await subir('/vehiculos/9999', { tipoDocumentoId: POLIZA, fechaVencimiento: VENCE }, { pdf: true });
@@ -400,5 +405,221 @@ describe('Estado de flota y alertas usan la versión vigente', () => {
     );
     assert.equal(json.documentos[0].usuario.id, 5);
     assert.equal(json.documentos[1].vehiculo.id, 7);
+  });
+});
+
+// --- Permisos ---------------------------------------------------------------
+
+describe('Permisos del módulo de documentación', () => {
+  const RUTAS = [
+    ['GET', '/alertas'],
+    ['GET', '/tipos'],
+    ['GET', '/estado-flota'],
+    ['GET', '/estado-choferes'],
+    ['GET', '/vehiculos/7'],
+    ['GET', `/vehiculos/7/tipos/${POLIZA}/historial`],
+    ['POST', '/vehiculos/7'],
+    ['DELETE', '/vehiculos/7/1'],
+    ['GET', '/choferes/5'],
+    ['GET', `/choferes/5/tipos/${LICENCIA}/historial`],
+    ['POST', '/choferes/5'],
+    ['DELETE', '/choferes/5/1'],
+    ['GET', '/1/archivo'],
+  ];
+
+  test('Personal de Taller recibe 403 en todas las rutas de /documentos', async () => {
+    for (const [metodo, ruta] of RUTAS) {
+      const { status } = await pedir(metodo, ruta, 'PERSONAL_TALLER');
+      assert.equal(status, 403, `${metodo} ${ruta}`);
+    }
+  });
+
+  test('un chofer (sin perfil de gestión) también recibe 403', async () => {
+    assert.equal((await pedir('GET', '/alertas', 'CHOFER')).status, 403);
+  });
+
+  test('Encargado recibe 403 en DELETE pero puede consultar y registrar', async () => {
+    const alta = await subir('/vehiculos/7', { tipoDocumentoId: POLIZA, fechaVencimiento: VENCE }, { pdf: true }, 'ENCARGADO');
+    assert.equal(alta.status, 201);
+    const id = alta.json.documento.id;
+
+    assert.equal((await pedir('DELETE', `/vehiculos/7/${id}`, 'ENCARGADO')).status, 403);
+    assert.equal((await pedir('DELETE', `/choferes/5/${id}`, 'ENCARGADO')).status, 403);
+    assert.equal(documentos.length, 1, 'el DELETE rechazado no borra nada');
+    assert.equal((await pedir('GET', '/vehiculos/7', 'ENCARGADO')).status, 200);
+
+    assert.equal((await pedir('DELETE', `/vehiculos/7/${id}`, 'ADMINISTRADOR')).status, 200);
+  });
+});
+
+// --- Titulares ---------------------------------------------------------------
+
+describe('Quién puede recibir documentación', () => {
+  test('dar de baja un vehículo no borra sus documentos ni sus archivos', async () => {
+    agregarDocumento({ archivoPath: 'vehiculos/7/a.pdf', creadoEn: new Date('2026-01-01T00:00:00Z') });
+    agregarDocumento({ archivoPath: 'vehiculos/7/b.pdf', creadoEn: new Date('2026-02-01T00:00:00Z') });
+    const antes = documentos.map((d) => d.id);
+
+    // La baja usa más modelos que el doble de documentos; se completan solo para este test.
+    const original = { findFirst: prismaFalso.viaje.findFirst, update: prismaFalso.vehiculo.update, estado: prismaFalso.estadoVehiculo };
+    prismaFalso.viaje.findFirst = async () => null;
+    prismaFalso.estadoVehiculo = { findUnique: async ({ where: { descripcion } }) => ({ id: 3, descripcion }) };
+    prismaFalso.vehiculo.update = async ({ where: { id }, data }) => {
+      const fila = db.vehiculos.find((v) => v.id === id);
+      Object.assign(fila, { fechaBaja: data.fechaBaja, estadoVehiculo: { descripcion: 'DADO_DE_BAJA' } });
+      return fila;
+    };
+    try {
+      const baja = await pedir('PATCH', '/../vehiculos/7/baja');
+      assert.equal(baja.status, 200);
+      assert.equal(baja.json.vehiculo?.estado ?? baja.json.estado, 'DADO_DE_BAJA');
+    } finally {
+      prismaFalso.viaje.findFirst = original.findFirst;
+      prismaFalso.vehiculo.update = original.update;
+      prismaFalso.estadoVehiculo = original.estado;
+    }
+
+    assert.deepEqual(documentos.map((d) => d.id), antes);
+    assert.deepEqual(borrados, []);
+    assert.ok(archivos.has('vehiculos/7/a.pdf') && archivos.has('vehiculos/7/b.pdf'));
+  });
+
+  test('un vehículo dado de baja se puede consultar pero no modificar', async () => {
+    agregarDocumento({ vehiculoId: 10, archivoPath: 'vehiculos/10/a.pdf' });
+
+    assert.equal((await pedir('GET', '/vehiculos/10')).status, 200);
+    assert.equal((await pedir('GET', `/vehiculos/10/tipos/${POLIZA}/historial`)).status, 200);
+
+    const alta = await subir('/vehiculos/10', { tipoDocumentoId: POLIZA, fechaVencimiento: VENCE }, { pdf: true });
+    assert.equal(alta.status, 400);
+    assert.equal(alta.json.error, 'No se puede modificar la documentación de un vehículo dado de baja.');
+    assert.equal(documentos.length, 1);
+    assert.equal(archivos.size, 1, 'no se sube ningún PDF');
+  });
+
+  test('a un usuario inactivo, o que no es chofer ni está habilitado, no se le registra documentación', async () => {
+    const inactivo = await subir('/choferes/8', { tipoDocumentoId: LICENCIA, fechaVencimiento: VENCE }, { pdf: true });
+    assert.equal(inactivo.status, 400);
+
+    const sinPerfil = await subir('/choferes/7', { tipoDocumentoId: LICENCIA, fechaVencimiento: VENCE }, { pdf: true });
+    assert.equal(sinPerfil.status, 400);
+    assert.equal(documentos.length, 0);
+    assert.equal(archivos.size, 0);
+
+    // Su carpeta (con el historial) se sigue pudiendo consultar.
+    assert.equal((await pedir('GET', '/choferes/8')).status, 200);
+  });
+
+  test('un usuario activo con perfil CHOFER sí, aunque no esté habilitado para conducir', async () => {
+    db.usuarios.find((u) => u.id === 7).perfil = { descripcion: 'CHOFER' };
+    const alta = await subir('/choferes/7', { tipoDocumentoId: LICENCIA, fechaVencimiento: VENCE }, { pdf: true });
+    assert.equal(alta.status, 201);
+  });
+
+  test('el estado de choferes lista solo los activos', async () => {
+    const { json } = await pedir('GET', '/estado-choferes');
+    assert.deepEqual(json.choferes.map((c) => c.id).sort((a, b) => a - b), [5, 6, 10]);
+  });
+});
+
+// --- Formato de errores -----------------------------------------------------
+
+describe('Errores de validación por campo', () => {
+  test('sin PDF ni vencimiento: 400 { errores } con un mensaje por campo', async () => {
+    const { status, json } = await subir('/vehiculos/7', { tipoDocumentoId: POLIZA });
+    assert.equal(status, 400);
+    assert.deepEqual(Object.keys(json), ['errores']);
+    assert.deepEqual(Object.keys(json.errores).sort(), ['archivo', 'fechaVencimiento']);
+  });
+
+  test('tipo faltante, inexistente o de otra categoría: errores.tipoDocumentoId', async () => {
+    for (const campos of [{}, { tipoDocumentoId: 'abc' }, { tipoDocumentoId: 999 }, { tipoDocumentoId: LICENCIA }]) {
+      const { status, json } = await subir('/vehiculos/7', { fechaVencimiento: VENCE, ...campos }, { pdf: true });
+      assert.equal(status, 400, JSON.stringify(campos));
+      assert.deepEqual(Object.keys(json.errores), ['tipoDocumentoId'], JSON.stringify(campos));
+    }
+  });
+
+  test('fechas inválidas o invertidas: errores.fechaEmision / errores.fechaVencimiento', async () => {
+    const invalidas = await subirPoliza({ pdf: true }, { fechaEmision: 'no-es-fecha', fechaVencimiento: 'tampoco' });
+    assert.equal(invalidas.status, 400);
+    assert.deepEqual(Object.keys(invalidas.json.errores).sort(), ['fechaEmision', 'fechaVencimiento']);
+
+    const invertidas = await subirPoliza({ pdf: true }, { fechaEmision: '2027-01-02', fechaVencimiento: '2027-01-01' });
+    assert.deepEqual(Object.keys(invertidas.json.errores), ['fechaVencimiento']);
+  });
+
+  test('los errores que no son de un campo siguen siendo { error }', async () => {
+    const { status, json } = await pedir('GET', '/vehiculos/9999');
+    assert.equal(status, 404);
+    assert.deepEqual(Object.keys(json), ['error']);
+  });
+
+  test('un PDF de más de 15 MB devuelve el mensaje en español', async () => {
+    const pesado = new Blob([new Uint8Array(15 * 1024 * 1024 + 1)], { type: 'application/pdf' });
+    const form = new FormData();
+    form.append('tipoDocumentoId', POLIZA);
+    form.append('fechaVencimiento', VENCE);
+    form.append('archivo', pesado, 'grande.pdf');
+    const { status, json } = await leer(
+      await fetch(`${base}/vehiculos/7`, { method: 'POST', headers: { Authorization: `Bearer ${tokenDe('ADMINISTRADOR')}` }, body: form })
+    );
+    assert.equal(status, 400);
+    assert.deepEqual(json, { errores: { archivo: 'El archivo supera el máximo de 15 MB.' } });
+    assert.equal(archivos.size, 0);
+  });
+
+  test('un archivo que no es PDF devuelve el mensaje en español', async () => {
+    const form = new FormData();
+    form.append('tipoDocumentoId', POLIZA);
+    form.append('fechaVencimiento', VENCE);
+    form.append('archivo', new Blob(['hola'], { type: 'text/plain' }), 'notas.txt');
+    const { status, json } = await leer(
+      await fetch(`${base}/vehiculos/7`, { method: 'POST', headers: { Authorization: `Bearer ${tokenDe('ADMINISTRADOR')}` }, body: form })
+    );
+    assert.equal(status, 400);
+    assert.deepEqual(json, { errores: { archivo: 'Solo se permiten archivos PDF.' } });
+  });
+});
+
+// --- Signed URLs bajo demanda ------------------------------------------------
+
+describe('GET /documentos/:documentoId/archivo', () => {
+  test('la carpeta y el historial no generan URLs: informan tieneArchivo', async () => {
+    llamadasFirma.length = 0;
+    await subirPoliza({ pdf: true });
+    await subir('/vehiculos/7', { tipoDocumentoId: 2, fechaVencimiento: VENCE }); // sin PDF
+
+    const carpeta = (await pedir('GET', '/vehiculos/7')).json.documentos;
+    assert.equal(carpeta.find((i) => i.tipo.id === POLIZA).documento.tieneArchivo, true);
+    assert.equal(carpeta.find((i) => i.tipo.id === 2).documento.tieneArchivo, false);
+    const historial = (await pedir('GET', `/vehiculos/7/tipos/${POLIZA}/historial`)).json.historial;
+    assert.equal(historial[0].tieneArchivo, true);
+    assert.ok(carpeta.every((i) => !i.documento || !('signedUrl' in i.documento)));
+    assert.deepEqual(llamadasFirma, []);
+  });
+
+  test('devuelve { url } con una firma de 5 minutos', async () => {
+    const alta = await subirPoliza({ pdf: true });
+    llamadasFirma.length = 0;
+
+    const { status, json } = await pedir('GET', `/${alta.json.documento.id}/archivo`);
+    assert.equal(status, 200);
+    assert.equal(json.url, `http://storage.test/${alta.json.documento.archivoPath}`);
+    assert.deepEqual(llamadasFirma, [{ ruta: alta.json.documento.archivoPath, segundos: 300 }]);
+  });
+
+  test('404 si el documento no existe o no tiene archivo; 400 si el id no es válido', async () => {
+    assert.equal((await pedir('GET', '/9999/archivo')).status, 404);
+    const sinPdf = await subir('/vehiculos/7', { tipoDocumentoId: 2, fechaVencimiento: VENCE });
+    assert.equal((await pedir('GET', `/${sinPdf.json.documento.id}/archivo`)).status, 404);
+    assert.equal((await pedir('GET', '/abc/archivo')).status, 400);
+  });
+
+  test('un administrador y un encargado pueden pedirla', async () => {
+    const alta = await subirPoliza({ pdf: true });
+    for (const perfil of ['ADMINISTRADOR', 'ENCARGADO']) {
+      assert.equal((await pedir('GET', `/${alta.json.documento.id}/archivo`, perfil)).status, 200);
+    }
   });
 });

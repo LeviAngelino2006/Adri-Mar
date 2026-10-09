@@ -282,6 +282,7 @@ function crearEntorno() {
       const [primera] = ordenarDocumentos(db.documentos.filter((d) => coincideFiltroDocumento(d, where)), orderBy);
       return primera ? armarDocumento(primera, include) : null;
     },
+    findUnique: async ({ where: { id } }) => db.documentos.find((d) => d.id === id) ?? null,
     count: async ({ where } = {}) => db.documentos.filter((d) => coincideFiltroDocumento(d, where)).length,
     create: async ({ data, include }) => {
       if (db.fallos.createDocumento) throw new Error('falla simulada en el create del documento');
@@ -417,7 +418,7 @@ function crearEntorno() {
         if (where.OR) {
           return Promise.all(
             db.usuarios
-              .filter((u) => u.habilitadoParaConducir)
+              .filter((u) => u.habilitadoParaConducir && u.estadoUsuario.descripcion === where.estadoUsuario.descripcion)
               .map(async (u) => ({ ...u, documentos: await documentosDe('choferId', u.id, include.documentos) }))
           );
         }

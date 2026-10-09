@@ -14,6 +14,7 @@ const storageService = require('./storageService');
 const ID_MAXIMO = 2147483647; // INTEGER de Postgres
 const MAX_HISTORICOS = 2; // versiones viejas que se conservan además de la vigente
 const DIAS_UMBRAL_POR_VENCER = 30;
+const SEGUNDOS_URL_ARCHIVO = 5 * 60;
 
 // Adri-mar opera solo en Córdoba (UTC-3 todo el año): mismo criterio de offset
 // fijo que aFechaCordoba() en viajeService, en vez de depender de la zona
@@ -31,6 +32,15 @@ function errorHttp(status, mensaje) {
   const error = new Error(mensaje);
   error.status = status;
   return error;
+}
+
+// Errores de validación por campo, con el mismo formato que
+// vehiculoService.ValidacionError: el controller responde 400 { errores }.
+class ValidacionError extends Error {
+  constructor(errores) {
+    super('Datos inválidos');
+    this.errores = errores;
+  }
 }
 
 function parsearId(valor, mensaje) {
@@ -83,6 +93,12 @@ const TITULARES = {
     campo: 'vehiculoId',
     carpetaStorage: 'vehiculos',
     noEncontrado: 'Vehículo no encontrado',
+    // La carpeta de un vehículo dado de baja se puede consultar, no modificar.
+    validarParaRegistro: (vehiculo) => {
+      if (vehiculo.estadoVehiculo?.descripcion === 'DADO_DE_BAJA') {
+        throw errorHttp(400, 'No se puede modificar la documentación de un vehículo dado de baja.');
+      }
+    },
     buscar: (id) =>
       prisma.vehiculo.findUnique({
         where: { id },
@@ -94,6 +110,17 @@ const TITULARES = {
     campo: 'choferId',
     carpetaStorage: 'choferes',
     noEncontrado: 'Chofer no encontrado',
+    // Solo se le carga documentación a un usuario ACTIVO que conduce (perfil
+    // CHOFER o habilitado para conducir). Consultar su carpeta sigue permitido
+    // para conservar el historial.
+    validarParaRegistro: (usuario) => {
+      if (usuario.estadoUsuario?.descripcion !== 'ACTIVO') {
+        throw errorHttp(400, 'No se puede registrar documentación de un usuario inactivo.');
+      }
+      if (usuario.perfil?.descripcion !== 'CHOFER' && !usuario.habilitadoParaConducir) {
+        throw errorHttp(400, 'El usuario no es chofer ni está habilitado para conducir.');
+      }
+    },
     buscar: (id) =>
       prisma.usuario.findUnique({
         where: { id },
@@ -145,10 +172,6 @@ async function buscarTipoParaTitular(tipoDocumentoId, categoria) {
   return tipo;
 }
 
-async function agregarSignedUrl(doc) {
-  return doc.archivoPath ? storageService.generarSignedUrl(doc.archivoPath, 3600) : null;
-}
-
 // --- Catálogo ---------------------------------------------------------------
 
 /**
@@ -180,7 +203,8 @@ function resumirCarpeta(carpeta, totalRequeridos) {
 
 /**
  * Carpeta de documentación completa de un titular: todos los tipos de su
- * categoría con la versión vigente (o pendiente) y Signed URLs temporales.
+ * categoría con la versión vigente (o pendiente). El PDF se pide aparte con
+ * obtenerUrlArchivo: acá solo se informa si tiene archivo (tieneArchivo).
  */
 async function obtenerCarpeta(titular) {
   const { descriptor, entidad, id } = await buscarTitular(titular);
@@ -193,22 +217,20 @@ async function obtenerCarpeta(titular) {
     include: { tipoDocumento: INCLUDE_TIPO, usuario: SELECT_USUARIO },
   });
 
-  const carpeta = await Promise.all(
-    tipos.map(async (tipo) => {
-      const doc = vigentes.find((d) => d.tipoDocumentoId === tipo.id) || null;
-      if (!doc) return { tipo, cargado: false, documento: null };
-      return {
-        tipo,
-        cargado: true,
-        documento: {
-          ...doc,
-          esVigente: true,
-          signedUrl: await agregarSignedUrl(doc),
-          estadoVigencia: calcularEstadoVigencia(doc),
-        },
-      };
-    })
-  );
+  const carpeta = tipos.map((tipo) => {
+    const doc = vigentes.find((d) => d.tipoDocumentoId === tipo.id) || null;
+    if (!doc) return { tipo, cargado: false, documento: null };
+    return {
+      tipo,
+      cargado: true,
+      documento: {
+        ...doc,
+        esVigente: true,
+        tieneArchivo: Boolean(doc.archivoPath),
+        estadoVigencia: calcularEstadoVigencia(doc),
+      },
+    };
+  });
 
   return {
     ...descriptor.ficha(entidad),
@@ -231,23 +253,37 @@ async function obtenerHistorial(titular, tipoDocumentoId) {
     include: { tipoDocumento: INCLUDE_TIPO, usuario: SELECT_USUARIO },
   });
 
-  return Promise.all(
-    versiones.map(async (doc, indice) => ({
-      ...doc,
-      esVigente: indice === 0,
-      signedUrl: await agregarSignedUrl(doc),
-      estadoVigencia: calcularEstadoVigencia(doc),
-    }))
-  );
+  return versiones.map((doc, indice) => ({
+    ...doc,
+    esVigente: indice === 0,
+    tieneArchivo: Boolean(doc.archivoPath),
+    estadoVigencia: calcularEstadoVigencia(doc),
+  }));
+}
+
+/**
+ * URL firmada de 5 minutos para ver o descargar el PDF de una versión. Se pide
+ * al momento de usarla: así no vence con la página abierta y no se generan N
+ * URLs por cada carpeta que se carga.
+ */
+async function obtenerUrlArchivo(documentoId) {
+  const docId = parsearId(documentoId, 'El identificador del documento no es válido.');
+  const doc = await prisma.documento.findUnique({ where: { id: docId } });
+  if (!doc) throw errorHttp(404, 'Documento no encontrado.');
+  if (!doc.archivoPath) throw errorHttp(404, 'El documento no tiene un archivo adjunto.');
+
+  const url = await storageService.generarSignedUrl(doc.archivoPath, SEGUNDOS_URL_ARCHIVO);
+  if (!url) throw errorHttp(502, 'No se pudo generar el enlace al archivo. Intentá de nuevo en unos segundos.');
+  return { url };
 }
 
 // --- Registro ---------------------------------------------------------------
 
-function parsearFecha(valor, mensaje) {
+// null si no vino; una fecha (posiblemente inválida: isNaN(getTime())) si vino.
+function parsearFecha(valor) {
   if (!valor) return null;
-  const fecha = new Date(valor.length === 10 ? `${valor}T12:00:00Z` : valor);
-  if (isNaN(fecha.getTime())) throw errorHttp(400, mensaje);
-  return fecha;
+  const texto = String(valor);
+  return new Date(texto.length === 10 ? `${texto}T12:00:00Z` : texto);
 }
 
 // Borra del Storage solo los paths que ninguna fila sigue usando. Se llama
@@ -282,30 +318,50 @@ async function pathsSinUso(tx, eliminados) {
  */
 async function registrarDocumento(titular, datos, file, usuarioId) {
   const { tipoDocumentoId, fechaEmision, fechaVencimiento, observaciones } = datos;
-  const { descriptor, id } = await buscarTitular(titular);
+  const { descriptor, entidad, id } = await buscarTitular(titular);
+  descriptor.validarParaRegistro(entidad);
 
+  // Se juntan todos los errores de campo para mostrarlos de una vez.
+  const errores = {};
+
+  let tipo = null;
   if (tipoDocumentoId === undefined || tipoDocumentoId === null || tipoDocumentoId === '') {
-    throw errorHttp(400, 'El tipo de documento es obligatorio.');
-  }
-  const tipo = await buscarTipoParaTitular(tipoDocumentoId, titular.categoria);
-
-  const docPrevio = await prisma.documento.findFirst({
-    where: { [descriptor.campo]: id, tipoDocumentoId: tipo.id },
-    orderBy: ORDEN_RECIENTE,
-  });
-
-  if (tipo.requiereArchivo && !file && !docPrevio?.archivoPath) {
-    throw errorHttp(400, `El tipo de documento '${tipo.descripcion}' requiere adjuntar un archivo en formato PDF.`);
-  }
-  if (tipo.requiereVencimiento && !fechaVencimiento) {
-    throw errorHttp(400, `La fecha de vencimiento es obligatoria para '${tipo.descripcion}'.`);
+    errores.tipoDocumentoId = 'El tipo de documento es obligatorio.';
+  } else {
+    try {
+      tipo = await buscarTipoParaTitular(tipoDocumentoId, titular.categoria);
+    } catch (err) {
+      if (!err.status) throw err;
+      errores.tipoDocumentoId = err.message;
+    }
   }
 
-  const parsedEmision = parsearFecha(fechaEmision, 'La fecha de emisión ingresada no es válida.');
-  const parsedVencimiento = parsearFecha(fechaVencimiento, 'La fecha de vencimiento ingresada no es válida.');
-  if (parsedEmision && parsedVencimiento && parsedVencimiento < parsedEmision) {
-    throw errorHttp(400, 'La fecha de vencimiento no puede ser anterior a la fecha de emisión.');
+  const parsedEmision = parsearFecha(fechaEmision);
+  const parsedVencimiento = parsearFecha(fechaVencimiento);
+  if (parsedEmision && isNaN(parsedEmision.getTime())) {
+    errores.fechaEmision = 'La fecha de emisión ingresada no es válida.';
   }
+  if (parsedVencimiento && isNaN(parsedVencimiento.getTime())) {
+    errores.fechaVencimiento = 'La fecha de vencimiento ingresada no es válida.';
+  } else if (parsedEmision && parsedVencimiento && !errores.fechaEmision && parsedVencimiento < parsedEmision) {
+    errores.fechaVencimiento = 'La fecha de vencimiento no puede ser anterior a la fecha de emisión.';
+  }
+
+  let docPrevio = null;
+  if (tipo) {
+    docPrevio = await prisma.documento.findFirst({
+      where: { [descriptor.campo]: id, tipoDocumentoId: tipo.id },
+      orderBy: ORDEN_RECIENTE,
+    });
+    if (tipo.requiereArchivo && !file && !docPrevio?.archivoPath) {
+      errores.archivo = 'Este tipo de documento requiere adjuntar un archivo PDF.';
+    }
+    if (tipo.requiereVencimiento && !fechaVencimiento) {
+      errores.fechaVencimiento = 'La fecha de vencimiento es obligatoria para este tipo de documento.';
+    }
+  }
+
+  if (Object.keys(errores).length > 0) throw new ValidacionError(errores);
 
   let archivoPath = null;
   let nombreArchivo = null;
@@ -366,7 +422,7 @@ async function registrarDocumento(titular, datos, file, usuarioId) {
   return {
     ...resultado.nuevo,
     esVigente: true,
-    signedUrl: await agregarSignedUrl(resultado.nuevo),
+    tieneArchivo: Boolean(resultado.nuevo.archivoPath),
     estadoVigencia: calcularEstadoVigencia(resultado.nuevo),
   };
 }
@@ -426,6 +482,7 @@ const LISTADOS = {
     listar: () =>
       prisma.usuario.findMany({
         where: {
+          estadoUsuario: { descripcion: 'ACTIVO' },
           OR: [{ perfil: { descripcion: 'CHOFER' } }, { habilitadoParaConducir: true }],
         },
         include: { perfil: true, estadoUsuario: true, documentos: DOCUMENTOS_VIGENTES },
@@ -538,11 +595,13 @@ async function obtenerAlertasVencimiento() {
 }
 
 module.exports = {
+  ValidacionError,
   calcularEstadoVigencia,
   diasHastaVencimiento,
   listarTipos,
   obtenerCarpeta,
   obtenerHistorial,
+  obtenerUrlArchivo,
   registrarDocumento,
   eliminarDocumento,
   obtenerEstado,
