@@ -41,10 +41,9 @@ model Usuario {
   creadoEn               DateTime          @default(now()) @map("creado_en")
   viajes                 Viaje[]
   lecturasOdometro       LecturaOdometro[]
-  documentosVehiculo          DocumentoVehiculo[]
-  documentosChofer            DocumentoChofer[]   @relation("DocumentosDelChofer")
-  documentosChoferRegistrados DocumentoChofer[]   @relation("DocumentosChoferRegistradosPor")
-  viajesCandidato             ViajeChoferCandidato[]
+  documentos             Documento[]       @relation("DocumentosDelChofer")
+  documentosRegistrados  Documento[]       @relation("DocumentosRegistradosPor")
+  viajesCandidato        ViajeChoferCandidato[]
 
   @@map("usuarios")
 }
@@ -83,7 +82,7 @@ model Vehiculo {
   creadoEn         DateTime          @default(now()) @map("creado_en")
   viajes           Viaje[]
   lecturasOdometro LecturaOdometro[]
-  documentos       DocumentoVehiculo[]
+  documentos       Documento[]
   viajesCandidato  ViajeVehiculoCandidato[]
 
   @@map("vehiculos")
@@ -252,64 +251,59 @@ model LecturaOdometro {
   @@map("lecturas_odometro")
 }
 
+// Catálogo: a qué se le carga un documento. Valores: VEHICULO, CHOFER.
+model CategoriaDocumento {
+  id             Int             @id @default(autoincrement()) @map("id_categoriadocumento")
+  descripcion    String          @unique
+  tiposDocumento TipoDocumento[]
+
+  @@map("categoria_documento")
+}
+
+// Catálogo: qué documentos existen y qué exige cada uno. descripcion es el
+// código (POLIZA_SEGURO, ITV, LICENCIA_CONDUCIR…); la etiqueta visible vive
+// en el front, igual que los estados de vehículo y viaje.
 model TipoDocumento {
-  id                  Int                 @id @default(autoincrement()) @map("id_tipodocumento")
-  codigo              String              @unique
-  descripcion         String
-  aplicaA             String              @map("aplica_a")
-  requiereVencimiento Boolean             @default(true) @map("requiere_vencimiento")
-  requiereArchivo     Boolean             @default(true) @map("requiere_archivo")
-  orden               Int                 @default(0)
-  documentosVehiculo  DocumentoVehiculo[]
-  documentosChofer    DocumentoChofer[]
+  id                   Int                @id @default(autoincrement()) @map("id_tipodocumento")
+  descripcion          String             @unique
+  categoriaDocumentoId Int                @map("categoria_documento_id")
+  categoriaDocumento   CategoriaDocumento @relation(fields: [categoriaDocumentoId], references: [id])
+  requiereVencimiento  Boolean            @map("requiere_vencimiento")
+  requiereArchivo      Boolean            @map("requiere_archivo")
+  documentos           Documento[]
 
   @@map("tipos_documento")
 }
 
-model DocumentoVehiculo {
+// Cada fila es una versión cargada de un documento. Pertenece a un vehículo O
+// a un chofer, nunca a los dos (CHECK documentos_un_solo_titular en la
+// migración). La versión vigente es la más reciente por titular y tipo: no se
+// guarda, se calcula. Que la categoría del tipo coincida con el titular lo
+// valida documentoService, no la base.
+// onDelete: Restrict explícito en vehiculo y chofer: al ser opcionales, Prisma
+// pasaría a SET NULL, y dejar ambas columnas en null violaría el CHECK. Se
+// preserva el comportamiento de siempre (no se puede borrar un vehículo ni un
+// usuario que tiene documentos).
+model Documento {
   id               Int           @id @default(autoincrement())
-  vehiculoId       Int           @map("vehiculo_id")
-  vehiculo         Vehiculo      @relation(fields: [vehiculoId], references: [id])
   tipoDocumentoId  Int           @map("tipo_documento_id")
   tipoDocumento    TipoDocumento @relation(fields: [tipoDocumentoId], references: [id])
-  archivoUrl       String?       @map("archivo_url")
+  vehiculoId       Int?          @map("vehiculo_id")
+  vehiculo         Vehiculo?     @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  choferId         Int?          @map("chofer_id")
+  chofer           Usuario?      @relation("DocumentosDelChofer", fields: [choferId], references: [id], onDelete: Restrict)
   archivoPath      String?       @map("archivo_path")
-  nombreOriginal   String?       @map("nombre_original")
+  nombreArchivo    String?       @map("nombre_archivo")
   fechaEmision     DateTime?     @map("fecha_emision")
   fechaVencimiento DateTime?     @map("fecha_vencimiento")
   observaciones    String?
-  esVigente        Boolean       @default(true) @map("es_vigente")
   usuarioId        Int           @map("usuario_id")
-  usuario          Usuario       @relation(fields: [usuarioId], references: [id])
+  usuario          Usuario       @relation("DocumentosRegistradosPor", fields: [usuarioId], references: [id])
   creadoEn         DateTime      @default(now()) @map("creado_en")
-  actualizadoEn    DateTime      @updatedAt @map("actualizado_en")
 
-  @@index([vehiculoId, esVigente])
-  @@index([tipoDocumentoId])
-  @@map("documentos_vehiculo")
-}
-
-model DocumentoChofer {
-  id               Int           @id @default(autoincrement())
-  choferId         Int           @map("chofer_id")
-  chofer           Usuario       @relation("DocumentosDelChofer", fields: [choferId], references: [id])
-  tipoDocumentoId  Int           @map("tipo_documento_id")
-  tipoDocumento    TipoDocumento @relation(fields: [tipoDocumentoId], references: [id])
-  archivoUrl       String?       @map("archivo_url")
-  archivoPath      String?       @map("archivo_path")
-  nombreOriginal   String?       @map("nombre_original")
-  fechaEmision     DateTime?     @map("fecha_emision")
-  fechaVencimiento DateTime?     @map("fecha_vencimiento")
-  observaciones    String?
-  esVigente        Boolean       @default(true) @map("es_vigente")
-  usuarioId        Int           @map("usuario_id")
-  usuario          Usuario       @relation("DocumentosChoferRegistradosPor", fields: [usuarioId], references: [id])
-  creadoEn         DateTime      @default(now()) @map("creado_en")
-  actualizadoEn    DateTime      @updatedAt @map("actualizado_en")
-
-  @@index([choferId, esVigente])
-  @@index([tipoDocumentoId])
-  @@map("documentos_chofer")
+  @@index([vehiculoId, tipoDocumentoId, creadoEn])
+  @@index([choferId, tipoDocumentoId, creadoEn])
+  @@map("documentos")
 }
 
 // Chofer posible para un viaje A_CONFIRMAR. Viaje.choferId sigue siendo "el
