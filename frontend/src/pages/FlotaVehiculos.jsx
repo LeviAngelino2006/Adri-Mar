@@ -12,7 +12,7 @@ import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import { ESTADOS_VEHICULO } from '../constants/estadosVehiculo';
-import { formatearKm } from '../utils/viajeFormato';
+import { formatearFechaCorta, formatearKm } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import { ListadoCard, ListadoHeader, ListadoToolbar } from '../components/Listado';
 import IconoVehiculo from '../components/IconoVehiculo';
@@ -219,23 +219,29 @@ function FlotaVehiculos() {
           <Card className="form-card">
             <form onSubmit={handleSubmitForm} noValidate>
               <div className="form-grid">
-                <FormField id="dominio" label="Dominio" error={erroresForm.dominio}>
-                  <input name="dominio" value={form.dominio} onChange={handleFormChange} />
-                </FormField>
-
-                <FormField id="numeroInterno" label="Número de interno" error={erroresForm.numeroInterno}>
+                <FormField id="numeroInterno" label="Número de interno" required error={erroresForm.numeroInterno}>
                   <input name="numeroInterno" value={form.numeroInterno} onChange={handleFormChange} />
                 </FormField>
 
-                <FormField id="marca" label="Marca" error={erroresForm.marca}>
+                <FormField
+                  id="dominio"
+                  label="Dominio"
+                  required
+                  hint="Formato AB123CD o ABC123"
+                  error={erroresForm.dominio}
+                >
+                  <input name="dominio" value={form.dominio} onChange={handleFormChange} />
+                </FormField>
+
+                <FormField id="marca" label="Marca" required error={erroresForm.marca}>
                   <input name="marca" value={form.marca} onChange={handleFormChange} />
                 </FormField>
 
-                <FormField id="modelo" label="Modelo" error={erroresForm.modelo}>
+                <FormField id="modelo" label="Modelo" required error={erroresForm.modelo}>
                   <input name="modelo" value={form.modelo} onChange={handleFormChange} />
                 </FormField>
 
-                <FormField id="tipoVehiculoId" label="Tipo de vehículo" error={erroresForm.tipoVehiculoId}>
+                <FormField id="tipoVehiculoId" label="Tipo de vehículo" required error={erroresForm.tipoVehiculoId}>
                   <select name="tipoVehiculoId" value={form.tipoVehiculoId} onChange={handleFormChange}>
                     <option value="">Seleccionar…</option>
                     {tiposVehiculo.map((t) => (
@@ -246,15 +252,21 @@ function FlotaVehiculos() {
                   </select>
                 </FormField>
 
-                <FormField id="anio" label="Año" error={erroresForm.anio}>
+                <FormField id="anio" label="Año" required error={erroresForm.anio}>
                   <input name="anio" type="number" value={form.anio} onChange={handleFormChange} />
                 </FormField>
 
-                <FormField id="asientos" label="Cantidad de asientos" error={erroresForm.asientos}>
+                <FormField id="asientos" label="Cantidad de asientos" required error={erroresForm.asientos}>
                   <input name="asientos" type="number" value={form.asientos} onChange={handleFormChange} />
                 </FormField>
 
-                <FormField id="kilometraje" label="Kilometraje actual" error={erroresForm.kilometraje}>
+                <FormField
+                  id="kilometraje"
+                  label="Kilometraje actual"
+                  required
+                  hint="En kilómetros"
+                  error={erroresForm.kilometraje}
+                >
                   <input name="kilometraje" type="number" value={form.kilometraje} onChange={handleFormChange} />
                 </FormField>
               </div>
@@ -263,7 +275,7 @@ function FlotaVehiculos() {
 
               <div className="form-actions">
                 <Button type="submit" variant="primary" loading={enviandoForm}>
-                  {enviandoForm ? 'Guardando…' : 'Guardar'}
+                  {enviandoForm ? 'Guardando…' : editando ? 'Guardar cambios' : 'Crear vehículo'}
                 </Button>
                 <Button type="button" variant="secondary" onClick={cerrarForm}>
                   Cancelar
@@ -337,21 +349,23 @@ function FlotaVehiculos() {
           </button>
 
           <div className="flota-detalle-header">
-            <h1>Vehículo {seleccionado.dominio}</h1>
+            <h1>
+              Vehículo {seleccionado.numeroInterno} - <span className="patente">{seleccionado.dominio}</span>
+            </h1>
             <EstadoBadge tono={ESTADOS_VEHICULO[seleccionado.estado].tono}>
               {ESTADOS_VEHICULO[seleccionado.estado].label}
             </EstadoBadge>
           </div>
 
-          <Card className="flota-detalle" role="region" aria-label="Ficha del vehículo">
-            <dl className="flota-detalle-list">
-              <div className="detalle-item">
-                <dt>Dominio</dt>
-                <dd className="patente">{seleccionado.dominio}</dd>
-              </div>
+          <Card className="detalle-card flota-detalle" role="region" aria-label="Ficha del vehículo">
+            <dl className="detalle-grid">
               <div className="detalle-item">
                 <dt>Número de interno</dt>
                 <dd>{seleccionado.numeroInterno}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Dominio</dt>
+                <dd className="patente">{seleccionado.dominio}</dd>
               </div>
               <div className="detalle-item">
                 <dt>Marca</dt>
@@ -375,40 +389,40 @@ function FlotaVehiculos() {
               </div>
               <div className="detalle-item">
                 <dt>Kilometraje</dt>
-                <dd>{seleccionado.kilometraje}</dd>
+                <dd>{formatearKm(seleccionado.kilometraje)} km</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Registrado el</dt>
+                <dd>{formatearFechaCorta(seleccionado.creadoEn)}</dd>
               </div>
               {seleccionado.fechaBaja && (
                 <div className="detalle-item">
-                  <dt>Fecha de baja</dt>
-                  <dd>{new Date(seleccionado.fechaBaja).toLocaleDateString()}</dd>
+                  <dt>Dado de baja el</dt>
+                  <dd>{formatearFechaCorta(seleccionado.fechaBaja)}</dd>
                 </div>
               )}
-              <div className="detalle-item">
-                <dt>Registrado el</dt>
-                <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
-              </div>
             </dl>
 
-            <div className="flota-detalle-actions">
-              {puedeGestionar && (
+            {puedeGestionar && (
+              <div className="detalle-acciones">
                 <Button
                   variant="secondary"
                   onClick={() => navigate(`/documentacion?vehiculoId=${seleccionado.id}`)}
                 >
                   Ver documentación
                 </Button>
-              )}
-              {puedeGestionar && seleccionado.estado !== 'DADO_DE_BAJA' && (
-                <>
-                  <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                    Editar
-                  </Button>
-                  <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
-                    Dar de baja
-                  </Button>
-                </>
-              )}
-            </div>
+                {seleccionado.estado !== 'DADO_DE_BAJA' && (
+                  <>
+                    <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                      Editar vehículo
+                    </Button>
+                    <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
+                      Dar de baja
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
           </Card>
         </>
       )}

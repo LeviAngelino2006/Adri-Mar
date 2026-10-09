@@ -1,5 +1,11 @@
 /* Un <a> con el aspecto de .btn-secondary: sin el subrayado global de a:hover. */
 .boton-ver-recorrido,
-.boton-ver-recorrido:hover {
+.boton-ver-recorrido:active {
   text-decoration: none;
+}
+
+@media (hover: hover) {
+  .boton-ver-recorrido:hover {
+    text-decoration: none;
+  }
 }
