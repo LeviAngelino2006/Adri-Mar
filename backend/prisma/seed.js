@@ -161,29 +161,30 @@ async function main() {
   console.log(`Categorías de documento listas: ${CATEGORIAS_DOCUMENTO.join(', ')}`);
 
   // descripcion es el código; la etiqueta visible vive en
-  // frontend/src/constants/tiposDocumento.js.
+  // frontend/src/constants/tiposDocumento.js. diasAviso: días de anticipación
+  // con los que un documento vigente pasa a "Por vencer" (5 para el pago del
+  // seguro, que es mensual; 30 para el resto).
   const TIPOS_DOCUMENTO = [
-    { descripcion: 'POLIZA_SEGURO', categoria: 'VEHICULO', requiereVencimiento: true, requiereArchivo: true },
-    { descripcion: 'CERT_COBERTURA', categoria: 'VEHICULO', requiereVencimiento: true, requiereArchivo: true },
-    { descripcion: 'PAGO_SEGURO', categoria: 'VEHICULO', requiereVencimiento: false, requiereArchivo: true },
-    { descripcion: 'ITV', categoria: 'VEHICULO', requiereVencimiento: true, requiereArchivo: true },
-    { descripcion: 'MATAFUEGOS', categoria: 'VEHICULO', requiereVencimiento: true, requiereArchivo: false },
-    { descripcion: 'TITULO_VEHICULO', categoria: 'VEHICULO', requiereVencimiento: false, requiereArchivo: true },
-    { descripcion: 'CEDULA_IDENTIFICACION', categoria: 'VEHICULO', requiereVencimiento: false, requiereArchivo: true },
-    { descripcion: 'ALTA_TRANSPORTE', categoria: 'VEHICULO', requiereVencimiento: false, requiereArchivo: true },
-    { descripcion: 'LICENCIA_CONDUCIR', categoria: 'CHOFER', requiereVencimiento: true, requiereArchivo: true },
-    { descripcion: 'DNI_CHOFER', categoria: 'CHOFER', requiereVencimiento: false, requiereArchivo: true },
-    { descripcion: 'EXAMEN_PSICOFISICO', categoria: 'CHOFER', requiereVencimiento: true, requiereArchivo: true },
+    { descripcion: 'POLIZA_SEGURO', categoria: 'VEHICULO', requiereVencimiento: true, requiereArchivo: true, diasAviso: 30 },
+    { descripcion: 'CERT_COBERTURA', categoria: 'VEHICULO', requiereVencimiento: true, requiereArchivo: true, diasAviso: 30 },
+    { descripcion: 'PAGO_SEGURO', categoria: 'VEHICULO', requiereVencimiento: true, requiereArchivo: true, diasAviso: 5 },
+    { descripcion: 'ITV', categoria: 'VEHICULO', requiereVencimiento: true, requiereArchivo: true, diasAviso: 30 },
+    { descripcion: 'MATAFUEGOS', categoria: 'VEHICULO', requiereVencimiento: true, requiereArchivo: false, diasAviso: 30 },
+    { descripcion: 'TITULO_VEHICULO', categoria: 'VEHICULO', requiereVencimiento: false, requiereArchivo: true, diasAviso: 30 },
+    { descripcion: 'CEDULA_IDENTIFICACION', categoria: 'VEHICULO', requiereVencimiento: false, requiereArchivo: true, diasAviso: 30 },
+    { descripcion: 'ALTA_TRANSPORTE', categoria: 'VEHICULO', requiereVencimiento: false, requiereArchivo: true, diasAviso: 30 },
+    { descripcion: 'LICENCIA_CONDUCIR', categoria: 'CHOFER', requiereVencimiento: true, requiereArchivo: true, diasAviso: 30 },
+    { descripcion: 'DNI_CHOFER', categoria: 'CHOFER', requiereVencimiento: false, requiereArchivo: true, diasAviso: 30 },
   ];
 
-  for (const { descripcion, categoria, requiereVencimiento, requiereArchivo } of TIPOS_DOCUMENTO) {
+  for (const { descripcion, categoria, ...datos } of TIPOS_DOCUMENTO) {
     const categoriaDocumento = await prisma.categoriaDocumento.findUnique({
       where: { descripcion: categoria },
     });
     await prisma.tipoDocumento.upsert({
       where: { descripcion },
-      update: { categoriaDocumentoId: categoriaDocumento.id, requiereVencimiento, requiereArchivo },
-      create: { descripcion, categoriaDocumentoId: categoriaDocumento.id, requiereVencimiento, requiereArchivo },
+      update: { categoriaDocumentoId: categoriaDocumento.id, ...datos },
+      create: { descripcion, categoriaDocumentoId: categoriaDocumento.id, ...datos },
     });
   }
 

@@ -13,7 +13,6 @@ const storageService = require('./storageService');
 
 const ID_MAXIMO = 2147483647; // INTEGER de Postgres
 const MAX_HISTORICOS = 2; // versiones viejas que se conservan además de la vigente
-const DIAS_UMBRAL_POR_VENCER = 30;
 const SEGUNDOS_URL_ARCHIVO = 5 * 60;
 
 // Adri-mar opera solo en Córdoba (UTC-3 todo el año): mismo criterio de offset
@@ -77,12 +76,14 @@ function diasHastaVencimiento(fechaVencimiento, ahora = new Date()) {
 
 // Único cálculo de vigencia: lo usan la carpeta, el estado de flota/choferes y
 // las alertas. Sin documento es PENDIENTE; sin fecha de vencimiento, VIGENTE.
+// El umbral de "Por vencer" es el diasAviso del tipo del documento, así que
+// `doc` tiene que traer `tipoDocumento` (toda consulta lo incluye).
 function calcularEstadoVigencia(doc, ahora = new Date()) {
   if (!doc) return 'PENDIENTE';
   const dias = diasHastaVencimiento(doc.fechaVencimiento, ahora);
   if (dias === null) return 'VIGENTE';
   if (dias < 0) return 'VENCIDO';
-  if (dias <= DIAS_UMBRAL_POR_VENCER) return 'POR_VENCER';
+  if (dias <= doc.tipoDocumento.diasAviso) return 'POR_VENCER';
   return 'VIGENTE';
 }
 
@@ -188,16 +189,50 @@ async function listarTipos(categoria = 'VEHICULO') {
 
 // --- Consultas --------------------------------------------------------------
 
-function resumirCarpeta(carpeta, totalRequeridos) {
-  const totalCargados = carpeta.filter((item) => item.cargado).length;
-  const totalVencidos = carpeta.filter((item) => item.documento?.estadoVigencia === 'VENCIDO').length;
-  const totalPorVencer = carpeta.filter((item) => item.documento?.estadoVigencia === 'POR_VENCER').length;
+// Estado de la documentación de un titular a partir de sus tipos requeridos y
+// de sus versiones vigentes (cada una con `tipoDocumento.{descripcion,diasAviso}`).
+// Lo comparten la carpeta y el estado de flota/choferes.
+//
+// estadoDocumentacion, por prioridad: VENCIDA si hay algún documento vencido;
+// si no, POR_VENCER; si no, INCOMPLETA si falta algún tipo; si no, AL_DIA.
+function resumirDocumentacion(tipos, vigentes, ahora = new Date()) {
+  const conEstado = vigentes.map((doc) => ({ doc, estado: calcularEstadoVigencia(doc, ahora) }));
+  const porVencimiento = (a, b) => new Date(a.doc.fechaVencimiento) - new Date(b.doc.fechaVencimiento);
+  const vencidos = conEstado.filter((e) => e.estado === 'VENCIDO').sort(porVencimiento);
+  const porVencer = conEstado.filter((e) => e.estado === 'POR_VENCER').sort(porVencimiento);
+
+  const cargados = new Set(vigentes.map((d) => d.tipoDocumentoId));
+  const faltantes = tipos.filter((t) => !cargados.has(t.id)).map((t) => t.descripcion);
+
+  let estadoDocumentacion = 'AL_DIA';
+  if (vencidos.length > 0) estadoDocumentacion = 'VENCIDA';
+  else if (porVencer.length > 0) estadoDocumentacion = 'POR_VENCER';
+  else if (faltantes.length > 0) estadoDocumentacion = 'INCOMPLETA';
+
+  // El vencido más viejo o, si no hay vencidos, el próximo a vencer.
+  const urgente = vencidos[0] ?? porVencer[0] ?? null;
+  // El próximo vencimiento que todavía no pasó (por vencer o vigente).
+  const proximo = conEstado
+    .filter((e) => e.estado !== 'VENCIDO' && e.doc.fechaVencimiento)
+    .sort(porVencimiento)[0];
+
   return {
-    totalRequeridos,
-    totalCargados,
-    totalVencidos,
-    totalPorVencer,
-    alDia: totalCargados === totalRequeridos && totalVencidos === 0,
+    totalRequeridos: tipos.length,
+    totalCargados: tipos.length - faltantes.length,
+    totalVencidos: vencidos.length,
+    totalPorVencer: porVencer.length,
+    estadoDocumentacion,
+    documentoUrgente: urgente
+      ? {
+          tipo: urgente.doc.tipoDocumento.descripcion,
+          fechaVencimiento: urgente.doc.fechaVencimiento,
+          estadoVigencia: urgente.estado,
+        }
+      : null,
+    faltantes,
+    proximoVencimiento: proximo
+      ? { tipo: proximo.doc.tipoDocumento.descripcion, fechaVencimiento: proximo.doc.fechaVencimiento }
+      : null,
   };
 }
 
@@ -209,6 +244,7 @@ function resumirCarpeta(carpeta, totalRequeridos) {
 async function obtenerCarpeta(titular) {
   const { descriptor, entidad, id } = await buscarTitular(titular);
 
+  const ahora = new Date();
   const tipos = await listarTipos(titular.categoria);
   const vigentes = await prisma.documento.findMany({
     where: { [descriptor.campo]: id },
@@ -216,25 +252,32 @@ async function obtenerCarpeta(titular) {
     orderBy: ORDEN_RECIENTE,
     include: { tipoDocumento: INCLUDE_TIPO, usuario: SELECT_USUARIO },
   });
+  const versiones = await prisma.documento.findMany({
+    where: { [descriptor.campo]: id },
+    select: { tipoDocumentoId: true },
+  });
+  const cantidadVersiones = (tipoId) => versiones.filter((v) => v.tipoDocumentoId === tipoId).length;
 
   const carpeta = tipos.map((tipo) => {
     const doc = vigentes.find((d) => d.tipoDocumentoId === tipo.id) || null;
-    if (!doc) return { tipo, cargado: false, documento: null };
+    if (!doc) return { tipo, cargado: false, cantidadVersiones: 0, documento: null };
     return {
       tipo,
       cargado: true,
+      cantidadVersiones: cantidadVersiones(tipo.id),
       documento: {
         ...doc,
         esVigente: true,
         tieneArchivo: Boolean(doc.archivoPath),
-        estadoVigencia: calcularEstadoVigencia(doc),
+        estadoVigencia: calcularEstadoVigencia(doc, ahora),
       },
     };
   });
 
+  const resumen = resumirDocumentacion(tipos, vigentes, ahora);
   return {
     ...descriptor.ficha(entidad),
-    resumen: resumirCarpeta(carpeta, tipos.length),
+    resumen: { ...resumen, alDia: resumen.totalCargados === tipos.length && resumen.totalVencidos === 0 },
     documentos: carpeta,
   };
 }
@@ -454,7 +497,12 @@ async function eliminarDocumento(titular, documentoId) {
 const DOCUMENTOS_VIGENTES = {
   distinct: ['tipoDocumentoId'],
   orderBy: ORDEN_RECIENTE,
-  select: { id: true, tipoDocumentoId: true, fechaVencimiento: true },
+  select: {
+    id: true,
+    tipoDocumentoId: true,
+    fechaVencimiento: true,
+    tipoDocumento: { select: { descripcion: true, diasAviso: true } },
+  },
 };
 
 const LISTADOS = {
@@ -504,34 +552,25 @@ const LISTADOS = {
 };
 
 /**
- * Resumen de documentación de todos los titulares de una categoría (flota de
- * vehículos activos o choferes), para filtrar por vencidos o pendientes.
+ * Estado de documentación de todos los titulares de una categoría (flota de
+ * vehículos activos o choferes activos). Por titular: estadoDocumentacion
+ * (VENCIDA | POR_VENCER | INCOMPLETA | AL_DIA), documentoUrgente, faltantes y
+ * proximoVencimiento (ver resumirDocumentacion), más los totales.
  */
 async function obtenerEstado(categoria) {
   descriptorDe(categoria);
   const listado = LISTADOS[categoria];
-  const totalRequeridos = await prisma.tipoDocumento.count({
+  const tipos = await prisma.tipoDocumento.findMany({
     where: { categoriaDocumento: { descripcion: categoria } },
+    orderBy: { id: 'asc' },
   });
   const titulares = await listado.listar();
   const ahora = new Date();
 
-  return titulares.map((titular) => {
-    const estados = titular.documentos.map((doc) => calcularEstadoVigencia(doc, ahora));
-    const totalCargados = titular.documentos.length;
-    const tienePendientes = totalCargados < totalRequeridos;
-    const tieneVencidos = estados.includes('VENCIDO');
-
-    return {
-      ...listado.serializar(titular),
-      totalCargados,
-      totalRequeridos,
-      tieneVencidos,
-      tienePorVencer: estados.includes('POR_VENCER'),
-      tienePendientes,
-      alDia: !tienePendientes && !tieneVencidos,
-    };
-  });
+  return titulares.map((titular) => ({
+    ...listado.serializar(titular),
+    ...resumirDocumentacion(tipos, titular.documentos, ahora),
+  }));
 }
 
 // --- Alertas ----------------------------------------------------------------
@@ -564,16 +603,16 @@ async function alertasDe(categoria, ahora) {
   });
 
   return vigentes
-    .map((doc) => ({ doc, diasRestantes: diasHastaVencimiento(doc.fechaVencimiento, ahora) }))
-    .filter(({ diasRestantes }) => diasRestantes !== null && diasRestantes <= DIAS_UMBRAL_POR_VENCER)
-    .map(({ doc, diasRestantes }) => ({
+    .map((doc) => ({ doc, estado: calcularEstadoVigencia(doc, ahora) }))
+    .filter(({ estado }) => estado === 'VENCIDO' || estado === 'POR_VENCER')
+    .map(({ doc, estado }) => ({
       id: doc.id,
       tipo: doc.tipoDocumento.descripcion,
       fechaVencimiento: doc.fechaVencimiento,
       observaciones: doc.observaciones,
       ...alerta.titular(doc),
-      estado: calcularEstadoVigencia(doc, ahora),
-      diasRestantes,
+      estado,
+      diasRestantes: diasHastaVencimiento(doc.fechaVencimiento, ahora),
       categoria,
     }));
 }

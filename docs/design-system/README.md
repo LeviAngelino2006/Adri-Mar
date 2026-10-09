@@ -18,9 +18,10 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 - No agregues otros azules. Info (`state-info-*`) y el estado Programado son alias de la escala de marca. `theme-color` es alias de `brand-600`.
 - Cada estado tiene un trío `state-<tipo>-text` / `-bg` / `-border` (success, warning, neutral, error) y un `state-<tipo>-solid` para puntos y barras. El texto `state-*-text` va sobre su `state-*-bg` (todos ≥5.3:1); los `-solid` superan 3:1 sobre blanco.
 - Estados de viaje: A confirmar neutral, Programado brand, En viaje warning, Finalizado success, Cancelado error. Estados de vehículo: Operativo success, En taller warning, Dado de baja neutral. Los tokens `viaje-*` y `vehiculo-*` son alias de esos colores.
+- Estados de documento (cada tarjeta de la ficha de Documentación): Vigente success, Por vencer warning, Vencido error, Pendiente neutral. Estados de la documentación de un vehículo o chofer (listado y encabezado de su ficha): Al día success, Por vencer warning, Vencida error, Incompleta neutral. El estado de la documentación sale de la prioridad Vencida > Por vencer > Incompleta > Al día.
 - Mostrá el estado con `EstadoBadge` (píldora) en tarjetas y fichas, y con `EstadoDot` (punto) en tablas. Siempre con su etiqueta: el color solo no comunica.
 - Las acciones destructivas usan `state-error-text` de fondo con `color-on-brand`; hover `state-error-strong`.
-- No hay estados "Vencido" ni "Excedido": un viaje atrasado sigue Programado (o En viaje) hasta que el chofer lo comienza o finaliza, o un gestor lo cancela. No marques el atraso con ningún color ni badge.
+- Los viajes no tienen estados "Vencido" ni "Excedido" (los documentos sí: ver arriba): un viaje atrasado sigue Programado (o En viaje) hasta que el chofer lo comienza o finaliza, o un gestor lo cancela. No marques el atraso con ningún color ni badge.
 - Usá siempre tokens: no hay colores escritos a mano en `bundle.css`. Texto sobre fondos oscuros: `color-on-brand` o `color-inverse-text`. Backdrops: `overlay`.
 - No hay tema oscuro: la app declara `color-scheme: light`.
 
@@ -46,7 +47,7 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 - Foco visible: outline 2px `brand-600` con offset 2px. No lo quites.
 - Deshabilitado: opacidad 0.6 y cursor not-allowed.
 - El hover solo aplica con mouse: todo estilo `:hover` va dentro de `@media (hover: hover)`. En pantallas táctiles el hover queda pegado en lo que estaba bajo el dedo al cambiar de pantalla (un botón o tarjeta aparece resaltado sin que nadie lo toque). Para que el toque tenga respuesta, cada regla de hover tiene un `:active` con el mismo estilo, fuera de la media query. `:focus-visible` y `:disabled` no cambian.
-- Al abrir una ficha o un formulario que reemplaza al listado dentro de la misma ruta (Viajes, Mis viajes, Flota de vehículos y Usuarios) y al volver al listado, la página vuelve arriba (`window.scrollTo(0, 0)`). Al cambiar de ruta también (`ScrollAlTope`). El router no reinicia el scroll solo.
+- Al abrir una ficha o un formulario que reemplaza al listado dentro de la misma ruta (Viajes, Mis viajes, Flota de vehículos, Usuarios y Documentación) y al volver al listado, la página vuelve arriba (`window.scrollTo(0, 0)`). Al cambiar de ruta también (`ScrollAlTope`). El router no reinicia el scroll solo.
 - Transiciones cortas (0.15–0.2s) y desactivadas con `prefers-reduced-motion`.
 - Los campos de formulario van dentro de `FormField`, que conecta label, hint y error con `aria-*`.
 - Lo obligatorio se marca con un asterisco rojo (`required` en `FormField`). Nunca escribas "Opcional" en un hint: lo que no lleva asterisco es opcional.
@@ -64,18 +65,19 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 
 ## Componentes
 
-`components/bundle.js` expone `window.AdriMar` con Button, Card, Alert, FormField, Switch, Spinner, Toast, ConfirmModal, EstadoDot, EstadoBadge y RutaViaje (React). `components/bundle.css` trae sus estilos, las reglas base y las clases de páginas y layout. Leé el README de cada componente antes de usarlo.
+`components/bundle.js` expone `window.AdriMar` con Button, Card, Alert, FormField, Switch, Spinner, Toast, ConfirmModal, EstadoDot, EstadoBadge y RutaViaje (React). `components/bundle.css` trae sus estilos, las reglas base y las clases de páginas y layout. Leé el README de cada componente antes de usarlo. `ControlSegmentado` (alternar vistas hermanas dentro de una pantalla) y `TarjetaDocumento` (un documento en la ficha de Documentación) viven en la app (`frontend/src/components`) y todavía no están en el bundle.
 
 ## Patrones de página
 
 Las pantallas se arman con las clases de `bundle.css` y los componentes de arriba, no con componentes propios. Cada patrón tiene su README con la estructura y las clases exactas:
 
 - Viajes: `TarjetaViaje` (listado), `FormularioViaje` (programar y editar), `ViajeEnCurso` y `ProximosViajes` (Dashboard) y `ModalOdometro` (comenzar y finalizar).
-- Listados: `Listado` (patrón único de Viajes, Flota y Usuarios), con las tarjetas `TarjetaViaje` y `TarjetaVehiculo`, `FichaDetalle` (ficha de un registro, agrupada en secciones en los viajes), `Filtros`.
+- Listados: `Listado` (patrón único de Viajes, Flota, Usuarios y Documentación), con las tarjetas `TarjetaViaje` y `TarjetaVehiculo`, `FichaDetalle` (ficha de un registro, agrupada en secciones en los viajes), `Filtros`.
+- Documentación: `Listado` con `ControlSegmentado` (Vehículos | Choferes) y, en la ficha, una `TarjetaDocumento` por documento.
 - Usuarios: `Avatar`, con el color según el perfil.
 - Layout: `Navegacion` (sidebar y topbar), `Login` (panel de marca + card).
 
-- Las tres pantallas de listado (Viajes, Flota de vehículos y Usuarios) siguen el mismo patrón, `Listado`: encabezado con acción principal, barra de búsqueda y filtros, y tarjetas con la misma anatomía, apiladas una debajo de otra a todo el ancho. No hay tablas ni grilla.
+- Las pantallas de listado (Viajes, Flota de vehículos, Usuarios y Documentación) siguen el mismo patrón, `Listado`: encabezado (con acción principal, salvo Documentación, que no tiene), barra de búsqueda y filtros, y tarjetas con la misma anatomía, apiladas una debajo de otra a todo el ancho. No hay tablas ni grilla.
 - Las fichas de detalle de un viaje se agrupan en secciones tituladas dentro de una sola `Card`, con los mismos pares de campos que el formulario.
 - Encabezado de página: `h1` a la izquierda y la acción principal (`Button` primary, "Nuevo vehículo") a la derecha, con margen inferior `space-6`.
 - Los estados vacíos van centrados, en `color-text-secondary`.

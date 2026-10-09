@@ -270,6 +270,10 @@ model TipoDocumento {
   categoriaDocumento   CategoriaDocumento @relation(fields: [categoriaDocumentoId], references: [id])
   requiereVencimiento  Boolean            @map("requiere_vencimiento")
   requiereArchivo      Boolean            @map("requiere_archivo")
+  // Días de anticipación con los que un documento vigente de este tipo pasa a
+  // "Por vencer" (el pago del seguro avisa con 5; el resto con 30). Se compara
+  // contra la fecha de vencimiento en hora de Córdoba; ver documentoService.
+  diasAviso            Int                @map("dias_aviso")
   documentos           Documento[]
 
   @@map("tipos_documento")
