@@ -7,30 +7,18 @@ import Spinner from '../components/ui/Spinner';
 import Toast from '../components/ui/Toast';
 import Alert from '../components/ui/Alert';
 import EstadoDot from '../components/ui/EstadoDot';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import ModalSubirDocumento from '../components/documentacion/ModalSubirDocumento';
 import ModalVisorPdf from '../components/documentacion/ModalVisorPdf';
 import ModalHistorialDocumento from '../components/documentacion/ModalHistorialDocumento';
 import { useAuth } from '../context/AuthContext';
 import { ESTADOS_VEHICULO } from '../constants/estadosVehiculo';
 import api from '../services/api';
+import { eliminarDocumentoVehiculo, eliminarDocumentoChofer } from '../services/documentosApi';
+import { formatearNombreArchivo } from '../utils/archivoFormato';
 import './Documentacion.css';
 
 const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
-
-const ICONOS_DOCUMENTO = {
-  POLIZA_SEGURO: '🛡️',
-  CERT_COBERTURA: '📜',
-  PAGO_SEGURO: '💳',
-  ITV: '🔧',
-  MATAFUEGOS: '🧯',
-  TITULO_VEHICULO: '📑',
-  CEDULA_IDENTIFICACION: '🪪',
-  ALTA_TRANSPORTE: '🏛️',
-  LICENCIA_CONDUCIR: '🪪',
-  DNI_CHOFER: '👤',
-  EXAMEN_PSICOFISICO: '🩺',
-  DEFAULT: '📄',
-};
 
 function ordenarPorInterno(vehiculos) {
   return [...vehiculos].sort(
@@ -38,7 +26,15 @@ function ordenarPorInterno(vehiculos) {
   );
 }
 
-function GridDocumentos({ documentos, puedeGestionar, onVerPdf, onHistorial, onSubir }) {
+function GridDocumentos({
+  documentos,
+  puedeGestionar,
+  onVerPdf,
+  onDescargarPdf,
+  onHistorial,
+  onSubir,
+  onEliminar,
+}) {
   if (!documentos || documentos.length === 0) {
     return (
       <div className="doc-card-placeholder">
@@ -50,106 +46,112 @@ function GridDocumentos({ documentos, puedeGestionar, onVerPdf, onHistorial, onS
   return (
     <div className="doc-grid-documentos">
       {documentos.map(({ tipo, cargado, documento }) => {
-        const icon = ICONOS_DOCUMENTO[tipo.codigo] || ICONOS_DOCUMENTO.DEFAULT;
         const estadoVigencia = documento?.estadoVigencia || 'PENDIENTE';
 
         return (
           <Card
             key={tipo.id}
-            className={`doc-card-slot ${cargado ? 'slot-cargado' : 'slot-vacio'} ${
+            className={`doc-card-tarjeta ${cargado ? 'slot-cargado' : 'slot-vacio'} ${
               estadoVigencia === 'VENCIDO' ? 'slot-vencido' : ''
             }`}
           >
-            <div className="doc-card-top">
-              <span className="doc-card-icon" aria-hidden="true">
-                {icon}
-              </span>
-              <div className="doc-card-title-group">
-                <h3 className="doc-card-title">{tipo.descripcion}</h3>
-                <span className="doc-card-req">
-                  {tipo.requiereArchivo ? 'Requiere PDF' : 'Solo registro de vigencia'}
-                </span>
+            {/* Nivel Superior: 2 Columnas (Identificación vs Metadatos) */}
+            <div className="doc-card-top-grid">
+              {/* Columna Izquierda: Título en Mayúsculas + Badges */}
+              <div className="doc-col-izq">
+                <h3 className="doc-titulo-mayus">{tipo.descripcion.toUpperCase()}</h3>
+                <div className="doc-badges-fila">
+                  <span className="doc-badge-req">
+                    {tipo.requiereArchivo ? 'Requiere PDF' : 'Solo registro de vigencia'}
+                  </span>
+                  <span className={`doc-status-badge badge-${estadoVigencia.toLowerCase()}`}>
+                    {estadoVigencia === 'PENDIENTE' && 'Pendiente'}
+                    {estadoVigencia === 'VIGENTE' && 'Vigente'}
+                    {estadoVigencia === 'POR_VENCER' && 'Por vencer'}
+                    {estadoVigencia === 'VENCIDO' && 'Vencido'}
+                  </span>
+                </div>
               </div>
 
-              {/* Badge de estado */}
-              <span className={`doc-status-badge badge-${estadoVigencia.toLowerCase()}`}>
-                {estadoVigencia === 'PENDIENTE' && 'Pendiente'}
-                {estadoVigencia === 'VIGENTE' && '● Vigente'}
-                {estadoVigencia === 'POR_VENCER' && '⚠️ Por vencer'}
-                {estadoVigencia === 'VENCIDO' && '⛔ Vencido'}
-              </span>
-            </div>
+              {/* Columna Derecha: Vencimiento, Emisión, Archivo, Notas */}
+              <div className="doc-col-der">
+                {cargado ? (
+                  <div className="doc-datos-columna">
+                    {tipo.requiereVencimiento && documento.fechaVencimiento && (
+                      <div className="doc-dato-fila">
+                        <span className="doc-dato-label">Vencimiento:</span>
+                        <span className="doc-dato-valor doc-venc-val">
+                          {new Date(documento.fechaVencimiento).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
 
-            {/* Cuerpo de la tarjeta */}
-            <div className="doc-card-body">
-              {cargado ? (
-                <div className="doc-info-rows">
-                  {tipo.requiereVencimiento && documento.fechaVencimiento && (
-                    <div className="doc-info-row">
-                      <span className="doc-info-label">Vencimiento:</span>
-                      <span className="doc-info-val doc-venc-val">
-                        {new Date(documento.fechaVencimiento).toLocaleDateString()}
+                    {documento.fechaEmision && (
+                      <div className="doc-dato-fila">
+                        <span className="doc-dato-label">Emisión:</span>
+                        <span className="doc-dato-valor">
+                          {new Date(documento.fechaEmision).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="doc-dato-fila doc-dato-fila-full">
+                      <span className="doc-dato-label">Archivo:</span>
+                      <span
+                        className="doc-dato-valor doc-archivo-nombre"
+                        title={formatearNombreArchivo(documento.nombreOriginal) || 'Sin archivo'}
+                      >
+                        {formatearNombreArchivo(documento.nombreOriginal) ||
+                          (tipo.requiereArchivo ? 'Sin archivo' : 'Trámite sin PDF')}
                       </span>
                     </div>
-                  )}
 
-                  {documento.fechaEmision && (
-                    <div className="doc-info-row">
-                      <span className="doc-info-label">Emisión:</span>
-                      <span className="doc-info-val">
-                        {new Date(documento.fechaEmision).toLocaleDateString()}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="doc-info-row">
-                    <span className="doc-info-label">Archivo:</span>
-                    <span
-                      className="doc-info-val doc-file-val"
-                      title={documento.nombreOriginal || 'Sin archivo'}
-                    >
-                      {documento.nombreOriginal ||
-                        (tipo.requiereArchivo ? 'Sin archivo' : 'Trámite sin PDF')}
-                    </span>
+                    {documento.observaciones && (
+                      <div className="doc-dato-fila doc-dato-fila-full doc-dato-notas">
+                        <span className="doc-dato-label">Notas:</span>
+                        <span className="doc-dato-valor">{documento.observaciones}</span>
+                      </div>
+                    )}
                   </div>
-
-                  {documento.observaciones && (
-                    <div className="doc-info-notas">
-                      <span className="doc-info-label">Notas:</span>
-                      <p className="doc-notas-text">{documento.observaciones}</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="doc-card-placeholder">
-                  <p>Este documento aún no ha sido cargado en el sistema.</p>
-                </div>
-              )}
-            </div>
-
-            {/* Acciones de la tarjeta */}
-            <div className="doc-card-actions">
-              <div className="doc-card-actions-left">
-                {cargado && documento?.signedUrl && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onVerPdf(documento)}
-                  >
-                    Ver PDF
-                  </Button>
-                )}
-
-                {cargado && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onHistorial(tipo)}
-                  >
-                    Historial
-                  </Button>
+                ) : (
+                  <div className="doc-placeholder-col">
+                    <span>Este documento aún no ha sido cargado en el sistema.</span>
+                  </div>
                 )}
               </div>
+            </div>
+
+            {/* Nivel Inferior: Barra Horizontal con Los 5 Botones (Eliminar al final) */}
+            <div className="doc-card-acciones-fila">
+              {cargado && documento?.signedUrl && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onVerPdf(documento)}
+                >
+                  Ver PDF
+                </Button>
+              )}
+
+              {cargado && documento?.signedUrl && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onDescargarPdf(documento)}
+                >
+                  Descargar PDF
+                </Button>
+              )}
+
+              {cargado && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onHistorial(tipo)}
+                >
+                  Historial
+                </Button>
+              )}
 
               {puedeGestionar && (
                 <Button
@@ -157,7 +159,17 @@ function GridDocumentos({ documentos, puedeGestionar, onVerPdf, onHistorial, onS
                   size="sm"
                   onClick={() => onSubir(tipo, documento)}
                 >
-                  {cargado ? 'Renovar / Actualizar' : 'Subir documento'}
+                  {cargado ? 'Actualizar' : 'Subir documento'}
+                </Button>
+              )}
+
+              {puedeGestionar && cargado && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => onEliminar(documento)}
+                >
+                  Eliminar
                 </Button>
               )}
             </div>
@@ -167,6 +179,7 @@ function GridDocumentos({ documentos, puedeGestionar, onVerPdf, onHistorial, onS
     </div>
   );
 }
+
 
 function Documentacion() {
   const { usuario } = useAuth();
@@ -206,6 +219,9 @@ function Documentacion() {
   const [modalSubir, setModalSubir] = useState({ open: false, tipo: null, docActual: null });
   const [modalVisor, setModalVisor] = useState({ open: false, documento: null });
   const [modalHistorial, setModalHistorial] = useState({ open: false, tipo: null });
+
+  // Modal de confirmación de eliminación de documento
+  const [modalEliminar, setModalEliminar] = useState({ open: false, documento: null, eliminando: false, error: '' });
 
   // Cargar lista de vehículos con estado de flota
   const cargarFlota = useCallback(() => {
@@ -379,6 +395,24 @@ function Documentacion() {
     });
   }
 
+  async function descargarPdf(documento) {
+    if (!documento?.signedUrl) return;
+    try {
+      const response = await fetch(documento.signedUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = documento.nombreOriginal || `${documento.tipoDocumento?.codigo || 'documento'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch {
+      window.open(documento.signedUrl, '_blank');
+    }
+  }
+
   function handleSuccessDoc() {
     setToast('Operación completada exitosamente.');
     if (tabActiva === 'vehiculos') {
@@ -391,6 +425,35 @@ function Documentacion() {
         cargarCarpetaChofer(choferSeleccionado.id);
       }
       cargarChoferes();
+    }
+  }
+
+  function abrirEliminar(documento) {
+    setModalEliminar({ open: true, documento, eliminando: false, error: '' });
+  }
+
+  async function confirmarEliminar() {
+    const { documento } = modalEliminar;
+    if (!documento) return;
+    setModalEliminar((prev) => ({ ...prev, eliminando: true, error: '' }));
+    try {
+      if (tabActiva === 'vehiculos') {
+        await eliminarDocumentoVehiculo(vehiculoSeleccionado.id, documento.id);
+        cargarCarpetaVehiculo(vehiculoSeleccionado.id);
+        cargarFlota();
+      } else {
+        await eliminarDocumentoChofer(choferSeleccionado.id, documento.id);
+        cargarCarpetaChofer(choferSeleccionado.id);
+        cargarChoferes();
+      }
+      setModalEliminar({ open: false, documento: null, eliminando: false, error: '' });
+      setToast('Documento eliminado correctamente.');
+    } catch (err) {
+      setModalEliminar((prev) => ({
+        ...prev,
+        eliminando: false,
+        error: err.response?.data?.error || 'No se pudo eliminar el documento.',
+      }));
     }
   }
 
@@ -441,16 +504,8 @@ function Documentacion() {
   return (
     <Layout>
       <div className="doc-page-container">
-        {/* Cabecera Principal */}
+        {/* Selector de Pestañas Centrado (Vehículos / Choferes) */}
         <div className="doc-page-header">
-          <div>
-            <h1 className="doc-page-title">Gestión de Documentación</h1>
-            <p className="doc-page-description">
-              Repositorio centralizado de documentos legales, habilitaciones y pólizas digitalizadas.
-            </p>
-          </div>
-
-          {/* Selector de Pestañas (Vehículos / Choferes) */}
           <div className="doc-tabs-container" role="tablist">
             <button
               type="button"
@@ -459,7 +514,7 @@ function Documentacion() {
               className={`doc-tab-btn ${tabActiva === 'vehiculos' ? 'is-active' : ''}`}
               onClick={() => handleCambiarTab('vehiculos')}
             >
-              🚍 Vehículos de la Flota
+              Vehículos
             </button>
             <button
               type="button"
@@ -468,7 +523,7 @@ function Documentacion() {
               className={`doc-tab-btn ${tabActiva === 'choferes' ? 'is-active' : ''}`}
               onClick={() => handleCambiarTab('choferes')}
             >
-              👤 Choferes
+              Choferes
             </button>
           </div>
         </div>
@@ -495,19 +550,19 @@ function Documentacion() {
                   <div className="doc-filter-pills">
                     <button
                       type="button"
-                      className={`doc-pill-btn ${filtroEstado === 'VENCIDOS' ? 'is-active is-vencidos' : ''}`}
+                      className={`doc-pill-btn is-vencidos ${filtroEstado === 'VENCIDOS' ? 'is-active' : ''}`}
                       onClick={() => setFiltroEstado((prev) => (prev === 'VENCIDOS' ? null : 'VENCIDOS'))}
                       title="Filtrar coches con documentos vencidos"
                     >
-                      ⛔ Vencidos
+                      Vencidos
                     </button>
                     <button
                       type="button"
-                      className={`doc-pill-btn ${filtroEstado === 'PENDIENTES' ? 'is-active is-pendientes' : ''}`}
+                      className={`doc-pill-btn is-pendientes ${filtroEstado === 'PENDIENTES' ? 'is-active' : ''}`}
                       onClick={() => setFiltroEstado((prev) => (prev === 'PENDIENTES' ? null : 'PENDIENTES'))}
                       title="Filtrar coches con documentos pendientes de carga"
                     >
-                      ⚠️ Pendientes
+                      Pendientes
                     </button>
                   </div>
                 </div>
@@ -526,17 +581,8 @@ function Documentacion() {
                           onClick={() => handleSelectVehiculo(v)}
                         >
                           <div className="doc-vehiculo-item-header">
-                            <span className="doc-vehiculo-badge-interno">Int. {v.numeroInterno}</span>
+                            <span className="doc-vehiculo-badge-interno">{v.numeroInterno}</span>
                             <div className="doc-vehiculo-header-right">
-                              {v.tieneVencidos && (
-                                <span className="doc-item-dot is-danger" title="Posee documentos vencidos" />
-                              )}
-                              {!v.tieneVencidos && v.tienePendientes && (
-                                <span className="doc-item-dot is-warning" title="Posee documentos pendientes" />
-                              )}
-                              {v.alDia && (
-                                <span className="doc-item-dot is-success" title="Documentación al día" />
-                              )}
                               <span className="doc-vehiculo-dominio">{v.dominio}</span>
                             </div>
                           </div>
@@ -544,11 +590,6 @@ function Documentacion() {
                             <span className="doc-vehiculo-modelo">
                               {v.marca} {v.modelo}
                             </span>
-                            <EstadoDot
-                              color={ESTADOS_VEHICULO[v.estadoVehiculo?.descripcion || 'OPERATIVO']?.dot}
-                            >
-                              {ESTADOS_VEHICULO[v.estadoVehiculo?.descripcion || 'OPERATIVO']?.label}
-                            </EstadoDot>
                           </div>
                         </button>
                       );
@@ -579,16 +620,8 @@ function Documentacion() {
                       <div className="doc-resumen-header">
                         <div>
                           <div className="doc-unidad-title-row">
-                            <h2>Unidad {vehiculoSeleccionado.numeroInterno}</h2>
+                            <h2>Coche {vehiculoSeleccionado.numeroInterno}</h2>
                             <span className="doc-unidad-patente">{vehiculoSeleccionado.dominio}</span>
-                            <EstadoDot
-                              color={
-                                ESTADOS_VEHICULO[vehiculoSeleccionado.estadoVehiculo?.descripcion]?.dot
-                              }
-                              size="md"
-                            >
-                              {ESTADOS_VEHICULO[vehiculoSeleccionado.estadoVehiculo?.descripcion]?.label}
-                            </EstadoDot>
                           </div>
                           <p className="doc-unidad-specs">
                             {vehiculoSeleccionado.tipoVehiculo?.descripcion} • {vehiculoSeleccionado.marca}{' '}
@@ -647,8 +680,10 @@ function Documentacion() {
                       documentos={carpetaData.documentos}
                       puedeGestionar={puedeGestionar}
                       onVerPdf={abrirVisor}
+                      onDescargarPdf={descargarPdf}
                       onHistorial={abrirHistorial}
                       onSubir={abrirSubir}
+                      onEliminar={abrirEliminar}
                     />
                   </div>
                 ) : null}
@@ -679,19 +714,19 @@ function Documentacion() {
                   <div className="doc-filter-pills">
                     <button
                       type="button"
-                      className={`doc-pill-btn ${filtroEstadoChofer === 'VENCIDOS' ? 'is-active is-vencidos' : ''}`}
+                      className={`doc-pill-btn is-vencidos ${filtroEstadoChofer === 'VENCIDOS' ? 'is-active' : ''}`}
                       onClick={() => setFiltroEstadoChofer((prev) => (prev === 'VENCIDOS' ? null : 'VENCIDOS'))}
                       title="Filtrar choferes con documentos vencidos"
                     >
-                      ⛔ Vencidos
+                      Vencidos
                     </button>
                     <button
                       type="button"
-                      className={`doc-pill-btn ${filtroEstadoChofer === 'PENDIENTES' ? 'is-active is-pendientes' : ''}`}
+                      className={`doc-pill-btn is-pendientes ${filtroEstadoChofer === 'PENDIENTES' ? 'is-active' : ''}`}
                       onClick={() => setFiltroEstadoChofer((prev) => (prev === 'PENDIENTES' ? null : 'PENDIENTES'))}
                       title="Filtrar choferes con documentos pendientes de carga"
                     >
-                      ⚠️ Pendientes
+                      Pendientes
                     </button>
                   </div>
                 </div>
@@ -832,8 +867,10 @@ function Documentacion() {
                       documentos={carpetaChoferData.documentos}
                       puedeGestionar={puedeGestionar}
                       onVerPdf={abrirVisor}
+                      onDescargarPdf={descargarPdf}
                       onHistorial={abrirHistorial}
                       onSubir={abrirSubir}
+                      onEliminar={abrirEliminar}
                     />
                   </div>
                 ) : null}
@@ -875,8 +912,33 @@ function Documentacion() {
           }}
         />
 
+        {/* Modal de Confirmación de Eliminación de Documento */}
+        <ConfirmModal
+          open={modalEliminar.open}
+          tone="danger"
+          icon="🗑️"
+          title="Eliminar documento"
+          description={
+            <>
+              <p>
+                Vas a eliminar este documento de forma permanente. El archivo PDF adjunto
+                también se borrará del almacenamiento.
+              </p>
+              {modalEliminar.error && (
+                <p style={{ color: 'var(--color-danger)', marginTop: '0.5rem', fontWeight: 500 }}>
+                  {modalEliminar.error}
+                </p>
+              )}
+            </>
+          }
+          confirmLabel={modalEliminar.eliminando ? 'Eliminando…' : 'Eliminar permanentemente'}
+          cancelLabel="Cancelar"
+          onConfirm={confirmarEliminar}
+          onCancel={() => setModalEliminar({ open: false, documento: null, eliminando: false, error: '' })}
+        />
+
         {/* Notificación Toast */}
-        {toast && <Toast message={toast} onClose={() => setToast('')} />}
+        {toast && <Toast onClose={() => setToast('')}>{toast}</Toast>}
       </div>
     </Layout>
   );

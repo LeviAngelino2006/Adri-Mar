@@ -432,8 +432,14 @@ function FlotaVehiculos() {
         description={
           seleccionado && (
             <>
-              Vas a dar de baja el vehículo de dominio <strong>{seleccionado.dominio}</strong> (interno{' '}
-              <strong>{seleccionado.numeroInterno}</strong>). Esta acción no se puede deshacer.
+              <p>
+                Vas a dar de baja el vehículo de dominio <strong>{seleccionado.dominio}</strong> (interno{' '}
+                <strong>{seleccionado.numeroInterno}</strong>). Esta acción no se puede deshacer.
+              </p>
+              <p style={{ marginTop: '0.5rem', color: 'var(--color-danger)' }}>
+                ⚠️ Se eliminará permanentemente toda la documentación adjunta del vehículo y ya
+                no recibirá alertas de vencimiento.
+              </p>
             </>
           )
         }

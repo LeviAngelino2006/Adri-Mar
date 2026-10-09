@@ -1,4 +1,5 @@
 import Button from '../ui/Button';
+import { formatearNombreArchivo } from '../../utils/archivoFormato';
 import './ModalDocumentacion.css';
 
 function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
@@ -11,7 +12,7 @@ function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = documento.nombreOriginal || `${documento.tipoDocumento?.codigo || 'documento'}.pdf`;
+      a.download = formatearNombreArchivo(documento.nombreOriginal) || `${documento.tipoDocumento?.codigo || 'documento'}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -32,7 +33,7 @@ function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
           <div>
             <h2>{documento.tipoDocumento?.descripcion || 'Visor de Documento'}</h2>
             <p className="modal-doc-subtitle">
-              {sujetoLabel} — {documento.nombreOriginal || 'archivo.pdf'}
+              {sujetoLabel} — {formatearNombreArchivo(documento.nombreOriginal) || 'archivo.pdf'}
             </p>
           </div>
           <div className="modal-visor-header-actions">
@@ -65,10 +66,7 @@ function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
           <span className="modal-visor-meta">
             Subido por: {documento.usuario?.nombre} {documento.usuario?.apellido} — {new Date(documento.creadoEn).toLocaleDateString()}
           </span>
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-            <Button variant="secondary" onClick={handleDescargar}>
-              Descargar PDF
-            </Button>
+          <div>
             <Button variant="secondary" onClick={onClose}>
               Cerrar
             </Button>

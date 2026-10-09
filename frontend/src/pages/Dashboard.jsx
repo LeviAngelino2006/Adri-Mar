@@ -235,6 +235,7 @@ function ViajesDelChofer() {
 }
 
 function SeccionAlertasDocumentacion() {
+  const navigate = useNavigate();
   const [alertas, setAlertas] = useState(null);
   const [cargando, setCargando] = useState(true);
 
@@ -258,6 +259,14 @@ function SeccionAlertasDocumentacion() {
   }
 
   const sinAlertas = !alertas || alertas.totalAlertas === 0;
+
+  function irADocumentacion(doc) {
+    if (doc.categoria === 'VEHICULO') {
+      navigate(`/documentacion?vehiculoId=${doc.vehiculo.id}`);
+    } else {
+      navigate(`/documentacion?tab=choferes&choferId=${doc.usuario.id}`);
+    }
+  }
 
   return (
     <Card className="dashboard-panel">
@@ -304,7 +313,15 @@ function SeccionAlertasDocumentacion() {
                 : `Vence en ${doc.diasRestantes} día(s)`;
 
             return (
-              <li key={`${doc.categoria}-${doc.id}`} className="alertas-item">
+              <li
+                key={`${doc.categoria}-${doc.id}`}
+                className="alertas-item alertas-item-clickeable"
+                onClick={() => irADocumentacion(doc)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && irADocumentacion(doc)}
+                title="Ir a la documentación"
+              >
                 <div className="alertas-info">
                   <div className="alertas-titulo">
                     <span className="alertas-tipo">{doc.tipo}</span>
