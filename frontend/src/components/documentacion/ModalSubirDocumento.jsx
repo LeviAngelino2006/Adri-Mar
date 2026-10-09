@@ -101,9 +101,7 @@ function ModalSubirDocumento({
         ? `/documentos/choferes/${chofer.id}`
         : `/documentos/vehiculos/${vehiculo.id}`;
 
-      const { data } = await api.post(endpoint, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const { data } = await api.post(endpoint, formData);
 
       onSuccess(data.documento);
       onClose();

@@ -210,8 +210,12 @@ async function registrarDocumentoVehiculo({
     throw error;
   }
 
-  // Validación: requiere archivo
-  if (tipoDocumento.requiereArchivo && !file) {
+  const docPrevio = await prisma.documentoVehiculo.findFirst({
+    where: { vehiculoId: vId, tipoDocumentoId: tId, esVigente: true },
+  });
+
+  // Validación: requiere archivo (si es nuevo o no hay archivo previo)
+  if (tipoDocumento.requiereArchivo && !file && !docPrevio?.archivoPath) {
     const error = new Error(
       `El tipo de documento '${tipoDocumento.descripcion}' requiere adjuntar un archivo en formato PDF.`
     );
@@ -266,6 +270,9 @@ async function registrarDocumentoVehiculo({
     storagePath = `vehiculos/${vId}/${tipoDocumento.codigo}_${timestamp}${ext}`;
 
     await storageService.subirArchivo(file.buffer, storagePath, file.mimetype || 'application/pdf');
+  } else if (docPrevio?.archivoPath) {
+    storagePath = docPrevio.archivoPath;
+    nombreOriginal = docPrevio.nombreOriginal;
   }
 
   // Versionado: Marcar cualquier documento previo vigente de este tipo como no vigente
@@ -655,7 +662,11 @@ async function registrarDocumentoChofer(choferId, data, file, usuarioId) {
     throw error;
   }
 
-  if (tipoDocumento.requiereArchivo && !file) {
+  const docPrevio = await prisma.documentoChofer.findFirst({
+    where: { choferId: cId, tipoDocumentoId: tId, esVigente: true },
+  });
+
+  if (tipoDocumento.requiereArchivo && !file && !docPrevio?.archivoPath) {
     const error = new Error(
       `El tipo de documento '${tipoDocumento.descripcion}' requiere adjuntar un archivo en formato PDF.`
     );
@@ -709,6 +720,9 @@ async function registrarDocumentoChofer(choferId, data, file, usuarioId) {
     storagePath = `choferes/${cId}/${tipoDocumento.codigo}_${timestamp}${extension}`;
 
     await storageService.subirArchivo(file.buffer, storagePath, file.mimetype);
+  } else if (docPrevio?.archivoPath) {
+    storagePath = docPrevio.archivoPath;
+    nombreOriginal = docPrevio.nombreOriginal;
   }
 
   await prisma.documentoChofer.updateMany({
