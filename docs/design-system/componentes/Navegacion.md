@@ -2,7 +2,7 @@ Sidebar con el logo, la navegación principal y el usuario. Patrón de layout (`
 
 ## Lo que provee quien lo usa
 - `<aside class="layout-sidebar">` con `.layout-sidebar-brand` (el logo, `.layout-logo`, 36px de alto), `<nav class="layout-nav">` con un `.layout-nav-link` por sección y `.layout-sidebar-footer` (ver `Avatar`).
-- Ítems: Dashboard, Mis viajes, Viajes, Flota de vehículos y Usuarios, con sus íconos de `assets/Icons`. Se muestran según el perfil.
+- Ítems: Dashboard, Mis viajes, Viajes, Flota de vehículos, Documentación y Usuarios, con sus íconos de `assets/Icons`. Se muestran según el perfil: Documentación, solo para Administrador y Encargado (Personal de Taller no entra, ni a la pantalla ni a las alertas del Dashboard).
 - El ítem actual lleva `.is-active`.
 
 ## Reglas
