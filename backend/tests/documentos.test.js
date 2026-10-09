@@ -134,7 +134,8 @@ const vigenteDeLaCarpeta = async (ruta = '/vehiculos/7', tipoId = POLIZA) => {
 // --- Vigencia ---------------------------------------------------------------
 
 describe('calcularEstadoVigencia (hoy en hora de Córdoba)', () => {
-  const doc = (fechaVencimiento) => ({ fechaVencimiento });
+  // Tipo con aviso de 30 días (el de casi todos); el de 5 se prueba más abajo.
+  const doc = (fechaVencimiento) => ({ fechaVencimiento, tipoDocumento: { diasAviso: 30 } });
 
   test('sin documento es PENDIENTE y sin vencimiento es VIGENTE', () => {
     assert.equal(calcularEstadoVigencia(null), 'PENDIENTE');
@@ -351,7 +352,13 @@ describe('Validaciones de categoría e ids', () => {
 
   test('el catálogo se filtra por categoria', async () => {
     const vehiculo = await pedir('GET', '/tipos?categoria=VEHICULO');
-    assert.deepEqual(vehiculo.json.tipos.map((t) => t.descripcion), ['POLIZA_SEGURO', 'MATAFUEGOS', 'TITULO_VEHICULO']);
+    assert.deepEqual(vehiculo.json.tipos.map((t) => t.descripcion), [
+      'POLIZA_SEGURO',
+      'MATAFUEGOS',
+      'TITULO_VEHICULO',
+      'PAGO_SEGURO',
+      'ITV',
+    ]);
     assert.equal(vehiculo.json.tipos[0].categoriaDocumento.descripcion, 'VEHICULO');
     const chofer = await pedir('GET', '/tipos?categoria=CHOFER');
     assert.deepEqual(chofer.json.tipos.map((t) => t.descripcion), ['LICENCIA_CONDUCIR', 'DNI_CHOFER']);
@@ -361,24 +368,6 @@ describe('Validaciones de categoría e ids', () => {
 // --- Estado de flota y alertas ----------------------------------------------
 
 describe('Estado de flota y alertas usan la versión vigente', () => {
-  test('estado de flota: pendientes, vencidos y por vencer sobre la vigente', async () => {
-    const hoy = new Date();
-    const enDias = (n) => new Date(hoy.getTime() + n * 24 * 60 * 60 * 1000);
-    // Versión vieja vencida, pero la vigente (más nueva) está por vencer.
-    agregarDocumento({ fechaVencimiento: enDias(-10), creadoEn: new Date('2026-01-01T00:00:00Z') });
-    agregarDocumento({ fechaVencimiento: enDias(10), creadoEn: new Date('2026-02-01T00:00:00Z') });
-
-    const { json } = await pedir('GET', '/estado-flota');
-    const v7 = json.vehiculos.find((v) => v.id === 7);
-    assert.equal(v7.totalCargados, 1);
-    assert.equal(v7.totalRequeridos, 3);
-    assert.equal(v7.tieneVencidos, false);
-    assert.equal(v7.tienePorVencer, true);
-    assert.equal(v7.tienePendientes, true);
-    assert.equal(v7.alDia, false);
-    assert.ok(!json.vehiculos.some((v) => v.id === 10), 'los dados de baja no se listan');
-  });
-
   test('alertas: solo la vigente, categoría CHOFER para choferes y POR_VENCER / VENCIDO', async () => {
     const hoy = new Date();
     const enDias = (n) => new Date(hoy.getTime() + n * 24 * 60 * 60 * 1000);
@@ -621,5 +610,204 @@ describe('GET /documentos/:documentoId/archivo', () => {
     for (const perfil of ['ADMINISTRADOR', 'ENCARGADO']) {
       assert.equal((await pedir('GET', `/${alta.json.documento.id}/archivo`, perfil)).status, 200);
     }
+  });
+});
+
+// --- Días de aviso por tipo --------------------------------------------------
+
+describe('Días de aviso por tipo de documento', () => {
+  const PAGO_SEGURO = 6;
+  const ITV = 7;
+  const hoyCba = new Date('2026-10-20T13:00:00Z'); // 10:00 en Córdoba
+  // Para los tests de unidad, con "ahora" fijo (mismo día, más tarde en Córdoba).
+  const enDiasFijo = (n) => new Date(Date.parse('2026-10-20T15:00:00Z') + n * 24 * 60 * 60 * 1000);
+  // Para los que pasan por la API, que usa el reloj real.
+  const enDias = (n) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
+
+  // Estado de un documento vigente del vehículo 7, calculado por el servicio real.
+  async function estadoCon(tipoDocumentoId, dias) {
+    agregarDocumento({ tipoDocumentoId, fechaVencimiento: enDias(dias), archivoPath: 'vehiculos/7/x.pdf' });
+    const { json } = await pedir('GET', '/vehiculos/7');
+    return json.documentos.find((i) => i.tipo.id === tipoDocumentoId).documento;
+  }
+
+  test('el pago del seguro avisa con 5 días: a 6 días es VIGENTE y a 5 días POR_VENCER', () => {
+    const tipo = db.tiposDocumento.find((t) => t.id === PAGO_SEGURO);
+    assert.equal(tipo.diasAviso, 5);
+    assert.equal(calcularEstadoVigencia({ fechaVencimiento: enDiasFijo(6), tipoDocumento: tipo }, hoyCba), 'VIGENTE');
+    assert.equal(calcularEstadoVigencia({ fechaVencimiento: enDiasFijo(5), tipoDocumento: tipo }, hoyCba), 'POR_VENCER');
+    assert.equal(calcularEstadoVigencia({ fechaVencimiento: enDiasFijo(0), tipoDocumento: tipo }, hoyCba), 'POR_VENCER');
+    assert.equal(calcularEstadoVigencia({ fechaVencimiento: enDiasFijo(-1), tipoDocumento: tipo }, hoyCba), 'VENCIDO');
+  });
+
+  test('la ITV que vence en 25 días está POR_VENCER (aviso de 30)', () => {
+    const tipo = db.tiposDocumento.find((t) => t.id === ITV);
+    assert.equal(calcularEstadoVigencia({ fechaVencimiento: enDiasFijo(25), tipoDocumento: tipo }, hoyCba), 'POR_VENCER');
+    assert.equal(calcularEstadoVigencia({ fechaVencimiento: enDiasFijo(31), tipoDocumento: tipo }, hoyCba), 'VIGENTE');
+  });
+
+  test('la carpeta usa el diasAviso de cada tipo', async () => {
+    assert.equal((await estadoCon(PAGO_SEGURO, 6)).estadoVigencia, 'VIGENTE');
+    documentos.length = 0;
+    assert.equal((await estadoCon(PAGO_SEGURO, 5)).estadoVigencia, 'POR_VENCER');
+    documentos.length = 0;
+    assert.equal((await estadoCon(ITV, 25)).estadoVigencia, 'POR_VENCER');
+  });
+
+  test('las alertas usan el diasAviso del tipo: un pago a 6 días no alerta, uno a 4 sí', async () => {
+    agregarDocumento({ tipoDocumentoId: PAGO_SEGURO, fechaVencimiento: enDias(6) });
+    assert.equal((await pedir('GET', '/alertas')).json.totalAlertas, 0);
+
+    documentos.length = 0;
+    agregarDocumento({ tipoDocumentoId: PAGO_SEGURO, fechaVencimiento: enDias(4) });
+    const { json } = await pedir('GET', '/alertas');
+    assert.equal(json.totalAlertas, 1);
+    assert.equal(json.documentos[0].estado, 'POR_VENCER');
+  });
+
+  test('el pago del seguro exige fecha de vencimiento', async () => {
+    const sinFecha = await subir('/vehiculos/7', { tipoDocumentoId: PAGO_SEGURO }, { pdf: true });
+    assert.equal(sinFecha.status, 400);
+    assert.deepEqual(Object.keys(sinFecha.json.errores), ['fechaVencimiento']);
+    assert.equal((await subir('/vehiculos/7', { tipoDocumentoId: PAGO_SEGURO, fechaVencimiento: VENCE }, { pdf: true })).status, 201);
+  });
+});
+
+// --- Estado de documentación por titular -------------------------------------
+
+describe('Estado de documentación (estado de flota y de choferes)', () => {
+  const ahora = Date.now();
+  const enDias = (n) => new Date(ahora + n * 24 * 60 * 60 * 1000);
+  const TODOS_LOS_TIPOS_DEL_VEHICULO = [1, 2, 3, 6, 7]; // POLIZA, MATAFUEGOS, TITULO, PAGO, ITV
+
+  // Carga al vehículo 7 todos sus tipos, vigentes a un año, salvo los que se indiquen.
+  function cargarTodos(vehiculoId = 7, sobrescribir = {}, omitir = []) {
+    for (const tipoDocumentoId of TODOS_LOS_TIPOS_DEL_VEHICULO.filter((t) => !omitir.includes(t))) {
+      agregarDocumento({ tipoDocumentoId, vehiculoId, fechaVencimiento: enDias(365), ...(sobrescribir[tipoDocumentoId] ?? {}) });
+    }
+  }
+
+  const estadoDe = async (vehiculoId = 7) =>
+    (await pedir('GET', '/estado-flota')).json.vehiculos.find((v) => v.id === vehiculoId);
+
+  test('AL_DIA: nada vencido ni por vencer y no falta ningún tipo', async () => {
+    cargarTodos();
+    const v = await estadoDe();
+    assert.equal(v.estadoDocumentacion, 'AL_DIA');
+    assert.deepEqual(v.faltantes, []);
+    assert.equal(v.documentoUrgente, null);
+    assert.equal(v.totalCargados, 5);
+    assert.equal(v.totalRequeridos, 5);
+  });
+
+  test('INCOMPLETA: falta algún tipo y nada vence', async () => {
+    cargarTodos(7, {}, [3, 7]);
+    const v = await estadoDe();
+    assert.equal(v.estadoDocumentacion, 'INCOMPLETA');
+    assert.deepEqual(v.faltantes, ['TITULO_VEHICULO', 'ITV']);
+    assert.equal(v.totalCargados, 3);
+    assert.equal(v.documentoUrgente, null);
+  });
+
+  test('POR_VENCER gana sobre INCOMPLETA', async () => {
+    cargarTodos(7, { 1: { fechaVencimiento: enDias(10) } }, [3]);
+    const v = await estadoDe();
+    assert.equal(v.estadoDocumentacion, 'POR_VENCER');
+    assert.deepEqual(v.faltantes, ['TITULO_VEHICULO']);
+    assert.equal(v.documentoUrgente.tipo, 'POLIZA_SEGURO');
+    assert.equal(v.documentoUrgente.estadoVigencia, 'POR_VENCER');
+  });
+
+  test('VENCIDA gana sobre todo y el urgente es el vencido más viejo', async () => {
+    cargarTodos(7, {
+      1: { fechaVencimiento: enDias(-3) },
+      7: { fechaVencimiento: enDias(-20) },
+      2: { fechaVencimiento: enDias(5) },
+    }, [3]);
+    const v = await estadoDe();
+    assert.equal(v.estadoDocumentacion, 'VENCIDA');
+    assert.equal(v.documentoUrgente.tipo, 'ITV');
+    assert.equal(v.documentoUrgente.estadoVigencia, 'VENCIDO');
+    assert.equal(new Date(v.documentoUrgente.fechaVencimiento).getTime(), enDias(-20).getTime());
+    assert.deepEqual(v.faltantes, ['TITULO_VEHICULO']);
+  });
+
+  test('sin vencidos, el urgente es el próximo a vencer', async () => {
+    cargarTodos(7, { 1: { fechaVencimiento: enDias(20) }, 2: { fechaVencimiento: enDias(8) } });
+    const v = await estadoDe();
+    assert.equal(v.documentoUrgente.tipo, 'MATAFUEGOS');
+  });
+
+  test('proximoVencimiento es el vencimiento futuro más cercano, con su tipo', async () => {
+    cargarTodos(7, { 1: { fechaVencimiento: enDias(100) }, 7: { fechaVencimiento: enDias(60) } });
+    const v = await estadoDe();
+    assert.equal(v.proximoVencimiento.tipo, 'ITV');
+    assert.equal(new Date(v.proximoVencimiento.fechaVencimiento).getTime(), enDias(60).getTime());
+  });
+
+  test('un vehículo sin ningún documento está INCOMPLETA con todos los faltantes', async () => {
+    const v = await estadoDe(9);
+    assert.equal(v.estadoDocumentacion, 'INCOMPLETA');
+    assert.equal(v.faltantes.length, 5);
+    assert.equal(v.proximoVencimiento, null);
+  });
+
+  test('los choferes traen el mismo resumen', async () => {
+    agregarDocumento({ tipoDocumentoId: LICENCIA, vehiculoId: null, choferId: 5, fechaVencimiento: enDias(-2) });
+    const { json } = await pedir('GET', '/estado-choferes');
+    const ana = json.choferes.find((c) => c.id === 5);
+    assert.equal(ana.estadoDocumentacion, 'VENCIDA');
+    assert.deepEqual(ana.faltantes, ['DNI_CHOFER']);
+    assert.equal(ana.documentoUrgente.tipo, 'LICENCIA_CONDUCIR');
+    assert.equal(json.choferes.find((c) => c.id === 6).estadoDocumentacion, 'INCOMPLETA');
+  });
+
+  test('la carpeta informa el estado general y la cantidad de versiones por tipo', async () => {
+    agregarDocumento({ archivoPath: 'vehiculos/7/a.pdf', creadoEn: new Date('2026-01-01T00:00:00Z') });
+    agregarDocumento({ archivoPath: 'vehiculos/7/b.pdf', creadoEn: new Date('2026-02-01T00:00:00Z') });
+    agregarDocumento({ archivoPath: 'vehiculos/7/c.pdf', creadoEn: new Date('2026-03-01T00:00:00Z') });
+    agregarDocumento({ tipoDocumentoId: 2, fechaVencimiento: enDias(365) });
+    agregarDocumento({ tipoDocumentoId: 1, vehiculoId: 9, archivoPath: 'vehiculos/9/a.pdf' });
+
+    const { json } = await pedir('GET', '/vehiculos/7');
+    const porTipo = Object.fromEntries(json.documentos.map((i) => [i.tipo.descripcion, i.cantidadVersiones]));
+    assert.deepEqual(porTipo, {
+      POLIZA_SEGURO: 3,
+      MATAFUEGOS: 1,
+      TITULO_VEHICULO: 0,
+      PAGO_SEGURO: 0,
+      ITV: 0,
+    });
+    assert.equal(json.resumen.estadoDocumentacion, 'INCOMPLETA');
+    assert.equal(json.resumen.totalCargados, 2);
+  });
+
+  test('registrar una renovación aumenta cantidadVersiones', async () => {
+    await subirPoliza({ pdf: true });
+    await subirPoliza({ pdf: false });
+    const carpeta = (await pedir('GET', '/vehiculos/7')).json.documentos;
+    assert.equal(carpeta.find((i) => i.tipo.id === POLIZA).cantidadVersiones, 2);
+  });
+});
+
+describe('EXAMEN_PSICOFISICO ya no existe', () => {
+  const leer_ = (...partes) => require('node:fs').readFileSync(path.join(__dirname, '..', '..', ...partes), 'utf8');
+
+  test('no está en el seed ni en las etiquetas del frontend', () => {
+    assert.ok(!leer_('backend', 'prisma', 'seed.js').includes('EXAMEN_PSICOFISICO'));
+    assert.ok(!leer_('frontend', 'src', 'constants', 'tiposDocumento.js').includes('EXAMEN_PSICOFISICO'));
+  });
+
+  test('el catálogo de choferes tiene solo licencia y DNI', async () => {
+    const { json } = await pedir('GET', '/tipos?categoria=CHOFER');
+    assert.deepEqual(json.tipos.map((t) => t.descripcion), ['LICENCIA_CONDUCIR', 'DNI_CHOFER']);
+  });
+
+  test('la migración lo elimina junto con sus documentos', () => {
+    const migraciones = path.join(__dirname, '..', 'prisma', 'migrations');
+    const carpeta = require('node:fs').readdirSync(migraciones).find((n) => n.endsWith('_dias_aviso_tipos_documento'));
+    const sql = require('node:fs').readFileSync(path.join(migraciones, carpeta, 'migration.sql'), 'utf8');
+    assert.ok(sql.indexOf('DELETE FROM "documentos"') < sql.indexOf('DELETE FROM "tipos_documento"'));
+    assert.ok(sql.includes("'EXAMEN_PSICOFISICO'"));
   });
 });

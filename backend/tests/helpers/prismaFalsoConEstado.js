@@ -112,12 +112,13 @@ function crearEntorno() {
       { id: 5, nombre: 'Villa del Dique' },
     ]);
 
-    const tipo = (id, descripcion, categoria, requiereVencimiento, requiereArchivo) => ({
+    const tipo = (id, descripcion, categoria, requiereVencimiento, requiereArchivo, diasAviso = 30) => ({
       id,
       descripcion,
       categoriaDocumento: { id: categoria === 'VEHICULO' ? 1 : 2, descripcion: categoria },
       requiereVencimiento,
       requiereArchivo,
+      diasAviso,
     });
     reemplazar(db.tiposDocumento, [
       tipo(1, 'POLIZA_SEGURO', 'VEHICULO', true, true),
@@ -125,6 +126,8 @@ function crearEntorno() {
       tipo(3, 'TITULO_VEHICULO', 'VEHICULO', false, true),
       tipo(4, 'LICENCIA_CONDUCIR', 'CHOFER', true, true),
       tipo(5, 'DNI_CHOFER', 'CHOFER', false, true),
+      tipo(6, 'PAGO_SEGURO', 'VEHICULO', true, true, 5),
+      tipo(7, 'ITV', 'VEHICULO', true, true),
     ]);
     reemplazar(db.documentos, []);
     db.relojDocumentos = Date.parse('2026-01-01T00:00:00Z');
@@ -317,7 +320,12 @@ function crearEntorno() {
 
   // include: { documentos: { distinct, orderBy } } de vehiculo/usuario.
   function documentosDe(campo, id, relacion) {
-    return modeloDocumento.findMany({ where: { [campo]: id }, orderBy: relacion.orderBy, distinct: relacion.distinct });
+    return modeloDocumento.findMany({
+      where: { [campo]: id },
+      orderBy: relacion.orderBy,
+      distinct: relacion.distinct,
+      include: { tipoDocumento: Boolean(relacion.select?.tipoDocumento) },
+    });
   }
 
   const modeloTipoDocumento = {

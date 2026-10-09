@@ -14,7 +14,6 @@ export const TIPOS_DOCUMENTO = {
   // Choferes
   LICENCIA_CONDUCIR: 'Licencia de conducir profesional',
   DNI_CHOFER: 'Documento Nacional de Identidad (DNI)',
-  EXAMEN_PSICOFISICO: 'Examen psicofísico / LINTI',
 };
 
 const CODIGOS = Object.keys(TIPOS_DOCUMENTO);
