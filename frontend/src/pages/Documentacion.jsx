@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import Layout from '../components/Layout';
 import Alert from '../components/ui/Alert';
-import ControlSegmentado from '../components/ui/ControlSegmentado';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
 import Spinner from '../components/ui/Spinner';
@@ -24,9 +23,16 @@ import { obtenerUrlArchivo } from '../services/documentosApi';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import './Documentacion.css';
 
+const ICONO_PERSONA = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21a8 8 0 0 1 16 0" />
+  </svg>
+);
+
 const VISTAS = [
-  { valor: 'vehiculos', etiqueta: 'Vehículos' },
-  { valor: 'choferes', etiqueta: 'Choferes' },
+  { valor: 'vehiculos', etiqueta: 'Vehículos', icono: <IconoVehiculo tipo="Colectivo" tamano={18} /> },
+  { valor: 'choferes', etiqueta: 'Choferes', icono: ICONO_PERSONA },
 ];
 
 const FILTRO_ESTADO = [
@@ -118,8 +124,10 @@ function Documentacion() {
 
   // Se guardan junto con la vista / ficha a la que pertenecen: mientras no coincide
   // con la actual se está cargando, sin tener que apagar y prender banderas.
-  const [lista, setLista] = useState(null); // { vista, items }
-  const [errorLista, setErrorLista] = useState(null); // { vista, mensaje }
+  // Las dos listas se cargan juntas (las cantidades del control de vistas
+  // necesitan las dos) y se reutilizan al cambiar de vista.
+  const [listas, setListas] = useState({}); // { vehiculos: items, choferes: items }
+  const [erroresLista, setErroresLista] = useState({}); // { vehiculos: mensaje, choferes: mensaje }
   const [carpeta, setCarpeta] = useState(null); // { clave, data }
   const [errorFicha, setErrorFicha] = useState(null); // { clave, mensaje }
 
@@ -129,26 +137,30 @@ function Documentacion() {
   const [errorArchivo, setErrorArchivo] = useState('');
   const [toast, setToast] = useState('');
 
-  // El listado se pide al elegir la vista y al volver de una ficha (para reflejar
-  // lo que se cargó); abrir una ficha no lo vuelve a pedir.
+  // Las dos listas se piden en paralelo al entrar y al volver de una ficha (para
+  // reflejar lo que se cargó); cambiar de vista o abrir una ficha no las vuelve a
+  // pedir.
   useEffect(() => {
     if (enFicha) return undefined;
     let cancelado = false;
-    api
-      .get(config.listado)
-      .then(({ data }) => {
-        if (cancelado) return;
-        setLista({ vista, items: data[vista] || [] });
-        setErrorLista(null);
-      })
-      .catch((err) => {
-        if (cancelado) return;
-        setErrorLista({ vista, mensaje: err.response?.data?.error || 'No se pudo cargar el listado.' });
-      });
+    for (const nombre of Object.keys(CONFIG)) {
+      api
+        .get(CONFIG[nombre].listado)
+        .then(({ data }) => {
+          if (cancelado) return;
+          setListas((actuales) => ({ ...actuales, [nombre]: data[nombre] || [] }));
+          setErroresLista((actuales) => ({ ...actuales, [nombre]: null }));
+        })
+        .catch((err) => {
+          if (cancelado) return;
+          const mensaje = err.response?.data?.error || 'No se pudo cargar el listado.';
+          setErroresLista((actuales) => ({ ...actuales, [nombre]: mensaje }));
+        });
+    }
     return () => {
       cancelado = true;
     };
-  }, [vista, enFicha, config.listado]);
+  }, [enFicha]);
 
   const cargarFicha = useCallback(() => {
     if (!fichaId) return Promise.resolve();
@@ -212,13 +224,21 @@ function Documentacion() {
     cargarFicha();
   }
 
-  const items = lista?.vista === vista ? lista.items : null;
+  const items = listas[vista] ?? null;
+  const errorLista = erroresLista[vista] ?? null;
   const itemsFiltrados = items
     ? (vista === 'vehiculos' ? ordenarPorInterno(items) : [...items].sort(porApellido)).filter(
         (item) => coincideBusqueda(vista, item, busqueda) && (!estado || item.estadoDocumentacion === estado)
       )
     : [];
-  const cargandoLista = !items && errorLista?.vista !== vista;
+  const cargandoLista = !items && !errorLista;
+
+  // La cantidad es el total de la vista, sin búsqueda ni filtro; no se muestra
+  // mientras su lista carga o si falló.
+  const opcionesVistas = VISTAS.map((opcion) => ({
+    ...opcion,
+    cantidad: erroresLista[opcion.valor] ? undefined : listas[opcion.valor]?.length,
+  }));
 
   const ficha = carpeta?.clave === claveFicha ? carpeta.data : null;
   const errorDeFicha = errorFicha?.clave === claveFicha ? errorFicha.mensaje : '';
@@ -232,11 +252,15 @@ function Documentacion() {
         <>
           <ListadoHeader titulo="Documentación" />
 
-          <ControlSegmentado opciones={VISTAS} valor={vista} onChange={cambiarVista} ariaLabel="Vista de documentación" />
-
           <ListadoToolbar
             busqueda={{ valor: busqueda, onChange: setBusqueda, placeholder: config.buscar }}
             filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos: estado ? 1 : 0 }}
+            vistas={{
+              opciones: opcionesVistas,
+              valor: vista,
+              onChange: cambiarVista,
+              ariaLabel: 'Vista de documentación',
+            }}
           />
 
           {mostrarFiltros && (
@@ -260,7 +284,7 @@ function Documentacion() {
             </div>
           )}
 
-          {errorLista?.vista === vista && !items && <Alert variant="error">{errorLista.mensaje}</Alert>}
+          {errorLista && !items && <Alert variant="error">{errorLista}</Alert>}
 
           {items && itemsFiltrados.length === 0 && (
             <div className="listado-vacio">{estado ? config.vacio : config.sinResultados}</div>

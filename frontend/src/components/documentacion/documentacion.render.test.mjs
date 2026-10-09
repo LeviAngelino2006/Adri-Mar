@@ -24,7 +24,7 @@ let TarjetaDocumento;
 let ModalVisorPdf;
 
 before(async () => {
-  vite = await createServer({ root: RAIZ, server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
+  vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
   ControlSegmentado = (await vite.ssrLoadModule('/src/components/ui/ControlSegmentado.jsx')).default;
   TarjetaDocumento = (await vite.ssrLoadModule('/src/components/documentacion/TarjetaDocumento.jsx')).default;
   ModalVisorPdf = (await vite.ssrLoadModule('/src/components/documentacion/ModalVisorPdf.jsx')).default;
@@ -52,6 +52,24 @@ describe('ControlSegmentado', () => {
 
   test('solo la opción activa lleva la clase de activa', () => {
     assert.equal((render('vehiculos').match(/is-activa/g) || []).length, 1);
+  });
+
+  test('ícono y cantidad opcionales; sin cantidad no hay span vacío', () => {
+    const html = renderToStaticMarkup(
+      h(ControlSegmentado, {
+        opciones: [
+          { valor: 'vehiculos', etiqueta: 'Vehículos', icono: h('svg', { 'aria-hidden': 'true' }), cantidad: 14 },
+          { valor: 'choferes', etiqueta: 'Choferes', cantidad: 0 },
+          { valor: 'otros', etiqueta: 'Otros' },
+        ],
+        valor: 'vehiculos',
+        onChange: () => {},
+        ariaLabel: 'Vista',
+      })
+    );
+    assert.match(html, /<svg aria-hidden="true"><\/svg>Vehículos<span class="control-segmentado-cantidad">14<\/span>/);
+    assert.match(html, /Choferes<span class="control-segmentado-cantidad">0<\/span>/);
+    assert.equal((html.match(/control-segmentado-cantidad/g) || []).length, 2);
   });
 });
 

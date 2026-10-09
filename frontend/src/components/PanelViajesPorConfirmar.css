@@ -1,76 +1,12 @@
-.por-confirmar-grupo + .por-confirmar-grupo {
-  margin-top: var(--space-4);
-}
-
-/* Subtítulo del día: mismo estilo que los títulos de sección de la ficha. */
-.por-confirmar-dia {
-  margin: 0 0 var(--space-1);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-}
-
-.por-confirmar-lista {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.por-confirmar-item {
-  display: flex;
-  flex-wrap: wrap;
+/* Cada viaje A confirmar: hora de salida, ruta y cliente, y el botón Confirmar
+   a la derecha. Los grupos (Hoy / Mañana), la lista y las columnas comparten las
+   clases del Dashboard (ver Dashboard.css). Solo tokens. */
+.por-confirmar-fila {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) 0;
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
-}
-
-.por-confirmar-item + .por-confirmar-item {
-  border-top: 1px solid var(--color-border);
-}
-
-.por-confirmar-icono {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  background-color: var(--brand-50);
-  color: var(--brand-600);
-}
-
-.por-confirmar-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.por-confirmar-ruta {
-  font-size: 0.9375rem;
-}
-
-.por-confirmar-salida {
-  color: var(--color-text);
-}
-
-.por-confirmar-accion {
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-@media (max-width: 479px) {
-  .por-confirmar-accion {
-    width: 100%;
-  }
+  padding: var(--space-3) var(--space-2);
 }
 
 .por-confirmar-vacio {
@@ -82,4 +18,15 @@
   padding: var(--space-6) var(--space-2);
   text-align: center;
   color: var(--color-text-secondary);
+}
+
+@media (max-width: 479px) {
+  .por-confirmar-fila {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .por-confirmar-fila > .btn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
 }

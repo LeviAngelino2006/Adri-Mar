@@ -1,8 +1,3 @@
-.dashboard-greeting {
-  color: var(--color-text-secondary);
-  margin-bottom: var(--space-6);
-}
-
 .dashboard-proximos-viajes {
   margin-bottom: var(--space-6);
 }
@@ -29,18 +24,6 @@
   border-top: 1px solid var(--color-border);
 }
 
-.proximos-viajes-icono {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  background-color: var(--brand-50);
-  color: var(--brand-600);
-}
-
 .proximos-viajes-info {
   flex: 1;
   min-width: 0;
@@ -55,6 +38,7 @@
 
 .proximos-viajes-salida {
   color: var(--color-text);
+  font-variant-numeric: tabular-nums;
 }
 
 .proximos-viajes-vehiculo {
@@ -166,7 +150,7 @@
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-3);
   margin: calc(var(--space-1) * -1);
   padding: var(--space-1);
@@ -203,84 +187,178 @@
   }
 }
 
-/* Alertas de documentación */
-.dashboard-alertas-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
+/* Paneles del Dashboard de Administrador y Encargado: Viajes de hoy a todo el
+   ancho y, debajo, Viajes por confirmar y Documentación en dos columnas desde
+   1024px. Comparten la lista de filas clickeables (.dashboard-fila). */
+.dashboard-panel {
+  margin-bottom: var(--space-6);
 }
 
-.dashboard-alertas-header h2 {
+.dashboard-panel-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.dashboard-panel-header h2 {
   margin: 0;
 }
 
-.dashboard-alertas-resumen {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+.dashboard-resumen {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
-.alertas-lista {
-  display: flex;
-  flex-direction: column;
+.dashboard-columnas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.dashboard-columnas > .card {
+  margin-bottom: 0;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-columnas {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+/* Subtítulo de día (Hoy / Mañana): mismo estilo que los títulos de sección de
+   la ficha. */
+.dashboard-grupo-dia {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
+
+.dashboard-lista {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.alertas-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  padding: var(--space-3) 0;
+.dashboard-lista > li {
   border-top: 1px solid var(--color-border);
 }
 
-.alertas-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.alertas-titulo {
-  display: flex;
+.dashboard-fila {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-2);
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.alertas-tipo {
-  color: var(--brand-600);
-}
-
-.alertas-sujeto {
-  color: var(--color-text);
-}
-
-.alertas-fecha {
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-}
-
-.alertas-item-clickeable {
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-3) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
   cursor: pointer;
-  border-radius: var(--radius-md);
-  padding-left: var(--space-2);
-  padding-right: var(--space-2);
-  transition: background-color 0.15s ease;
 }
 
-.alertas-item-clickeable:hover {
+.dashboard-fila.sin-hora {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .dashboard-fila:hover {
+    background-color: var(--brand-50);
+  }
+}
+
+.dashboard-fila:active {
   background-color: var(--brand-50);
 }
 
-.alertas-item-clickeable:focus-visible {
-  outline: 2px solid var(--brand-500);
+.dashboard-fila:focus-visible {
+  outline: 2px solid var(--brand-600);
   outline-offset: 2px;
+}
+
+.dashboard-fila-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dashboard-fila-titulo {
+  font-size: 0.9375rem;
+  color: var(--color-text);
+}
+
+.dashboard-fila-meta {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+/* Hora de salida y, debajo, la de llegada. */
+.hora-col {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+.hora-col small {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+/* Avance de un viaje En viaje en Viajes de hoy (como ViajeEnCurso, más fina). */
+.viajes-hoy-barra {
+  display: block;
+  height: 4px;
+  max-width: 240px;
+  margin-top: var(--space-1);
+  border-radius: var(--radius-full);
+  background-color: var(--color-border);
+  overflow: hidden;
+}
+
+.viajes-hoy-barra-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background-color: var(--brand-600);
+}
+
+.dashboard-ver-mas {
+  margin-top: var(--space-3);
+}
+
+@media (max-width: 479px) {
+  .dashboard-fila {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .dashboard-fila.sin-hora {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-fila > :last-child:not(.dashboard-fila-info) {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .dashboard-fila.sin-hora > :last-child:not(.dashboard-fila-info) {
+    grid-column: 1;
+  }
 }
