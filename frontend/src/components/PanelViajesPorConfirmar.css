@@ -1,23 +1,13 @@
 /* Cada viaje A confirmar: hora de salida, ruta y cliente, y el botón Confirmar
    a la derecha. Los grupos (Hoy / Mañana), la lista y las columnas comparten las
-   clases del Dashboard (ver Dashboard.css). Solo tokens. */
+   clases del Dashboard (ver Dashboard.css), también el estado vacío
+   (.dashboard-empty, solo texto). Solo tokens. */
 .por-confirmar-fila {
   display: grid;
   grid-template-columns: 56px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-2);
-}
-
-.por-confirmar-vacio {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-6) var(--space-2);
-  text-align: center;
-  color: var(--color-text-secondary);
 }
 
 @media (max-width: 479px) {

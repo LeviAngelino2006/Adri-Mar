@@ -1,5 +1,5 @@
 // Smoke test de render de la tarjeta de viaje del listado (agrupado por día) y
-// del panel "Viajes de hoy" del Dashboard. Se corre con `npm test` (node:test).
+// de los paneles del Dashboard (Viajes de hoy y estados vacíos). Se corre con `npm test` (node:test).
 //
 // Mismo método que confirmarViaje.render.test.mjs: Vite en modo SSR carga los
 // .jsx y se renderiza a HTML con react-dom/server. Verifica la estructura, NO los
@@ -7,6 +7,7 @@
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -21,11 +22,13 @@ const h = React.createElement;
 let vite;
 let TarjetaViaje;
 let ContenidoViajesDeHoy;
+let ContenidoPorConfirmar;
 
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
   TarjetaViaje = (await vite.ssrLoadModule('/src/components/TarjetaViaje.jsx')).default;
   ({ ContenidoViajesDeHoy } = await vite.ssrLoadModule('/src/components/PanelViajesDeHoy.jsx'));
+  ({ ContenidoPorConfirmar } = await vite.ssrLoadModule('/src/components/PanelViajesPorConfirmar.jsx'));
 });
 
 after(() => vite.close());
@@ -105,5 +108,25 @@ describe('ContenidoViajesDeHoy', () => {
     assert.match(render({ cargando: true }), /loading-state/);
     assert.match(render({ error: true }), /No se pudieron cargar los viajes de hoy\./);
     assert.match(render({}), /class="dashboard-empty">No hay viajes para hoy</);
+  });
+});
+
+describe('estados vacíos del Dashboard', () => {
+  test('Viajes por confirmar: solo texto, igual que Viajes de hoy', () => {
+    const html = renderToStaticMarkup(
+      h(ContenidoPorConfirmar, { cargando: false, error: false, hoy: [], manana: [], onConfirmar() {} })
+    );
+    assert.equal(html, '<div class="dashboard-empty">Nada pendiente para hoy ni mañana</div>');
+  });
+
+  // Próximos viajes y Documentación viven dentro de Dashboard.jsx y no se
+  // exportan: se revisa el fuente de cada bloque .dashboard-empty.
+  test('Próximos viajes y Documentación no llevan ícono', () => {
+    const fuente = fs.readFileSync(path.join(RAIZ, 'src/pages/Dashboard.jsx'), 'utf8');
+    const bloques = fuente.match(/<div className="dashboard-empty">[\s\S]*?<\/div>/g) || [];
+    assert.equal(bloques.length, 2);
+    assert.match(bloques[0], />No tenés viajes programados próximamente</);
+    assert.match(bloques[1], /Sin alertas por ahora[\s\S]*dashboard-empty-hint/);
+    for (const bloque of bloques) assert.ok(!/<svg|ICONO_/.test(bloque), bloque);
   });
 });
