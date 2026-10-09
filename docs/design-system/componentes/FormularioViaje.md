@@ -3,7 +3,7 @@ Formulario para crear o editar un viaje (`Viajes.jsx`). Es un patrón de página
 ## Orden y pares de campos
 Dentro de `.form-card` (720px) y `.form-grid` (dos columnas desde 640px, una columna debajo, en el mismo orden):
 1. Cliente, solo: el `FormField` va envuelto en un `<div class="form-field-ancho">`, que ocupa las dos columnas. Lo mismo para Kilómetros estimados.
-2. Origen | Destino.
+2. Recorrido (ancho completo): origen, paradas intermedias y destino como línea de tiempo, y debajo el botón "Ver recorrido en Google Maps". Ver `EditorRecorrido`.
 3. Fecha y hora de inicio | Fecha y hora de fin.
 4. Choferes posibles y Vehículos posibles, cada uno en ancho completo (`SelectorMultiple`, ver abajo). Al editar un viaje Programado en su lugar van Chofer | Vehículo como `select`.
 5. Kilómetros estimados | Cantidad de pasajeros.
@@ -15,6 +15,12 @@ Dentro de `.form-card` (720px) y `.form-grid` (dos columnas desde 640px, una col
 - Cliente, Origen, Destino y Fecha y hora de inicio son siempre obligatorios, en cualquier estado.
 - Chofer, vehículo, fecha de fin y kilómetros estimados son obligatorios solo al editar un viaje Programado. Al crear (o editar un A confirmar) son opcionales y no llevan asterisco; Cantidad de pasajeros es opcional siempre.
 - El formulario no lleva leyenda ("* Obligatorio…"): el asterisco rojo alcanza. Todo viaje nace A confirmar y se confirma aparte; esa regla no se explica en la pantalla.
+
+## Recorrido y paradas
+- Las paradas son puntos intermedios ordenados entre origen y destino, de 0 a 9. Sirven para estimar kilómetros, tiempo y presupuesto: no tienen datos propios (ni hora, ni pasajeros), no cambian chofer ni vehículo y el chofer no interactúa con ellas.
+- Se pueden editar en un viaje A confirmar y en uno Programado; en uno En viaje, Finalizado o Cancelado no.
+- Una fila sin ubicación elegida frena el envío ("Elegí una ubicación o quitá la parada"): no se descarta en silencio.
+- Con el botón del mapa el encargado lee los km y el tiempo y los carga a mano en "Kilómetros estimados".
 
 ## Choferes y vehículos posibles
 - Al crear o editar un viaje A confirmar, chofer y vehículo se cargan como listas de candidatos con `SelectorMultiple` (opcionales, 0 o más). Recién se elige uno de cada uno al confirmar (`ModalConfirmarViaje`).

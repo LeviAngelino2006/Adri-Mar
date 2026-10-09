@@ -22,3 +22,59 @@
   color: var(--brand-600);
   font-weight: 700;
 }
+
+/* "· 2 paradas" del resumen: atenuado, y sin partirse a la mitad. */
+.ruta-viaje-paradas {
+  font-size: 0.875em;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* Variante completa: la secuencia en vertical, con la misma línea de tiempo del
+   formulario (punto lleno en origen y destino, punto vacío en las paradas). */
+.ruta-viaje-completa {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 var(--space-6);
+  list-style: none;
+}
+
+.ruta-viaje-completa::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: var(--space-3);
+  bottom: var(--space-3);
+  width: 2px;
+  background-color: var(--brand-200);
+}
+
+.ruta-viaje-paso {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) 0;
+}
+
+.ruta-viaje-paso::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--space-6));
+  top: 14px;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface);
+  border: 2px solid var(--brand-600);
+}
+
+.ruta-viaje-paso-extremo::before {
+  background-color: var(--brand-600);
+}
+
+.ruta-viaje-paso-rol {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}

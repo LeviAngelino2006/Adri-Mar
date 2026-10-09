@@ -121,6 +121,10 @@ export interface RutaViajeProps {
   /** Lugar de origen; sin valor muestra "No registrado" atenuado. */
   origen?: { nombre: string } | null;
   destino?: { nombre: string } | null;
+  /** Paradas intermedias de la API, ya ordenadas. */
+  paradas?: { orden: number; ubicacion: { nombre: string } }[];
+  /** 'resumen' (una línea, "… · 2 paradas") o 'completa' (secuencia vertical). Por defecto 'resumen'. */
+  variante?: 'resumen' | 'completa';
 }
 export declare function RutaViaje(props: RutaViajeProps): ReactElement;
 

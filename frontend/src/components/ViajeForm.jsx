@@ -5,9 +5,11 @@ import FormField from './ui/FormField';
 import Alert from './ui/Alert';
 import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
 import SelectorMultiple from './ui/SelectorMultiple';
+import EditorRecorrido from './EditorRecorrido';
 import SeccionDatosAdministrativos from './SeccionDatosAdministrativos';
 import { consultarDisponibilidad } from '../services/viajesApi';
 import { nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { errorDeSecuencia, paradasAPayload } from '../utils/paradas';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import {
   CAMPOS_ADMINISTRATIVOS,
@@ -25,6 +27,8 @@ const FORM_INICIAL = {
   vehiculoId: '',
   choferesCandidatos: [],
   vehiculosCandidatos: [],
+  // Paradas intermedias, en orden: [{ clave, id, nombre }] (ver utils/paradas).
+  paradas: [],
   origenId: '',
   origenNombre: '',
   destinoId: '',
@@ -64,6 +68,11 @@ function avisosDe(lista) {
 //  - Edición de un PROGRAMADO: un chofer y un vehículo, como siempre.
 // Al enviar solo viaja uno de los dos juegos de campos: el backend rechaza
 // choferId/vehiculoId en un A_CONFIRMAR y candidatos en un PROGRAMADO.
+//
+// El origen, las paradas y el destino se editan juntos en el bloque Recorrido
+// (EditorRecorrido). Las paradas se pueden editar en A_CONFIRMAR y en PROGRAMADO.
+// Una fila de parada sin ubicación elegida NO se descarta en silencio: frena el
+// envío con un error en esa fila, y el backend solo recibe ids válidos.
 //
 // `candidatosActuales` ({ choferes, vehiculos }) son los candidatos que ya tiene
 // el viaje que se edita: se suman a las opciones por si alguno ya no figura en
@@ -183,6 +192,10 @@ function ViajeForm({
     }
   }
 
+  function handleCambiarParadas(paradas) {
+    setForm((f) => ({ ...f, paradas }));
+  }
+
   function handleSeleccionarCliente(item) {
     setForm((f) => ({ ...f, clienteId: item?.id || '', clienteNombre: item?.nombre || '' }));
   }
@@ -210,6 +223,15 @@ function ViajeForm({
     if (!erroresLocales.fechaInicio && !form.fechaInicio) {
       erroresLocales.fechaInicio = ERROR_FECHA_INICIO;
     }
+
+    const { ids: idsParadas, errores: erroresFilas } = paradasAPayload(form.paradas);
+    if (Object.keys(erroresFilas).length > 0) {
+      erroresLocales.filasParadas = erroresFilas;
+    } else if (form.origenId && form.destinoId) {
+      // La misma regla que valida el backend, para avisar antes de enviar.
+      const mensaje = errorDeSecuencia(form.origenId, idsParadas, form.destinoId);
+      if (mensaje) erroresLocales.paradas = mensaje;
+    }
     if (conDatosAdministrativos) {
       Object.assign(erroresLocales, validarMontos(administrativos));
     }
@@ -221,11 +243,14 @@ function ViajeForm({
     setEnviando(true);
     try {
       const enviarAdministrativos = conDatosAdministrativos && hayDatosAdministrativos(administrativos);
-      const { choferId, vehiculoId, choferesCandidatos, vehiculosCandidatos, ...resto } = form;
+      const { choferId, vehiculoId, choferesCandidatos, vehiculosCandidatos, paradas: filasParadas, ...resto } = form;
       const asignacion = usaCandidatos ? { choferesCandidatos, vehiculosCandidatos } : { choferId, vehiculoId };
       await onSubmit({
         ...resto,
         ...asignacion,
+        // Solo ids, en orden: el `orden` lo asigna el backend. No hay filas vacías
+        // (ya se frenó el envío arriba).
+        paradas: paradasAPayload(filasParadas).ids,
         ...(enviarAdministrativos ? { datosAdministrativos: valoresAPayload(administrativos) } : {}),
       });
     } catch (err) {
@@ -256,25 +281,17 @@ function ViajeForm({
           </FormField>
         </div>
 
-        <FormField id="origenId" label="Origen" error={errores.origenId} required>
-          <SelectorBuscarOCrear
-            endpoint="/ubicaciones"
-            valor={form.origenId}
-            valorNombre={form.origenNombre}
-            onSeleccionar={handleSeleccionarOrigen}
-            placeholder="Buscar o crear ubicación…"
+        <div className="form-field-ancho">
+          <EditorRecorrido
+            origen={{ id: form.origenId, nombre: form.origenNombre }}
+            destino={{ id: form.destinoId, nombre: form.destinoNombre }}
+            paradas={form.paradas}
+            onCambiarOrigen={handleSeleccionarOrigen}
+            onCambiarDestino={handleSeleccionarDestino}
+            onCambiarParadas={handleCambiarParadas}
+            errores={errores}
           />
-        </FormField>
-
-        <FormField id="destinoId" label="Destino" error={errores.destinoId} required>
-          <SelectorBuscarOCrear
-            endpoint="/ubicaciones"
-            valor={form.destinoId}
-            valorNombre={form.destinoNombre}
-            onSeleccionar={handleSeleccionarDestino}
-            placeholder="Buscar o crear ubicación…"
-          />
-        </FormField>
+        </div>
 
         <FormField
           id="fechaInicio"

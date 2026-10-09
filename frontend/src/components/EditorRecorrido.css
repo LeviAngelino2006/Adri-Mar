@@ -1,0 +1,140 @@
+.editor-recorrido {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.editor-recorrido-titulo {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/* Línea de tiempo: una columna a la izquierda con la línea y un punto por fila. */
+.editor-recorrido-puntos {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 var(--space-8);
+  list-style: none;
+}
+
+.editor-recorrido-puntos::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: var(--space-4);
+  bottom: var(--space-4);
+  width: 2px;
+  background-color: var(--brand-200);
+}
+
+.editor-recorrido-punto {
+  position: relative;
+  margin-bottom: var(--space-4);
+}
+
+.editor-recorrido-punto:last-child {
+  margin-bottom: 0;
+}
+
+.editor-recorrido-punto .form-field {
+  margin-bottom: 0;
+}
+
+/* Punto de cada fila, alineado con su label. */
+.editor-recorrido-punto::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--space-8) + 3px);
+  top: 3px;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface);
+  border: 2px solid var(--brand-600);
+}
+
+/* Origen y destino: punto lleno. Las paradas: punto vacío. */
+.editor-recorrido-extremo::before {
+  background-color: var(--brand-600);
+}
+
+.editor-recorrido-agregar::before {
+  display: none;
+}
+
+.editor-recorrido-agregar {
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.editor-recorrido-agregar .btn {
+  min-height: 44px;
+  padding-left: 0;
+  color: var(--brand-600);
+}
+
+.editor-recorrido-agregar .form-field-hint {
+  margin: 0;
+}
+
+/* Subir / bajar / quitar: debajo del selector en pantallas angostas (áreas
+   táctiles de 44px) y a su derecha desde 640px. */
+.editor-recorrido-parada {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-1);
+}
+
+.editor-recorrido-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.editor-recorrido-accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--color-text-secondary);
+}
+
+/* Hover solo con mouse; ver a:hover en index.css. */
+@media (hover: hover) {
+  .editor-recorrido-accion:hover:not(:disabled) {
+    color: var(--brand-700);
+    background-color: var(--brand-50);
+    border-color: var(--brand-500);
+  }
+}
+
+.editor-recorrido-accion:active:not(:disabled) {
+  color: var(--brand-700);
+  background-color: var(--brand-50);
+  border-color: var(--brand-500);
+}
+
+@media (min-width: 640px) {
+  .editor-recorrido-parada {
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: var(--space-2);
+  }
+
+  /* Los botones se alinean con el CAMPO, no con la celda entera (que crece si la
+     fila muestra un error): se bajan lo que mide el label (1.5rem de interlineado
+     más el gap de FormField). */
+  .editor-recorrido-acciones {
+    justify-content: flex-start;
+    margin-top: calc(1.5rem + var(--space-1));
+  }
+}
+
+.editor-recorrido-mapa {
+  margin-top: var(--space-4);
+}

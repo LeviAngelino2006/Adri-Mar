@@ -1,5 +1,5 @@
 // Doble de Prisma CON ESTADO para los tests de viajes: tablas en memoria
-// (usuarios, vehículos, viajes y sus candidatos) y un $transaction con
+// (usuarios, vehículos, ubicaciones, viajes, sus candidatos y sus paradas) y un $transaction con
 // rollback real — lo que no se confirma, se deshace. Lo comparten
 // viajesCandidatos.test.js y viajesParadas.test.js.
 //
@@ -49,9 +49,12 @@ function crearEntorno() {
   const db = {
     usuarios: [],
     vehiculos: [],
+    ubicaciones: [],
     viajes: [],
     candChofer: [],
     candVeh: [],
+    // Filas de viaje_paradas: { viajeId, ubicacionId, orden }.
+    paradas: [],
     siguienteId: 100,
     // Hooks para provocar situaciones puntuales desde cada test.
     fallos: {},
@@ -93,7 +96,16 @@ function crearEntorno() {
       vehiculo(10, '15', 'AE455KD', 'DADO_DE_BAJA'),
     ]);
 
+    reemplazar(db.ubicaciones, [
+      { id: 1, nombre: 'Río Tercero' },
+      { id: 2, nombre: 'Córdoba' },
+      { id: 3, nombre: 'Alta Gracia' },
+      { id: 4, nombre: 'Museo del Kempes' },
+      { id: 5, nombre: 'Villa del Dique' },
+    ]);
+
     reemplazar(db.viajes, []);
+    reemplazar(db.paradas, []);
     reemplazar(db.candChofer, []);
     reemplazar(db.candVeh, []);
     reemplazar(db.borrados, []);
@@ -103,7 +115,13 @@ function crearEntorno() {
   }
 
   function agregarViaje(sobrescribir = {}) {
-    const { estado = 'A_CONFIRMAR', choferesCandidatos = [], vehiculosCandidatos = [], ...resto } = sobrescribir;
+    const {
+      estado = 'A_CONFIRMAR',
+      choferesCandidatos = [],
+      vehiculosCandidatos = [],
+      paradas = [],
+      ...resto
+    } = sobrescribir;
     const fila = {
       id: db.siguienteId++,
       estadoViajeId: ESTADOS[estado],
@@ -121,6 +139,7 @@ function crearEntorno() {
     db.viajes.push(fila);
     for (const usuarioId of choferesCandidatos) db.candChofer.push({ viajeId: fila.id, usuarioId });
     for (const vehiculoId of vehiculosCandidatos) db.candVeh.push({ viajeId: fila.id, vehiculoId });
+    paradas.forEach((ubicacionId, indice) => db.paradas.push({ viajeId: fila.id, ubicacionId, orden: indice + 1 }));
     return fila;
   }
 
@@ -150,6 +169,11 @@ function crearEntorno() {
       metodoPagoCliente: null,
       estadoPagoChofer: null,
       metodoPagoChofer: null,
+      // Ordenadas por `orden`, como el include real (orderBy orden asc).
+      paradas: db.paradas
+        .filter((p) => p.viajeId === fila.id)
+        .sort((a, b) => a.orden - b.orden)
+        .map((p) => ({ ...p, ubicacion: db.ubicaciones.find((u) => u.id === p.ubicacionId) })),
       choferesCandidatos: db.candChofer
         .filter((c) => c.viajeId === fila.id)
         .map((c) => ({ ...c, usuario: db.usuarios.find((u) => u.id === c.usuarioId) })),
@@ -164,6 +188,24 @@ function crearEntorno() {
   // Los modelos de candidatos y updateMany solo existen DENTRO de la transacción
   // (tx): si alguna ruta los usara por fuera de $transaction, el test revienta.
   const modelosTx = {
+    // @@unique([viajeId, orden]) como en la base: createMany falla si una fila
+    // choca con otra. Por eso reordenar solo funciona si el deleteMany va ANTES.
+    viajeParada: {
+      deleteMany: async ({ where: { viajeId } }) => {
+        reemplazar(db.paradas, db.paradas.filter((p) => p.viajeId !== viajeId));
+        return {};
+      },
+      createMany: async ({ data }) => {
+        if (db.fallos.createManyParadas) throw new Error('falla simulada en createMany de paradas');
+        for (const fila of data) {
+          if (db.paradas.some((p) => p.viajeId === fila.viajeId && p.orden === fila.orden)) {
+            throw new Error('Unique constraint failed on (viaje_id, orden)');
+          }
+          db.paradas.push({ ...fila });
+        }
+        return {};
+      },
+    },
     viaje: {
       updateMany: async ({ where, data }) => {
         const coinciden = db.viajes.filter((v) => v.id === where.id && v.estadoViajeId === where.estadoViajeId);
@@ -175,6 +217,7 @@ function crearEntorno() {
         return fila ? armar(fila) : null;
       },
       update: async ({ where: { id }, data }) => {
+        if (db.fallos.updateViaje) throw new Error('falla simulada en el update del viaje');
         const fila = filaPorId(id);
         aplicarCambios(fila, data);
         return armar(fila);
@@ -208,7 +251,10 @@ function crearEntorno() {
 
   const prisma = {
     cliente: { findUnique: existe([1]) },
-    ubicacion: { findUnique: existe([1, 2]) },
+    ubicacion: {
+      findUnique: async ({ where: { id } }) => db.ubicaciones.find((u) => u.id === id) ?? null,
+      findMany: async ({ where }) => db.ubicaciones.filter((u) => where.id.in.includes(u.id)),
+    },
     estadoViaje: {
       findUnique: async ({ where: { descripcion } }) => ({ id: ESTADOS[descripcion], descripcion }),
     },
@@ -234,11 +280,12 @@ function crearEntorno() {
     },
     viaje: {
       create: async ({ data }) => {
-        const { choferesCandidatos, vehiculosCandidatos, ...columnas } = data;
+        const { choferesCandidatos, vehiculosCandidatos, paradas, ...columnas } = data;
         const fila = { id: db.siguienteId++, ...columnas };
         db.viajes.push(fila);
         for (const { usuarioId } of choferesCandidatos?.create ?? []) db.candChofer.push({ viajeId: fila.id, usuarioId });
         for (const { vehiculoId } of vehiculosCandidatos?.create ?? []) db.candVeh.push({ viajeId: fila.id, vehiculoId });
+        for (const { ubicacionId, orden } of paradas?.create ?? []) db.paradas.push({ viajeId: fila.id, ubicacionId, orden });
         return armar(fila);
       },
       findUnique: async ({ where: { id } }) => {
@@ -273,6 +320,7 @@ function crearEntorno() {
         viajes: db.viajes.map((v) => ({ ...v })),
         candChofer: db.candChofer.map((c) => ({ ...c })),
         candVeh: db.candVeh.map((c) => ({ ...c })),
+        paradas: db.paradas.map((p) => ({ ...p })),
       };
       try {
         return await fn(modelosTx);
@@ -280,6 +328,7 @@ function crearEntorno() {
         reemplazar(db.viajes, copia.viajes);
         reemplazar(db.candChofer, copia.candChofer);
         reemplazar(db.candVeh, copia.candVeh);
+        reemplazar(db.paradas, copia.paradas);
         throw err;
       }
     },

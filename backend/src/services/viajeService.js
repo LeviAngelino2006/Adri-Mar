@@ -14,6 +14,8 @@ const SOLO_FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const INCLUDE_RELACIONES_VIAJE = {
   choferesCandidatos: { include: { usuario: true } },
   vehiculosCandidatos: { include: { vehiculo: true } },
+  // Siempre ordenadas: serializarViaje las devuelve tal cual vienen.
+  paradas: { include: { ubicacion: true }, orderBy: { orden: 'asc' } },
   chofer: true,
   vehiculo: true,
   estadoViaje: true,
@@ -115,7 +117,12 @@ function campoAusente(valor) {
 // dependen de si el viaje es A_CONFIRMAR o no). clienteId se sumó acá en esta
 // tarea; antes vivía (por error de alcance) como uno de los 9 campos
 // opcionales de datos-administrativos.
-function validarCamposCore({ clienteId, origenId, destinoId }) {
+//
+// origen == destino solo es un error si el viaje NO tiene paradas: con al menos
+// una parada es un ida y vuelta legítimo (Río Tercero → Córdoba → Río Tercero).
+// El caso con paradas lo cubre errorDeSecuencia (no pueden ser consecutivos
+// iguales ni origen/destino con una parada en el medio de igual nombre).
+function validarCamposCore({ clienteId, origenId, destinoId }, { hayParadas = false } = {}) {
   const errores = {};
 
   const clienteIdNumero = Number(clienteId);
@@ -139,7 +146,7 @@ function validarCamposCore({ clienteId, origenId, destinoId }) {
     errores.destinoId = 'El destino elegido no es válido';
   }
 
-  if (!errores.origenId && !errores.destinoId && origenIdNumero === destinoIdNumero) {
+  if (!errores.origenId && !errores.destinoId && !hayParadas && origenIdNumero === destinoIdNumero) {
     errores.destinoId = 'El destino no puede ser el mismo que el origen';
   }
 
@@ -461,8 +468,8 @@ async function validarDisponibilidadOperativa({ choferId, vehiculoId, fechaInici
 
 // Valida clienteId/origenId/destinoId (siempre obligatorios, existencia en
 // BD) — compartido por crearViaje y actualizarViaje, en cualquier estado.
-async function validarYArmarCore({ clienteId, origenId, destinoId }) {
-  const core = validarCamposCore({ clienteId, origenId, destinoId });
+async function validarYArmarCore({ clienteId, origenId, destinoId }, { hayParadas = false } = {}) {
+  const core = validarCamposCore({ clienteId, origenId, destinoId }, { hayParadas });
 
   await validarCliente(core.clienteId, 'clienteId');
   await validarUbicacion(core.origenId, 'origenId');
@@ -615,6 +622,12 @@ async function serializarViaje(viaje, usuarioSolicitante) {
     origen: viaje.origen ? { id: viaje.origen.id, nombre: viaje.origen.nombre } : null,
     destinoId: viaje.destinoId,
     destino: viaje.destino ? { id: viaje.destino.id, nombre: viaje.destino.nombre } : null,
+    // Paradas intermedias, ordenadas. No son un dato administrativo ni de
+    // planificación interna: las ven todos los perfiles que ven el viaje.
+    paradas: (viaje.paradas ?? []).map((parada) => ({
+      orden: parada.orden,
+      ubicacion: { id: parada.ubicacion.id, nombre: parada.ubicacion.nombre },
+    })),
     // Cliente es un dato core del viaje, visible para todos los perfiles.
     clienteId: viaje.clienteId,
     cliente: viaje.cliente ? { id: viaje.cliente.id, nombre: viaje.cliente.nombre } : null,
@@ -645,6 +658,89 @@ async function serializarViaje(viaje, usuarioSolicitante) {
     estado,
     creadoEn: viaje.creadoEn,
   };
+}
+
+// --- Paradas ----------------------------------------------------------------
+//
+// Puntos intermedios ORDENADOS entre origen y destino. El front manda solo los
+// ids de ubicación en el orden del recorrido; el `orden` (1..n) lo asigna el
+// backend según la posición. A diferencia de los candidatos, una ubicación SÍ
+// puede repetirse (un ida y vuelta pasa dos veces por el mismo lugar); lo único
+// que no puede es repetirse de forma CONSECUTIVA.
+
+// Es el límite de puntos intermedios de los links de Google Maps.
+const MAX_PARADAS = 9;
+
+// Forma de la lista (todavía sin tocar la base): ausente/null → [], si viene
+// tiene que ser un arreglo de enteros positivos y no pasar el máximo.
+function validarFormatoParadas(valor) {
+  if (valor === undefined || valor === null) return { ids: [], errores: {} };
+
+  if (!Array.isArray(valor)) {
+    return { ids: [], errores: { paradas: 'Debe ser una lista de ids de ubicaciones' } };
+  }
+
+  const ids = valor.map((v) => (typeof v === 'number' || typeof v === 'string' ? Number(v) : NaN));
+  if (ids.some((n) => !Number.isInteger(n) || n <= 0)) {
+    return { ids: [], errores: { paradas: 'La lista tiene ubicaciones que no son válidas' } };
+  }
+  if (ids.length > MAX_PARADAS) {
+    return { ids: [], errores: { paradas: `Máximo ${MAX_PARADAS} paradas` } };
+  }
+
+  return { ids, errores: {} };
+}
+
+// Revisa la secuencia COMPLETA [origen, ...paradas, destino]: dos puntos
+// consecutivos no pueden ser la misma ubicación. Devuelve el mensaje del primer
+// problema o null. Con 0 paradas, origen == destino no se reporta acá: ya lo
+// cubre validarCamposCore con su mensaje de siempre, en destinoId.
+function errorDeSecuencia(origenId, paradas, destinoId) {
+  const secuencia = [origenId, ...paradas, destinoId];
+
+  for (let i = 1; i < secuencia.length; i += 1) {
+    if (secuencia[i] !== secuencia[i - 1]) continue;
+
+    const esDestino = i === secuencia.length - 1;
+    if (!esDestino) return `La parada ${i} es igual al punto anterior`;
+    if (paradas.length > 0) return `La parada ${paradas.length} es igual al destino`;
+  }
+
+  return null;
+}
+
+// Existencia de todas las ubicaciones de la lista (un findMany, no uno por id).
+async function validarExistenciaParadas(ids) {
+  if (ids.length === 0) return;
+
+  const unicos = [...new Set(ids)];
+  const encontradas = await prisma.ubicacion.findMany({ where: { id: { in: unicos } }, select: { id: true } });
+  if (encontradas.length !== unicos.length) {
+    throw new ValidacionError({ paradas: 'Alguna parada elegida no existe' });
+  }
+}
+
+// Reemplazo completo dentro de una transacción: primero deleteMany y recién
+// después createMany, así reordenar no choca contra @@unique([viajeId, orden]).
+async function reemplazarParadas(tx, viajeId, ids) {
+  await tx.viajeParada.deleteMany({ where: { viajeId } });
+  if (ids.length > 0) {
+    await tx.viajeParada.createMany({
+      data: ids.map((ubicacionId, indice) => ({ viajeId, ubicacionId, orden: indice + 1 })),
+    });
+  }
+}
+
+// Forma de la lista + secuencia, ya con el core validado (hacen falta los ids
+// de origen y destino numéricos). Devuelve los ids y los errores para juntarlos
+// con los de los demás campos.
+function validarParadasDelRecorrido(formato, core) {
+  const errores = { ...formato.errores };
+  if (Object.keys(errores).length === 0) {
+    const mensaje = errorDeSecuencia(core.origenId, formato.ids, core.destinoId);
+    if (mensaje) errores.paradas = mensaje;
+  }
+  return { ids: formato.ids, errores };
 }
 
 // --- Candidatos -------------------------------------------------------------
@@ -740,6 +836,7 @@ async function crearViaje(
     cantidadPasajeros,
     choferesCandidatos,
     vehiculosCandidatos,
+    paradas: paradasPayload,
     clienteId,
     origenId,
     destinoId,
@@ -747,7 +844,9 @@ async function crearViaje(
   },
   usuarioSolicitante
 ) {
-  const core = await validarYArmarCore({ clienteId, origenId, destinoId });
+  const formatoParadas = validarFormatoParadas(paradasPayload);
+  const core = await validarYArmarCore({ clienteId, origenId, destinoId }, { hayParadas: formatoParadas.ids.length > 0 });
+  const paradas = validarParadasDelRecorrido(formatoParadas, core);
 
   const pasajeros = validarCantidadPasajeros(cantidadPasajeros);
   const candidatos = validarFormatoCandidatos({ choferesCandidatos, vehiculosCandidatos });
@@ -760,10 +859,12 @@ async function crearViaje(
       erroresPrevios: {
         ...pasajeros.errores,
         ...erroresCandidatosAConfirmar({ choferId, vehiculoId }, candidatos),
+        ...paradas.errores,
       },
     }
   );
   await validarExistenciaCandidatos(candidatos);
+  await validarExistenciaParadas(paradas.ids);
 
   const administrativos = await validarYArmarDatosAdministrativosOpcionales(datosAdministrativos);
 
@@ -786,6 +887,7 @@ async function crearViaje(
       // viaje se crea con sus candidatos o no se crea.
       choferesCandidatos: { create: candidatos.choferes.map((usuarioId) => ({ usuarioId })) },
       vehiculosCandidatos: { create: candidatos.vehiculos.map((vehiculoId) => ({ vehiculoId })) },
+      paradas: { create: paradas.ids.map((ubicacionId, indice) => ({ ubicacionId, orden: indice + 1 })) },
     },
     include: INCLUDE_RELACIONES_VIAJE,
   });
@@ -837,6 +939,11 @@ async function obtenerViaje(id) {
 //  - A_CONFIRMAR: choferId/vehiculoId sueltos no se aceptan (400); se usan las
 //    listas de candidatos, que se REEMPLAZAN por completo (deleteMany +
 //    createMany) junto con el update del viaje, todo en una transacción.
+//
+// Las paradas se editan en los dos estados, también como reemplazo completo en
+// la misma transacción que el update (un PUT sin `paradas` las borra, como
+// cualquier otro campo ausente). En EN_VIAJE, FINALIZADO o CANCELADO no se
+// puede editar nada (EstadoNoEditableError, más arriba).
 async function actualizarViaje(
   id,
   {
@@ -848,6 +955,7 @@ async function actualizarViaje(
     cantidadPasajeros,
     choferesCandidatos,
     vehiculosCandidatos,
+    paradas: paradasPayload,
     clienteId,
     origenId,
     destinoId,
@@ -861,7 +969,9 @@ async function actualizarViaje(
     throw new EstadoNoEditableError(estadoActual);
   }
 
-  const core = await validarYArmarCore({ clienteId, origenId, destinoId });
+  const formatoParadas = validarFormatoParadas(paradasPayload);
+  const core = await validarYArmarCore({ clienteId, origenId, destinoId }, { hayParadas: formatoParadas.ids.length > 0 });
+  const paradas = validarParadasDelRecorrido(formatoParadas, core);
 
   const modoCompleto = estadoActual === 'PROGRAMADO';
   const pasajeros = validarCantidadPasajeros(cantidadPasajeros);
@@ -875,7 +985,7 @@ async function actualizarViaje(
   };
 
   if (modoCompleto) {
-    const erroresPrevios = { ...pasajeros.errores, ...candidatos.errores };
+    const erroresPrevios = { ...pasajeros.errores, ...candidatos.errores, ...paradas.errores };
     if (candidatos.choferes.length > 0) {
       erroresPrevios.choferesCandidatos = 'Los candidatos solo aplican a viajes A confirmar';
     }
@@ -887,11 +997,15 @@ async function actualizarViaje(
       { choferId, vehiculoId, fechaInicio, fechaFin, kilometrosEstimados },
       { obligatorios: true, excluirViajeId: actual.id, erroresPrevios }
     );
+    await validarExistenciaParadas(paradas.ids);
 
-    const viaje = await prisma.viaje.update({
-      where: { id: actual.id },
-      data: { ...datosViaje, ...operativos },
-      include: INCLUDE_RELACIONES_VIAJE,
+    const viaje = await prisma.$transaction(async (tx) => {
+      await reemplazarParadas(tx, actual.id, paradas.ids);
+      return tx.viaje.update({
+        where: { id: actual.id },
+        data: { ...datosViaje, ...operativos },
+        include: INCLUDE_RELACIONES_VIAJE,
+      });
     });
 
     return await serializarViaje(viaje, usuarioSolicitante);
@@ -905,14 +1019,17 @@ async function actualizarViaje(
       erroresPrevios: {
         ...pasajeros.errores,
         ...erroresCandidatosAConfirmar({ choferId, vehiculoId }, candidatos),
+        ...paradas.errores,
       },
     }
   );
   await validarExistenciaCandidatos(candidatos);
+  await validarExistenciaParadas(paradas.ids);
 
   const viaje = await prisma.$transaction(async (tx) => {
-    // Reemplazo completo de las dos listas + update del viaje: si cualquier
-    // paso falla no queda el viaje con candidatos a medio cambiar.
+    // Reemplazo completo de las listas (candidatos y paradas) + update del
+    // viaje: si cualquier paso falla no queda el viaje a medio cambiar.
+    await reemplazarParadas(tx, actual.id, paradas.ids);
     await tx.viajeChoferCandidato.deleteMany({ where: { viajeId: actual.id } });
     await tx.viajeVehiculoCandidato.deleteMany({ where: { viajeId: actual.id } });
     if (candidatos.choferes.length > 0) {

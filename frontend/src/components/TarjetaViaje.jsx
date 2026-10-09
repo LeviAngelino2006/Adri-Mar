@@ -50,7 +50,7 @@ function TarjetaViaje({ viaje, onClick, variante }) {
           {ESTADOS_VIAJE[viaje.estado].label}
         </EstadoBadge>
       }
-      sub={<RutaViaje origen={viaje.origen} destino={viaje.destino} />}
+      sub={<RutaViaje origen={viaje.origen} destino={viaje.destino} paradas={viaje.paradas} />}
       detalle={vistaChofer ? undefined : detalleVehiculo}
       pie={[
         fechaInicio && fechaFin ? formatearRangoCompacto(fechaInicio, fechaFin) : 'Fechas pendientes',
