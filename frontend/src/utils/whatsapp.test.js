@@ -8,6 +8,7 @@ import {
   MOTIVO_TELEFONO_INVALIDO,
   armarMensajeViaje,
   avisoWhatsApp,
+  interpretacionesSinQuince,
   normalizarTelefonoAR,
   urlWhatsApp,
 } from './whatsapp.js';
@@ -42,6 +43,10 @@ describe('normalizarTelefonoAR: formatos que se aceptan', () => {
     ['11 15 3315 4455', '5491133154455'],
     // Un abonado que arranca con 15 pero SIN el 15 intercalado: son 10 dígitos.
     ['351 1512345', '5493511512345'],
+    // Con el 15 intercalado Y un abonado que arranca con 15 ("…1515…"): el 15 cabe
+    // en dos posiciones, pero las dos interpretaciones dan el mismo número.
+    ['11 15 1512 3456', '5491115123456'],
+    ['011 15 1512-3456', '5491115123456'],
   ];
 
   for (const [entrada, esperado] of ACEPTADOS) {
@@ -91,21 +96,37 @@ describe('normalizarTelefonoAR: lo que no se puede normalizar da null', () => {
   }
 });
 
-describe('normalizarTelefonoAR: el 15 en más de una posición posible es ambiguo', () => {
-  // Con 12 dígitos hay un 15 intercalado, pero si aparece en más de una de las
-  // posiciones posibles (característica de 2, 3 o 4 dígitos) no se elige una.
-  test('"11 15 1512 3456" → null (el 15 cabe tras 2 y tras 4 dígitos)', () => {
-    assert.equal(normalizarTelefonoAR('11 15 1512 3456'), null);
-    assert.equal(normalizarTelefonoAR('111515123456'), null);
+describe('normalizarTelefonoAR: el 15 en más de una posición posible', () => {
+  // Con 12 dígitos hay un 15 intercalado. Si aparece en más de una de las posiciones
+  // posibles (característica de 2, 3 o 4 dígitos), se aceptan solo las
+  // interpretaciones que dan el MISMO número; si dieran números distintos sería
+  // adivinar y se devolvería null.
+  test('"11 15 1512 3456" es válido: el 15 cabe tras 2 y tras 4 dígitos pero ambas dan el mismo número', () => {
+    assert.equal(normalizarTelefonoAR('11 15 1512 3456'), '5491115123456');
+    assert.equal(normalizarTelefonoAR('111515123456'), '5491115123456');
   });
 
-  test('"35 1515 123456" → null (misma ambigüedad con otra característica)', () => {
-    assert.equal(normalizarTelefonoAR('351515123456'), null);
+  test('la misma situación con otra característica', () => {
+    assert.equal(normalizarTelefonoAR('351515123456'), '5493515123456');
   });
 
-  test('el mismo caso con prefijos tampoco se resuelve', () => {
-    assert.equal(normalizarTelefonoAR('+54 11 15 1512 3456'), null);
-    assert.equal(normalizarTelefonoAR('0111515123456'), null);
+  test('y con prefijos', () => {
+    assert.equal(normalizarTelefonoAR('+54 11 15 1512 3456'), '5491115123456');
+    assert.equal(normalizarTelefonoAR('0111515123456'), '5491115123456');
+  });
+
+  test('interpretacionesSinQuince: las dos posiciones coinciden en un único resultado', () => {
+    // 111515123456: el 15 está tras 2 dígitos y tras 4, y los dos caminos dan 1115123456.
+    assert.deepEqual(interpretacionesSinQuince('111515123456'), ['1115123456']);
+  });
+
+  test('interpretacionesSinQuince: con el 15 en una sola posición hay un único resultado', () => {
+    assert.deepEqual(interpretacionesSinQuince('357115612345'), ['3571612345']);
+    assert.deepEqual(interpretacionesSinQuince('351154123456'), ['3514123456']);
+  });
+
+  test('interpretacionesSinQuince: sin 15 en ninguna posición posible no hay resultado', () => {
+    assert.deepEqual(interpretacionesSinQuince('357199612345'), []);
   });
 
   test('con 12 dígitos y sin ningún 15 en una posición válida → null', () => {
@@ -289,7 +310,7 @@ describe('avisoWhatsApp', () => {
   });
 
   test('con teléfono que no se entiende: otro motivo, que dice cómo corregirlo', () => {
-    for (const telefono of ['612345', '15 612345', 'llamar a la oficina', '11 15 1512 3456']) {
+    for (const telefono of ['612345', '15 612345', 'llamar a la oficina', '3571 99 612345']) {
       assert.deepEqual(avisoWhatsApp({ ...viaje, chofer: { nombre: 'Ana', telefono } }), {
         motivo: MOTIVO_TELEFONO_INVALIDO,
       });

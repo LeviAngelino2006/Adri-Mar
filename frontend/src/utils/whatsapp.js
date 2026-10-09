@@ -15,23 +15,23 @@ export const MOTIVO_TELEFONO_INVALIDO =
 // internacional ("+54 9 …"), y reemplaza al "0" de discado nacional y al "15".
 const PREFIJO_MOVIL_AR = '549';
 
-// Saca el "15" que se intercala entre la característica y el abonado en el
-// discado local de celulares ("03571 15 612345"). Con el número ya sin
-// separadores no se sabe de cuántos dígitos es la característica (2 en "11", 3 o
-// 4 en el resto), así que se prueba el "15" tras los primeros 2, 3 y 4 dígitos:
-// si cae en una sola posición se saca; si cae en más de una (o en ninguna) NO se
-// elige: se devuelve null y se pide corregir el número.
+// Los números de 10 dígitos que resultan de sacar el "15" que se intercala entre la
+// característica y el abonado en el discado local de celulares ("03571 15
+// 612345"). Con el número ya sin separadores no se sabe de cuántos dígitos es la
+// característica (2 en "11", 3 o 4 en el resto), así que se prueba el "15" tras los
+// primeros 2, 3 y 4 dígitos y se junta el resultado de cada posición posible, sin
+// repetidos.
 //
-// En la práctica la única forma de que dos posiciones coincidan es "…1515…"
-// (tras 2 y tras 4 dígitos), que además daría el mismo número final. Igual se trata
-// como ambiguo a propósito: ante la duda es preferible no mandar el aviso a que
-// llegue a un número equivocado.
-function sacarQuince(digitos12) {
-  const posiciones = [2, 3, 4].filter((posicion) => digitos12.slice(posicion, posicion + 2) === '15');
-  if (posiciones.length !== 1) return null;
+// Con UN solo resultado la interpretación es segura: es el número. Con ninguno no
+// hay 15 donde debería, y con varios resultados DISTINTOS sería adivinar. En la
+// práctica las posiciones solo pueden coincidir en "…1515…" (tras 2 y tras 4
+// dígitos), y ahí las dos dan el mismo número, así que se acepta.
+export function interpretacionesSinQuince(digitos12) {
+  const resultados = [2, 3, 4]
+    .filter((posicion) => digitos12.slice(posicion, posicion + 2) === '15')
+    .map((posicion) => digitos12.slice(0, posicion) + digitos12.slice(posicion + 2));
 
-  const [posicion] = posiciones;
-  return digitos12.slice(0, posicion) + digitos12.slice(posicion + 2);
+  return [...new Set(resultados)];
 }
 
 // Texto libre → número para wa.me ("5493571612345": solo dígitos, con 549), o
@@ -47,7 +47,8 @@ function sacarQuince(digitos12) {
 // o "int 12", "/" entre dos números); es de otro país; falta la característica
 // ("15 612345", "612345"); la característica no existe en Argentina (las de 2
 // dígitos son solo "11", el resto empieza con 2 o 3); la longitud no cierra en 10
-// dígitos; o el "15" cae en más de una posición posible (ver sacarQuince).
+// dígitos; o el "15" cae en varias posiciones posibles y las interpretaciones dan
+// números distintos (ver interpretacionesSinQuince).
 export function normalizarTelefonoAR(texto) {
   if (texto === null || texto === undefined) return null;
 
@@ -68,8 +69,9 @@ export function normalizarTelefonoAR(texto) {
   if (digitos.startsWith('0')) digitos = digitos.slice(1);
   if (digitos.length === 11 && digitos.startsWith('9')) digitos = digitos.slice(1);
   if (digitos.length === 12) {
-    digitos = sacarQuince(digitos);
-    if (digitos === null) return null;
+    const interpretaciones = interpretacionesSinQuince(digitos);
+    if (interpretaciones.length !== 1) return null;
+    [digitos] = interpretaciones;
   }
 
   if (digitos.length !== 10) return null;
