@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
@@ -14,7 +15,7 @@ import ViajeForm from '../components/ViajeForm';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import ModalConfirmarViaje from '../components/ModalConfirmarViaje';
 import AvisarPorWhatsApp from '../components/AvisarPorWhatsApp';
-import TarjetaViaje from '../components/TarjetaViaje';
+import { ListadoViajesPorDia } from '../components/TarjetaViaje';
 import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
 import FichaViaje from '../components/FichaViaje';
@@ -90,6 +91,12 @@ const MENSAJE_EDITADO = 'Cambios guardados correctamente.';
 function Viajes() {
   const { usuario } = useAuth();
   const puedeGestionar = PUEDE_GESTIONAR.includes(usuario.perfil);
+  const location = useLocation();
+  const navigate = useNavigate();
+  // El panel "Viajes de hoy" del Dashboard manda `viajeId` en el estado de
+  // navegación para abrir directo la ficha de ese viaje (mismo criterio que Mis
+  // viajes). Se consume una sola vez, al terminar la primera carga del listado.
+  const viajeIdPendiente = useRef(location.state?.viajeId ?? null);
 
   const [viajes, setViajes] = useState([]);
   const [cargando, setCargando] = useState(true);
@@ -146,9 +153,20 @@ function Viajes() {
 
     return api
       .get('/viajes', { params })
-      .then(({ data }) => setViajes(data.viajes))
+      .then(({ data }) => {
+        setViajes(data.viajes);
+
+        if (viajeIdPendiente.current !== null) {
+          const pendiente = data.viajes.find((v) => v.id === viajeIdPendiente.current);
+          viajeIdPendiente.current = null;
+          if (pendiente) setSeleccionado(pendiente);
+          // Se limpia el estado de navegación para que recargar la página no
+          // vuelva a abrir la ficha.
+          navigate(location.pathname, { replace: true, state: null });
+        }
+      })
       .finally(() => setCargando(false));
-  }, [filtros]);
+  }, [filtros, navigate, location.pathname]);
 
   useEffect(() => {
     cargarViajes();
@@ -392,11 +410,7 @@ function Viajes() {
           {!cargando && viajes.length === 0 && <div className="listado-vacio">No se encontraron viajes</div>}
 
           {!cargando && viajes.length > 0 && (
-            <div className="listado-cards">
-              {viajes.map((v) => (
-                <TarjetaViaje key={v.id} viaje={v} onClick={() => seleccionar(v)} />
-              ))}
-            </div>
+            <ListadoViajesPorDia viajes={viajes} onSeleccionar={seleccionar} />
           )}
         </>
       )}

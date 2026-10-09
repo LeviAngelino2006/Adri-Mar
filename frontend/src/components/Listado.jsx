@@ -1,3 +1,4 @@
+import ControlSegmentado from './ui/ControlSegmentado';
 import './Listado.css';
 
 // Piezas del patrón único de listado (ver docs/design-system, componente
@@ -27,11 +28,12 @@ export function ListadoHeader({ titulo, children }) {
   );
 }
 
-// Buscador (con lupa) y botón "Filtros" con el contador de filtros activos.
-// Cada pantalla pasa solo lo que usa:
+// Buscador (con lupa), botón "Filtros" con el contador de filtros activos y,
+// a la derecha de todo, el control de vistas. Cada pantalla pasa solo lo que usa:
 //   busqueda: { valor, onChange(texto), placeholder }
 //   filtros:  { abierto, onToggle(), activos }
-export function ListadoToolbar({ busqueda, filtros }) {
+//   vistas:   las props de ControlSegmentado (Documentación: Vehículos | Choferes)
+export function ListadoToolbar({ busqueda, filtros, vistas }) {
   return (
     <div className="listado-toolbar">
       {busqueda && (
@@ -53,16 +55,23 @@ export function ListadoToolbar({ busqueda, filtros }) {
           {filtros.activos > 0 && <span className="filtros-toggle-badge">{filtros.activos}</span>}
         </button>
       )}
+      {vistas && <ControlSegmentado {...vistas} />}
     </div>
   );
 }
 
-// Tarjeta del listado: marca (ícono o Avatar), cuerpo con título + estado,
-// dato principal, detalle opcional y pie (lista de datos, separados a los lados).
-export function ListadoCard({ marca, marcaSinFondo = false, titulo, estado, sub, detalle, pie, onClick }) {
+// Tarjeta del listado: marca (ícono, Avatar o bloque de fecha), cuerpo con
+// título + estado, dato principal, detalle opcional y pie (lista de datos,
+// separados a los lados). `marcaClassName` suma una clase a la marca (la tarjeta
+// de viaje usa `fecha-tile`).
+export function ListadoCard({ marca, marcaClassName, marcaSinFondo = false, titulo, estado, sub, detalle, pie, onClick }) {
   return (
     <button type="button" className="listado-card" onClick={onClick}>
-      <div className="listado-card-marca" style={marcaSinFondo ? { background: 'none' } : undefined}>
+      <div
+        className={marcaClassName ? `listado-card-marca ${marcaClassName}` : 'listado-card-marca'}
+        style={marcaSinFondo ? { background: 'none' } : undefined}
+        aria-hidden={marcaClassName ? 'true' : undefined}
+      >
         {marca}
       </div>
       <div className="listado-card-cuerpo">

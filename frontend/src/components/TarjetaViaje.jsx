@@ -1,64 +1,67 @@
 import { ListadoCard } from './Listado';
 import EstadoBadge from './ui/EstadoBadge';
 import RutaViaje from './RutaViaje';
+import { FechaTileTexto } from './FechaTile';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
-import { formatearKm, formatearRangoCompacto, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { formatearHorarioViaje, formatearKm, nombreChofer } from '../utils/viajeFormato';
+import { agruparViajesPorDia } from '../utils/viajesPorDia';
 
-const ICONO_RUTA = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <circle cx="6" cy="19" r="2" />
-    <circle cx="18" cy="5" r="2" />
-    <path d="M8 19h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7" />
-  </svg>
-);
-
-// Tarjeta de un viaje en el listado: la usan Viajes y Mis viajes.
+// Tarjeta de un viaje en el listado: la usan Viajes y Mis viajes. Los viajes van
+// agrupados por día, así que la marca es el bloque de fecha del día de inicio y
+// el sub lleva solo el horario.
 //
-// variante="chofer" es la vista de Mis viajes de un chofer, que ve sus propios
-// viajes: el título es el vehículo ("12 - AE452KD", solo el dominio con
-// .patente) y no se muestran ni el chofer (es él mismo) ni la línea de detalle,
-// porque el vehículo ya está en el título. Sin variante (Viajes, y Mis viajes
-// de un gestor) el título es el chofer y el vehículo va en el detalle.
+// variante="chofer" es la vista de Mis viajes de un chofer: el sub es solo el
+// horario, sin el chofer (es él mismo). Sin variante (Viajes, y Mis viajes de un
+// gestor) el sub suma el chofer: "07:30 – 10:00 · Martín Gómez".
 function TarjetaViaje({ viaje, onClick, variante }) {
   const { chofer, vehiculo, fechaInicio, fechaFin, kilometrosEstimados } = viaje;
   const vistaChofer = variante === 'chofer';
 
-  const titulo = vistaChofer ? (
-    vehiculo ? (
-      <>
-        {vehiculo.numeroInterno} - <span className="patente">{vehiculo.dominio}</span>
-      </>
-    ) : (
-      'Vehículo pendiente'
-    )
-  ) : chofer ? (
-    nombreChofer(chofer)
-  ) : (
-    'Chofer pendiente'
-  );
+  const horario = fechaInicio ? formatearHorarioViaje(fechaInicio, fechaFin) : 'Fechas pendientes';
+  const sub = vistaChofer ? horario : `${horario} · ${chofer ? nombreChofer(chofer) : 'Chofer pendiente'}`;
 
-  const detalleVehiculo = vehiculo
-    ? `${nombreVehiculo(vehiculo)} (${vehiculo.marca} ${vehiculo.modelo})`
-    : 'Vehículo pendiente';
+  const vehiculoTexto = vehiculo ? (
+    <>
+      {vehiculo.numeroInterno} - <span className="patente">{vehiculo.dominio}</span> · {vehiculo.marca}{' '}
+      {vehiculo.modelo}
+    </>
+  ) : (
+    'Vehículo pendiente'
+  );
 
   return (
     <ListadoCard
-      marca={ICONO_RUTA}
-      titulo={titulo}
+      marca={<FechaTileTexto fecha={fechaInicio} />}
+      marcaClassName="fecha-tile"
+      titulo={<RutaViaje origen={viaje.origen} destino={viaje.destino} paradas={viaje.paradas} />}
       estado={
         <EstadoBadge tono={ESTADOS_VIAJE[viaje.estado].tono} size="sm">
           {ESTADOS_VIAJE[viaje.estado].label}
         </EstadoBadge>
       }
-      sub={<RutaViaje origen={viaje.origen} destino={viaje.destino} paradas={viaje.paradas} />}
-      detalle={vistaChofer ? undefined : detalleVehiculo}
+      sub={sub}
       pie={[
-        fechaInicio && fechaFin ? formatearRangoCompacto(fechaInicio, fechaFin) : 'Fechas pendientes',
+        vehiculoTexto,
         kilometrosEstimados != null ? `${formatearKm(kilometrosEstimados)} km estimados` : 'Km pendientes',
       ]}
       onClick={onClick}
     />
   );
+}
+
+// Listado de Viajes y Mis viajes: las tarjetas agrupadas por día de inicio (día
+// de Córdoba), en el orden en que llegan ("Hoy · vie 9 oct", "mié 7 oct").
+export function ListadoViajesPorDia({ viajes, variante, onSeleccionar }) {
+  return agruparViajesPorDia(viajes).map((grupo) => (
+    <section key={grupo.dia ?? 'sin-fecha'} className="listado-grupo">
+      <h2 className="listado-dia">{grupo.titulo}</h2>
+      <div className="listado-cards">
+        {grupo.viajes.map((v) => (
+          <TarjetaViaje key={v.id} viaje={v} variante={variante} onClick={() => onSeleccionar(v)} />
+        ))}
+      </div>
+    </section>
+  ));
 }
 
 export default TarjetaViaje;

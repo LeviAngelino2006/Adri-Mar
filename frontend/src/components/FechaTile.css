@@ -1,0 +1,33 @@
+/* Bloque de fecha (día y mes) de las tarjetas de viaje y de Próximos viajes.
+   Solo tokens. */
+.fecha-tile {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  min-height: 48px;
+  padding: var(--space-1) 0;
+  border-radius: var(--radius-md);
+  background-color: var(--brand-50);
+  color: var(--brand-700);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.fecha-tile-dia {
+  font-size: 1.1875rem;
+  font-weight: 600;
+}
+
+.fecha-tile-mes {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.listado-card-marca.fecha-tile {
+  width: 48px;
+  height: auto;
+}

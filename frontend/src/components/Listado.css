@@ -24,7 +24,8 @@
 
 .listado-buscar {
   position: relative;
-  flex: 1 1 240px;
+  flex: 1 1 160px;
+  min-width: 0;
   max-width: 400px;
 }
 
@@ -224,4 +225,22 @@ button.listado-card:focus-visible {
   color: var(--color-text-secondary);
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
+}
+
+/* Viajes y Mis viajes: las tarjetas agrupadas por día de inicio. */
+.listado-grupo + .listado-grupo {
+  margin-top: var(--space-6);
+}
+
+.listado-dia {
+  margin: 0 0 var(--space-3);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
+
+.listado-grupo .listado-cards {
+  margin-bottom: 0;
 }
