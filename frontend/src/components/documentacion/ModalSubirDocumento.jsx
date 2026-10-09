@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import Button from '../ui/Button';
 import FormField from '../ui/FormField';
 import Alert from '../ui/Alert';
-import ConfirmModal from '../ui/ConfirmModal';
-import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { etiquetaTipoDocumento } from '../../constants/tiposDocumento';
+import { fechaCordobaISO, hoyCordobaISO } from '../../utils/fechaCordoba';
 import './ModalDocumentacion.css';
+
+const MAX_BYTES = 15 * 1024 * 1024;
 
 function ModalSubirDocumento({
   open,
@@ -17,26 +18,24 @@ function ModalSubirDocumento({
   documentoActual,
   onSuccess,
 }) {
-  const { usuario } = useAuth();
-  const esAdmin = usuario?.perfil === 'ADMINISTRADOR';
-
   const [archivo, setArchivo] = useState(null);
   const [fechaEmision, setFechaEmision] = useState('');
   const [fechaVencimiento, setFechaVencimiento] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [enviando, setEnviando] = useState(false);
-  const [eliminando, setEliminando] = useState(false);
-  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
+  // Mensaje por campo (archivo, fechaEmision, fechaVencimiento), igual que los
+  // `errores` que devuelve el backend; `error` es el mensaje general.
+  const [errores, setErrores] = useState({});
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (open) {
       setArchivo(null);
+      setErrores({});
       setError('');
-      setConfirmandoEliminar(false);
       if (documentoActual) {
-        setFechaEmision(documentoActual.fechaEmision ? documentoActual.fechaEmision.substring(0, 10) : '');
-        setFechaVencimiento(documentoActual.fechaVencimiento ? documentoActual.fechaVencimiento.substring(0, 10) : '');
+        setFechaEmision(documentoActual.fechaEmision ? fechaCordobaISO(documentoActual.fechaEmision) : '');
+        setFechaVencimiento(documentoActual.fechaVencimiento ? fechaCordobaISO(documentoActual.fechaVencimiento) : '');
         setObservaciones(documentoActual.observaciones || '');
       } else {
         setFechaEmision('');
@@ -55,39 +54,41 @@ function ModalSubirDocumento({
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
-      setError('Solo se admiten archivos en formato PDF.');
+      setErrores((prev) => ({ ...prev, archivo: 'Solo se permiten archivos PDF.' }));
       setArchivo(null);
       return;
     }
 
-    if (file.size > 15 * 1024 * 1024) {
-      setError('El archivo supera el tamaño máximo permitido (15 MB).');
+    if (file.size > MAX_BYTES) {
+      setErrores((prev) => ({ ...prev, archivo: 'El archivo supera el máximo de 15 MB.' }));
       setArchivo(null);
       return;
     }
 
-    setError('');
+    setErrores((prev) => ({ ...prev, archivo: undefined }));
     setArchivo(file);
+  }
+
+  function validar() {
+    const nuevos = {};
+    if (tipoDocumento.requiereArchivo && !archivo && !esRenovacion) {
+      nuevos.archivo = 'Adjuntá un archivo PDF para este documento.';
+    }
+    if (tipoDocumento.requiereVencimiento && !fechaVencimiento) {
+      nuevos.fechaVencimiento = 'La fecha de vencimiento es obligatoria.';
+    } else if (fechaEmision && fechaVencimiento && fechaVencimiento < fechaEmision) {
+      nuevos.fechaVencimiento = 'La fecha de vencimiento no puede ser anterior a la fecha de emisión.';
+    }
+    return nuevos;
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
 
-    if (tipoDocumento.requiereArchivo && !archivo && !esRenovacion) {
-      setError('Debes adjuntar un archivo PDF para este documento.');
-      return;
-    }
-
-    if (tipoDocumento.requiereVencimiento && !fechaVencimiento) {
-      setError('La fecha de vencimiento es obligatoria.');
-      return;
-    }
-
-    if (fechaEmision && fechaVencimiento && fechaVencimiento < fechaEmision) {
-      setError('La fecha de vencimiento no puede ser anterior a la fecha de emisión.');
-      return;
-    }
+    const invalidos = validar();
+    setErrores(invalidos);
+    if (Object.keys(invalidos).length > 0) return;
 
     setEnviando(true);
     try {
@@ -107,32 +108,21 @@ function ModalSubirDocumento({
       onSuccess(data.documento);
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Error al guardar el documento. Intentá nuevamente.');
+      const { errores: delBackend, error: mensaje } = err.response?.data ?? {};
+      if (delBackend) {
+        // tipoDocumentoId no tiene campo en el formulario: va como mensaje general.
+        const { tipoDocumentoId, ...porCampo } = delBackend;
+        setErrores(porCampo);
+        if (tipoDocumentoId) setError(tipoDocumentoId);
+      } else {
+        setError(mensaje || 'Error al guardar el documento. Intentá nuevamente.');
+      }
     } finally {
       setEnviando(false);
     }
   }
 
-  async function handleEliminar() {
-    setEliminando(true);
-    try {
-      const endpoint = chofer
-        ? `/documentos/choferes/${chofer.id}/${documentoActual.id}`
-        : `/documentos/vehiculos/${vehiculo.id}/${documentoActual.id}`;
-
-      await api.delete(endpoint);
-      setConfirmandoEliminar(false);
-      onSuccess();
-      onClose();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Error al eliminar el documento.');
-      setConfirmandoEliminar(false);
-    } finally {
-      setEliminando(false);
-    }
-  }
-
-  const hoyStr = new Date().toISOString().substring(0, 10);
+  const hoyStr = hoyCordobaISO();
   const esFechaVencida = Boolean(fechaVencimiento && fechaVencimiento < hoyStr);
 
   return (
@@ -155,17 +145,20 @@ function ModalSubirDocumento({
           </button>
         </div>
 
-        {error && <Alert variant="danger">{error}</Alert>}
+        {error && <Alert variant="error">{error}</Alert>}
 
-        <form onSubmit={handleSubmit} className="modal-doc-form">
+        <form onSubmit={handleSubmit} className="modal-doc-form" noValidate>
           {tipoDocumento.requiereArchivo ? (
             <div className="file-upload-zone">
               <label className="file-upload-label">
                 <input
+                  id="documento-archivo"
                   type="file"
                   accept="application/pdf"
                   onChange={handleFileChange}
                   className="file-upload-input"
+                  aria-invalid={errores.archivo ? true : undefined}
+                  aria-describedby={errores.archivo ? 'documento-archivo-error' : undefined}
                 />
                 <div className="file-upload-content">
                   <span className="file-upload-icon">📄</span>
@@ -187,6 +180,11 @@ function ModalSubirDocumento({
                   )}
                 </div>
               </label>
+              {errores.archivo && (
+                <p id="documento-archivo-error" className="form-field-error" role="alert">
+                  {errores.archivo}
+                </p>
+              )}
             </div>
           ) : (
             <div className="notice-box">
@@ -199,7 +197,7 @@ function ModalSubirDocumento({
           )}
 
           <div className="modal-doc-grid">
-            <FormField label="Fecha de emisión" error={null}>
+            <FormField id="documento-fecha-emision" label="Fecha de emisión" error={errores.fechaEmision}>
               <input
                 type="date"
                 value={fechaEmision}
@@ -209,14 +207,15 @@ function ModalSubirDocumento({
             </FormField>
 
             <FormField
-              label={`Fecha de vencimiento ${tipoDocumento.requiereVencimiento ? '*' : ''}`}
-              error={null}
+              id="documento-fecha-vencimiento"
+              label="Fecha de vencimiento"
+              required={tipoDocumento.requiereVencimiento}
+              error={errores.fechaVencimiento}
             >
               <input
                 type="date"
                 value={fechaVencimiento}
                 onChange={(e) => setFechaVencimiento(e.target.value)}
-                required={tipoDocumento.requiereVencimiento}
                 className="modal-doc-input"
               />
             </FormField>
@@ -228,7 +227,7 @@ function ModalSubirDocumento({
             </Alert>
           )}
 
-          <FormField label="Observaciones o notas adicionales" error={null}>
+          <FormField id="documento-observaciones" label="Observaciones o notas adicionales">
             <textarea
               rows="3"
               value={observaciones}
@@ -238,38 +237,17 @@ function ModalSubirDocumento({
             />
           </FormField>
 
-          <div className="modal-doc-actions" style={{ justifyContent: esRenovacion && esAdmin ? 'space-between' : 'flex-end' }}>
-            {esRenovacion && esAdmin && (
-              <Button
-                variant="danger"
-                type="button"
-                onClick={() => setConfirmandoEliminar(true)}
-                disabled={enviando || eliminando}
-              >
-                Eliminar documento
-              </Button>
-            )}
+          <div className="modal-doc-actions" style={{ justifyContent: 'flex-end' }}>
             <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-              <Button variant="secondary" type="button" onClick={onClose} disabled={enviando || eliminando}>
+              <Button variant="secondary" type="button" onClick={onClose} disabled={enviando}>
                 Cancelar
               </Button>
-              <Button variant="primary" type="submit" loading={enviando} disabled={eliminando}>
+              <Button variant="primary" type="submit" loading={enviando}>
                 {esRenovacion ? 'Guardar renovación' : 'Guardar documento'}
               </Button>
             </div>
           </div>
         </form>
-
-        <ConfirmModal
-          open={confirmandoEliminar}
-          tone="danger"
-          title="Eliminar documento"
-          description={`¿Seguro que deseás eliminar este documento (${etiquetaTipoDocumento(tipoDocumento.descripcion)})? Si existe una versión anterior en el historial, volverá a quedar vigente.`}
-          confirmLabel="Eliminar definitivamente"
-          loading={eliminando}
-          onConfirm={handleEliminar}
-          onCancel={() => setConfirmandoEliminar(false)}
-        />
       </div>
     </div>
   );
