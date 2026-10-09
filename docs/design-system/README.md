@@ -71,9 +71,10 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 
 Las pantallas se arman con las clases de `bundle.css` y los componentes de arriba, no con componentes propios. Cada patrón tiene su README con la estructura y las clases exactas:
 
-- Viajes: `TarjetaViaje` (listado), `FormularioViaje` (programar y editar), `ViajeEnCurso` y `ProximosViajes` (Dashboard) y `ModalOdometro` (comenzar y finalizar).
+- Viajes: `TarjetaViaje` (listado, agrupado por día y con el bloque de fecha), `FormularioViaje` (programar y editar), `ViajeEnCurso` y `ProximosViajes` (Dashboard del chofer) y `ModalOdometro` (comenzar y finalizar).
+- Dashboard: `Dashboard` (encabezado, orden de secciones, paneles y filas `.dashboard-fila`), con `ViajesDeHoy` a todo el ancho y, debajo, `PanelViajesPorConfirmar` y Documentación en dos columnas desde 1024px.
 - Listados: `Listado` (patrón único de Viajes, Flota, Usuarios y Documentación), con las tarjetas `TarjetaViaje` y `TarjetaVehiculo`, `FichaDetalle` (ficha de un registro, agrupada en secciones en los viajes), `Filtros`.
-- Documentación: `Listado` con `ControlSegmentado` (Vehículos | Choferes) y, en la ficha, una `TarjetaDocumento` por documento.
+- Documentación: `Listado` con `ControlSegmentado` (Vehículos | Choferes, con ícono y cantidad) en la misma barra que el buscador y Filtros, a la derecha, y, en la ficha, una `TarjetaDocumento` por documento.
 - Usuarios: `Avatar`, con el color según el perfil.
 - Layout: `Navegacion` (sidebar y topbar), `Login` (panel de marca + card).
 
@@ -81,6 +82,8 @@ Las pantallas se arman con las clases de `bundle.css` y los componentes de arrib
 - Las fichas de detalle de un viaje se agrupan en secciones tituladas dentro de una sola `Card`, con los mismos pares de campos que el formulario.
 - Encabezado de página: `h1` a la izquierda y la acción principal (`Button` primary, "Nuevo vehículo") a la derecha, con margen inferior `space-6`.
 - Los estados vacíos van centrados, en `color-text-secondary`.
+- Los listados de viajes se agrupan por día de inicio (día de Córdoba), con un título por día ("Hoy · vie 9 oct") y el bloque de fecha (`.fecha-tile`) como marca de cada tarjeta.
+- Los resúmenes numéricos ("5 viajes · 1 en viaje", "2 vencidos · 3 por vencer") van en texto gris (`color-text-secondary`), sin badges: fuera de los `EstadoBadge`, pocos colores.
 
 ## Estado respecto del código
 
