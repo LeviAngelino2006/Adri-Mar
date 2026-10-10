@@ -1,7 +1,7 @@
 Formulario para crear o editar un vehículo (`FlotaVehiculos.jsx`). Patrón de página armado con `Card`, `FormField` y `.form-grid`.
 
 ## Estructura
-- `.back-link`, `h1` ("Nuevo vehículo" o "Editar vehículo") y una `Card` `.form-card` (720px) con un solo `.form-grid`: dos columnas desde 640px, una debajo, en el mismo orden. Sin títulos de sección.
+- `.back-link`, `h1` ("Crear vehículo" o "Editar vehículo", igual que la acción del listado) y una `Card` `.form-card` (720px) con un solo `.form-grid`: dos columnas desde 640px, una debajo, en el mismo orden. Sin títulos de sección.
 
 ## Pares de campos
 1. Número de interno | Dominio

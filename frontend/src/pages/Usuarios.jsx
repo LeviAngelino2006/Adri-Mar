@@ -230,7 +230,7 @@ function Usuarios() {
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
           </button>
-          <h1>{editando ? 'Editar usuario' : 'Nuevo usuario'}</h1>
+          <h1>{editando ? 'Editar usuario' : 'Crear usuario'}</h1>
           <Card className="form-card">
             <form onSubmit={handleSubmit} noValidate>
               <div className="form-grid">

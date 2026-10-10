@@ -77,22 +77,4 @@
   outline-offset: 2px;
 }
 
-.listado-toolbar .control-segmentado {
-  margin-left: auto;
-}
-
-@media (max-width: 639px) {
-  .listado-toolbar .control-segmentado {
-    order: -1;
-    flex: 1 1 100%;
-    margin-left: 0;
-  }
-
-  .listado-toolbar .control-segmentado-opcion {
-    flex: 1;
-  }
-
-  .listado-toolbar .control-segmentado-cantidad {
-    display: none;
-  }
-}
+/* Su lugar dentro de la barra de un listado está en Listado.css. */

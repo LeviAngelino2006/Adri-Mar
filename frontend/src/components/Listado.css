@@ -3,11 +3,41 @@
    filtros y acción principal, y tarjetas con la misma anatomía apiladas una
    debajo de otra, a todo el ancho. */
 .listado-toolbar {
+  container: listado-toolbar / inline-size;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
+}
+
+/* Control segmentado (Documentación): a la derecha de todo. Se ubica según el
+   ancho de la barra, no el de la pantalla: con la sidebar abierta (768–900px)
+   la barra es angosta aunque la pantalla no lo sea. El :where() deja esta regla
+   sin especificidad extra, para que el @container de abajo la pueda pisar. */
+:where(.listado-toolbar) .control-segmentado {
+  margin-left: auto;
+}
+
+/* Barra de menos de 600px: el control pasa arriba, a todo el ancho, con las
+   opciones en partes iguales. */
+@container listado-toolbar (max-width: 599px) {
+  .control-segmentado {
+    order: -1;
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+
+  .control-segmentado-opcion {
+    flex: 1;
+  }
+}
+
+/* Menos de 400px: sin las cantidades. */
+@container listado-toolbar (max-width: 399px) {
+  .control-segmentado-cantidad {
+    display: none;
+  }
 }
 
 .listado-buscar {

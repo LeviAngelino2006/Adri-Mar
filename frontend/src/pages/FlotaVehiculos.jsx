@@ -209,7 +209,7 @@ function FlotaVehiculos() {
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
           </button>
-          <h1>{editando ? 'Editar vehículo' : 'Nuevo vehículo'}</h1>
+          <h1>{editando ? 'Editar vehículo' : 'Crear vehículo'}</h1>
           <Card className="form-card">
             <form onSubmit={handleSubmitForm} noValidate>
               <div className="form-grid">

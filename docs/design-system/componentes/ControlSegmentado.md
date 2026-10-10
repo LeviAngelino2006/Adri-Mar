@@ -24,7 +24,9 @@ Control para cambiar de vista dentro de la misma pantalla, con un botón por opc
 
 ## En la barra del listado
 - Escritorio: va a la derecha de todo (`margin-left: auto`), después del buscador y de Filtros. Es también el orden en el DOM.
-- Debajo de 640px: pasa arriba (`order: -1`), a todo el ancho y con las opciones en partes iguales, y se ocultan las cantidades. El buscador y Filtros quedan en la línea de abajo.
+- Depende del ancho de la barra, no del de la pantalla: `.listado-toolbar` es un contenedor (`container: listado-toolbar / inline-size`) y las reglas van en `Listado.css` con `@container`.
+- Barra de menos de 600px: el control pasa arriba (`order: -1`), a todo el ancho y con las opciones en partes iguales. El buscador y Filtros quedan en la línea de abajo. Pasa en mobile y también en escritorio angosto, con la sidebar abierta (por ejemplo, a 800px).
+- Barra de menos de 400px: además se ocultan las cantidades.
 
 ## Accesibilidad
 - Marcado: un `div` con `role="group"` y `aria-label`, y un `<button type="button">` por opción con `aria-pressed` (`true` en la activa). No es un `tablist`: no hay paneles asociados.
