@@ -198,13 +198,7 @@ function FlotaVehiculos() {
   return (
     <Layout>
       {!mostrarForm && !seleccionado && (
-        <ListadoHeader titulo="Flota de vehículos">
-          {puedeGestionar && (
-            <Button variant="primary" onClick={abrirNuevo}>
-              + Nuevo vehículo
-            </Button>
-          )}
-        </ListadoHeader>
+        <ListadoHeader titulo="Flota de vehículos" />
       )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
@@ -215,7 +209,7 @@ function FlotaVehiculos() {
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
           </button>
-          <h1>{editando ? 'Editar vehículo' : 'Nuevo vehículo'}</h1>
+          <h1>{editando ? 'Editar vehículo' : 'Crear vehículo'}</h1>
           <Card className="form-card">
             <form onSubmit={handleSubmitForm} noValidate>
               <div className="form-grid">
@@ -291,6 +285,7 @@ function FlotaVehiculos() {
           <ListadoToolbar
             busqueda={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Buscar por dominio, interno o marca' }}
             filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos: estado ? 1 : 0 }}
+            accion={puedeGestionar ? { etiqueta: 'Crear vehículo', onClick: abrirNuevo } : undefined}
           />
 
           {mostrarFiltros && (

@@ -4,6 +4,7 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 
 - Escribí en español rioplatense con voseo: "completalo cuando tengas los datos", "Intentá de nuevo".
 - Botones en infinitivo y concretos: "Guardar cambios", "Confirmar viaje", "Comenzar viaje", "Dar de baja".
+- Cuando la acción es sobre un registro, el botón nombra el objeto: "Editar viaje", "Cancelar viaje", "Crear vehículo". "Cancelar" a secas solo cierra un formulario sin guardar.
 - Mientras una acción corre, el botón pasa a gerundio con elipsis: "Confirmando…", "Ingresando…", "Finalizando…".
 - Errores con "No se pudo…" + la acción: "No se pudo guardar el viaje". Éxitos en pasado: "Cambios guardados correctamente."
 - Mayúscula solo al inicio (sentence case), sin signos de exclamación ni emoji.
@@ -29,7 +30,7 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 ## Tipografía
 
 - Una sola familia: la pila del sistema `--font-sans` (system-ui, Segoe UI, Roboto). No cargues fuentes web.
-- Base 16px con interlineado 1.5 (`body`). Títulos con interlineado 1.25: `h1` 28px en 700 por página; `h2` 22px y `h3` 18px en 600.
+- Base 16px con interlineado 1.5 (`body`). Títulos con interlineado 1.25: `h1` 28px en 700, uno por página (visible en el Dashboard, las fichas y los formularios; en los listados va en `.sr-only`); `h2` 22px y `h3` 18px en 600.
 - Labels en `label` (500); botones en `button` (600, interlineado 1).
 - Texto de apoyo: `body-sm` (15px) en alerts, toasts y modales; `caption` (14px) en hints y errores de campo; `meta` (13px) en contadores; `xs` (12px) solo para etiquetas chicas.
 - Números que se comparan (km, odómetro, horas, internos) van con números tabulares: clase `.num`. Tablas, fichas y pies de tarjeta ya los aplican.
@@ -55,7 +56,7 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 
 ## Layout
 
-- Topbar sticky en `color-surface` con borde inferior y `shadow-sm`; logo de 32px de alto.
+- Topbar sticky en `color-surface` con borde inferior y `shadow-sm`; logo de 32px de alto y, a la derecha, la sección actual (ver `Navegacion`). Solo se ve debajo de 768px.
 - Sidebar de 232px con el logo (36px) arriba y la navegación con íconos de 20px.
 - Formularios: `.form-grid` pasa a dos columnas desde 640px (una columna debajo, en el mismo orden); `.form-card` limita a 720px. Los campos que van juntos se agrupan en pares (origen–destino, inicio–fin, chofer–vehículo) y el resto va a ancho completo (`.form-field-ancho`). Las secciones opcionales y largas van colapsadas (`.form-seccion`).
 
@@ -80,9 +81,9 @@ Las pantallas se arman con las clases de `bundle.css` y los componentes de arrib
 - Usuarios: `Avatar`, con el color según el perfil.
 - Layout: `Navegacion` (sidebar y topbar), `Login` (panel de marca + card).
 
-- Las pantallas de listado (Viajes, Flota de vehículos, Usuarios y Documentación) siguen el mismo patrón, `Listado`: encabezado (con acción principal, salvo Documentación, que no tiene), barra de búsqueda y filtros, y tarjetas con la misma anatomía, apiladas una debajo de otra a todo el ancho. No hay tablas ni grilla.
+- Las pantallas de listado (Viajes, Flota de vehículos, Usuarios y Documentación) siguen el mismo patrón, `Listado`: sin título visible (el `h1` va en `.sr-only`), barra de búsqueda y filtros con la acción principal a la derecha ("Crear viaje", "Crear vehículo", "Crear usuario"; Mis viajes y Documentación no tienen), y tarjetas con la misma anatomía, apiladas una debajo de otra a todo el ancho. No hay tablas ni grilla.
 - Las fichas de detalle (viaje, vehículo y usuario) son una sola `Card` plana con una grilla de pares `dt`/`dd` en dos columnas desde 640px (nunca tres), sin títulos de sección y en el mismo orden que su formulario. Los datos vacíos dicen "No registrado".
-- Encabezado de página: `h1` a la izquierda y la acción principal (`Button` primary, "Nuevo vehículo") a la derecha, con margen inferior `space-6`.
+- El `h1` es visible en el Dashboard ("Hola, {nombre}"), las fichas y los formularios. En los listados va en `.sr-only` y la acción principal pasa a la barra.
 - Los estados vacíos van centrados, en `color-text-secondary`.
 - Los listados de viajes se agrupan por día de inicio (día de Córdoba), con un título por día ("Hoy · vie 9 oct") y el bloque de fecha (`.fecha-tile`) como marca de cada tarjeta.
 - Los resúmenes numéricos ("5 viajes · 1 en viaje", "2 vencidos · 3 por vencer") van en texto gris (`color-text-secondary`), sin badges: fuera de los `EstadoBadge`, pocos colores.

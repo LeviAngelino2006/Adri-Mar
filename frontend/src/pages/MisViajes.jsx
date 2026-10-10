@@ -199,7 +199,7 @@ function MisViajes() {
           {seleccionado.estado === 'PROGRAMADO' && (
             <div className="viajes-detalle-actions">
               <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
-                Comenzar
+                Comenzar viaje
               </Button>
             </div>
           )}
@@ -207,7 +207,7 @@ function MisViajes() {
           {seleccionado.estado === 'EN_VIAJE' && (
             <div className="viajes-detalle-actions">
               <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
-                Finalizar
+                Finalizar viaje
               </Button>
             </div>
           )}

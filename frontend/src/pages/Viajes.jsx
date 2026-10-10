@@ -311,13 +311,7 @@ function Viajes() {
   return (
     <Layout>
       {!mostrarForm && !seleccionado && (
-        <ListadoHeader titulo="Viajes">
-          {puedeGestionar && (
-            <Button variant="primary" onClick={abrirNuevo}>
-              + Crear viaje
-            </Button>
-          )}
-        </ListadoHeader>
+        <ListadoHeader titulo="Viajes" />
       )}
 
       {mensaje && !mostrarForm && (
@@ -354,6 +348,7 @@ function Viajes() {
         <>
           <ListadoToolbar
             filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos: filtrosActivos }}
+            accion={puedeGestionar ? { etiqueta: 'Crear viaje', onClick: abrirNuevo } : undefined}
           />
 
           {mostrarFiltros && (
@@ -441,10 +436,10 @@ function Viajes() {
                   Confirmar viaje
                 </Button>
                 <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                  Editar
+                  Editar viaje
                 </Button>
                 <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
-                  Cancelar
+                  Cancelar viaje
                 </Button>
               </div>
             )}
@@ -453,17 +448,17 @@ function Viajes() {
               <div className="viajes-detalle-actions">
                 {puedeOperarEsteViaje && (
                   <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
-                    Comenzar
+                    Comenzar viaje
                   </Button>
                 )}
                 {puedeGestionar && (
                   <>
                     <AvisarPorWhatsApp viaje={seleccionado} />
                     <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                      Editar
+                      Editar viaje
                     </Button>
                     <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
-                      Cancelar
+                      Cancelar viaje
                     </Button>
                   </>
                 )}
@@ -473,7 +468,7 @@ function Viajes() {
             {seleccionado.estado === 'EN_VIAJE' && puedeOperarEsteViaje && (
               <div className="viajes-detalle-actions">
                 <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
-                  Finalizar
+                  Finalizar viaje
                 </Button>
               </div>
             )}

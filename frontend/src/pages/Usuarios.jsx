@@ -219,11 +219,7 @@ function Usuarios() {
   return (
     <Layout>
       {!mostrarForm && !seleccionado && (
-        <ListadoHeader titulo="Usuarios">
-          <Button variant="primary" onClick={abrirNuevo}>
-            + Nuevo usuario
-          </Button>
-        </ListadoHeader>
+        <ListadoHeader titulo="Usuarios" />
       )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
@@ -234,7 +230,7 @@ function Usuarios() {
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
           </button>
-          <h1>{editando ? 'Editar usuario' : 'Nuevo usuario'}</h1>
+          <h1>{editando ? 'Editar usuario' : 'Crear usuario'}</h1>
           <Card className="form-card">
             <form onSubmit={handleSubmit} noValidate>
               <div className="form-grid">
@@ -327,6 +323,7 @@ function Usuarios() {
         <>
           <ListadoToolbar
             busqueda={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Buscar por nombre o usuario' }}
+            accion={{ etiqueta: 'Crear usuario', onClick: abrirNuevo }}
           />
 
           {cargando && (

@@ -1,7 +1,7 @@
 Formulario para crear o editar un usuario (`Usuarios.jsx`). Patrón de página armado con `Card`, `FormField`, `Switch` y `.form-grid`.
 
 ## Estructura
-- `.back-link`, `h1` ("Nuevo usuario" o "Editar usuario") y una `Card` `.form-card` (720px) con un solo `.form-grid`: dos columnas desde 640px, una debajo, en el mismo orden. Sin títulos de sección.
+- `.back-link`, `h1` ("Crear usuario" o "Editar usuario", igual que la acción del listado) y una `Card` `.form-card` (720px) con un solo `.form-grid`: dos columnas desde 640px, una debajo, en el mismo orden. Sin títulos de sección.
 
 ## Pares de campos
 1. Nombre | Apellido
