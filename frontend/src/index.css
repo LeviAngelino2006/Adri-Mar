@@ -240,8 +240,8 @@ label {
   background: none;
   border: none;
   padding: 0;
-  margin: 0 0 var(--space-4);
-  min-height: auto;
+  margin: 0 0 var(--space-2);
+  min-height: 44px;
   cursor: pointer;
 }
 

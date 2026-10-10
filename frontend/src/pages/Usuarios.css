@@ -10,15 +10,24 @@
   cursor: pointer;
 }
 
-/* Habilitado para conducir, en par con Perfil: alineado al pie del select. */
+/* Habilitado para conducir, en par con Perfil: alineado arriba y bajado lo
+   que mide el label (1.5em de alto de línea) más el gap del FormField, así
+   queda a la altura del select aunque Perfil muestre un error debajo. */
 .form-grid .switch-field.switch-field-par {
   grid-column: auto;
-  align-self: end;
+  align-self: start;
   display: flex;
   flex-direction: row;
   align-items: center;
   min-height: 44px;
   margin-bottom: 0;
+}
+
+/* En una columna el switch va debajo de Perfil: el margen solo hace falta en el par. */
+@media (min-width: 640px) {
+  .form-grid .switch-field.switch-field-par {
+    margin-top: calc(1.5em + var(--space-1));
+  }
 }
 
 .switch-field-label-disabled {

@@ -77,6 +77,11 @@ describe('formatearFechaCorta', () => {
     // 01:30 UTC del 1/1 = 22:30 del 31/12 en Córdoba.
     assert.equal(formatearFechaCorta('2026-01-01T01:30:00Z'), '31 dic 2025');
   });
+
+  test('fechas de pago (medianoche de Córdoba) no se corren de día', () => {
+    // El backend guarda el 5/10 como 00:00 de Córdoba = 03:00 UTC.
+    assert.equal(formatearFechaCorta('2026-10-05T03:00:00Z'), '05 oct 2026');
+  });
 });
 
 describe('formatearDni', () => {

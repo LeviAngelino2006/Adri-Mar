@@ -8,7 +8,7 @@ Formulario para crear o editar un usuario (`Usuarios.jsx`). Patrón de página a
 2. DNI | Teléfono
 3. Email, a ancho completo (`<div class="form-field-ancho">`)
 4. Nombre de usuario | Contraseña. Al editar no hay Contraseña: Nombre de usuario queda solo en su fila, sin ocupar el ancho completo (un `<div class="form-hueco" aria-hidden="true" />` guarda el lugar).
-5. Perfil | Habilitado para conducir. El switch va en `.form-field.switch-field.switch-field-par`, alineado al pie del select (`align-self: end`, alto mínimo 44px).
+5. Perfil | Habilitado para conducir. El switch va en `.form-field.switch-field.switch-field-par`, alineado con el select: `align-self: start` y, desde 640px, un margen superior de `calc(1.5em + space-1)` (el alto del label más el gap del `FormField`), con alto mínimo 44px. Así, un error debajo de Perfil no lo corre. En una columna va debajo de Perfil, sin ese margen.
 
 ## Obligatorios y hints
 - Llevan `required`: Nombre, Apellido, DNI, Email, Nombre de usuario, Contraseña (solo en el alta) y Perfil. Teléfono no. Todo según `usuarioService`.
