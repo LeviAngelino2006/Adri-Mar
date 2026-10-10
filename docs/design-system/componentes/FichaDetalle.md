@@ -1,7 +1,7 @@
 Ficha de detalle de un registro: viaje, vehículo y usuario. Es un patrón de página: una sola `Card` plana con los datos en pares, en el mismo orden que su formulario.
 
 ## Común a las tres
-- **Encabezado:** `.back-link` ("← Volver al listado") y un header con el `h1` a la izquierda y el `EstadoBadge` md a la derecha. En usuarios el badge dice "Activo" (success) o "Inactivo" (neutral).
+- **Encabezado:** `.back-link` ("← Volver al listado", alto mínimo 44px y margen inferior `space-2`) y un header con el `h1` a la izquierda y el `EstadoBadge` md a la derecha. En usuarios el badge dice "Activo" (success) o "Inactivo" (neutral).
 - **Grilla:** una `Card` con `.detalle-card` y adentro una sola `<dl class="detalle-grid">`, con un `.detalle-item` (`dt` + `dd`) por dato. Sin `<section>`, sin títulos de sección y sin bordes entre bloques. `.detalle-card > .detalle-grid` lleva padding `space-6`.
 - **Columnas:** una en mobile y dos desde 640px, también en pantallas anchas. Nunca tres: así cada par queda junto. Gap de la grilla `space-4` × `space-6`.
 - **Ancho completo:** el dato largo o sin par va en `.detalle-item-ancho` (respeta los saltos de línea).
@@ -12,7 +12,7 @@ Ficha de detalle de un registro: viaje, vehículo y usuario. Es un patrón de p�
 ## Formato de los datos
 | Dato | Formato | Helper (`utils/viajeFormato.js`) |
 | --- | --- | --- |
-| Fecha sola | "12 mar 2026", en hora de Córdoba | `formatearFechaCorta` |
+| Fecha sola | "12 mar 2026", en hora de Córdoba. Vale para toda la app, también para las fechas de pago de los datos administrativos del viaje; nunca "dd/mm/aaaa" | `formatearFechaCorta` |
 | Fecha y hora | "07 oct 08:00" | `formatearDiaYHora` |
 | Kilómetros | "57.345 km" (kilometraje, odómetros, estimados y realizados) | `formatearKm` + " km" |
 | DNI | "38.456.789"; si no es numérico, tal cual | `formatearDni` |

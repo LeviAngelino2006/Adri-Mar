@@ -145,19 +145,6 @@ export function formatearMonto(valor) {
   });
 }
 
-// Solo la fecha (sin hora), en hora de Córdoba — para fechas de pago, que son
-// un día calendario y no un instante.
-const FORMATO_SOLO_FECHA = new Intl.DateTimeFormat('es-AR', {
-  timeZone: TZ_CORDOBA,
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-});
-
-export function formatearSoloFecha(valor) {
-  return FORMATO_SOLO_FECHA.format(new Date(valor));
-}
-
 // Los catálogos (EstadoPago/MetodoPago) se guardan en mayúsculas ("PAGADO");
 // para mostrarlos al usuario se pasan a "Pagado".
 export function capitalizarCatalogo(descripcion) {
