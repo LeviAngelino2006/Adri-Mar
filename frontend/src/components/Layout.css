@@ -36,6 +36,18 @@
   width: auto;
 }
 
+/* Sección actual, a la derecha: los listados no tienen título visible. */
+.layout-topbar-seccion {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
 .layout-backdrop {
   position: fixed;
   inset: 0;

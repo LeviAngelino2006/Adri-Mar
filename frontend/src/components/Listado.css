@@ -1,19 +1,7 @@
-/* Listado unificado (Viajes, Flota de vehículos, Usuarios y Mis viajes):
-   encabezado con la acción principal, barra de búsqueda y filtros, y tarjetas
-   con la misma anatomía apiladas una debajo de otra, a todo el ancho. */
-.listado-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-6);
-}
-
-.listado-header h1 {
-  margin: 0;
-}
-
+/* Listado unificado (Viajes, Mis viajes, Flota de vehículos, Usuarios y
+   Documentación): sin título visible (el h1 va en .sr-only), barra de búsqueda,
+   filtros y acción principal, y tarjetas con la misma anatomía apiladas una
+   debajo de otra, a todo el ancho. */
 .listado-toolbar {
   display: flex;
   align-items: center;
@@ -85,6 +73,46 @@
 
 .listado-toolbar .filtros-toggle-btn {
   min-height: 44px;
+}
+
+/* Acción principal ("Crear vehículo"): última de la barra, a la derecha. */
+.listado-toolbar .listado-accion {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.listado-accion .listado-accion-signo {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+@media (min-width: 640px) {
+  .listado-accion .listado-accion-signo {
+    font-size: inherit;
+    margin-right: 0.25em;
+  }
+}
+
+/* Debajo de 640px, compacta: solo el "+", cuadrada de 44px. El texto queda
+   oculto a la vista pero lo siguen leyendo los lectores de pantalla. */
+@media (max-width: 639px) {
+  .listado-toolbar .listado-accion {
+    min-width: 44px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .listado-accion .listado-accion-texto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 }
 
 .listado-filtros {

@@ -40,7 +40,7 @@ Datos, en este orden:
 6. Solo si el viaje ya empezó: Hora real de inicio | Hora real de fin · Odómetro inicial | Odómetro final · Km realizados (con su hueco al lado). Un viaje En viaje muestra solo lo que ya existe, con el hueco donde falta.
 7. Observación (`.detalle-item-ancho`), solo si hay texto.
 
-- Debajo de la card, `.viajes-detalle-actions` con los `Button`. En un viaje Programado, los gestores ven también **Avisar por WhatsApp** (ver `AvisarPorWhatsApp`), entre Comenzar y Editar.
+- Debajo de la card, `.viajes-detalle-actions` con los `Button`, que nombran el objeto: "Confirmar viaje" (primary), "Comenzar viaje" (primary), "Finalizar viaje" (primary), "Editar viaje" (secondary) y "Cancelar viaje" (danger). Nunca "Cancelar" solo en rojo: "Cancelar" a secas es solo el botón que cierra un formulario sin guardar. En un viaje Programado, los gestores ven también **Avisar por WhatsApp** (ver `AvisarPorWhatsApp`), entre Comenzar viaje y Editar viaje.
 - Los datos administrativos (solo Administrador y Encargado) siguen en su propio bloque debajo, agrupados en secciones tituladas (`.detalle-seccion`).
 - En la ficha de un viaje no va "Kilometraje actual del vehículo": es un dato del vehículo, cambia con cada viaje y confunde en un viaje ya finalizado. Se reemplaza por el odómetro inicial y final del viaje.
 

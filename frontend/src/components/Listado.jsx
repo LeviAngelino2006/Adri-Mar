@@ -1,8 +1,9 @@
+import Button from './ui/Button';
 import ControlSegmentado from './ui/ControlSegmentado';
 import './Listado.css';
 
 // Piezas del patrón único de listado (ver docs/design-system, componente
-// Listado): encabezado, barra de herramientas y tarjeta. Las pantallas las
+// Listado): título oculto, barra de herramientas y tarjeta. Las pantallas las
 // arman con estas tres piezas y ponen solo el contenido que les corresponde.
 
 const ICONO_LUPA = (
@@ -18,22 +19,22 @@ const ICONO_FILTRO = (
   </svg>
 );
 
-// h1 a la izquierda y, a la derecha, la acción principal (children).
-export function ListadoHeader({ titulo, children }) {
-  return (
-    <div className="listado-header">
-      <h1>{titulo}</h1>
-      {children}
-    </div>
-  );
+// Los listados no muestran título (la sección ya está marcada en la navegación
+// y, en mobile, en la topbar), pero la página sigue teniendo su h1 para los
+// lectores de pantalla. El texto es el mismo del ítem de navegación.
+export function ListadoHeader({ titulo }) {
+  return <h1 className="sr-only">{titulo}</h1>;
 }
 
 // Buscador (con lupa), botón "Filtros" con el contador de filtros activos y,
-// a la derecha de todo, el control de vistas. Cada pantalla pasa solo lo que usa:
+// a la derecha de todo, la acción principal o el control de vistas. Cada
+// pantalla pasa solo lo que usa:
 //   busqueda: { valor, onChange(texto), placeholder }
 //   filtros:  { abierto, onToggle(), activos }
 //   vistas:   las props de ControlSegmentado (Documentación: Vehículos | Choferes)
-export function ListadoToolbar({ busqueda, filtros, vistas }) {
+//   accion:   { etiqueta, onClick } ("Crear vehículo"); debajo de 640px se ve
+//             solo el "+" y la etiqueta queda para los lectores de pantalla.
+export function ListadoToolbar({ busqueda, filtros, vistas, accion }) {
   return (
     <div className="listado-toolbar">
       {busqueda && (
@@ -56,6 +57,14 @@ export function ListadoToolbar({ busqueda, filtros, vistas }) {
         </button>
       )}
       {vistas && <ControlSegmentado {...vistas} />}
+      {accion && (
+        <Button variant="primary" className="listado-accion" aria-label={accion.etiqueta} onClick={accion.onClick}>
+          <span className="listado-accion-signo" aria-hidden="true">
+            +
+          </span>
+          <span className="listado-accion-texto">{accion.etiqueta}</span>
+        </Button>
+      )}
     </div>
   );
 }

@@ -219,11 +219,7 @@ function Usuarios() {
   return (
     <Layout>
       {!mostrarForm && !seleccionado && (
-        <ListadoHeader titulo="Usuarios">
-          <Button variant="primary" onClick={abrirNuevo}>
-            + Nuevo usuario
-          </Button>
-        </ListadoHeader>
+        <ListadoHeader titulo="Usuarios" />
       )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
@@ -327,6 +323,7 @@ function Usuarios() {
         <>
           <ListadoToolbar
             busqueda={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Buscar por nombre o usuario' }}
+            accion={{ etiqueta: 'Crear usuario', onClick: abrirNuevo }}
           />
 
           {cargando && (
