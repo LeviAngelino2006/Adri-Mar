@@ -13,10 +13,11 @@ El caso de más de 3s es sobre todo el primer pedido después de un rato sin uso
 - `forma`:
   - `"tarjetas"`: una `ListadoCard` (marca, título con badge, sub y pie). Para Flota y Usuarios.
   - `"documentacion"`: como `"tarjetas"`, con la línea de detalle (`.listado-card-detalle`) entre el sub y el pie. Para el listado de Documentación, donde casi todas las tarjetas la tienen ("Falta: VTV", "Próximo vencimiento…").
-  - `"documentos"`: una `TarjetaDocumento` (nombre con badge, fechas y dos botones). Para la ficha de Documentación, con `cantidad={4}`.
+  - `"documentos"`: una `TarjetaDocumento` (nombre con badge, fechas y dos botones). Para la ficha de Documentación, con `cantidad={4}` y `encabezado` (ver "La ficha de Documentación mientras carga").
   - `"viajes"`: como `"tarjetas"`, pero dentro de un grupo (`.listado-grupo`) con título de día, y la marca es el bloque de fecha (`fecha-tile`). Para Viajes y Mis viajes.
   - `"filas"`: las filas de los paneles del Dashboard (hora de salida y llegada, título, meta y badge). Para los paneles del Dashboard (Viajes de hoy, Viajes por confirmar, Documentación, Tus próximos viajes) y el historial de un documento.
 - `cantidad`: cuántas tarjetas o filas dibujar. 3 por defecto; 4 en la ficha de Documentación y 2 en el historial.
+- `encabezado` (solo con `"documentos"`): `"resumen"` suma, arriba de las tarjetas, el resumen y el título de la primera sección; `"completo"` también suma el título y el subtítulo de la ficha.
 - `aislado`: dibuja su propio colectivo en lugar del esqueleto, en vez de avisarle a la pantalla. Para el historial de un documento, que está en un modal.
 - El componente se monta solo mientras `cargando` es `true`. El estado de error y el vacío no cambian.
 
@@ -33,6 +34,7 @@ El caso de más de 3s es sobre todo el primer pedido después de un rato sin uso
   - `.doc-tarjeta-info`, con `.doc-tarjeta-titulo` (un `h3.doc-tarjeta-nombre` con una barra al 45% y un `.esqueleto-badge`) y `p.doc-tarjeta-fechas` (una barra al 35%);
   - `.doc-tarjeta-acciones`, con dos `.esqueleto-barra.esqueleto-boton` de 44px de alto, como los botones reales. Debajo de 480px se estiran, igual que los botones.
   - El nombre lleva `flex: 1`: es un item del flex, y sin eso su barra (en %) no tendría ancho de referencia.
+  - Con `encabezado`, las tarjetas van dentro de `<section class="doc-seccion">`, con `<h2 class="detalle-seccion-titulo doc-seccion-titulo">` (una barra de 120px), y antes va `<p class="doc-ficha-resumen">` (una barra de 240px). Con `"completo"`, antes de todo eso van `.doc-ficha-header` con un `h1` (una barra de 200px) y `p.doc-ficha-subtitulo` (una barra de 260px).
 - Esqueleto "viajes": `<section class="listado-grupo">` con `<h2 class="listado-dia">` (una barra de 110px) y las tarjetas de "tarjetas", con la clase extra `esqueleto-viaje` y la marca `.listado-card-marca.fecha-tile`.
 - **Viajes en el celular (menos de 640px):** en la tarjeta real, la ruta ocupa dos líneas y el pie también se parte en dos (vehículo, y km debajo). El esqueleto lo imita así:
   - El título lleva una segunda barra `.esqueleto-solo-mobile` (40%), que solo se ve en el celular. Ahí, la primera barra pasa al 70%, así que la segunda baja a otra línea.
@@ -44,6 +46,12 @@ El caso de más de 3s es sobre todo el primer pedido después de un rato sin uso
   - `.dashboard-fila-info`: título al 60% y meta al 40%;
   - un `.esqueleto-badge`.
 - Colectivo (`CargaColectivo`, con `className` para sumar clases): `.carga-colectivo` con `.carga-colectivo-ruta`, adentro `.carga-colectivo-bus` (el ícono de colectivo de `IconoVehiculo` a 56px; en la variante chica, 40px, `aria-hidden`), y debajo `.carga-colectivo-texto` y `.carga-colectivo-hint`.
+
+## La ficha de Documentación mientras carga
+Para que las tarjetas no se muevan cuando llega la ficha, lo que va arriba de ellas ocupa su lugar desde el principio:
+- **Abierta desde el listado:** el ítem de la lista ya trae el titular (interno, dominio, marca, modelo, tipo y estado del vehículo; o nombre, perfil y si está habilitado para conducir) y el estado de la documentación. Mientras carga, la pantalla muestra el encabezado real (`.doc-ficha-header` con el `h1` y el `EstadoBadge`, y `.doc-ficha-subtitulo`) con ese ítem, desde el primer momento. Debajo va `<Cargando forma="documentos" cantidad={4} encabezado="resumen" />`. Cuando llega la ficha, su encabezado reemplaza al del ítem en el mismo lugar.
+- **Abierta por URL** (`?vehiculoId=` o `?choferId=`, sin el ítem a mano): el encabezado también va en esqueleto: `<Cargando forma="documentos" cantidad={4} encabezado="completo" />`.
+- Los esqueletos respetan las etapas de siempre: nada hasta los 300ms, el esqueleto hasta los 3s y después el colectivo arriba.
 
 ## Un solo colectivo por pantalla
 Una pantalla puede tener varias cargas a la vez (el Dashboard tiene cuatro paneles). Para que no haya un colectivo por panel:

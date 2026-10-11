@@ -22,8 +22,10 @@ import './Cargando.css';
 // Documentación: TarjetaDocumento), 'viajes' (Viajes y Mis viajes: grupo con
 // título de día y bloque de fecha) o 'filas' (paneles del Dashboard e historial
 // de un documento). `aislado`: dibuja su propio colectivo en lugar del
-// esqueleto (en un modal, el de la página quedaría tapado).
-function Cargando({ forma = 'tarjetas', cantidad = 3, aislado = false }) {
+// esqueleto (en un modal, el de la página quedaría tapado). `encabezado` (solo
+// con 'documentos'): 'resumen' suma el resumen y el título de la primera
+// sección; 'completo', además el título y el subtítulo de la ficha.
+function Cargando({ forma = 'tarjetas', cantidad = 3, aislado = false, encabezado = null }) {
   const etapa = useEtapaCarga(true);
   const contexto = useContext(CargaLentaContext);
   const enPagina = !aislado && contexto !== null;
@@ -33,15 +35,22 @@ function Cargando({ forma = 'tarjetas', cantidad = 3, aislado = false }) {
 
   useEffect(() => avisarCargaLenta(lento, sumar, restar), [lento, sumar, restar]);
 
-  return <ContenidoCarga etapa={enPagina && lento ? 'esqueleto' : etapa} forma={forma} cantidad={cantidad} />;
+  return (
+    <ContenidoCarga
+      etapa={enPagina && lento ? 'esqueleto' : etapa}
+      forma={forma}
+      cantidad={cantidad}
+      encabezado={encabezado}
+    />
+  );
 }
 
 // El marcado de cada etapa, sin timers (lo usan los tests de render).
-export function ContenidoCarga({ etapa, forma = 'tarjetas', cantidad = 3 }) {
+export function ContenidoCarga({ etapa, forma = 'tarjetas', cantidad = 3, encabezado = null }) {
   return (
     <div className="carga" role="status" aria-live="polite">
       {etapa !== 'oculto' && <span className="sr-only">Cargando…</span>}
-      {etapa === 'esqueleto' && <Esqueleto forma={forma} cantidad={cantidad} />}
+      {etapa === 'esqueleto' && <Esqueleto forma={forma} cantidad={cantidad} encabezado={encabezado} />}
       {etapa === 'lento' && <CargaColectivo />}
     </div>
   );
@@ -56,7 +65,7 @@ const Barra = ({ ancho, className }) => (
 // Mismas clases que el contenido real (ListadoCard, TarjetaViaje,
 // TarjetaDocumento y las filas del Dashboard), con barras en lugar de texto:
 // así mide lo mismo.
-function Esqueleto({ forma, cantidad }) {
+function Esqueleto({ forma, cantidad, encabezado }) {
   const items = Array.from({ length: cantidad }, (_, i) => i);
   if (forma === 'filas') {
     return (
@@ -88,7 +97,7 @@ function Esqueleto({ forma, cantidad }) {
     );
   }
   if (forma === 'documentos') {
-    return (
+    const documentos = (
       <div className="doc-tarjetas" aria-hidden="true">
         {items.map((i) => (
           <article key={i} className="doc-tarjeta esqueleto-documento">
@@ -109,6 +118,33 @@ function Esqueleto({ forma, cantidad }) {
             </div>
           </article>
         ))}
+      </div>
+    );
+    if (!encabezado) return documentos;
+    // Lo que va arriba de las tarjetas en la ficha, con sus clases reales.
+    return (
+      <div aria-hidden="true">
+        {encabezado === 'completo' && (
+          <>
+            <div className="doc-ficha-header">
+              <h1>
+                <Barra ancho="200px" />
+              </h1>
+            </div>
+            <p className="doc-ficha-subtitulo">
+              <Barra ancho="260px" />
+            </p>
+          </>
+        )}
+        <p className="doc-ficha-resumen">
+          <Barra ancho="240px" />
+        </p>
+        <section className="doc-seccion">
+          <h2 className="detalle-seccion-titulo doc-seccion-titulo">
+            <Barra ancho="120px" />
+          </h2>
+          {documentos}
+        </section>
       </div>
     );
   }

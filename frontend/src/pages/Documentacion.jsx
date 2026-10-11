@@ -240,6 +240,10 @@ function Documentacion() {
 
   const ficha = carpeta?.clave === claveFicha ? carpeta.data : null;
   const errorDeFicha = errorFicha?.clave === claveFicha ? errorFicha.mensaje : '';
+  // Si la ficha se abrió desde el listado, el ítem ya trae el titular y su
+  // estado: mientras carga se muestra el encabezado real y no se mueve nada al
+  // llegar la ficha. Abierta por URL no hay ítem y el encabezado va en esqueleto.
+  const itemDeLista = enFicha ? (listas[vista]?.find((item) => item.id === fichaId) ?? null) : null;
 
   return (
     <Layout>
@@ -301,7 +305,18 @@ function Documentacion() {
 
           {errorDeFicha && <Alert variant="error">{errorDeFicha}</Alert>}
 
-          {!ficha && !errorDeFicha && <Cargando forma="documentos" cantidad={4} />}
+          {!ficha && !errorDeFicha && (
+            <>
+              {itemDeLista && (
+                <EncabezadoFicha
+                  vista={vista}
+                  titular={itemDeLista}
+                  estadoDocumentacion={itemDeLista.estadoDocumentacion}
+                />
+              )}
+              <Cargando forma="documentos" cantidad={4} encabezado={itemDeLista ? 'resumen' : 'completo'} />
+            </>
+          )}
 
           {ficha && (
             <Ficha
@@ -399,14 +414,12 @@ function TarjetaListado({ vista, item, onClick }) {
   );
 }
 
-function Ficha({ vista, ficha, onVerPdf, onActualizar, onHistorial }) {
+// Título (interno y dominio, o nombre del chofer) con el estado de la
+// documentación, y el subtítulo. Lo usan la ficha cargada y, mientras carga, el
+// ítem del listado (trae los mismos datos del titular).
+function EncabezadoFicha({ vista, titular, estadoDocumentacion }) {
   const esVehiculo = vista === 'vehiculos';
-  const titular = esVehiculo ? ficha.vehiculo : ficha.chofer;
-  const estadoDoc = ESTADOS_DOCUMENTACION[ficha.resumen.estadoDocumentacion];
-  const soloConsulta = esVehiculo
-    ? titular.estadoVehiculo?.descripcion === 'DADO_DE_BAJA'
-    : titular.estadoUsuario?.descripcion !== 'ACTIVO';
-
+  const estadoDoc = ESTADOS_DOCUMENTACION[estadoDocumentacion];
   const subtitulo = esVehiculo
     ? [
         `${titular.marca} ${titular.modelo}`,
@@ -416,12 +429,6 @@ function Ficha({ vista, ficha, onVerPdf, onActualizar, onHistorial }) {
         .filter(Boolean)
         .join(' · ')
     : subtituloPerfil(titular);
-
-  const ordenados = ordenarPorTipoDocumento(ficha.documentos, (item) => item.tipo.descripcion);
-  const secciones = [
-    { titulo: 'Con vencimiento', items: ordenados.filter((item) => item.tipo.requiereVencimiento) },
-    { titulo: 'Sin vencimiento', items: ordenados.filter((item) => !item.tipo.requiereVencimiento) },
-  ].filter((seccion) => seccion.items.length > 0);
 
   return (
     <>
@@ -439,6 +446,26 @@ function Ficha({ vista, ficha, onVerPdf, onActualizar, onHistorial }) {
       </div>
 
       <p className="doc-ficha-subtitulo">{subtitulo}</p>
+    </>
+  );
+}
+
+function Ficha({ vista, ficha, onVerPdf, onActualizar, onHistorial }) {
+  const esVehiculo = vista === 'vehiculos';
+  const titular = esVehiculo ? ficha.vehiculo : ficha.chofer;
+  const soloConsulta = esVehiculo
+    ? titular.estadoVehiculo?.descripcion === 'DADO_DE_BAJA'
+    : titular.estadoUsuario?.descripcion !== 'ACTIVO';
+
+  const ordenados = ordenarPorTipoDocumento(ficha.documentos, (item) => item.tipo.descripcion);
+  const secciones = [
+    { titulo: 'Con vencimiento', items: ordenados.filter((item) => item.tipo.requiereVencimiento) },
+    { titulo: 'Sin vencimiento', items: ordenados.filter((item) => !item.tipo.requiereVencimiento) },
+  ].filter((seccion) => seccion.items.length > 0);
+
+  return (
+    <>
+      <EncabezadoFicha vista={vista} titular={titular} estadoDocumentacion={ficha.resumen.estadoDocumentacion} />
 
       <p className="doc-ficha-resumen">
         {contadoresResumen(ficha.resumen).map((contador, indice) => (

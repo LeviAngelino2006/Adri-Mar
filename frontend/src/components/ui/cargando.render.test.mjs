@@ -57,6 +57,31 @@ describe('Cargando', () => {
     assert.ok(!html.includes('carga-colectivo'));
   });
 
+  test('documentos con encabezado "resumen": resumen y título de sección antes de las tarjetas', () => {
+    const html = renderToStaticMarkup(
+      h(ContenidoCarga, { etapa: 'esqueleto', forma: 'documentos', cantidad: 4, encabezado: 'resumen' })
+    );
+    assert.match(
+      html,
+      /^<div class="carga" role="status" aria-live="polite"><span class="sr-only">Cargando…<\/span><div aria-hidden="true"><p class="doc-ficha-resumen"><span class="esqueleto-barra" style="width:240px"><\/span><\/p><section class="doc-seccion"><h2 class="detalle-seccion-titulo doc-seccion-titulo"><span class="esqueleto-barra" style="width:120px"><\/span><\/h2><div class="doc-tarjetas"/
+    );
+    assert.equal(contar(html, '<article class="doc-tarjeta esqueleto-documento">'), 4);
+    assert.ok(!html.includes('doc-ficha-header'));
+  });
+
+  test('documentos con encabezado "completo": también título y subtítulo de la ficha', () => {
+    const html = renderToStaticMarkup(h(ContenidoCarga, { etapa: 'esqueleto', forma: 'documentos', encabezado: 'completo' }));
+    assert.match(
+      html,
+      /<div aria-hidden="true"><div class="doc-ficha-header"><h1><span class="esqueleto-barra" style="width:200px"><\/span><\/h1><\/div><p class="doc-ficha-subtitulo"><span class="esqueleto-barra" style="width:260px"><\/span><\/p><p class="doc-ficha-resumen">/
+    );
+  });
+
+  test('documentos sin encabezado: solo las tarjetas', () => {
+    const html = renderToStaticMarkup(h(ContenidoCarga, { etapa: 'esqueleto', forma: 'documentos' }));
+    assert.ok(!html.includes('doc-ficha-resumen') && !html.includes('doc-seccion'));
+  });
+
   test('esqueleto de viajes: grupo con título de día y bloque de fecha', () => {
     const html = renderToStaticMarkup(h(ContenidoCarga, { etapa: 'esqueleto', forma: 'viajes' }));
     assert.match(
