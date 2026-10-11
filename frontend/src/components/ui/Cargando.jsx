@@ -1,13 +1,9 @@
-import { createContext, useContext, useEffect } from 'react';
+import { useContext, useEffect } from 'react';
 import IconoVehiculo from '../IconoVehiculo';
 import useEtapaCarga from '../../hooks/useEtapaCarga';
 import { avisarCargaLenta } from '../../utils/etapaCarga';
+import { CargaLentaContext } from './CargaLentaContext';
 import './Cargando.css';
-
-// Un solo colectivo por pantalla. Layout provee { cargasLentas, sumar, restar }
-// y muestra el colectivo arriba mientras cargasLentas es mayor que 0. Fuera de
-// Layout (o con `aislado`) cada Cargando dibuja el suyo.
-export const CargaLentaContext = createContext(null);
 
 // Estado de carga de una pantalla, panel o modal. Se monta solo mientras se
 // está cargando: nada los primeros 300ms, después un esqueleto con la forma del
