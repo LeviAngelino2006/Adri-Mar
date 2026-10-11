@@ -5,6 +5,8 @@ import Card from '../components/ui/Card';
 import FormField from '../components/ui/FormField';
 import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
+import { CargaColectivo } from '../components/ui/Cargando';
+import useEtapaCarga from '../hooks/useEtapaCarga';
 import logo from '../assets/logo-adrimar.png';
 import './Login.css';
 
@@ -16,6 +18,9 @@ function Login() {
   const [contrasena, setContrasena] = useState('');
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
+  // Si el login tarda más de 3s (el backend en Render arrancando), se avisa
+  // debajo del formulario con el colectivo.
+  const servidorLento = useEtapaCarga(enviando) === 'lento';
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -68,6 +73,9 @@ function Login() {
               {enviando ? 'Ingresando…' : 'Ingresar'}
             </Button>
           </form>
+          <div role="status" aria-live="polite">
+            {servidorLento && <CargaColectivo chica />}
+          </div>
         </Card>
       </div>
     </main>

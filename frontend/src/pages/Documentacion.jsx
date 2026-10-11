@@ -5,7 +5,7 @@ import Layout from '../components/Layout';
 import Alert from '../components/ui/Alert';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
-import Spinner from '../components/ui/Spinner';
+import Cargando from '../components/ui/Cargando';
 import Toast from '../components/ui/Toast';
 import IconoVehiculo from '../components/IconoVehiculo';
 import { ListadoCard, ListadoHeader, ListadoToolbar } from '../components/Listado';
@@ -50,7 +50,6 @@ const CONFIG = {
     buscar: 'Buscar por dominio, interno o marca',
     vacio: 'No hay vehículos con ese estado.',
     sinResultados: 'No se encontraron vehículos.',
-    cargando: 'Cargando vehículos…',
   },
   choferes: {
     listado: '/documentos/estado-choferes',
@@ -59,7 +58,6 @@ const CONFIG = {
     buscar: 'Buscar por nombre o DNI',
     vacio: 'No hay choferes con ese estado.',
     sinResultados: 'No se encontraron choferes.',
-    cargando: 'Cargando choferes…',
   },
 };
 
@@ -277,12 +275,7 @@ function Documentacion() {
             </form>
           )}
 
-          {cargandoLista && (
-            <div className="loading-state">
-              <Spinner label={config.cargando} />
-              <span>{config.cargando}</span>
-            </div>
-          )}
+          {cargandoLista && <Cargando forma="tarjetas" />}
 
           {errorLista && !items && <Alert variant="error">{errorLista}</Alert>}
 
@@ -308,12 +301,7 @@ function Documentacion() {
 
           {errorDeFicha && <Alert variant="error">{errorDeFicha}</Alert>}
 
-          {!ficha && !errorDeFicha && (
-            <div className="loading-state">
-              <Spinner label="Cargando documentación" />
-              <span>Cargando documentación…</span>
-            </div>
-          )}
+          {!ficha && !errorDeFicha && <Cargando forma="tarjetas" />}
 
           {ficha && (
             <Ficha

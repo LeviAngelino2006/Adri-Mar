@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Card from './ui/Card';
-import Spinner from './ui/Spinner';
+import Cargando from './ui/Cargando';
 import Alert from './ui/Alert';
 import EstadoBadge from './ui/EstadoBadge';
 import RutaViaje from './RutaViaje';
@@ -64,10 +64,7 @@ function FilaViajeDeHoy({ viaje, ahora, onAbrir }) {
 export function ContenidoViajesDeHoy({ cargando, error, viajes, ahora, onAbrir }) {
   if (cargando) {
     return (
-      <div className="loading-state">
-        <Spinner label="Cargando viajes de hoy" />
-        <span>Cargando…</span>
-      </div>
+      <Cargando forma="filas" />
     );
   }
 

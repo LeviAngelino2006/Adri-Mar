@@ -8,7 +8,7 @@ import EstadoBadge from '../components/ui/EstadoBadge';
 import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
-import Spinner from '../components/ui/Spinner';
+import Cargando from '../components/ui/Cargando';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import { ESTADOS_VEHICULO } from '../constants/estadosVehiculo';
@@ -302,12 +302,7 @@ function FlotaVehiculos() {
             </form>
           )}
 
-          {cargando && (
-            <div className="loading-state">
-              <Spinner label="Cargando vehículos" />
-              <span>Cargando vehículos…</span>
-            </div>
-          )}
+          {cargando && <Cargando forma="tarjetas" />}
 
           {!cargando && vehiculos.length === 0 && <div className="listado-vacio">No se encontraron vehículos</div>}
 

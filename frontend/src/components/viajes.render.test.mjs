@@ -105,7 +105,7 @@ describe('ContenidoViajesDeHoy', () => {
   });
 
   test('estados de carga, error y vacío', () => {
-    assert.match(render({ cargando: true }), /loading-state/);
+    assert.match(render({ cargando: true }), /<div class="carga" role="status" aria-live="polite"><\/div>/);
     assert.match(render({ error: true }), /No se pudieron cargar los viajes de hoy\./);
     assert.match(render({}), /class="dashboard-empty">No hay viajes para hoy</);
   });

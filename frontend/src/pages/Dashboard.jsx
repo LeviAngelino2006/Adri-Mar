@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import Spinner from '../components/ui/Spinner';
+import Cargando from '../components/ui/Cargando';
 import Toast from '../components/ui/Toast';
 import Alert from '../components/ui/Alert';
 import EstadoBadge from '../components/ui/EstadoBadge';
@@ -93,12 +93,7 @@ function ProximosViajes({ viajes, cargando, onVerDetalle, onComenzar }) {
     <Card className="dashboard-panel dashboard-proximos-viajes">
       <h2>Tus próximos viajes</h2>
 
-      {cargando && (
-        <div className="loading-state">
-          <Spinner label="Cargando próximos viajes" />
-          <span>Cargando…</span>
-        </div>
-      )}
+      {cargando && <Cargando forma="filas" />}
 
       {!cargando && viajes.length === 0 && (
         <div className="dashboard-empty">No tenés viajes programados próximamente</div>
@@ -251,10 +246,7 @@ function SeccionDocumentacion() {
     return (
       <Card className="dashboard-panel">
         <h2>Documentación</h2>
-        <div className="loading-state">
-          <Spinner label="Cargando alertas" />
-          <span>Cargando alertas…</span>
-        </div>
+        <Cargando forma="filas" />
       </Card>
     );
   }

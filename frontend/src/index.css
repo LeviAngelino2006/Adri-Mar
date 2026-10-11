@@ -260,14 +260,6 @@ label {
   text-decoration: underline;
 }
 
-.loading-state {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-secondary);
-  padding: var(--space-6) 0;
-}
-
 /* Ficha de detalle (viaje, vehículo y usuario): una Card con una sola grilla
    plana de pares dt/dd. Los datos administrativos del viaje todavía se agrupan
    en secciones tituladas (.detalle-seccion). */

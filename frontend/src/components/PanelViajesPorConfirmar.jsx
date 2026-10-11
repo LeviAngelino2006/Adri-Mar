@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
 import Card from './ui/Card';
 import Button from './ui/Button';
-import Spinner from './ui/Spinner';
+import Cargando from './ui/Cargando';
 import Alert from './ui/Alert';
 import Toast from './ui/Toast';
 import RutaViaje from './RutaViaje';
@@ -48,10 +48,7 @@ function GrupoDia({ titulo, viajes, onConfirmar }) {
 export function ContenidoPorConfirmar({ cargando, error, hoy, manana, onConfirmar }) {
   if (cargando) {
     return (
-      <div className="loading-state">
-        <Spinner label="Cargando viajes por confirmar" />
-        <span>Cargando…</span>
-      </div>
+      <Cargando forma="filas" />
     );
   }
 

@@ -1,0 +1,171 @@
+/* Estado de carga: esqueleto (300ms a 3s) y colectivo andando (más de 3s). */
+.carga {
+  position: relative;
+}
+
+.esqueleto {
+  display: block;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-border);
+  animation: esqueleto-pulso 1.4s ease-in-out infinite;
+}
+
+@keyframes esqueleto-pulso {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Forma "tarjetas": la anatomía de .listado-card. */
+.esqueleto-tarjetas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.esqueleto-tarjeta {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.esqueleto-marca {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+}
+
+.esqueleto-cuerpo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.esqueleto-linea {
+  height: 12px;
+}
+
+.esqueleto-linea-titulo {
+  height: 16px;
+  width: 55%;
+}
+
+.esqueleto-linea-sub {
+  width: 35%;
+}
+
+.esqueleto-linea-pie {
+  width: 80%;
+  margin-top: var(--space-2);
+}
+
+/* Forma "filas": hora de 56px y dos líneas, como las filas del Dashboard. */
+.esqueleto-fila {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.esqueleto-fila .esqueleto-hora {
+  height: 16px;
+  width: 44px;
+}
+
+/* Colectivo: las líneas de la ruta corren hacia la izquierda y el colectivo
+   rebota 2px, así parece que avanza sin moverse de lugar. */
+.carga-colectivo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+}
+
+.carga-colectivo-ruta {
+  position: relative;
+  width: 200px;
+  height: 64px;
+  overflow: hidden;
+}
+
+.carga-colectivo-ruta::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  height: 2px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--state-neutral-border) 0 14px,
+    transparent 14px 26px
+  );
+  animation: carga-ruta 0.6s linear infinite;
+}
+
+.carga-colectivo-bus {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  margin-left: -28px;
+  display: flex;
+  color: var(--brand-600);
+  animation: carga-bus 0.6s ease-in-out infinite;
+}
+
+@keyframes carga-ruta {
+  to {
+    background-position: -26px 0;
+  }
+}
+
+@keyframes carga-bus {
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+.carga-colectivo-texto {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.carga-colectivo-hint {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+/* Variante chica: debajo del formulario del login. */
+.carga-colectivo-chica {
+  padding: var(--space-4) 0 0;
+  gap: var(--space-2);
+}
+
+.carga-colectivo-chica .carga-colectivo-ruta {
+  width: 140px;
+  height: 48px;
+}
+
+.carga-colectivo-chica .carga-colectivo-bus {
+  margin-left: -20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto,
+  .carga-colectivo-ruta::after,
+  .carga-colectivo-bus {
+    animation: none;
+  }
+}
