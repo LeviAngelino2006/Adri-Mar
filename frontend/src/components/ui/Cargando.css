@@ -3,82 +3,97 @@
   position: relative;
 }
 
-.esqueleto {
-  display: block;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-border);
-  animation: esqueleto-pulso 1.4s ease-in-out infinite;
-}
-
 @keyframes esqueleto-pulso {
   50% {
     opacity: 0.5;
   }
 }
 
-/* Forma "tarjetas": la anatomía de .listado-card. */
-.esqueleto-tarjetas {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+/* Los esqueletos usan las mismas clases que el contenido real (.listado-card,
+   .dashboard-fila) con barras dentro de cada línea de texto: el alto lo dan el
+   padding y el line-height del componente real, no alturas fijas. */
+.esqueleto-barra {
+  display: inline-block;
+  height: 0.75em;
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+  background-color: var(--color-border);
+  animation: esqueleto-pulso 1.4s ease-in-out infinite;
 }
 
 .esqueleto-tarjeta {
-  display: flex;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  cursor: default;
 }
 
-.esqueleto-marca {
-  flex: 0 0 auto;
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
+.esqueleto-tarjeta .listado-card-marca,
+.esqueleto-tarjeta .listado-card-marca.fecha-tile {
+  background-color: var(--color-border);
+  animation: esqueleto-pulso 1.4s ease-in-out infinite;
 }
 
-.esqueleto-cuerpo {
+.esqueleto-tarjeta .listado-card-titulo {
   flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
 }
 
-.esqueleto-linea {
-  height: 12px;
+.esqueleto-badge {
+  flex: 0 0 auto;
+  display: inline-block;
+  width: 84px;
+  height: calc(0.8125rem * 1.2 + 6px);
+  border-radius: var(--radius-full);
 }
 
-.esqueleto-linea-titulo {
-  height: 16px;
-  width: 55%;
-}
-
-.esqueleto-linea-sub {
-  width: 35%;
-}
-
-.esqueleto-linea-pie {
-  width: 80%;
-  margin-top: var(--space-2);
-}
-
-/* Forma "filas": hora de 56px y dos líneas, como las filas del Dashboard. */
 .esqueleto-fila {
-  display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-2);
-  border-top: 1px solid var(--color-border);
+  cursor: default;
 }
 
-.esqueleto-fila .esqueleto-hora {
-  height: 16px;
-  width: 44px;
+.esqueleto-fila .hora-col > span,
+.esqueleto-fila .hora-col > small,
+.esqueleto-fila .dashboard-fila-titulo,
+.esqueleto-fila .dashboard-fila-meta {
+  display: block;
+}
+
+/* Ficha de Documentación: botones del alto de los reales (44px). */
+.esqueleto-boton {
+  display: inline-block;
+  width: 96px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+}
+
+/* El título del documento es un item del flex: sin flex: 1 su barra (en %) no
+   tendría ancho de referencia. */
+.esqueleto-documento .doc-tarjeta-nombre {
+  flex: 1;
+}
+
+@media (max-width: 479px) {
+  .esqueleto-documento .esqueleto-boton {
+    flex: 1;
+  }
+}
+
+/* Viajes en el celular: la ruta y el pie de la tarjeta real ocupan dos líneas.
+   La barra solo-mobile del título suma una línea; el primer dato del pie al
+   100% manda el segundo a otra línea. El !important pisa los anchos que van en
+   style. */
+.esqueleto-solo-mobile {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .esqueleto-viaje .esqueleto-solo-mobile {
+    display: inline-block;
+  }
+
+  .esqueleto-viaje .listado-card-titulo .esqueleto-barra:first-child {
+    width: 70% !important;
+  }
+
+  .esqueleto-viaje .listado-card-pie > span:first-child {
+    width: 100% !important;
+  }
 }
 
 /* Colectivo: las líneas de la ruta corren hacia la izquierda y el colectivo
@@ -169,7 +184,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .esqueleto,
+  .esqueleto-barra,
+  .esqueleto-tarjeta .listado-card-marca,
+  .esqueleto-tarjeta .listado-card-marca.fecha-tile,
   .carga-colectivo-ruta::after,
   .carga-colectivo-bus {
     animation: none;

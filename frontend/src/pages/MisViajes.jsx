@@ -164,7 +164,7 @@ function MisViajes() {
             </form>
           )}
 
-          {cargando && <Cargando forma="tarjetas" />}
+          {cargando && <Cargando forma="viajes" />}
 
           {!cargando && viajes.length === 0 && <div className="listado-vacio">No tenés viajes asignados</div>}
 
