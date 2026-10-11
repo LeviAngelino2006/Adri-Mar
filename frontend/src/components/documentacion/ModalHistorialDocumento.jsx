@@ -3,7 +3,7 @@ import api from '../../services/api';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 import EstadoBadge from '../ui/EstadoBadge';
-import Spinner from '../ui/Spinner';
+import Cargando from '../ui/Cargando';
 import ModalMarco from './ModalMarco';
 import { etiquetaTipoDocumento } from '../../constants/tiposDocumento';
 import { formatearFechaCorta } from '../../utils/documentacion';
@@ -39,12 +39,7 @@ function ModalHistorialDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, o
         </Button>
       }
     >
-      {cargando && (
-        <div className="loading-state">
-          <Spinner label="Cargando historial" />
-          <span>Cargando historial…</span>
-        </div>
-      )}
+      {cargando && <Cargando forma="filas" cantidad={2} aislado />}
 
       {error && <Alert variant="error">{error}</Alert>}
 

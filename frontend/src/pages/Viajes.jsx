@@ -7,7 +7,7 @@ import Card from '../components/ui/Card';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
 import Button from '../components/ui/Button';
-import Spinner from '../components/ui/Spinner';
+import Cargando from '../components/ui/Cargando';
 import Alert from '../components/ui/Alert';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
@@ -395,12 +395,7 @@ function Viajes() {
             </form>
           )}
 
-          {cargando && (
-            <div className="loading-state">
-              <Spinner label="Cargando viajes" />
-              <span>Cargando viajes…</span>
-            </div>
-          )}
+          {cargando && <Cargando forma="tarjetas" />}
 
           {!cargando && viajes.length === 0 && <div className="listado-vacio">No se encontraron viajes</div>}
 

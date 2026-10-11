@@ -7,7 +7,7 @@ import Button from '../components/ui/Button';
 import Switch from '../components/ui/Switch';
 import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
-import Spinner from '../components/ui/Spinner';
+import Cargando from '../components/ui/Cargando';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import { PERFILES, PERFIL_COLORS } from '../constants/perfiles';
@@ -326,12 +326,7 @@ function Usuarios() {
             accion={{ etiqueta: 'Crear usuario', onClick: abrirNuevo }}
           />
 
-          {cargando && (
-            <div className="loading-state">
-              <Spinner label="Cargando usuarios" />
-              <span>Cargando usuarios…</span>
-            </div>
-          )}
+          {cargando && <Cargando forma="tarjetas" />}
 
           {!cargando && usuarios.length === 0 && <div className="listado-vacio">No se encontraron usuarios</div>}
 

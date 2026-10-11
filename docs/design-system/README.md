@@ -67,7 +67,7 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 
 ## Componentes
 
-`components/bundle.js` expone `window.AdriMar` con Button, Card, Alert, FormField, Switch, Spinner, Toast, ConfirmModal, EstadoDot, EstadoBadge y RutaViaje (React). `components/bundle.css` trae sus estilos, las reglas base y las clases de páginas y layout. Leé el README de cada componente antes de usarlo. `ControlSegmentado` (alternar vistas hermanas dentro de una pantalla) y `TarjetaDocumento` (un documento en la ficha de Documentación) viven en la app (`frontend/src/components`) y todavía no están en el bundle.
+`components/bundle.js` expone `window.AdriMar` con Button, Card, Alert, FormField, Switch, Spinner, Toast, ConfirmModal, EstadoDot, EstadoBadge y RutaViaje (React). `components/bundle.css` trae sus estilos, las reglas base y las clases de páginas y layout. Leé el README de cada componente antes de usarlo. `ControlSegmentado` (alternar vistas hermanas dentro de una pantalla), `TarjetaDocumento` (un documento en la ficha de Documentación) y `Cargando` (estado de carga de pantallas, paneles y modales) viven en la app (`frontend/src/components`) y todavía no están en el bundle.
 
 ## Patrones de página
 
@@ -80,6 +80,7 @@ Las pantallas se arman con las clases de `bundle.css` y los componentes de arrib
 - Documentación: `Listado` con `ControlSegmentado` (Vehículos | Choferes, con ícono y cantidad) en la misma barra que el buscador y Filtros, a la derecha, y, en la ficha, una `TarjetaDocumento` por documento.
 - Usuarios: `Avatar`, con el color según el perfil.
 - Layout: `Navegacion` (sidebar y topbar), `Login` (panel de marca + card).
+- Carga: `Cargando` reemplaza al Spinner con "Cargando…" en pantallas y paneles; el Spinner queda para los botones.
 
 - Las pantallas de listado (Viajes, Flota de vehículos, Usuarios y Documentación) siguen el mismo patrón, `Listado`: sin título visible (el `h1` va en `.sr-only`), barra de búsqueda y filtros con la acción principal a la derecha ("Crear viaje", "Crear vehículo", "Crear usuario"; Mis viajes y Documentación no tienen), y tarjetas con la misma anatomía, apiladas una debajo de otra a todo el ancho. No hay tablas ni grilla.
 - Las fichas de detalle (viaje, vehículo y usuario) son una sola `Card` plana con una grilla de pares `dt`/`dd` en dos columnas desde 640px (nunca tres), sin títulos de sección y en el mismo orden que su formulario. Los datos vacíos dicen "No registrado".
