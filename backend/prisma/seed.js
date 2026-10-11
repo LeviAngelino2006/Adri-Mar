@@ -174,7 +174,7 @@ async function main() {
     { descripcion: 'CEDULA_IDENTIFICACION', categoria: 'VEHICULO', requiereVencimiento: false, requiereArchivo: true, diasAviso: 30 },
     { descripcion: 'ALTA_TRANSPORTE', categoria: 'VEHICULO', requiereVencimiento: false, requiereArchivo: true, diasAviso: 30 },
     { descripcion: 'LICENCIA_CONDUCIR', categoria: 'CHOFER', requiereVencimiento: true, requiereArchivo: true, diasAviso: 30 },
-    { descripcion: 'DNI_CHOFER', categoria: 'CHOFER', requiereVencimiento: false, requiereArchivo: true, diasAviso: 30 },
+    { descripcion: 'DNI_CHOFER', categoria: 'CHOFER', requiereVencimiento: true, requiereArchivo: true, diasAviso: 30 },
   ];
 
   for (const { descripcion, categoria, ...datos } of TIPOS_DOCUMENTO) {

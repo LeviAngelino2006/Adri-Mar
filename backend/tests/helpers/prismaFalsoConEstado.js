@@ -125,7 +125,7 @@ function crearEntorno() {
       tipo(2, 'MATAFUEGOS', 'VEHICULO', true, false),
       tipo(3, 'TITULO_VEHICULO', 'VEHICULO', false, true),
       tipo(4, 'LICENCIA_CONDUCIR', 'CHOFER', true, true),
-      tipo(5, 'DNI_CHOFER', 'CHOFER', false, true),
+      tipo(5, 'DNI_CHOFER', 'CHOFER', true, true),
       tipo(6, 'PAGO_SEGURO', 'VEHICULO', true, true, 5),
       tipo(7, 'ITV', 'VEHICULO', true, true),
     ]);

@@ -15,6 +15,9 @@ Tarjeta de un documento en la ficha de un vehículo o chofer (pantalla Documenta
 
 "Por vencer" depende del tipo: cada tipo de documento tiene sus días de aviso (5 para el comprobante de pago del seguro, 30 para el resto).
 
+## Documentos del chofer
+Los dos tipos del chofer tienen vencimiento y van en la sección "Con vencimiento": la licencia de conducir y el DNI. El DNI se carga con fecha de vencimiento obligatoria, pasa a "Por vencer" 30 días antes y, vencido o por vencer, entra en las alertas como la licencia.
+
 ## Línea de fechas
 - Vigente con vencimiento: "Vence el 22 dic 2026".
 - Por vencer: "Vence el 13 oct 2026, en 4 días"; el mismo día, "Vence hoy, 13 oct 2026".

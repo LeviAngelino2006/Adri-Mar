@@ -22,12 +22,14 @@ let vite;
 let ControlSegmentado;
 let TarjetaDocumento;
 let ModalVisorPdf;
+let ModalSubirDocumento;
 
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
   ControlSegmentado = (await vite.ssrLoadModule('/src/components/ui/ControlSegmentado.jsx')).default;
   TarjetaDocumento = (await vite.ssrLoadModule('/src/components/documentacion/TarjetaDocumento.jsx')).default;
   ModalVisorPdf = (await vite.ssrLoadModule('/src/components/documentacion/ModalVisorPdf.jsx')).default;
+  ModalSubirDocumento = (await vite.ssrLoadModule('/src/components/documentacion/ModalSubirDocumento.jsx')).default;
 });
 
 after(() => vite.close());
@@ -180,5 +182,40 @@ describe('ModalVisorPdf', () => {
     assert.match(html, /role="dialog"/);
     assert.match(html, /aria-modal="true"/);
     assert.match(html, /doc-modal doc-modal-visor/);
+  });
+});
+
+describe('DNI del chofer con vencimiento', () => {
+  // Así llega DNI_CHOFER del catálogo después de la migración.
+  const tipoDni = { id: 10, descripcion: 'DNI_CHOFER', requiereVencimiento: true, requiereArchivo: true, diasAviso: 30 };
+
+  test('el formulario de carga pide la fecha de vencimiento como obligatoria', () => {
+    const html = renderToStaticMarkup(
+      h(ModalSubirDocumento, { subtitulo: 'Ana Pérez', chofer: { id: 5 }, tipoDocumento: tipoDni, onClose() {}, onSuccess() {} })
+    );
+    assert.match(html, /Cargar Documento Nacional de Identidad \(DNI\)/);
+    assert.match(html, /Fecha de vencimiento<span class="form-field-required"/);
+    assert.match(html, /<input type="date" id="documento-fecha-vencimiento" aria-required="true"/);
+  });
+
+  test('la tarjeta muestra el vencimiento y el estado Por vencer', () => {
+    const vence = new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString();
+    const html = renderToStaticMarkup(
+      h(TarjetaDocumento, {
+        item: {
+          tipo: tipoDni,
+          cargado: true,
+          cantidadVersiones: 1,
+          documento: { id: 1, tieneArchivo: true, estadoVigencia: 'POR_VENCER', fechaVencimiento: vence, creadoEn: vence },
+        },
+        soloConsulta: false,
+        onVerPdf() {},
+        onActualizar() {},
+        onHistorial() {},
+      })
+    );
+    assert.match(html, /Documento Nacional de Identidad/);
+    assert.match(html, />Por vencer</);
+    assert.match(html, /Vence/);
   });
 });
