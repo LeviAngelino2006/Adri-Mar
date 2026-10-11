@@ -40,23 +40,51 @@ describe('Cargando', () => {
     );
   });
 
-  test('esqueleto de tarjetas: 3 por defecto, con marca y tres líneas', () => {
+  test('esqueleto de tarjetas: las clases de ListadoCard con barras, 3 por defecto', () => {
     const html = renderToStaticMarkup(h(ContenidoCarga, { etapa: 'esqueleto', forma: 'tarjetas' }));
     assert.match(html, /<span class="sr-only">Cargando…<\/span>/);
-    assert.match(html, /<div class="esqueleto-tarjetas" aria-hidden="true">/);
-    assert.equal(contar(html, 'class="esqueleto-tarjeta"'), 3);
-    assert.equal(contar(html, 'esqueleto-marca'), 3);
-    assert.equal(contar(html, 'esqueleto-linea-pie'), 3);
+    assert.match(html, /<div class="listado-cards" aria-hidden="true"><div class="listado-card esqueleto-tarjeta">/);
+    assert.equal(contar(html, 'class="listado-card esqueleto-tarjeta"'), 3);
+    assert.equal(contar(html, 'class="listado-card-marca"'), 3);
+    assert.match(html, /<span class="listado-card-titulo"><span class="esqueleto-barra" style="width:55%"><\/span><\/span><span class="esqueleto-barra esqueleto-badge"><\/span>/);
+    assert.match(html, /<div class="listado-card-sub"><span class="esqueleto-barra" style="width:35%"><\/span><\/div>/);
+    // Las barras del pie van envueltas en <span> para conservar el alto de línea.
+    assert.match(
+      html,
+      /<div class="listado-card-pie"><span style="width:40%"><span class="esqueleto-barra" style="width:100%"><\/span><\/span><span style="width:20%"><span class="esqueleto-barra" style="width:100%"><\/span><\/span><\/div>/
+    );
+    assert.ok(!html.includes('fecha-tile') && !html.includes('listado-grupo'));
     assert.ok(!html.includes('carga-colectivo'));
   });
 
-  test('esqueleto de filas: hora y dos líneas, con la cantidad pedida', () => {
+  test('esqueleto de viajes: grupo con título de día y bloque de fecha', () => {
+    const html = renderToStaticMarkup(h(ContenidoCarga, { etapa: 'esqueleto', forma: 'viajes' }));
+    assert.match(
+      html,
+      /<section class="listado-grupo" aria-hidden="true"><h2 class="listado-dia"><span class="esqueleto-barra" style="width:110px"><\/span><\/h2><div class="listado-cards" aria-hidden="true">/
+    );
+    assert.equal(contar(html, 'class="listado-card-marca fecha-tile"'), 3);
+  });
+
+  test('esqueleto de filas: las clases de las filas del Dashboard, con la cantidad pedida', () => {
     const html = renderToStaticMarkup(h(ContenidoCarga, { etapa: 'esqueleto', forma: 'filas', cantidad: 2 }));
-    assert.match(html, /<div aria-hidden="true"><div class="esqueleto-fila">/);
-    assert.equal(contar(html, 'class="esqueleto-fila"'), 2);
-    assert.equal(contar(html, 'esqueleto-hora'), 2);
-    assert.equal(contar(html, 'esqueleto-linea-sub'), 2);
-    assert.ok(!html.includes('esqueleto-linea-pie'));
+    assert.match(html, /<ul class="dashboard-lista" aria-hidden="true"><li><div class="dashboard-fila esqueleto-fila">/);
+    assert.equal(contar(html, 'class="dashboard-fila esqueleto-fila"'), 2);
+    assert.match(
+      html,
+      /<span class="hora-col"><span><span class="esqueleto-barra" style="width:40px"><\/span><\/span><small><span class="esqueleto-barra" style="width:32px"><\/span><\/small><\/span>/
+    );
+    assert.match(html, /<span class="dashboard-fila-titulo"><span class="esqueleto-barra" style="width:60%"><\/span><\/span>/);
+    assert.match(html, /<span class="dashboard-fila-meta"><span class="esqueleto-barra" style="width:40%"><\/span><\/span>/);
+    assert.equal(contar(html, 'esqueleto-badge'), 2);
+    assert.ok(!html.includes('listado-card'));
+  });
+
+  test('ningún esqueleto usa alturas fijas en línea', () => {
+    for (const forma of ['tarjetas', 'viajes', 'filas']) {
+      const html = renderToStaticMarkup(h(ContenidoCarga, { etapa: 'esqueleto', forma }));
+      assert.ok(!/height/.test(html), forma);
+    }
   });
 
   test('lento: el colectivo reemplaza al esqueleto', () => {
