@@ -66,6 +66,45 @@ describe('Cargando', () => {
     assert.equal(contar(html, 'class="listado-card-marca fecha-tile"'), 3);
   });
 
+  test('esqueleto de documentacion: la tarjeta con la línea de detalle entre sub y pie', () => {
+    const html = renderToStaticMarkup(h(ContenidoCarga, { etapa: 'esqueleto', forma: 'documentacion' }));
+    assert.equal(contar(html, 'class="listado-card esqueleto-tarjeta"'), 3);
+    assert.match(
+      html,
+      /<div class="listado-card-sub"><span class="esqueleto-barra" style="width:35%"><\/span><\/div><div class="listado-card-detalle"><span class="esqueleto-barra" style="width:50%"><\/span><\/div><div class="listado-card-pie">/
+    );
+    assert.equal(contar(renderToStaticMarkup(h(ContenidoCarga, { etapa: 'esqueleto', forma: 'tarjetas' })), 'listado-card-detalle'), 0);
+  });
+
+  test('esqueleto de documentos: las clases de TarjetaDocumento, con nombre, badge, fechas y dos botones', () => {
+    const html = renderToStaticMarkup(h(ContenidoCarga, { etapa: 'esqueleto', forma: 'documentos', cantidad: 4 }));
+    assert.match(html, /<div class="doc-tarjetas" aria-hidden="true"><article class="doc-tarjeta esqueleto-documento">/);
+    assert.equal(contar(html, '<article class="doc-tarjeta esqueleto-documento">'), 4);
+    assert.match(
+      html,
+      /<div class="doc-tarjeta-titulo"><h3 class="doc-tarjeta-nombre"><span class="esqueleto-barra" style="width:45%"><\/span><\/h3><span class="esqueleto-barra esqueleto-badge"><\/span><\/div><p class="doc-tarjeta-fechas"><span class="esqueleto-barra" style="width:35%"><\/span><\/p>/
+    );
+    assert.match(
+      html,
+      /<div class="doc-tarjeta-acciones"><span class="esqueleto-barra esqueleto-boton"><\/span><span class="esqueleto-barra esqueleto-boton"><\/span><\/div>/
+    );
+    assert.ok(!html.includes('listado-card'));
+  });
+
+  test('esqueleto de viajes: barra solo-mobile en el título', () => {
+    const html = renderToStaticMarkup(h(ContenidoCarga, { etapa: 'esqueleto', forma: 'viajes', cantidad: 1 }));
+    assert.match(html, /class="listado-card esqueleto-tarjeta esqueleto-viaje"/);
+    assert.match(
+      html,
+      /<span class="listado-card-titulo"><span class="esqueleto-barra" style="width:55%"><\/span><span class="esqueleto-barra esqueleto-solo-mobile" style="width:40%"><\/span><\/span>/
+    );
+    // El pie no suma barras: en el celular, el CSS deja el primer dato al 100% y el
+    // segundo baja a otra línea, como en la tarjeta real.
+    assert.equal(contar(html, 'esqueleto-solo-mobile'), 1);
+    const tarjetas = renderToStaticMarkup(h(ContenidoCarga, { etapa: 'esqueleto', forma: 'tarjetas' }));
+    assert.ok(!tarjetas.includes('esqueleto-solo-mobile') && !tarjetas.includes('esqueleto-viaje'));
+  });
+
   test('esqueleto de filas: las clases de las filas del Dashboard, con la cantidad pedida', () => {
     const html = renderToStaticMarkup(h(ContenidoCarga, { etapa: 'esqueleto', forma: 'filas', cantidad: 2 }));
     assert.match(html, /<ul class="dashboard-lista" aria-hidden="true"><li><div class="dashboard-fila esqueleto-fila">/);
@@ -81,7 +120,7 @@ describe('Cargando', () => {
   });
 
   test('ningún esqueleto usa alturas fijas en línea', () => {
-    for (const forma of ['tarjetas', 'viajes', 'filas']) {
+    for (const forma of ['tarjetas', 'documentacion', 'documentos', 'viajes', 'filas']) {
       const html = renderToStaticMarkup(h(ContenidoCarga, { etapa: 'esqueleto', forma }));
       assert.ok(!/height/.test(html), forma);
     }

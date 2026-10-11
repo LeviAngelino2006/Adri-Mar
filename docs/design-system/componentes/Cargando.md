@@ -11,10 +11,12 @@ El caso de más de 3s es sobre todo el primer pedido después de un rato sin uso
 
 ## Lo que provee quien lo usa
 - `forma`:
-  - `"tarjetas"`: una `ListadoCard` (marca, título con badge, sub y pie). Para Flota, Usuarios, el listado de Documentación y la ficha de Documentación.
+  - `"tarjetas"`: una `ListadoCard` (marca, título con badge, sub y pie). Para Flota y Usuarios.
+  - `"documentacion"`: como `"tarjetas"`, con la línea de detalle (`.listado-card-detalle`) entre el sub y el pie. Para el listado de Documentación, donde casi todas las tarjetas la tienen ("Falta: VTV", "Próximo vencimiento…").
+  - `"documentos"`: una `TarjetaDocumento` (nombre con badge, fechas y dos botones). Para la ficha de Documentación, con `cantidad={4}`.
   - `"viajes"`: como `"tarjetas"`, pero dentro de un grupo (`.listado-grupo`) con título de día, y la marca es el bloque de fecha (`fecha-tile`). Para Viajes y Mis viajes.
   - `"filas"`: las filas de los paneles del Dashboard (hora de salida y llegada, título, meta y badge). Para los paneles del Dashboard (Viajes de hoy, Viajes por confirmar, Documentación, Tus próximos viajes) y el historial de un documento.
-- `cantidad`: cuántas tarjetas o filas dibujar. 3 por defecto; 2 en el historial.
+- `cantidad`: cuántas tarjetas o filas dibujar. 3 por defecto; 4 en la ficha de Documentación y 2 en el historial.
 - `aislado`: dibuja su propio colectivo en lugar del esqueleto, en vez de avisarle a la pantalla. Para el historial de un documento, que está en un modal.
 - El componente se monta solo mientras `cargando` es `true`. El estado de error y el vacío no cambian.
 
@@ -26,7 +28,17 @@ El caso de más de 3s es sobre todo el primer pedido después de un rato sin uso
   - `.listado-card-sub` con una barra al 35%;
   - `.listado-card-pie` con dos barras.
 - **Las barras del pie van envueltas en un `<span>`** (`<span style="width: 40%"><Barra ancho="100%" /></span>`). Sueltas dentro del flex del pie pierden el alto de línea, y la tarjeta queda 10px más baja.
-- Esqueleto "viajes": `<section class="listado-grupo">` con `<h2 class="listado-dia">` (una barra de 110px) y las tarjetas de "tarjetas", con la marca `.listado-card-marca.fecha-tile`.
+- Esqueleto "documentacion": el de "tarjetas" con `<div class="listado-card-detalle">` (una barra al 50%) entre `.listado-card-sub` y `.listado-card-pie`.
+- Esqueleto "documentos": `.doc-tarjetas` con un `<article class="doc-tarjeta esqueleto-documento">` por ítem. Adentro:
+  - `.doc-tarjeta-info`, con `.doc-tarjeta-titulo` (un `h3.doc-tarjeta-nombre` con una barra al 45% y un `.esqueleto-badge`) y `p.doc-tarjeta-fechas` (una barra al 35%);
+  - `.doc-tarjeta-acciones`, con dos `.esqueleto-barra.esqueleto-boton` de 44px de alto, como los botones reales. Debajo de 480px se estiran, igual que los botones.
+  - El nombre lleva `flex: 1`: es un item del flex, y sin eso su barra (en %) no tendría ancho de referencia.
+- Esqueleto "viajes": `<section class="listado-grupo">` con `<h2 class="listado-dia">` (una barra de 110px) y las tarjetas de "tarjetas", con la clase extra `esqueleto-viaje` y la marca `.listado-card-marca.fecha-tile`.
+- **Viajes en el celular (menos de 640px):** en la tarjeta real, la ruta ocupa dos líneas y el pie también se parte en dos (vehículo, y km debajo). El esqueleto lo imita así:
+  - El título lleva una segunda barra `.esqueleto-solo-mobile` (40%), que solo se ve en el celular. Ahí, la primera barra pasa al 70%, así que la segunda baja a otra línea.
+  - El primer dato del pie pasa al 100% de ancho, y el segundo baja a otra línea. El pie no lleva barras extra: con una más quedaría en tres líneas.
+  - Los anchos se pisan con `!important` porque las barras los llevan en `style`.
+  - Lo que queda (unos 5px) depende del largo de la ruta.
 - Esqueleto "filas": `<ul class="dashboard-lista">` con un `<li>` por ítem. Cada uno tiene una `.dashboard-fila.esqueleto-fila` con:
   - `.hora-col`: barras de 40px y 32px;
   - `.dashboard-fila-info`: título al 60% y meta al 40%;

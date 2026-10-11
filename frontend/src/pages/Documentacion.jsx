@@ -275,7 +275,7 @@ function Documentacion() {
             </form>
           )}
 
-          {cargandoLista && <Cargando forma="tarjetas" />}
+          {cargandoLista && <Cargando forma="documentacion" />}
 
           {errorLista && !items && <Alert variant="error">{errorLista}</Alert>}
 
@@ -301,7 +301,7 @@ function Documentacion() {
 
           {errorDeFicha && <Alert variant="error">{errorDeFicha}</Alert>}
 
-          {!ficha && !errorDeFicha && <Cargando forma="tarjetas" />}
+          {!ficha && !errorDeFicha && <Cargando forma="documentos" cantidad={4} />}
 
           {ficha && (
             <Ficha

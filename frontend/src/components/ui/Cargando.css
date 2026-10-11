@@ -54,6 +54,48 @@
   display: block;
 }
 
+/* Ficha de Documentación: botones del alto de los reales (44px). */
+.esqueleto-boton {
+  display: inline-block;
+  width: 96px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+}
+
+/* El título del documento es un item del flex: sin flex: 1 su barra (en %) no
+   tendría ancho de referencia. */
+.esqueleto-documento .doc-tarjeta-nombre {
+  flex: 1;
+}
+
+@media (max-width: 479px) {
+  .esqueleto-documento .esqueleto-boton {
+    flex: 1;
+  }
+}
+
+/* Viajes en el celular: la ruta y el pie de la tarjeta real ocupan dos líneas.
+   La barra solo-mobile del título suma una línea; el primer dato del pie al
+   100% manda el segundo a otra línea. El !important pisa los anchos que van en
+   style. */
+.esqueleto-solo-mobile {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .esqueleto-viaje .esqueleto-solo-mobile {
+    display: inline-block;
+  }
+
+  .esqueleto-viaje .listado-card-titulo .esqueleto-barra:first-child {
+    width: 70% !important;
+  }
+
+  .esqueleto-viaje .listado-card-pie > span:first-child {
+    width: 100% !important;
+  }
+}
+
 /* Colectivo: las líneas de la ruta corren hacia la izquierda y el colectivo
    rebota 2px, así parece que avanza sin moverse de lugar. */
 .carga-colectivo {

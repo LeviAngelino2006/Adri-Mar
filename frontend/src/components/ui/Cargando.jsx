@@ -6,20 +6,23 @@ import { CargaLentaContext } from './CargaLentaContext';
 
 // Los esqueletos usan las clases reales: se importan sus estilos para que
 // midan igual en cualquier pantalla (el historial, por ejemplo, no está en el
-// Dashboard).
+// Dashboard; la ficha de Documentación todavía no cargó TarjetaDocumento).
 import '../Listado.css';
 import '../FechaTile.css';
 import '../../pages/Dashboard.css';
+import '../documentacion/TarjetaDocumento.css';
 import './Cargando.css';
 
 // Estado de carga de una pantalla, panel o modal. Se monta solo mientras se
 // está cargando: nada los primeros 300ms, después un esqueleto con la forma del
 // contenido y, desde los 3s, el esqueleto se queda y el Layout muestra el
 // colectivo con "Conectando con el servidor…".
-// `forma`: 'tarjetas' (Flota, Usuarios y Documentación), 'viajes' (Viajes y Mis
-// viajes: grupo con título de día y bloque de fecha) o 'filas' (paneles del
-// Dashboard e historial de un documento). `aislado`: dibuja su propio colectivo
-// en lugar del esqueleto (en un modal, el de la página quedaría tapado).
+// `forma`: 'tarjetas' (Flota y Usuarios), 'documentacion' (listado de
+// Documentación: suma la línea de detalle), 'documentos' (ficha de
+// Documentación: TarjetaDocumento), 'viajes' (Viajes y Mis viajes: grupo con
+// título de día y bloque de fecha) o 'filas' (paneles del Dashboard e historial
+// de un documento). `aislado`: dibuja su propio colectivo en lugar del
+// esqueleto (en un modal, el de la página quedaría tapado).
 function Cargando({ forma = 'tarjetas', cantidad = 3, aislado = false }) {
   const etapa = useEtapaCarga(true);
   const contexto = useContext(CargaLentaContext);
@@ -46,10 +49,13 @@ export function ContenidoCarga({ etapa, forma = 'tarjetas', cantidad = 3 }) {
 
 // Barra gris dentro de una línea de texto: toma el alto de línea del componente
 // real que la contiene.
-const Barra = ({ ancho }) => <span className="esqueleto-barra" style={{ width: ancho }} />;
+const Barra = ({ ancho, className }) => (
+  <span className={className ? `esqueleto-barra ${className}` : 'esqueleto-barra'} style={{ width: ancho }} />
+);
 
-// Mismas clases que el contenido real (ListadoCard, TarjetaViaje y las filas del
-// Dashboard), con barras en lugar de texto: así mide lo mismo.
+// Mismas clases que el contenido real (ListadoCard, TarjetaViaje,
+// TarjetaDocumento y las filas del Dashboard), con barras en lugar de texto:
+// así mide lo mismo.
 function Esqueleto({ forma, cantidad }) {
   const items = Array.from({ length: cantidad }, (_, i) => i);
   if (forma === 'filas') {
@@ -81,21 +87,55 @@ function Esqueleto({ forma, cantidad }) {
       </ul>
     );
   }
+  if (forma === 'documentos') {
+    return (
+      <div className="doc-tarjetas" aria-hidden="true">
+        {items.map((i) => (
+          <article key={i} className="doc-tarjeta esqueleto-documento">
+            <div className="doc-tarjeta-info">
+              <div className="doc-tarjeta-titulo">
+                <h3 className="doc-tarjeta-nombre">
+                  <Barra ancho="45%" />
+                </h3>
+                <span className="esqueleto-barra esqueleto-badge" />
+              </div>
+              <p className="doc-tarjeta-fechas">
+                <Barra ancho="35%" />
+              </p>
+            </div>
+            <div className="doc-tarjeta-acciones">
+              <span className="esqueleto-barra esqueleto-boton" />
+              <span className="esqueleto-barra esqueleto-boton" />
+            </div>
+          </article>
+        ))}
+      </div>
+    );
+  }
+  const esViajes = forma === 'viajes';
   const tarjetas = (
     <div className="listado-cards" aria-hidden="true">
       {items.map((i) => (
-        <div key={i} className="listado-card esqueleto-tarjeta">
-          <div className={forma === 'viajes' ? 'listado-card-marca fecha-tile' : 'listado-card-marca'} />
+        <div key={i} className={esViajes ? 'listado-card esqueleto-tarjeta esqueleto-viaje' : 'listado-card esqueleto-tarjeta'}>
+          <div className={esViajes ? 'listado-card-marca fecha-tile' : 'listado-card-marca'} />
           <div className="listado-card-cuerpo">
             <div className="listado-card-top">
+              {/* En viajes, la barra solo-mobile imita la ruta partida en dos
+                  líneas en el celular (el pie se parte por CSS). */}
               <span className="listado-card-titulo">
                 <Barra ancho="55%" />
+                {esViajes && <Barra ancho="40%" className="esqueleto-solo-mobile" />}
               </span>
               <span className="esqueleto-barra esqueleto-badge" />
             </div>
             <div className="listado-card-sub">
               <Barra ancho="35%" />
             </div>
+            {forma === 'documentacion' && (
+              <div className="listado-card-detalle">
+                <Barra ancho="50%" />
+              </div>
+            )}
             {/* Las barras del pie van en <span>: sueltas dentro del flex
                 pierden el alto de línea y la tarjeta queda 10px más baja. */}
             <div className="listado-card-pie">
@@ -111,7 +151,7 @@ function Esqueleto({ forma, cantidad }) {
       ))}
     </div>
   );
-  if (forma !== 'viajes') return tarjetas;
+  if (!esViajes) return tarjetas;
   return (
     <section className="listado-grupo" aria-hidden="true">
       <h2 className="listado-dia">
