@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useReducer, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { PERFILES } from '../constants/perfiles';
 import { getNavItemsHabilitados } from '../constants/navegacion';
 import ConfirmModal from './ui/ConfirmModal';
+import { CargaColectivo, CargaLentaContext } from './ui/Cargando';
+import { contarCargasLentas } from '../utils/etapaCarga';
 import logo from '../assets/logo-adrimar.png';
 import './Layout.css';
 
@@ -71,6 +73,14 @@ function Layout({ children }) {
   const { pathname } = useLocation();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [confirmandoLogout, setConfirmandoLogout] = useState(false);
+  // Cargas de la pantalla que pasaron los 3s: mientras haya alguna se muestra un
+  // solo colectivo arriba (ver Cargando).
+  const [cargasLentas, cambiarCargasLentas] = useReducer(contarCargasLentas, 0);
+  // sumar y restar son estables: si cambiaran con el contador, el efecto de cada
+  // Cargando restaría y volvería a sumar en cada render.
+  const sumar = useCallback(() => cambiarCargasLentas('sumar'), []);
+  const restar = useCallback(() => cambiarCargasLentas('restar'), []);
+  const cargaLenta = useMemo(() => ({ cargasLentas, sumar, restar }), [cargasLentas, sumar, restar]);
 
   const navItems = getNavItemsHabilitados(usuario);
   const perfilLabel = PERFILES.find((p) => p.value === usuario.perfil)?.label ?? usuario.perfil;
@@ -151,7 +161,12 @@ function Layout({ children }) {
         </div>
       </aside>
 
-      <main className="layout-content">{children}</main>
+      <main className="layout-content">
+        <div role="status" aria-live="polite">
+          {cargasLentas > 0 && <CargaColectivo className="carga-colectivo-pagina" />}
+        </div>
+        <CargaLentaContext.Provider value={cargaLenta}>{children}</CargaLentaContext.Provider>
+      </main>
 
       <ConfirmModal
         open={confirmandoLogout}

@@ -73,4 +73,17 @@ describe('Cargando', () => {
     assert.match(html, /^<div class="carga-colectivo carga-colectivo-chica">/);
     assert.match(html, /<svg width="40" height="40" aria-hidden="true"/);
   });
+
+  test('CargaColectivo suma las clases que recibe (el colectivo único del Layout)', () => {
+    const html = renderToStaticMarkup(h(CargaColectivo, { className: 'carga-colectivo-pagina' }));
+    assert.match(html, /^<div class="carga-colectivo carga-colectivo-pagina">/);
+    assert.match(html, /<svg width="56" height="56"/);
+  });
+
+  test('fuera de Layout y con aislado también arranca vacío', () => {
+    assert.equal(
+      renderToStaticMarkup(h(Cargando, { forma: 'filas', cantidad: 2, aislado: true })),
+      '<div class="carga" role="status" aria-live="polite"></div>'
+    );
+  });
 });

@@ -162,6 +162,12 @@
   margin-left: -20px;
 }
 
+/* Colectivo único de la pantalla, arriba de .layout-content. */
+.carga-colectivo-pagina {
+  padding: var(--space-4) var(--space-4) 0;
+  margin-bottom: var(--space-6);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .esqueleto,
   .carga-colectivo-ruta::after,

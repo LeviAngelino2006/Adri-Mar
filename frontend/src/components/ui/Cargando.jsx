@@ -1,15 +1,32 @@
+import { createContext, useContext, useEffect } from 'react';
 import IconoVehiculo from '../IconoVehiculo';
 import useEtapaCarga from '../../hooks/useEtapaCarga';
+import { avisarCargaLenta } from '../../utils/etapaCarga';
 import './Cargando.css';
+
+// Un solo colectivo por pantalla. Layout provee { cargasLentas, sumar, restar }
+// y muestra el colectivo arriba mientras cargasLentas es mayor que 0. Fuera de
+// Layout (o con `aislado`) cada Cargando dibuja el suyo.
+export const CargaLentaContext = createContext(null);
 
 // Estado de carga de una pantalla, panel o modal. Se monta solo mientras se
 // está cargando: nada los primeros 300ms, después un esqueleto con la forma del
-// contenido y, desde los 3s, el colectivo con "Conectando con el servidor…".
+// contenido y, desde los 3s, el esqueleto se queda y el Layout muestra el
+// colectivo con "Conectando con el servidor…".
 // `forma`: 'tarjetas' (anatomía de .listado-card) o 'filas' (paneles del
-// Dashboard e historial de un documento).
-function Cargando({ forma = 'tarjetas', cantidad = 3 }) {
+// Dashboard e historial de un documento). `aislado`: dibuja su propio colectivo
+// en lugar del esqueleto (en un modal, el de la página quedaría tapado).
+function Cargando({ forma = 'tarjetas', cantidad = 3, aislado = false }) {
   const etapa = useEtapaCarga(true);
-  return <ContenidoCarga etapa={etapa} forma={forma} cantidad={cantidad} />;
+  const contexto = useContext(CargaLentaContext);
+  const enPagina = !aislado && contexto !== null;
+  const sumar = enPagina ? contexto.sumar : null;
+  const restar = enPagina ? contexto.restar : null;
+  const lento = etapa === 'lento';
+
+  useEffect(() => avisarCargaLenta(lento, sumar, restar), [lento, sumar, restar]);
+
+  return <ContenidoCarga etapa={enPagina && lento ? 'esqueleto' : etapa} forma={forma} cantidad={cantidad} />;
 }
 
 // El marcado de cada etapa, sin timers (lo usan los tests de render).
@@ -57,10 +74,12 @@ function Esqueleto({ forma, cantidad }) {
 }
 
 // El colectivo andando, para cargas que tardan más de 3s. La variante chica es
-// para el login, debajo del formulario.
-export function CargaColectivo({ chica = false }) {
+// para el login, debajo del formulario; `className` suma clases (el Layout le
+// pasa carga-colectivo-pagina).
+export function CargaColectivo({ chica = false, className = '' }) {
+  const clases = ['carga-colectivo', chica && 'carga-colectivo-chica', className].filter(Boolean).join(' ');
   return (
-    <div className={chica ? 'carga-colectivo carga-colectivo-chica' : 'carga-colectivo'}>
+    <div className={clases}>
       <div className="carga-colectivo-ruta">
         <span className="carga-colectivo-bus">
           <IconoVehiculo tipo="Colectivo" tamano={chica ? 40 : 56} />

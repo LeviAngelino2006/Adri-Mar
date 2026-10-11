@@ -39,7 +39,7 @@ function ModalHistorialDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, o
         </Button>
       }
     >
-      {cargando && <Cargando forma="filas" cantidad={2} />}
+      {cargando && <Cargando forma="filas" cantidad={2} aislado />}
 
       {error && <Alert variant="error">{error}</Alert>}
 
