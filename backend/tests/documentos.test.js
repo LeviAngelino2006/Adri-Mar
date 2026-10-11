@@ -10,7 +10,7 @@
 //
 // Tipos del doble: 1 POLIZA_SEGURO (vehículo, vence, PDF), 2 MATAFUEGOS
 // (vehículo, vence, sin PDF), 3 TITULO_VEHICULO (vehículo, sin vence, PDF),
-// 4 LICENCIA_CONDUCIR (chofer, vence, PDF), 5 DNI_CHOFER (chofer, PDF).
+// 4 LICENCIA_CONDUCIR (chofer, vence, PDF), 5 DNI_CHOFER (chofer, vence, PDF).
 // Vehículo 7 y chofer 5 existen; el usuario que registra es el 10.
 
 process.env.JWT_SECRET = 'secreto-solo-para-tests';
@@ -787,6 +787,82 @@ describe('Estado de documentación (estado de flota y de choferes)', () => {
     await subirPoliza({ pdf: false });
     const carpeta = (await pedir('GET', '/vehiculos/7')).json.documentos;
     assert.equal(carpeta.find((i) => i.tipo.id === POLIZA).cantidadVersiones, 2);
+  });
+});
+
+// --- DNI del chofer con vencimiento -------------------------------------------
+
+describe('DNI del chofer con fecha de vencimiento', () => {
+  const DNI = 5;
+  const hoyCba = new Date('2026-10-20T13:00:00Z'); // 10:00 en Córdoba
+  const enDiasFijo = (n) => new Date(Date.parse('2026-10-20T15:00:00Z') + n * 24 * 60 * 60 * 1000);
+  const enDias = (n) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
+  const tipoDni = () => db.tiposDocumento.find((t) => t.id === DNI);
+
+  test('el tipo requiere vencimiento y avisa con 30 días', () => {
+    assert.equal(tipoDni().requiereVencimiento, true);
+    assert.equal(tipoDni().diasAviso, 30);
+  });
+
+  test('vigente, por vencer a 30 días y vencido', () => {
+    const estado = (dias) => calcularEstadoVigencia({ fechaVencimiento: enDiasFijo(dias), tipoDocumento: tipoDni() }, hoyCba);
+    assert.equal(estado(31), 'VIGENTE');
+    assert.equal(estado(30), 'POR_VENCER');
+    assert.equal(estado(0), 'POR_VENCER');
+    assert.equal(estado(-1), 'VENCIDO');
+  });
+
+  test('la carpeta del chofer calcula el estado del DNI', async () => {
+    const estadoEnCarpeta = async (dias) => {
+      documentos.length = 0;
+      agregarDocumento({ tipoDocumentoId: DNI, vehiculoId: null, choferId: 5, fechaVencimiento: enDias(dias), archivoPath: 'choferes/5/dni.pdf' });
+      const { json } = await pedir('GET', '/choferes/5');
+      return json.documentos.find((i) => i.tipo.id === DNI).documento.estadoVigencia;
+    };
+    assert.equal(await estadoEnCarpeta(200), 'VIGENTE');
+    assert.equal(await estadoEnCarpeta(20), 'POR_VENCER');
+    assert.equal(await estadoEnCarpeta(-3), 'VENCIDO');
+  });
+
+  test('un DNI por vencer o vencido entra en las alertas del chofer', async () => {
+    agregarDocumento({ tipoDocumentoId: DNI, vehiculoId: null, choferId: 5, fechaVencimiento: enDias(20) });
+    agregarDocumento({ tipoDocumentoId: DNI, vehiculoId: null, choferId: 6, fechaVencimiento: enDias(-3) });
+    agregarDocumento({ tipoDocumentoId: DNI, vehiculoId: null, choferId: 10, fechaVencimiento: enDias(200) });
+
+    const { json } = await pedir('GET', '/alertas');
+    assert.deepEqual(
+      json.documentos.map((d) => [d.categoria, d.tipo, d.usuario.id, d.estado]),
+      [
+        ['CHOFER', 'DNI_CHOFER', 6, 'VENCIDO'],
+        ['CHOFER', 'DNI_CHOFER', 5, 'POR_VENCER'],
+      ]
+    );
+  });
+
+  test('cargar un DNI sin fecha de vencimiento da error', async () => {
+    const sinFecha = await subir('/choferes/5', { tipoDocumentoId: DNI }, { pdf: true });
+    assert.equal(sinFecha.status, 400);
+    assert.deepEqual(sinFecha.json.errores, {
+      fechaVencimiento: 'La fecha de vencimiento es obligatoria para este tipo de documento.',
+    });
+    assert.equal(documentos.length, 0);
+    assert.equal(archivos.size, 0, 'no se sube el PDF si la validación falla');
+
+    const conFecha = await subir('/choferes/5', { tipoDocumentoId: DNI, fechaVencimiento: VENCE }, { pdf: true });
+    assert.equal(conFecha.status, 201);
+  });
+
+  test('el seed y la migración lo dejan con vencimiento', () => {
+    const fs = require('node:fs');
+    const seed = fs.readFileSync(path.join(__dirname, '..', 'prisma', 'seed.js'), 'utf8');
+    assert.match(seed, /descripcion: 'DNI_CHOFER', categoria: 'CHOFER', requiereVencimiento: true, requiereArchivo: true, diasAviso: 30/);
+
+    const migraciones = path.join(__dirname, '..', 'prisma', 'migrations');
+    const carpeta = fs.readdirSync(migraciones).find((n) => n.endsWith('_dni_chofer_con_vencimiento'));
+    const sql = fs.readFileSync(path.join(migraciones, carpeta, 'migration.sql'), 'utf8');
+    // Primero se borran los documentos y después se cambia el tipo.
+    assert.ok(sql.indexOf('DELETE FROM "documentos"') < sql.indexOf('UPDATE "tipos_documento"'));
+    assert.match(sql, /SET "requiere_vencimiento" = true\s+WHERE "descripcion" = 'DNI_CHOFER'/);
   });
 });
 

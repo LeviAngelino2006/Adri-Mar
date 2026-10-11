@@ -97,10 +97,10 @@ function validarDatos({ nombre, apellido, nombreUsuario, contrasena, perfil, dni
     errores.dni = 'El DNI debe tener 7 u 8 dígitos';
   }
 
+  // El email es opcional: si viene, se valida el formato. Vacío se guarda
+  // como null y no como "": la columna es @unique y dos "" chocarían (P2002).
   const emailNormalizado = (email || '').trim().toLowerCase();
-  if (!emailNormalizado) {
-    errores.email = 'El email es obligatorio';
-  } else if (!EMAIL_REGEX.test(emailNormalizado)) {
+  if (emailNormalizado && !EMAIL_REGEX.test(emailNormalizado)) {
     errores.email = 'El email no tiene un formato válido';
   }
 
@@ -110,7 +110,7 @@ function validarDatos({ nombre, apellido, nombreUsuario, contrasena, perfil, dni
 
   return {
     dni: dniNormalizado,
-    email: emailNormalizado,
+    email: emailNormalizado || null,
     telefono: (telefono || '').trim() || null,
   };
 }

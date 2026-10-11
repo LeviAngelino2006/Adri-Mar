@@ -251,7 +251,7 @@ function Usuarios() {
                 </FormField>
 
                 <div className="form-field-ancho">
-                  <FormField id="email" label="Email" required error={errores.email}>
+                  <FormField id="email" label="Email" error={errores.email}>
                     <input name="email" type="email" value={form.email} onChange={handleChange} />
                   </FormField>
                 </div>
