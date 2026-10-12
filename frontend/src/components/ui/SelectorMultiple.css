@@ -109,6 +109,17 @@
   background-color: var(--brand-50);
 }
 
+/* Texto secundario de una opción (`detalle`): gris en la lista; en el chip
+   conserva el color del chip y solo baja el peso. */
+.selector-multiple-detalle {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.selector-multiple-chip .selector-multiple-detalle {
+  color: inherit;
+}
+
 .selector-multiple-estado {
   padding: var(--space-2) var(--space-3);
   color: var(--color-text-secondary);
