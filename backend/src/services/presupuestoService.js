@@ -324,8 +324,10 @@ async function crearPresupuesto(payload = {}, usuarioSolicitante) {
 
 // Búsqueda por cliente contra nombreNormalizado, igual que clienteService:
 // ignora mayúsculas y acentos ("rio" encuentra "Río Tercero SA").
+// Un ?cliente= repetido (o ?cliente[x]=) llega como array u objeto: se ignora y
+// el listado sale sin filtro, en vez de romper con un 500.
 async function listarPresupuestos({ cliente } = {}) {
-  const texto = normalizarNombre(cliente);
+  const texto = typeof cliente === 'string' ? normalizarNombre(cliente) : '';
   const presupuestos = await prisma.presupuesto.findMany({
     where: texto ? { cliente: { nombreNormalizado: { contains: texto } } } : undefined,
     include: INCLUDE_LISTADO,

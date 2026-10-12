@@ -480,6 +480,16 @@ describe('GET /presupuestos', () => {
     });
   }
 
+  for (const query of ['cliente=rio&cliente=escuela', 'cliente[x]=rio']) {
+    test(`?${query} (no es un string): se ignora y lista sin filtro, no 500`, async () => {
+      await crear({ clienteId: 1 });
+      await crear({ clienteId: 2 });
+      const { status, json } = await pedir('GET', `/presupuestos?${query}`);
+      assert.equal(status, 200);
+      assert.equal(json.presupuestos.length, 2);
+    });
+  }
+
   test('sin presupuestos devuelve una lista vacía', async () => {
     const { status, json } = await pedir('GET', '/presupuestos');
     assert.equal(status, 200);
