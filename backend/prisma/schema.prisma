@@ -44,6 +44,7 @@ model Usuario {
   documentos             Documento[]       @relation("DocumentosDelChofer")
   documentosRegistrados  Documento[]       @relation("DocumentosRegistradosPor")
   viajesCandidato        ViajeChoferCandidato[]
+  presupuestos           Presupuesto[]
 
   @@map("usuarios")
 }
@@ -84,6 +85,7 @@ model Vehiculo {
   lecturasOdometro LecturaOdometro[]
   documentos       Documento[]
   viajesCandidato  ViajeVehiculoCandidato[]
+  presupuestoUnidades PresupuestoUnidad[]
 
   @@map("vehiculos")
 }
@@ -211,6 +213,8 @@ model Ubicacion {
   viajesOrigen      Viaje[]  @relation("ViajeOrigen")
   viajesDestino     Viaje[]  @relation("ViajeDestino")
   viajesParada      ViajeParada[]
+  presupuestosOrigen  Presupuesto[] @relation("PresupuestoOrigen")
+  presupuestosDestino Presupuesto[] @relation("PresupuestoDestino")
 
   @@index([nombre])
   @@unique([nombreNormalizado])
@@ -223,6 +227,7 @@ model Cliente {
   nombreNormalizado String   @map("nombre_normalizado")
   creadoEn          DateTime @default(now()) @map("creado_en")
   viajes            Viaje[]
+  presupuestos      Presupuesto[]
 
   @@index([nombre])
   @@unique([nombreNormalizado])
@@ -350,4 +355,58 @@ model ViajeParada {
 
   @@unique([viajeId, orden])
   @@map("viaje_paradas")
+}
+
+// Presupuesto para un cliente potencial (SCRUM-159). No tiene relación con la
+// gestión de viajes: no crea ni modifica viajes, solo reusa los catálogos de
+// Cliente, Ubicacion y Vehiculo. No se edita ni se elimina: para cambiar algo
+// se duplica. Todo lo que sale en el PDF se arma con datos guardados acá, así
+// re-descargarlo da siempre el mismo documento.
+model Presupuesto {
+  id                Int                 @id @default(autoincrement())
+  fechaEmision      DateTime            @map("fecha_emision") @db.Date
+  clienteId         Int                 @map("cliente_id")
+  cliente           Cliente             @relation(fields: [clienteId], references: [id])
+  origenId          Int                 @map("origen_id")
+  origen            Ubicacion           @relation("PresupuestoOrigen", fields: [origenId], references: [id])
+  destinoId         Int                 @map("destino_id")
+  destino           Ubicacion           @relation("PresupuestoDestino", fields: [destinoId], references: [id])
+  fechaServicio     DateTime            @map("fecha_servicio") @db.Date
+  // "HH:mm" en hora de Córdoba. null = "A confirmar".
+  horaSalida        String?             @map("hora_salida")
+  cantidadPasajeros Int                 @map("cantidad_pasajeros")
+  importeNeto       Decimal             @map("importe_neto") @db.Decimal(12, 2)
+  conFactura        Boolean             @default(false) @map("con_factura")
+  // Se guarda en cada presupuesto (no se lee de una constante al regenerar)
+  // para que, si cambia la alícuota, los presupuestos viejos salgan igual.
+  alicuotaIva       Decimal             @default(10.50) @map("alicuota_iva") @db.Decimal(4, 2)
+  formaPago         String              @map("forma_pago")
+  // Días de validez a partir de fechaEmision (1..365).
+  diasValidez       Int                 @map("dias_validez")
+  creadoPorId       Int                 @map("creado_por_id")
+  creadoPor         Usuario             @relation(fields: [creadoPorId], references: [id])
+  creadoEn          DateTime            @default(now()) @map("creado_en")
+  unidades          PresupuestoUnidad[]
+
+  @@index([creadoEn])
+  @@map("presupuestos")
+}
+
+// Unidad (vehículo) ofrecida en un presupuesto. `descripcion` es un snapshot
+// ("Minibus de 17 pasajeros") armado por presupuestoService al crear: si después
+// cambian el tipo o los asientos del vehículo, el PDF de un presupuesto viejo
+// sale igual que el que se mandó (CA9 de SCRUM-159). Cascade al borrar el
+// presupuesto; Restrict al borrar el vehículo.
+model PresupuestoUnidad {
+  id            Int         @id @default(autoincrement())
+  presupuestoId Int         @map("presupuesto_id")
+  presupuesto   Presupuesto @relation(fields: [presupuestoId], references: [id], onDelete: Cascade)
+  vehiculoId    Int         @map("vehiculo_id")
+  vehiculo      Vehiculo    @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  descripcion   String
+  orden         Int
+
+  @@unique([presupuestoId, orden])
+  @@unique([presupuestoId, vehiculoId])
+  @@map("presupuesto_unidades")
 }
