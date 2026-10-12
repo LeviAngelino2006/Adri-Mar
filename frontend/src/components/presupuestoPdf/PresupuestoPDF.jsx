@@ -28,7 +28,6 @@ const GRIS_BORDE = '#BFBFBF';
 const GRIS_FONDO = '#F2F2F2'; // el gris claro del pie
 
 const ALTO_PIE = ANCHO_A4 * PROPORCION_PIE;
-const ANCHO_LOGO = 250;
 
 const estilos = StyleSheet.create({
   pagina: {
@@ -38,16 +37,10 @@ const estilos = StyleSheet.create({
     color: '#1A1A1A',
     paddingBottom: ALTO_PIE + 24,
   },
-  // El logo es blanco con fondo transparente: va sobre una banda del mismo azul
-  // que el pie, a todo el ancho.
+  // La banda completa del Word (formas y logo) como una sola imagen, a todo el ancho.
   encabezado: {
-    backgroundColor: AZUL,
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  logo: {
-    width: ANCHO_LOGO,
-    height: ANCHO_LOGO * PROPORCION_ENCABEZADO,
+    width: ANCHO_A4,
+    height: ANCHO_A4 * PROPORCION_ENCABEZADO,
   },
   cuerpo: {
     paddingHorizontal: MARGEN,
@@ -196,9 +189,7 @@ function PresupuestoPDF({ presupuesto, token }) {
       modificationDate={creado}
     >
       <Page size="A4" style={estilos.pagina}>
-        <View style={estilos.encabezado}>
-          <Image src={IMAGEN_ENCABEZADO} style={estilos.logo} />
-        </View>
+        <Image src={IMAGEN_ENCABEZADO} style={estilos.encabezado} />
 
         <View style={estilos.cuerpo}>
           <View style={estilos.filaTitulo}>
