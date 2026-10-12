@@ -10,6 +10,9 @@ router.use(autenticar, autorizar('ADMINISTRADOR', 'ENCARGADO'));
 
 router.post('/', presupuestoController.crear);
 router.get('/', presupuestoController.listar);
+// Firmas para el PDF (ver firmaPresupuestoService). Antes de /:id por claridad;
+// igual no chocan, porque /:id es un solo segmento.
+router.get('/assets/firma/:nombre', presupuestoController.firma);
 router.get('/:id', presupuestoController.obtener);
 
 module.exports = router;

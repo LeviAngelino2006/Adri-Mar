@@ -497,6 +497,60 @@ describe('GET /presupuestos', () => {
   });
 });
 
+describe('GET /presupuestos/assets/firma/:nombre', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  // JPEG mínimo de mentira (solo el encabezado): el endpoint no lo interpreta.
+  const JPEG_FALSO = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+  let directorio;
+
+  before(() => {
+    directorio = fs.mkdtempSync(path.join(os.tmpdir(), 'firmas-'));
+    fs.writeFileSync(path.join(directorio, 'firma-marina.jpg'), JPEG_FALSO);
+    // firma-pedro.jpg no se crea a propósito: el archivo puede faltar en el servidor.
+    fs.writeFileSync(path.join(directorio, 'secreto.txt'), 'no se sirve');
+    process.env.FIRMAS_DIR = directorio;
+  });
+
+  after(() => {
+    delete process.env.FIRMAS_DIR;
+    fs.rmSync(directorio, { recursive: true, force: true });
+  });
+
+  async function pedirFirma(nombre, perfil = 'ENCARGADO') {
+    const headers = perfil ? { Authorization: `Bearer ${generarToken({ id: 10, nombreUsuario: 'test', perfil })}` } : {};
+    const respuesta = await fetch(`${base}/presupuestos/assets/firma/${nombre}`, { headers });
+    return { status: respuesta.status, tipo: respuesta.headers.get('content-type'), cuerpo: Buffer.from(await respuesta.arrayBuffer()) };
+  }
+
+  test('Administrador y Encargado reciben la imagen', async () => {
+    for (const perfil of ['ADMINISTRADOR', 'ENCARGADO']) {
+      const { status, tipo, cuerpo } = await pedirFirma('marina', perfil);
+      assert.equal(status, 200);
+      assert.equal(tipo, 'image/jpeg');
+      assert.deepEqual(cuerpo, JPEG_FALSO);
+    }
+  });
+
+  test('CHOFER y PERSONAL_TALLER: 403; sin token: 401', async () => {
+    assert.equal((await pedirFirma('marina', 'CHOFER')).status, 403);
+    assert.equal((await pedirFirma('marina', 'PERSONAL_TALLER')).status, 403);
+    assert.equal((await pedirFirma('marina', null)).status, 401);
+  });
+
+  for (const nombre of ['juan', 'firma-marina.jpg', 'MARINA', 'secreto.txt', '..%2Fsecreto.txt', '..%2F..%2F.env', 'constructor', '__proto__']) {
+    test(`nombre fuera de la whitelist (${nombre}): 404`, async () => {
+      const { status, cuerpo } = await pedirFirma(nombre);
+      assert.equal(status, 404);
+      assert.ok(!cuerpo.toString().includes('no se sirve'));
+    });
+  }
+
+  test('nombre permitido pero sin archivo en el servidor: 404, no 500', async () => {
+    assert.equal((await pedirFirma('pedro')).status, 404);
+  });
+});
+
 describe('GET /presupuestos/:id', () => {
   test('inexistente o con id inválido: 404', async () => {
     assert.equal((await pedir('GET', '/presupuestos/999')).status, 404);
