@@ -15,3 +15,7 @@ npm-debug.log*
 Thumbs.db
 
 coverage/
+
+# Firmas escaneadas de los presupuestos: el repo es público (ver
+# backend/src/services/firmaPresupuestoService.js).
+backend/privado/

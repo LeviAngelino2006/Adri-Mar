@@ -29,6 +29,10 @@ const ICONO_QUITAR = (
 //
 // `avisos` ({ [id]: texto }) muestra un aviso debajo del chip de ese id y le
 // da tono de advertencia. Es informativo: el componente nunca bloquea nada.
+//
+// Cada opción puede traer un `detalle` (texto secundario, p. ej. "Minibus de 17
+// pasajeros" en las unidades de un presupuesto): se muestra al lado de la
+// etiqueta en la lista y en el chip, y también se busca por él.
 function SelectorMultiple({
   id,
   opciones,
@@ -49,7 +53,9 @@ function SelectorMultiple({
 
   const disponibles = useMemo(() => {
     const buscado = normalizar(texto.trim());
-    return opciones.filter((o) => !valor.includes(o.id) && normalizar(o.etiqueta).includes(buscado));
+    return opciones.filter(
+      (o) => !valor.includes(o.id) && normalizar(o.detalle ? `${o.etiqueta} ${o.detalle}` : o.etiqueta).includes(buscado)
+    );
   }, [opciones, valor, texto]);
 
   // Si la lista filtrada se achica, el activo no puede quedar fuera de rango.
@@ -149,6 +155,7 @@ function SelectorMultiple({
                 onMouseEnter={() => setActivo(indice)}
               >
                 {opcion.etiqueta}
+                {opcion.detalle && <span className="selector-multiple-detalle"> · {opcion.detalle}</span>}
               </li>
             ))}
 
@@ -167,11 +174,15 @@ function SelectorMultiple({
         <ul className="selector-multiple-chips">
           {valor.map((valorId) => {
             const etiqueta = opcionPorId.get(valorId)?.etiqueta ?? `#${valorId}`;
+            const detalle = opcionPorId.get(valorId)?.detalle;
             const aviso = avisos[valorId];
             return (
               <li key={valorId} className="selector-multiple-item">
                 <span className={aviso ? 'selector-multiple-chip selector-multiple-chip-aviso' : 'selector-multiple-chip'}>
-                  <span>{etiqueta}</span>
+                  <span>
+                    {etiqueta}
+                    {detalle && <span className="selector-multiple-detalle"> · {detalle}</span>}
+                  </span>
                   {!disabled && (
                     <button
                       type="button"

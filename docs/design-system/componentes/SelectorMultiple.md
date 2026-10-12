@@ -3,7 +3,7 @@ Selector de varias opciones con chips: se escribe para filtrar, se elige de la l
 No está en `bundle.js`. A diferencia de `SelectorBuscarOCrear` no depende del cliente HTTP (recibe las opciones ya cargadas); la vista previa es una representación estática con sus clases CSS.
 
 ## Lo que provee quien lo usa
-- `opciones`: `[{ id, etiqueta }]` con todo lo elegible. El componente es genérico: quien lo usa arma la etiqueta ("Ana Pérez", "12 - AE452KD").
+- `opciones`: `[{ id, etiqueta, detalle? }]` con todo lo elegible. El componente es genérico: quien lo usa arma la etiqueta ("Ana Pérez", "12 - AE452KD"). `detalle` es un texto secundario opcional que va después de la etiqueta, separado por " · ", en la lista (en `color-text-secondary`) y en el chip (mismo color del chip, peso 400); el filtro también busca en él. Lo usan las unidades de un presupuesto: "12 · AB123CD · Minibus de 17 pasajeros".
 - `valor`: la lista de ids elegidos. El componente es controlado y no guarda la selección.
 - `onChange(ids)`: recibe la lista nueva completa, en el orden en que se eligió.
 - `avisos`: `{ [id]: texto }`, opcional. Muestra el texto debajo del chip de ese id y le da tono de advertencia. Es informativo: el componente nunca bloquea.
