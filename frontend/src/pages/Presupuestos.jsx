@@ -68,6 +68,8 @@ function Presupuestos() {
   // null | { valores, unidadesOriginales }
   const [formulario, setFormulario] = useState(null);
   const [mensaje, setMensaje] = useState('');
+  const [generandoPdf, setGenerandoPdf] = useState(false);
+  const [errorPdf, setErrorPdf] = useState('');
 
   // Búsqueda con debounce: no se pide el listado en cada tecla.
   useEffect(() => {
@@ -139,6 +141,22 @@ function Presupuestos() {
 
   function abrirDuplicado(presupuesto) {
     setFormulario({ valores: valoresDuplicado(presupuesto), unidadesOriginales: presupuesto.unidades });
+  }
+
+  // El generador (@react-pdf/renderer, el layout y las imágenes) se carga
+  // recién acá, con import() dinámico: no suma peso al bundle inicial.
+  async function descargarPdf(presupuesto) {
+    setErrorPdf('');
+    setGenerandoPdf(true);
+    try {
+      const { descargarPdfPresupuesto } = await import('../components/presupuestoPdf/generarPdfPresupuesto');
+      await descargarPdfPresupuesto(presupuesto);
+    } catch (err) {
+      console.error(err);
+      setErrorPdf('No se pudo generar el PDF. Intentá de nuevo.');
+    } finally {
+      setGenerandoPdf(false);
+    }
   }
 
   async function handleGuardar(datos) {
@@ -215,11 +233,17 @@ function Presupuestos() {
               <FichaPresupuesto
                 presupuesto={fichaActual.data}
                 acciones={
-                  <Button variant="secondary" onClick={() => abrirDuplicado(fichaActual.data)}>
-                    Duplicar presupuesto
-                  </Button>
+                  <>
+                    <Button variant="secondary" loading={generandoPdf} onClick={() => descargarPdf(fichaActual.data)}>
+                      {generandoPdf ? 'Generando PDF…' : 'Descargar PDF'}
+                    </Button>
+                    <Button variant="secondary" onClick={() => abrirDuplicado(fichaActual.data)}>
+                      Duplicar presupuesto
+                    </Button>
+                  </>
                 }
               />
+              {errorPdf && <Alert variant="error">{errorPdf}</Alert>}
             </>
           )}
         </>
