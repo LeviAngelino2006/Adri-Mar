@@ -275,6 +275,42 @@ describe('POST /presupuestos', () => {
     assert.equal(json.presupuesto.conFactura, false);
   });
 
+  for (const horaSalida of ['', '   ', null]) {
+    test(`horaSalida ${JSON.stringify(horaSalida)} se guarda como null (A confirmar)`, async () => {
+      const { status, json } = await crear({ horaSalida });
+      assert.equal(status, 201);
+      assert.equal(json.presupuesto.horaSalida, null);
+      assert.equal(db.presupuestos[0].horaSalida, null);
+    });
+  }
+
+  test('horaSalida con espacios alrededor se guarda recortada', async () => {
+    const { json } = await crear({ horaSalida: ' 07:30 ' });
+    assert.equal(json.presupuesto.horaSalida, '07:30');
+  });
+
+  test('creadoPorId sale del token, nunca del body', async () => {
+    const { status, json } = await crear({ creadoPorId: 999 });
+    assert.equal(status, 201);
+    assert.equal(db.presupuestos[0].creadoPorId, 10);
+    assert.equal(json.presupuesto.creadoPor.id, 10);
+  });
+
+  for (const importeNeto of [99999999999, '99999999999', '10000000000.00']) {
+    test(`importeNeto con más de 10 dígitos enteros (${JSON.stringify(importeNeto)}): 400, no 500`, async () => {
+      const { status, json } = await crear({ importeNeto });
+      assert.equal(status, 400);
+      assert.ok(json.errores.importeNeto);
+      assert.equal(db.presupuestos.length, 0);
+    });
+  }
+
+  test('importeNeto en el máximo de Decimal(12,2) es válido', async () => {
+    const { status, json } = await crear({ importeNeto: '9999999999.99' });
+    assert.equal(status, 201);
+    assert.equal(json.presupuesto.importeNeto, '9999999999.99');
+  });
+
   test('un vehículo EN_TALLER se puede presupuestar', async () => {
     assert.equal((await crear({ vehiculoIds: [2] })).status, 201);
   });

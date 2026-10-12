@@ -129,12 +129,14 @@ function validarFormato(payload) {
     datos.fechaServicio = fechaServicio;
   }
 
-  if (campoAusente(payload.horaSalida)) {
+  // Vacío o solo espacios = "A confirmar" (null), igual que si no viene.
+  const horaSalida = typeof payload.horaSalida === 'string' ? payload.horaSalida.trim() : payload.horaSalida;
+  if (campoAusente(horaSalida)) {
     datos.horaSalida = null;
-  } else if (typeof payload.horaSalida !== 'string' || !HORA_REGEX.test(payload.horaSalida)) {
+  } else if (typeof horaSalida !== 'string' || !HORA_REGEX.test(horaSalida)) {
     errores.horaSalida = 'El horario de salida debe tener el formato HH:mm';
   } else {
-    datos.horaSalida = payload.horaSalida;
+    datos.horaSalida = horaSalida;
   }
 
   const pasajeros = aEnteroPositivo(payload.cantidadPasajeros);
