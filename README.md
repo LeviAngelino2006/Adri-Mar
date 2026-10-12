@@ -69,6 +69,8 @@ npm run dev
 
 El backend queda disponible en `http://localhost:3000` (`GET /api/health` para verificar).
 
+Las firmas del PDF de presupuestos no están en el repo: ver [backend/README.md](backend/README.md#firmas-de-los-presupuestos).
+
 ### 3. Frontend
 
 ```bash
