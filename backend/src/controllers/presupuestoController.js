@@ -1,5 +1,5 @@
 const presupuestoService = require('../services/presupuestoService');
-const { rutaFirma } = require('../services/firmaPresupuestoService');
+const { leerFirma } = require('../services/firmaPresupuestoService');
 
 async function crear(req, res) {
   const {
@@ -64,17 +64,14 @@ async function obtener(req, res) {
 
 // Imagen de una firma para el PDF. 404 tanto si el nombre no está en la
 // whitelist como si el archivo no está en el servidor (sin decir cuál).
-function firma(req, res) {
-  const ruta = rutaFirma(req.params.nombre);
-  if (!ruta) {
+async function firma(req, res) {
+  const contenido = await leerFirma(req.params.nombre);
+  if (!contenido) {
     return res.status(404).json({ error: 'Firma no encontrada' });
   }
   res.set('Cache-Control', 'private, max-age=3600');
-  return res.sendFile(ruta, (err) => {
-    if (err && !res.headersSent) {
-      res.status(404).json({ error: 'Firma no encontrada' });
-    }
-  });
+  res.type('image/jpeg');
+  return res.send(contenido);
 }
 
 module.exports = { crear, listar, obtener, firma };

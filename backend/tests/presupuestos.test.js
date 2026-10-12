@@ -549,6 +549,81 @@ describe('GET /presupuestos/assets/firma/:nombre', () => {
   test('nombre permitido pero sin archivo en el servidor: 404, no 500', async () => {
     assert.equal((await pedirFirma('pedro')).status, 404);
   });
+
+  // Secret Files de Render: firma-<nombre>.jpg.b64 con el JPG en base64.
+  describe('firma en base64 (.jpg.b64)', () => {
+    const { mock } = require('node:test');
+    const JPEG_PEDRO = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xdb]), Buffer.from('firma de pedro')]);
+    const escribir = (archivo, contenido) => fs.writeFileSync(path.join(directorio, archivo), contenido);
+    let errores;
+
+    beforeEach(() => {
+      for (const archivo of ['firma-pedro.jpg', 'firma-pedro.jpg.b64']) {
+        fs.rmSync(path.join(directorio, archivo), { force: true });
+      }
+      errores = mock.method(console, 'error', () => {});
+    });
+
+    after(() => mock.restoreAll());
+
+    test('.b64 válido: 200 image/jpeg con los bytes decodificados (tolera espacios y saltos al final)', async () => {
+      escribir('firma-pedro.jpg.b64', `  ${JPEG_PEDRO.toString('base64')}\r\n\n`);
+      const { status, tipo, cuerpo } = await pedirFirma('pedro');
+      assert.equal(status, 200);
+      assert.equal(tipo, 'image/jpeg');
+      assert.deepEqual(cuerpo, JPEG_PEDRO);
+      assert.equal(errores.mock.callCount(), 0);
+    });
+
+    test('.b64 partido en varias líneas (como lo pega un editor): 200', async () => {
+      const lineas = JPEG_PEDRO.toString('base64').match(/.{1,8}/g).join('\n');
+      escribir('firma-pedro.jpg.b64', lineas);
+      const { status, cuerpo } = await pedirFirma('pedro');
+      assert.equal(status, 200);
+      assert.deepEqual(cuerpo, JPEG_PEDRO);
+    });
+
+    for (const [descripcion, contenido] of [
+      ['texto que no es base64', 'esto no es una imagen'],
+      ['base64 de algo que no es un JPG', Buffer.from('%PDF-1.7 no soy un jpg').toString('base64')],
+      ['base64 cortado al pegar', JPEG_PEDRO.toString('base64').slice(3)],
+      ['vacío', '   \n'],
+    ]) {
+      test(`.b64 corrupto (${descripcion}): 404 y console.error`, async () => {
+        escribir('firma-pedro.jpg.b64', contenido);
+        const { status, cuerpo } = await pedirFirma('pedro');
+        assert.equal(status, 404);
+        assert.deepEqual(JSON.parse(cuerpo), { error: 'Firma no encontrada' });
+        assert.equal(errores.mock.callCount(), 1);
+        assert.match(errores.mock.calls[0].arguments[0], /firma-pedro\.jpg\.b64 no es un JPG válido/);
+      });
+    }
+
+    test('si hay .b64 se usa ese, aunque también esté el .jpg', async () => {
+      escribir('firma-pedro.jpg', JPEG_FALSO);
+      escribir('firma-pedro.jpg.b64', JPEG_PEDRO.toString('base64'));
+      assert.deepEqual((await pedirFirma('pedro')).cuerpo, JPEG_PEDRO);
+    });
+
+    test('un .b64 corrupto no cae al .jpg: 404 (el pegado roto tiene que notarse)', async () => {
+      escribir('firma-pedro.jpg', JPEG_FALSO);
+      escribir('firma-pedro.jpg.b64', 'roto');
+      assert.equal((await pedirFirma('pedro')).status, 404);
+    });
+
+    test('sin .b64 usa el .jpg', async () => {
+      escribir('firma-pedro.jpg', JPEG_PEDRO);
+      const { status, cuerpo } = await pedirFirma('pedro');
+      assert.equal(status, 200);
+      assert.deepEqual(cuerpo, JPEG_PEDRO);
+    });
+
+    test('un .jpg que no es un JPG: 404 y console.error', async () => {
+      escribir('firma-pedro.jpg', 'no soy una imagen');
+      assert.equal((await pedirFirma('pedro')).status, 404);
+      assert.equal(errores.mock.callCount(), 1);
+    });
+  });
 });
 
 describe('GET /presupuestos/:id', () => {
