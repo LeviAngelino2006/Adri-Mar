@@ -69,7 +69,9 @@ function Presupuestos() {
   const [formulario, setFormulario] = useState(null);
   const [mensaje, setMensaje] = useState('');
   const [generandoPdf, setGenerandoPdf] = useState(false);
-  const [errorPdf, setErrorPdf] = useState('');
+  // { id, mensaje } | null: el error es de ESE presupuesto, así no aparece en
+  // otra ficha al navegar (también con el botón Atrás).
+  const [errorPdf, setErrorPdf] = useState(null);
 
   // Búsqueda con debounce: no se pide el listado en cada tecla.
   useEffect(() => {
@@ -146,14 +148,14 @@ function Presupuestos() {
   // El generador (@react-pdf/renderer, el layout y las imágenes) se carga
   // recién acá, con import() dinámico: no suma peso al bundle inicial.
   async function descargarPdf(presupuesto) {
-    setErrorPdf('');
+    setErrorPdf(null);
     setGenerandoPdf(true);
     try {
       const { descargarPdfPresupuesto } = await import('../components/presupuestoPdf/generarPdfPresupuesto');
       await descargarPdfPresupuesto(presupuesto);
     } catch (err) {
       console.error(err);
-      setErrorPdf('No se pudo generar el PDF. Intentá de nuevo.');
+      setErrorPdf({ id: presupuesto.id, mensaje: 'No se pudo generar el PDF. Intentá de nuevo.' });
     } finally {
       setGenerandoPdf(false);
     }
@@ -166,6 +168,11 @@ function Presupuestos() {
     setRecargas((r) => r + 1);
     setFicha({ id: data.presupuesto.id, data: data.presupuesto });
     abrirFicha(data.presupuesto.id);
+    // SCRUM-159 CA8: al guardar (nuevo o duplicado) el PDF se descarga solo.
+    // Sin await: el presupuesto ya está guardado y descargarPdf nunca lanza (si
+    // falla, muestra el error en la ficha), así que el flujo del formulario
+    // termina acá aunque el PDF tarde o no se pueda generar.
+    descargarPdf(data.presupuesto);
   }
 
   return (
@@ -243,7 +250,7 @@ function Presupuestos() {
                   </>
                 }
               />
-              {errorPdf && <Alert variant="error">{errorPdf}</Alert>}
+              {errorPdf?.id === fichaId && <Alert variant="error">{errorPdf.mensaje}</Alert>}
             </>
           )}
         </>
