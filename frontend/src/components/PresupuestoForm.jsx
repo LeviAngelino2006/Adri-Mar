@@ -7,12 +7,13 @@ import ControlSegmentado from './ui/ControlSegmentado';
 import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
 import SelectorMultiple from './ui/SelectorMultiple';
 import { ordenarPorInterno } from '../utils/vehiculos';
-import { calcularImportes, formatearAlicuota } from '../utils/importes';
+import { calcularImportes, centavosAString, formatearAlicuota, importeIngresadoACentavos } from '../utils/importes';
 import { formatearPesos } from '../utils/moneda';
 import {
   fechaVencimiento,
   formatearFechaPresupuesto,
   opcionUnidad,
+  errorImporteIngresado,
   valoresAPayload,
 } from '../utils/presupuestos';
 import { DIAS_VALIDEZ_MAX, DIAS_VALIDEZ_MIN } from '../constants/presupuesto';
@@ -73,11 +74,17 @@ function PresupuestoForm({ valoresIniciales, unidadesOriginales = [], onSubmit, 
     return { opcionesUnidades: opciones, avisosUnidades: avisos };
   }, [vehiculos, unidadesOriginales]);
 
+  // El texto del usuario ("420.000,50") se pasa a centavos y de ahí al formato
+  // de la API, que es el que entiende calcularImportes.
+  const centavosIngresados = importeIngresadoACentavos(form.importeNeto);
   const importes = calcularImportes({
-    importeNeto: form.importeNeto,
+    importeNeto: centavosIngresados === null ? null : centavosAString(centavosIngresados),
     conFactura: form.conFactura,
     alicuotaIva: ALICUOTA_IVA_VIGENTE,
   });
+  // Siempre debajo del input (también con recibo), para que se note si falta un cero.
+  const hintImporte =
+    centavosIngresados === null ? 'Por ejemplo 420.000 o 420.000,50' : formatearPesos(centavosIngresados);
   const vence = fechaVencimiento(form.fechaEmision, form.diasValidez);
 
   function handleChange(e) {
@@ -90,6 +97,11 @@ function PresupuestoForm({ valoresIniciales, unidadesOriginales = [], onSubmit, 
 
   async function handleSubmit(e) {
     e.preventDefault();
+    const errorImporte = errorImporteIngresado(form.importeNeto);
+    if (errorImporte) {
+      setErrores({ importeNeto: errorImporte });
+      return;
+    }
     setErrores({});
     setEnviando(true);
     try {
@@ -183,7 +195,7 @@ function PresupuestoForm({ valoresIniciales, unidadesOriginales = [], onSubmit, 
           id="importeNeto"
           label={form.conFactura ? 'Importe neto' : 'Importe total'}
           error={errores.importeNeto}
-          hint="En pesos, sin puntos de miles. Centavos con coma."
+          hint={hintImporte}
           required
         >
           <input

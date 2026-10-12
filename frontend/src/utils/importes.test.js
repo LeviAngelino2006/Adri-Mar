@@ -3,7 +3,14 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { aCentavos, calcularImportes, centavosAString, formatearAlicuota } from './importes.js';
+import {
+  aCentavos,
+  calcularImportes,
+  centavosAImporteIngresado,
+  centavosAString,
+  formatearAlicuota,
+  importeIngresadoACentavos,
+} from './importes.js';
 import { formatearPesos } from './moneda.js';
 
 // Intl separa "$" del número con un espacio duro (U+00A0).
@@ -46,13 +53,14 @@ describe('calcularImportes', () => {
     assert.equal(calcularImportes({ importeNeto: '1000', conFactura: true, alicuotaIva: '21.00' }).iva, 21000);
   });
 
-  test('acepta el importe como número o con coma decimal (lo que tipea el usuario)', () => {
+  test('acepta el importe como número además del string de la API', () => {
     assert.equal(calcularImportes({ importeNeto: 1234.56, conFactura: true, alicuotaIva: 10.5 }).total, 136419);
-    assert.equal(calcularImportes({ importeNeto: '1234,56', conFactura: true, alicuotaIva: '10.50' }).total, 136419);
   });
 
   test('importe inválido o vacío: todo en null', () => {
-    for (const importeNeto of ['', 'abc', '12.345', '-5', '1.234,56', null]) {
+    // Solo el formato de la API: lo que tipea el usuario pasa antes por
+    // importeIngresadoACentavos.
+    for (const importeNeto of ['', 'abc', '12.345', '-5', '1.234,56', '1234,56', null]) {
       assert.deepEqual(calcularImportes({ importeNeto, conFactura: true, alicuotaIva: '10.50' }), {
         neto: null,
         iva: null,
@@ -74,7 +82,8 @@ describe('aCentavos y centavosAString', () => {
     assert.equal(aCentavos('0.1'), 10);
     assert.equal(aCentavos('0.29'), 29);
     assert.equal(aCentavos('420000.00'), 42000000);
-    assert.equal(aCentavos('1234,5'), 123450);
+    assert.equal(aCentavos('1234.5'), 123450);
+    assert.equal(aCentavos('1234,5'), null, 'la API usa punto decimal');
     assert.equal(aCentavos(0.29), 29);
   });
 
@@ -82,6 +91,60 @@ describe('aCentavos y centavosAString', () => {
     assert.equal(centavosAString(123456), '1234.56');
     assert.equal(centavosAString(5), '0.05');
     assert.equal(centavosAString(42000000), '420000.00');
+  });
+});
+
+describe('importeIngresadoACentavos (formato argentino)', () => {
+  for (const [texto, centavos] of [
+    ['420000', 42000000],
+    ['420000,5', 42000050],
+    ['420000,50', 42000050],
+    ['420.000', 42000000],
+    ['420.000,50', 42000050],
+    ['1.234,56', 123456],
+    ['1.234.567,5', 123456750],
+    ['999', 99900],
+    ['0,05', 5],
+    ['  420.000  ', 42000000],
+  ]) {
+    test(`válido: ${JSON.stringify(texto)} → ${centavos}`, () => {
+      assert.equal(importeIngresadoACentavos(texto), centavos);
+    });
+  }
+
+  for (const texto of [
+    '420.00', // punto que no separa miles
+    '42.0000',
+    '4200.000', // primer grupo de más de 3 dígitos
+    '420.0000',
+    '1.23',
+    '1234.56', // punto decimal
+    '420.000,123', // 3 decimales
+    '420.000,',
+    ',50',
+    '.420',
+    '420,000.50', // formato inglés
+    '420 000',
+    '-420',
+    '',
+    'abc',
+  ]) {
+    test(`inválido: ${JSON.stringify(texto)}`, () => {
+      assert.equal(importeIngresadoACentavos(texto), null);
+    });
+  }
+
+  test('ida y vuelta para precargar el campo al duplicar', () => {
+    for (const [centavos, texto] of [
+      [42000000, '420.000'],
+      [123450, '1.234,5'],
+      [123405, '1.234,05'],
+      [99900, '999'],
+      [5, '0,05'],
+    ]) {
+      assert.equal(centavosAImporteIngresado(centavos), texto);
+      assert.equal(importeIngresadoACentavos(texto), centavos);
+    }
   });
 });
 

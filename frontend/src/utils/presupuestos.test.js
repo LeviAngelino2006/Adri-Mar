@@ -9,6 +9,7 @@ import {
   nombreArchivoPresupuesto,
   opcionUnidad,
   textoHorario,
+  errorImporteIngresado,
   valoresAPayload,
   valoresDuplicado,
   valoresNuevoPresupuesto,
@@ -97,11 +98,24 @@ describe('valores del formulario', () => {
     const valores = valoresDuplicado(PRESUPUESTO, AHORA_NOCHE);
     assert.equal(valores.fechaEmision, '2026-10-12');
     assert.deepEqual(valores.vehiculoIds, [88, 87]);
-    assert.equal(valores.importeNeto, '1234,5');
+    assert.equal(valores.importeNeto, '1.234,5');
     assert.equal(valores.horaSalida, '');
     assert.equal(valores.diasValidez, '20');
     assert.equal(valores.clienteNombre, 'Club Acción Juvenil');
     assert.equal(valores.fechaServicio, '2026-11-05');
+  });
+
+  test('payload: el importe en formato argentino viaja como "420000.50"', () => {
+    const form = { ...valoresNuevoPresupuesto(AHORA_NOCHE), importeNeto: '420.000,5' };
+    assert.equal(valoresAPayload(form).importeNeto, '420000.50');
+  });
+
+  test('error local del importe: inválido sí, vacío o válido no', () => {
+    assert.ok(errorImporteIngresado('420.00'));
+    assert.ok(errorImporteIngresado('42.0000'));
+    assert.equal(errorImporteIngresado(''), null);
+    assert.equal(errorImporteIngresado('420.000,50'), null);
+    assert.equal(errorImporteIngresado('420000'), null);
   });
 
   test('payload: el importe viaja con punto y 2 decimales', () => {

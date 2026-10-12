@@ -3,11 +3,23 @@
 // como string con 2 decimales ("420000.00", "10.50"); acá se pasan a enteros
 // cortando el string, sin parseFloat.
 
-const IMPORTE_REGEX = /^(\d+)(?:[.,](\d{1,2}))?$/;
+// Formato de la API: punto decimal y nada más ("420000.00", "10.50", "1234").
+const IMPORTE_API_REGEX = /^(\d+)(?:\.(\d{1,2}))?$/;
 
-// "420000.00" | "1234,5" | "1234" | 1234.56 → centavos (123456). null si no es
-// un importe válido (vacío, negativo, más de 2 decimales, separadores de miles).
-// Acepta coma decimal porque es lo que tipea el usuario en es-AR.
+// Formato que tipea el usuario (es-AR), con regex estricta:
+//  - dígitos solos: "420000", y con coma decimal: "420000,50";
+//  - con puntos de miles: "420.000", "420.000,50", "1.234.567,5" (el primer
+//    grupo de 1 a 3 dígitos y después grupos de exactamente 3).
+// Cualquier otra cosa es inválida: "420.00" o "42.0000" (punto que no separa
+// miles), "1234.56" (punto decimal), "420.000,123" (3 decimales).
+const IMPORTE_INGRESADO_REGEX = /^(\d+|\d{1,3}(?:\.\d{3})+)(?:,(\d{1,2}))?$/;
+
+function centavosDe(enteros, decimales = '') {
+  return Number(enteros.replaceAll('.', '')) * 100 + Number(decimales.padEnd(2, '0'));
+}
+
+// Importe de la API ("420000.00") o número → centavos (42000000). null si no
+// es un importe válido.
 export function aCentavos(valor) {
   if (typeof valor === 'number') {
     if (!Number.isFinite(valor) || valor < 0) return null;
@@ -15,10 +27,24 @@ export function aCentavos(valor) {
     return aCentavos(valor.toFixed(2));
   }
   if (typeof valor !== 'string') return null;
-  const coincidencia = IMPORTE_REGEX.exec(valor.trim());
-  if (!coincidencia) return null;
-  const [, enteros, decimales = ''] = coincidencia;
-  return Number(enteros) * 100 + Number(decimales.padEnd(2, '0'));
+  const coincidencia = IMPORTE_API_REGEX.exec(valor.trim());
+  return coincidencia ? centavosDe(coincidencia[1], coincidencia[2]) : null;
+}
+
+// Lo que tipeó el usuario en el campo Importe ("420.000,50") → centavos
+// (42000050). null si no respeta el formato (ver IMPORTE_INGRESADO_REGEX).
+export function importeIngresadoACentavos(texto) {
+  if (typeof texto !== 'string') return null;
+  const coincidencia = IMPORTE_INGRESADO_REGEX.exec(texto.trim());
+  return coincidencia ? centavosDe(coincidencia[1], coincidencia[2]) : null;
+}
+
+// Centavos → texto para precargar el campo Importe al duplicar, en el mismo
+// formato que acepta importeIngresadoACentavos: "420.000", "1.234,5".
+export function centavosAImporteIngresado(centavos) {
+  const enteros = Math.floor(centavos / 100).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const decimales = String(centavos % 100).padStart(2, '0').replace(/0$/, '');
+  return decimales === '' || decimales === '0' ? enteros : `${enteros},${decimales}`;
 }
 
 // Centavos → string para la API ("123456" → "1234.56"). El backend lo guarda

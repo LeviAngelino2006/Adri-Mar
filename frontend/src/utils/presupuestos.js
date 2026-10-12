@@ -3,7 +3,7 @@
 // resuelvan igual que Vite.
 import { hoyCordobaISO, sumarDiasFechaISO } from './fechaCordoba.js';
 import { formatearFechaCorta } from './viajeFormato.js';
-import { aCentavos, centavosAString } from './importes.js';
+import { aCentavos, centavosAImporteIngresado, centavosAString, importeIngresadoACentavos } from './importes.js';
 import {
   DIAS_VALIDEZ_MAX,
   DIAS_VALIDEZ_MIN,
@@ -105,13 +105,11 @@ export function valoresNuevoPresupuesto(ahora = Date.now()) {
   return { ...FORM_PRESUPUESTO_INICIAL, fechaEmision: hoyCordobaISO(ahora) };
 }
 
-// "420000.00" → "420000"; "1234.50" → "1234,5": el importe como lo tipearía el
-// usuario, para precargar el formulario al duplicar.
+// "420000.00" → "420.000"; "1234.50" → "1.234,5": el importe como lo tipearía
+// el usuario, para precargar el formulario al duplicar.
 function importeParaInput(importe) {
   const centavos = aCentavos(importe);
-  if (centavos === null) return '';
-  const [enteros, decimales] = centavosAString(centavos).split('.');
-  return decimales === '00' ? enteros : `${enteros},${decimales.replace(/0$/, '')}`;
+  return centavos === null ? '' : centavosAImporteIngresado(centavos);
 }
 
 // Duplicar: los datos del original (el mismo objeto de GET /:id) con la fecha
@@ -136,11 +134,20 @@ export function valoresDuplicado(presupuesto, ahora = Date.now()) {
   };
 }
 
+// Error local del campo Importe, antes de enviar: un texto que no respeta el
+// formato argentino NO se puede mandar al backend, porque algunos ("420.00")
+// serían válidos con punto decimal y se guardarían con otro valor. Vacío no es
+// error acá: el backend responde "El importe es obligatorio".
+export function errorImporteIngresado(texto) {
+  if (!texto.trim() || importeIngresadoACentavos(texto) !== null) return null;
+  return 'Escribilo como 420000, 420.000 o 420.000,50';
+}
+
 // Valores del formulario → body de POST /presupuestos. El importe viaja como
-// string con punto decimal ("1234.50"); si no es válido se manda tal cual y el
-// backend responde el error del campo.
+// string con punto decimal ("1234.50"). El formulario no llama a esto con un
+// importe inválido (ver errorImporteIngresado); vacío se manda vacío.
 export function valoresAPayload(form) {
-  const centavos = aCentavos(form.importeNeto);
+  const centavos = importeIngresadoACentavos(form.importeNeto);
   return {
     fechaEmision: form.fechaEmision,
     clienteId: form.clienteId,
