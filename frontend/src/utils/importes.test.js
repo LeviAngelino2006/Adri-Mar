@@ -137,7 +137,7 @@ describe('importeIngresadoACentavos (formato argentino)', () => {
   test('ida y vuelta para precargar el campo al duplicar', () => {
     for (const [centavos, texto] of [
       [42000000, '420.000'],
-      [123450, '1.234,5'],
+      [123450, '1.234,50'],
       [123405, '1.234,05'],
       [99900, '999'],
       [5, '0,05'],
@@ -153,9 +153,16 @@ describe('formatearPesos', () => {
     assert.equal(sinEspacioDuro(formatearPesos(46410000)), '$ 464.100');
   });
 
-  test('con hasta dos decimales si los tiene', () => {
+  test('con dos decimales si tiene centavos (nunca uno solo)', () => {
     assert.equal(sinEspacioDuro(formatearPesos(136419)), '$ 1.364,19');
-    assert.equal(sinEspacioDuro(formatearPesos(123450)), '$ 1.234,5');
+    assert.equal(sinEspacioDuro(formatearPesos(123450)), '$ 1.234,50');
+    assert.equal(sinEspacioDuro(formatearPesos(125000050)), '$ 1.250.000,50');
+    assert.equal(sinEspacioDuro(formatearPesos(5)), '$ 0,05');
+  });
+
+  test('redondo: sin decimales', () => {
+    assert.equal(sinEspacioDuro(formatearPesos(42000000)), '$ 420.000');
+    assert.equal(sinEspacioDuro(formatearPesos(0)), '$ 0');
   });
 });
 

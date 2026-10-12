@@ -98,7 +98,7 @@ describe('valores del formulario', () => {
     const valores = valoresDuplicado(PRESUPUESTO, AHORA_NOCHE);
     assert.equal(valores.fechaEmision, '2026-10-12');
     assert.deepEqual(valores.vehiculoIds, [88, 87]);
-    assert.equal(valores.importeNeto, '1.234,5');
+    assert.equal(valores.importeNeto, '1.234,50');
     assert.equal(valores.horaSalida, '');
     assert.equal(valores.diasValidez, '20');
     assert.equal(valores.clienteNombre, 'Club Acción Juvenil');

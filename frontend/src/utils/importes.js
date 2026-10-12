@@ -40,11 +40,12 @@ export function importeIngresadoACentavos(texto) {
 }
 
 // Centavos → texto para precargar el campo Importe al duplicar, en el mismo
-// formato que acepta importeIngresadoACentavos: "420.000", "1.234,5".
+// formato que acepta importeIngresadoACentavos: "420.000", "1.234,50" (dos
+// decimales si tiene centavos, igual que formatearPesos).
 export function centavosAImporteIngresado(centavos) {
   const enteros = Math.floor(centavos / 100).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const decimales = String(centavos % 100).padStart(2, '0').replace(/0$/, '');
-  return decimales === '' || decimales === '0' ? enteros : `${enteros},${decimales}`;
+  const centavosSueltos = centavos % 100;
+  return centavosSueltos === 0 ? enteros : `${enteros},${String(centavosSueltos).padStart(2, '0')}`;
 }
 
 // Centavos → string para la API ("123456" → "1234.56"). El backend lo guarda

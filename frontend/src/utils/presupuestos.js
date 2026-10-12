@@ -105,7 +105,7 @@ export function valoresNuevoPresupuesto(ahora = Date.now()) {
   return { ...FORM_PRESUPUESTO_INICIAL, fechaEmision: hoyCordobaISO(ahora) };
 }
 
-// "420000.00" → "420.000"; "1234.50" → "1.234,5": el importe como lo tipearía
+// "420000.00" → "420.000"; "1234.50" → "1.234,50": el importe como lo tipearía
 // el usuario, para precargar el formulario al duplicar.
 function importeParaInput(importe) {
   const centavos = aCentavos(importe);
