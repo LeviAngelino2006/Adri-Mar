@@ -6,6 +6,7 @@ import { getNavItemsHabilitados } from '../constants/navegacion';
 import ConfirmModal from './ui/ConfirmModal';
 import { CargaColectivo } from './ui/Cargando';
 import { CargaLentaContext } from './ui/CargaLentaContext';
+import IconoPresupuesto from './IconoPresupuesto';
 import { contarCargasLentas } from '../utils/etapaCarga';
 import logo from '../assets/logo-adrimar.png';
 import './Layout.css';
@@ -54,6 +55,7 @@ const ICONS = {
       <polyline points="10 9 9 9 8 9" />
     </svg>
   ),
+  presupuestos: <IconoPresupuesto />,
 };
 
 function initials(nombre, apellido) {

@@ -1,0 +1,96 @@
+/* Presupuestos: listado, formulario y ficha. Solo tokens. */
+
+.presupuestos-detalle-titulo {
+  margin: 0 0 var(--space-4);
+}
+
+/* Unidades de la ficha, una por línea. */
+.presupuestos-unidades {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.presupuestos-unidad-vehiculo {
+  color: var(--color-text-secondary);
+}
+
+/* Label de un control que no es un input (el ControlSegmentado de
+   Comprobante): mismo estilo que `label`. */
+.presupuesto-label {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* El FormField es una columna flex: sin esto el control se estira a todo el ancho. */
+.form-field > .control-segmentado {
+  align-self: flex-start;
+}
+
+/* Desglose en vivo con factura: neto, IVA y total, uno debajo del otro. */
+.presupuesto-desglose {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.presupuesto-desglose > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-1) 0;
+}
+
+.presupuesto-desglose dt {
+  color: var(--color-text-secondary);
+}
+
+.presupuesto-desglose dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.presupuesto-desglose .presupuesto-desglose-total {
+  margin-top: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  font-weight: 600;
+}
+
+.presupuesto-desglose .presupuesto-desglose-total dt {
+  color: var(--color-text);
+}
+
+.presupuesto-desglose-vacio {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+/* Validez: el input angosto y, al lado, en gris, la fecha en que vence. El
+   hint sigue conectado al input por aria-describedby (FormField). */
+.presupuesto-validez {
+  grid-column: 1 / -1;
+}
+
+.presupuesto-validez .form-field {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+}
+
+.presupuesto-validez .form-field > label {
+  grid-column: 1 / -1;
+}
+
+.presupuesto-validez .form-field-hint {
+  font-variant-numeric: tabular-nums;
+}
+
+.presupuesto-validez .form-field-error {
+  grid-column: 1 / -1;
+}

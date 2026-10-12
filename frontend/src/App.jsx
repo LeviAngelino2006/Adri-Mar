@@ -9,6 +9,7 @@ import Viajes from './pages/Viajes';
 import MisViajes from './pages/MisViajes';
 import ScrollAlTope from './components/ScrollAlTope';
 import Documentacion from './pages/Documentacion';
+import Presupuestos from './pages/Presupuestos';
 import './App.css';
 
 function App() {
@@ -55,6 +56,14 @@ function App() {
             element={
               <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER']}>
                 <Viajes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/presupuestos"
+            element={
+              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO']}>
+                <Presupuestos />
               </ProtectedRoute>
             }
           />
