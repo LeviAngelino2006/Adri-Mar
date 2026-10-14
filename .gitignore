@@ -36,3 +36,8 @@ coverage/
 # Firmas escaneadas de los presupuestos: el repo es público (ver
 # backend/src/services/firmaPresupuestoService.js).
 backend/privado/
+
+# Configuración local de asistentes IA
+CLAUDE.md
+CLAUDE.propuesta.md
+
