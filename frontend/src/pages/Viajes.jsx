@@ -53,6 +53,9 @@ const FILTROS_INICIALES = {
   vehiculoId: '',
   fechaDesde: '',
   fechaHasta: '',
+  // 'true' o '': viajes con badge "Sin precio" o "Cobro pendiente". Solo lo ven
+  // (y el backend solo lo acepta de) Administrador y Encargado.
+  administrativoPendiente: '',
 };
 
 function dedupePorId(lista) {
@@ -150,6 +153,7 @@ function Viajes() {
     if (filtros.vehiculoId) params.vehiculoId = filtros.vehiculoId;
     if (filtros.fechaDesde) params.fechaDesde = filtros.fechaDesde;
     if (filtros.fechaHasta) params.fechaHasta = filtros.fechaHasta;
+    if (filtros.administrativoPendiente) params.administrativoPendiente = filtros.administrativoPendiente;
 
     return api
       .get('/viajes', { params })
@@ -236,13 +240,18 @@ function Viajes() {
     setEditando(null);
   }
 
+  // Al crear se abre la ficha del viaje nuevo (no el listado): ahí está la
+  // tarjeta "Datos administrativos" con su botón de editar, así lo
+  // administrativo, que ya no se carga en el alta, queda a un clic. No bloquea
+  // nada: "Volver al listado" sigue como siempre. Editar vuelve al listado.
   async function handleGuardarForm(datos) {
     if (editando) {
       await api.put(`/viajes/${editando.id}`, datos);
       mostrarMensaje(MENSAJE_EDITADO);
     } else {
-      await api.post('/viajes', datos);
+      const { data } = await api.post('/viajes', datos);
       mostrarMensaje(MENSAJE_CREADO);
+      setSeleccionado(data.viaje);
     }
     setMostrarForm(false);
     setEditando(null);
@@ -338,7 +347,6 @@ function Viajes() {
               textoBoton={editando ? 'Guardar cambios' : 'Crear viaje'}
               textoEnviando={editando ? 'Guardando…' : 'Creando…'}
               onCancelar={cerrarForm}
-              conDatosAdministrativos={puedeGestionar && !editando}
             />
           </Card>
         </>
@@ -392,6 +400,19 @@ function Viajes() {
               <FormField id="fechaHasta" label="Hasta">
                 <input type="date" name="fechaHasta" value={filtros.fechaHasta} onChange={handleFiltroChange} />
               </FormField>
+
+              {puedeGestionar && (
+                <FormField id="administrativoPendiente" label="Administrativo">
+                  <select
+                    name="administrativoPendiente"
+                    value={filtros.administrativoPendiente}
+                    onChange={handleFiltroChange}
+                  >
+                    <option value="">Todos</option>
+                    <option value="true">Administrativo pendiente</option>
+                  </select>
+                </FormField>
+              )}
             </form>
           )}
 
@@ -400,7 +421,7 @@ function Viajes() {
           {!cargando && viajes.length === 0 && <div className="listado-vacio">No se encontraron viajes</div>}
 
           {!cargando && viajes.length > 0 && (
-            <ListadoViajesPorDia viajes={viajes} onSeleccionar={seleccionar} />
+            <ListadoViajesPorDia viajes={viajes} mostrarPendientes={puedeGestionar} onSeleccionar={seleccionar} />
           )}
         </>
       )}

@@ -1,5 +1,6 @@
-// Smoke test de render de la tarjeta de viaje del listado (agrupado por día) y
-// de los paneles del Dashboard (Viajes de hoy y estados vacíos). Se corre con `npm test` (node:test).
+// Smoke test de render de la tarjeta de viaje del listado (agrupado por día,
+// con el badge de pendiente administrativo), del formulario de alta (sin datos
+// administrativos) y de los paneles del Dashboard (Viajes de hoy y estados vacíos). Se corre con `npm test` (node:test).
 //
 // Mismo método que confirmarViaje.render.test.mjs: Vite en modo SSR carga los
 // .jsx y se renderiza a HTML con react-dom/server. Verifica la estructura, NO los
@@ -21,12 +22,17 @@ const h = React.createElement;
 
 let vite;
 let TarjetaViaje;
+let ListadoViajesPorDia;
+let ViajeForm;
 let ContenidoViajesDeHoy;
 let ContenidoPorConfirmar;
 
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
-  TarjetaViaje = (await vite.ssrLoadModule('/src/components/TarjetaViaje.jsx')).default;
+  const moduloTarjeta = await vite.ssrLoadModule('/src/components/TarjetaViaje.jsx');
+  TarjetaViaje = moduloTarjeta.default;
+  ListadoViajesPorDia = moduloTarjeta.ListadoViajesPorDia;
+  ViajeForm = (await vite.ssrLoadModule('/src/components/ViajeForm.jsx')).default;
   ({ ContenidoViajesDeHoy } = await vite.ssrLoadModule('/src/components/PanelViajesDeHoy.jsx'));
   ({ ContenidoPorConfirmar } = await vite.ssrLoadModule('/src/components/PanelViajesPorConfirmar.jsx'));
 });
@@ -77,6 +83,65 @@ describe('TarjetaViaje', () => {
     const html = render({ viaje: viaje(), variante: 'chofer' });
     assert.match(html, /class="listado-card-sub">07:30 – 10:00<\/div>/);
     assert.ok(!html.includes('Martín'));
+  });
+});
+
+describe('TarjetaViaje: pendiente administrativo', () => {
+  const render = (props) => renderToStaticMarkup(h(TarjetaViaje, { onClick() {}, ...props }));
+
+  test('con mostrarPendientes, SIN_PRECIO da el badge "Sin precio" en el detalle', () => {
+    const html = render({ viaje: viaje({ pendienteAdministrativo: 'SIN_PRECIO' }), mostrarPendientes: true });
+    assert.match(
+      html,
+      /class="listado-card-detalle"><span class="estado-badge estado-badge-warning estado-badge-sm">.*Sin precio<\/span><\/div>/
+    );
+  });
+
+  test('con mostrarPendientes, COBRO_PENDIENTE da el badge "Cobro pendiente"', () => {
+    const html = render({ viaje: viaje({ pendienteAdministrativo: 'COBRO_PENDIENTE' }), mostrarPendientes: true });
+    assert.match(sinEtiquetas(html), /Cobro pendiente/);
+    assert.ok(!html.includes('Sin precio'));
+  });
+
+  test('sin pendiente (null) no hay detalle', () => {
+    const html = render({ viaje: viaje({ pendienteAdministrativo: null }), mostrarPendientes: true });
+    assert.ok(!html.includes('listado-card-detalle'));
+  });
+
+  test('perfil sin permiso: el backend no manda la clave y no se muestra nada aunque la prop venga en true', () => {
+    const html = render({ viaje: viaje(), mostrarPendientes: true });
+    assert.ok(!html.includes('listado-card-detalle'));
+  });
+
+  test('sin mostrarPendientes (Mis viajes) no se muestra aunque el dato venga', () => {
+    const html = render({ viaje: viaje({ pendienteAdministrativo: 'SIN_PRECIO' }) });
+    assert.ok(!html.includes('Sin precio'));
+    assert.ok(!html.includes('listado-card-detalle'));
+  });
+
+  test('ListadoViajesPorDia pasa mostrarPendientes a cada tarjeta', () => {
+    const viajes = [viaje({ id: 1, pendienteAdministrativo: 'SIN_PRECIO' }), viaje({ id: 2, pendienteAdministrativo: 'COBRO_PENDIENTE' })];
+    const con = renderToStaticMarkup(h(ListadoViajesPorDia, { viajes, mostrarPendientes: true, onSeleccionar() {} }));
+    const sin = renderToStaticMarkup(h(ListadoViajesPorDia, { viajes, onSeleccionar() {} }));
+    assert.match(sinEtiquetas(con), /Sin precio[\s\S]*Cobro pendiente/);
+    assert.ok(!sin.includes('estado-badge-warning'));
+  });
+});
+
+describe('ViajeForm de alta', () => {
+  test('solo datos operativos: cliente sí, ningún campo ni sección administrativa', () => {
+    const html = renderToStaticMarkup(
+      // conDatosAdministrativos es la prop con la que Viajes.jsx pedía la sección
+      // antes: si alguien la vuelve a pasar, el alta igual queda sin ella.
+      h(ViajeForm, { onSubmit() {}, textoBoton: 'Crear viaje', textoEnviando: 'Creando…', onCancelar() {}, conDatosAdministrativos: true })
+    );
+    assert.match(html, /id="clienteId"/);
+    assert.match(html, /id="fechaInicio"/);
+    for (const campo of ['precio', 'pagoChofer', 'estadoPagoClienteId', 'metodoPagoClienteId', 'fechaPagoCliente']) {
+      assert.ok(!html.includes(`name="${campo}"`), `no debería estar el campo ${campo}`);
+    }
+    assert.ok(!/Datos administrativos/i.test(html));
+    assert.ok(!html.includes('form-seccion'));
   });
 });
 
