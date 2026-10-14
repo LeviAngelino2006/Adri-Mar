@@ -9,6 +9,7 @@ import Viajes from './pages/Viajes';
 import MisViajes from './pages/MisViajes';
 import ScrollAlTope from './components/ScrollAlTope';
 import Documentacion from './pages/Documentacion';
+import Presupuestos from './pages/Presupuestos';
 import './App.css';
 
 function App() {
@@ -45,15 +46,7 @@ function App() {
           <Route
             path="/documentacion"
             element={
-              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER']}>
-                <Documentacion />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/documentacion/vehiculos"
-            element={
-              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER']}>
+              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO']}>
                 <Documentacion />
               </ProtectedRoute>
             }
@@ -63,6 +56,14 @@ function App() {
             element={
               <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER']}>
                 <Viajes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/presupuestos"
+            element={
+              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO']}>
+                <Presupuestos />
               </ProtectedRoute>
             }
           />

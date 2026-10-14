@@ -4,6 +4,7 @@ const ROLES = {
   error: 'alert',
   success: 'status',
   info: 'status',
+  warning: 'status',
 };
 
 function Alert({ variant = 'info', children }) {

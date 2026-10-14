@@ -84,69 +84,89 @@ export function urlWhatsApp(telefonoNormalizado, mensaje) {
   return `https://wa.me/${telefonoNormalizado}?text=${encodeURIComponent(mensaje)}`;
 }
 
-const FORMATO_DIA_MES = new Intl.DateTimeFormat('es-AR', {
-  timeZone: 'America/Argentina/Cordoba',
-  day: '2-digit',
-  month: '2-digit',
-});
+const ZONA_CORDOBA = 'America/Argentina/Cordoba';
+const FORMATO_DIA_MES = new Intl.DateTimeFormat('es-AR', { timeZone: ZONA_CORDOBA, day: '2-digit', month: '2-digit' });
+const FORMATO_DIA_SEMANA = new Intl.DateTimeFormat('es-AR', { timeZone: ZONA_CORDOBA, weekday: 'long' });
 const FORMATO_HORA = new Intl.DateTimeFormat('es-AR', {
-  timeZone: 'America/Argentina/Cordoba',
+  timeZone: ZONA_CORDOBA,
   hour: '2-digit',
   minute: '2-digit',
   hourCycle: 'h23',
 });
 
-// "20/10 · 08:00 a 12:30". Si el viaje termina otro día, el fin lleva su fecha:
-// "20/10 · 22:00 a 21/10 06:00". Todo en hora de Córdoba.
+// "martes", en minúscula y en hora de Córdoba.
+const diaDeLaSemana = (fecha) => FORMATO_DIA_SEMANA.format(fecha).toLowerCase();
+
+// "08:00 a 12:30". Si el viaje termina otro día, cada hora lleva su fecha:
+// "22:00 del 20/10 a 06:00 del 21/10". Sin hora de fin queda solo la de salida.
+// Todo en hora de Córdoba.
 function horarioDelViaje(fechaInicio, fechaFin) {
   const inicio = new Date(fechaInicio);
-  const desde = `${FORMATO_DIA_MES.format(inicio)} · ${FORMATO_HORA.format(inicio)}`;
-  if (!fechaFin) return desde;
+  if (!fechaFin) return FORMATO_HORA.format(inicio);
 
   const fin = new Date(fechaFin);
-  const mismoDia = fechaCordobaISO(fechaInicio) === fechaCordobaISO(fechaFin);
-  const hasta = mismoDia ? FORMATO_HORA.format(fin) : `${FORMATO_DIA_MES.format(fin)} ${FORMATO_HORA.format(fin)}`;
-  return `${desde} a ${hasta}`;
+  if (fechaCordobaISO(fechaInicio) === fechaCordobaISO(fechaFin)) {
+    return `${FORMATO_HORA.format(inicio)} a ${FORMATO_HORA.format(fin)}`;
+  }
+  return `${FORMATO_HORA.format(inicio)} del ${FORMATO_DIA_MES.format(inicio)} a ${FORMATO_HORA.format(fin)} del ${FORMATO_DIA_MES.format(fin)}`;
 }
 
-// El texto que se le manda al chofer. Las líneas cuyo dato no está (cliente,
-// vehículo, pasajeros, recorrido, link) se omiten en vez de salir vacías. Va
-// con emojis porque es un mensaje de WhatsApp (el sistema visual de la app, que
-// no los usa, no aplica acá).
+// El texto que se le manda al chofer. Usa las negritas de WhatsApp (*así*) y NO
+// lleva emojis: los que están fuera del plano básico de Unicode (como 📅 o 🚌)
+// llegan como "�" en WhatsApp Desktop de Windows al abrir el link wa.me. La flecha
+// → y los acentos sí se ven bien. Las líneas cuyo dato falta (vehículo,
+// recorrido, pasajeros, cliente, link) se omiten en vez de salir vacías.
 //
-//   Hola Ana! Te confirmo el viaje:
-//   📅 20/10 · 08:00 a 12:30
-//   🚌 Interno 12 (AE452KD)
-//   📍 Río Tercero → Alta Gracia → Córdoba
-//   👥 45 pasajeros
-//   Cliente: ACME
-//   🗺️ Ver recorrido en Google Maps:
+//   Hola Ana, te confirmo el viaje del *martes 20/10*.
+//
+//   *Horario:* 08:00 a 12:30
+//   *Vehículo:* Interno 12 (AE452KD)
+//   *Recorrido:* Río Tercero → Córdoba
+//   *Pasajeros:* 45
+//   *Cliente:* ACME
+//
+//   Ver el recorrido en el mapa:
 //   https://www.google.com/maps/dir/?api=1&…
+//
+// Con paradas el recorrido va en vertical, el origen y después cada punto en su
+// línea con "→ " adelante:
+//
+//   *Recorrido:*
+//   Río Tercero
+//   → Alta Gracia
+//   → Córdoba
 export function armarMensajeViaje(viaje) {
   const paradas = (viaje.paradas ?? []).map((parada) => parada.ubicacion);
+  const salida = new Date(viaje.fechaInicio);
 
-  const lineas = [`Hola ${viaje.chofer.nombre}! Te confirmo el viaje:`];
-
-  lineas.push(`📅 ${horarioDelViaje(viaje.fechaInicio, viaje.fechaFin)}`);
+  const lineas = [
+    `Hola ${viaje.chofer.nombre}, te confirmo el viaje del *${diaDeLaSemana(salida)} ${FORMATO_DIA_MES.format(salida)}*.`,
+    '',
+    `*Horario:* ${horarioDelViaje(viaje.fechaInicio, viaje.fechaFin)}`,
+  ];
 
   if (viaje.vehiculo) {
-    lineas.push(`🚌 Interno ${viaje.vehiculo.numeroInterno} (${viaje.vehiculo.dominio})`);
+    lineas.push(`*Vehículo:* Interno ${viaje.vehiculo.numeroInterno} (${viaje.vehiculo.dominio})`);
   }
 
   if (viaje.origen && viaje.destino) {
-    const puntos = [viaje.origen, ...paradas, viaje.destino].map((punto) => punto.nombre);
-    lineas.push(`📍 ${puntos.join(' → ')}`);
+    if (paradas.length === 0) {
+      lineas.push(`*Recorrido:* ${viaje.origen.nombre} → ${viaje.destino.nombre}`);
+    } else {
+      lineas.push('*Recorrido:*', viaje.origen.nombre);
+      for (const punto of [...paradas, viaje.destino]) lineas.push(`→ ${punto.nombre}`);
+    }
   }
 
   const pasajeros = viaje.cantidadPasajeros;
   if (pasajeros !== null && pasajeros !== undefined && pasajeros !== '') {
-    lineas.push(`👥 ${pasajeros} ${Number(pasajeros) === 1 ? 'pasajero' : 'pasajeros'}`);
+    lineas.push(`*Pasajeros:* ${pasajeros}`);
   }
 
-  if (viaje.cliente?.nombre) lineas.push(`Cliente: ${viaje.cliente.nombre}`);
+  if (viaje.cliente?.nombre) lineas.push(`*Cliente:* ${viaje.cliente.nombre}`);
 
   const enlaceMapa = urlRecorrido({ origen: viaje.origen, paradas, destino: viaje.destino });
-  if (enlaceMapa) lineas.push(`🗺️ Ver recorrido en Google Maps:\n${enlaceMapa}`);
+  if (enlaceMapa) lineas.push('', 'Ver el recorrido en el mapa:', enlaceMapa);
 
   return lineas.join('\n');
 }

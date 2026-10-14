@@ -1,79 +1,84 @@
+import { Component, lazy, Suspense, useState } from 'react';
+import Alert from '../ui/Alert';
 import Button from '../ui/Button';
+import Spinner from '../ui/Spinner';
+import ModalMarco from './ModalMarco';
+import { etiquetaTipoDocumento } from '../../constants/tiposDocumento';
+import { formatearFechaCorta } from '../../utils/documentacion';
 import { formatearNombreArchivo } from '../../utils/archivoFormato';
-import './ModalDocumentacion.css';
+import { descargarPdf } from '../../utils/descargarPdf';
 
-function ModalVisorPdf({ open, onClose, documento, vehiculo, chofer }) {
-  if (!open || !documento || !documento.signedUrl) return null;
+// El visor y react-pdf (pdf.js) se bajan recién cuando se abre el modal.
+const VisorPdf = lazy(() => import('./VisorPdf'));
 
-  async function handleDescargar() {
-    try {
-      const response = await fetch(documento.signedUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = formatearNombreArchivo(documento.nombreOriginal) || `${documento.tipoDocumento?.codigo || 'documento'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch {
-      window.open(documento.signedUrl, '_blank');
-    }
+// Si el chunk del visor no baja (sin conexión, deploy nuevo), muestra `fallback`
+// en vez de dejar la página en blanco.
+class LimiteErrorVisor extends Component {
+  state = { fallo: false };
+
+  static getDerivedStateFromError() {
+    return { fallo: true };
   }
 
-  const sujetoLabel = chofer
-    ? `Chofer: ${chofer.nombre} ${chofer.apellido} (DNI ${chofer.dni || '-'})`
-    : `Unidad ${vehiculo?.numeroInterno} (${vehiculo?.dominio})`;
+  render() {
+    return this.state.fallo ? this.props.fallback : this.props.children;
+  }
+}
+
+// Visor del PDF de una versión. `url` es la URL firmada que pidió la página al
+// abrirlo (dura 5 minutos). Se monta solo mientras está abierto. Si el PDF no se
+// puede mostrar, el pie sigue ofreciendo abrirlo en otra pestaña o descargarlo.
+function ModalVisorPdf({ documento, url, subtitulo, onClose }) {
+  const [fallo, setFallo] = useState(false);
+  const nombreArchivo = formatearNombreArchivo(documento.nombreArchivo);
+  const subidoPor = documento.usuario ? ` por ${documento.usuario.nombre} ${documento.usuario.apellido}` : '';
+  const avisoError = <Alert variant="error">No se pudo mostrar el PDF.</Alert>;
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="modal-card modal-visor-card" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-doc-header">
-          <div>
-            <h2>{documento.tipoDocumento?.descripcion || 'Visor de Documento'}</h2>
-            <p className="modal-doc-subtitle">
-              {sujetoLabel} — {formatearNombreArchivo(documento.nombreOriginal) || 'archivo.pdf'}
-            </p>
-          </div>
-          <div className="modal-visor-header-actions">
-            <Button variant="primary" size="sm" onClick={handleDescargar}>
-              Descargar PDF
-            </Button>
-            <a
-              href={documento.signedUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-link-action"
-            >
-              Abrir en pestaña nueva ↗
-            </a>
-            <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Cerrar visor">
-              ✕
-            </button>
-          </div>
-        </div>
-
-        <div className="modal-visor-body">
-          <iframe
-            src={documento.signedUrl}
-            title={documento.nombreOriginal || 'Visor de PDF'}
-            className="modal-visor-iframe"
-          />
-        </div>
-
-        <div className="modal-visor-footer">
-          <span className="modal-visor-meta">
-            Subido por: {documento.usuario?.nombre} {documento.usuario?.apellido} — {new Date(documento.creadoEn).toLocaleDateString()}
-          </span>
-          <div>
-            <Button variant="secondary" onClick={onClose}>
-              Cerrar
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ModalMarco
+      titulo={documento.tipoDocumento ? etiquetaTipoDocumento(documento.tipoDocumento.descripcion) : 'Documento'}
+      subtitulo={subtitulo}
+      onClose={onClose}
+      variante="visor"
+      pie={
+        <>
+          <p className="doc-visor-meta">
+            {nombreArchivo ? `${nombreArchivo} · ` : ''}Subido el {formatearFechaCorta(documento.creadoEn)}
+            {subidoPor}
+          </p>
+          <a className="btn btn-secondary" href={url} target="_blank" rel="noopener noreferrer">
+            Abrir en otra pestaña
+          </a>
+          <Button
+            variant="primary"
+            onClick={() =>
+              descargarPdf(url, {
+                nombreArchivo: documento.nombreArchivo,
+                codigoTipo: documento.tipoDocumento?.descripcion,
+              })
+            }
+          >
+            Descargar PDF
+          </Button>
+        </>
+      }
+    >
+      {fallo ? (
+        avisoError
+      ) : (
+        <LimiteErrorVisor fallback={avisoError}>
+          <Suspense
+            fallback={
+              <div className="doc-visor-cargando">
+                <Spinner size="lg" label="Cargando visor…" />
+              </div>
+            }
+          >
+            <VisorPdf url={url} titulo={nombreArchivo || 'el documento'} onError={() => setFallo(true)} />
+          </Suspense>
+        </LimiteErrorVisor>
+      )}
+    </ModalMarco>
   );
 }
 

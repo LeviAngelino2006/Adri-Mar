@@ -44,7 +44,7 @@ Cada unidad debe poseer un repositorio digital con los siguientes documentos y c
 ### 2.2. Legajo del Personal de Choferes
 Documentación individual requerida para habilitar la asignación de viajes:
 1. **Licencia de Conducir:** Carnet habilitante profesional con categoría para transporte de pasajeros. Requiere control riguroso de fecha de vencimiento.
-2. **DNI (Documento Nacional de Identidad):** Copia digital para verificación de identidad y constancias ante entes de control.
+2. **DNI (Documento Nacional de Identidad):** Copia digital para verificación de identidad y constancias ante entes de control. Se carga con su fecha de vencimiento y tiene el mismo control que la licencia: aviso 30 días antes y alerta al vencer.
 3. **Propósito del módulo:** Envío ágil de constancias y pólizas ante controles camineros o solicitud formal de clientes antes de iniciar un viaje.
 
 ---

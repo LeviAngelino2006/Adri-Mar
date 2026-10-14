@@ -6,7 +6,7 @@ import FormField from './ui/FormField';
 import Alert from './ui/Alert';
 import OpcionesCatalogo from './ui/OpcionesCatalogo';
 import { useCatalogosPago, valoresAPayload, validarMontos, viajeAValores } from '../utils/datosAdministrativos';
-import { capitalizarCatalogo, formatearMonto, formatearSoloFecha } from '../utils/viajeFormato';
+import { capitalizarCatalogo, formatearFechaCorta, formatearMonto } from '../utils/viajeFormato';
 import './DatosAdministrativosViaje.css';
 
 const NO_CARGADO = 'No cargado';
@@ -101,7 +101,7 @@ function DatosAdministrativosViaje({ viaje, onGuardado }) {
                 {viaje.estadoPagoCliente ? capitalizarCatalogo(viaje.estadoPagoCliente.descripcion) : null}
               </Dato>
               <Dato etiqueta="Fecha de pago">
-                {viaje.fechaPagoCliente ? formatearSoloFecha(viaje.fechaPagoCliente) : null}
+                {viaje.fechaPagoCliente ? formatearFechaCorta(viaje.fechaPagoCliente) : null}
               </Dato>
               <Dato etiqueta="Método de pago" ancho>
                 {viaje.metodoPagoCliente ? capitalizarCatalogo(viaje.metodoPagoCliente.descripcion) : null}
@@ -119,7 +119,7 @@ function DatosAdministrativosViaje({ viaje, onGuardado }) {
                 {viaje.estadoPagoChofer ? capitalizarCatalogo(viaje.estadoPagoChofer.descripcion) : null}
               </Dato>
               <Dato etiqueta="Fecha de pago">
-                {viaje.fechaPagoChofer ? formatearSoloFecha(viaje.fechaPagoChofer) : null}
+                {viaje.fechaPagoChofer ? formatearFechaCorta(viaje.fechaPagoChofer) : null}
               </Dato>
               <Dato etiqueta="Método de pago" ancho>
                 {viaje.metodoPagoChofer ? capitalizarCatalogo(viaje.metodoPagoChofer.descripcion) : null}

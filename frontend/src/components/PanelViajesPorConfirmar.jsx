@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
 import Card from './ui/Card';
 import Button from './ui/Button';
-import Spinner from './ui/Spinner';
+import Cargando from './ui/Cargando';
 import Alert from './ui/Alert';
 import Toast from './ui/Toast';
 import RutaViaje from './RutaViaje';
@@ -10,39 +10,31 @@ import ModalConfirmarViaje from './ModalConfirmarViaje';
 import AvisarPorWhatsApp from './AvisarPorWhatsApp';
 import { DURACION_TOAST_CON_ACCION_MS, DURACION_TOAST_MS } from '../constants/toast';
 import { agruparPorConfirmar, rangoHoyYManana } from '../utils/viajesPorConfirmar';
-import { formatearDiaYHora } from '../utils/viajeFormato';
+import { formatearHora } from '../utils/viajeFormato';
 import { avisoWhatsApp } from '../utils/whatsapp';
 import './PanelViajesPorConfirmar.css';
-
-const ICONO_CALENDARIO = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <rect x="3" y="5" width="18" height="16" rx="2" />
-    <line x1="3" y1="10" x2="21" y2="10" />
-    <line x1="8" y1="3" x2="8" y2="7" />
-    <line x1="16" y1="3" x2="16" y2="7" />
-  </svg>
-);
 
 function GrupoDia({ titulo, viajes, onConfirmar }) {
   if (viajes.length === 0) return null;
 
   return (
-    <section className="por-confirmar-grupo" aria-label={titulo}>
-      <h3 className="por-confirmar-dia">{titulo}</h3>
-      <ul className="por-confirmar-lista">
+    <section aria-label={titulo}>
+      <h3 className="dashboard-grupo-dia">{titulo}</h3>
+      <ul className="dashboard-lista">
         {viajes.map((viaje) => (
-          <li key={viaje.id} className="por-confirmar-item">
-            <div className="por-confirmar-icono">{ICONO_CALENDARIO}</div>
-            <div className="por-confirmar-info">
-              <span className="por-confirmar-ruta">
-                <RutaViaje origen={viaje.origen} destino={viaje.destino} paradas={viaje.paradas} />
+          <li key={viaje.id}>
+            <div className="por-confirmar-fila">
+              <span className="hora-col">{formatearHora(viaje.fechaInicio)}</span>
+              <span className="dashboard-fila-info">
+                <span className="dashboard-fila-titulo">
+                  <RutaViaje origen={viaje.origen} destino={viaje.destino} paradas={viaje.paradas} />
+                </span>
+                {viaje.cliente && <span className="dashboard-fila-meta">{viaje.cliente.nombre}</span>}
               </span>
-              <span className="por-confirmar-salida">{formatearDiaYHora(viaje.fechaInicio)}</span>
-              {viaje.cliente && <span className="por-confirmar-cliente">{viaje.cliente.nombre}</span>}
+              <Button variant="secondary" className="por-confirmar-accion" onClick={() => onConfirmar(viaje)}>
+                Confirmar
+              </Button>
             </div>
-            <Button variant="primary" className="por-confirmar-accion" onClick={() => onConfirmar(viaje)}>
-              Confirmar
-            </Button>
           </li>
         ))}
       </ul>
@@ -56,22 +48,14 @@ function GrupoDia({ titulo, viajes, onConfirmar }) {
 export function ContenidoPorConfirmar({ cargando, error, hoy, manana, onConfirmar }) {
   if (cargando) {
     return (
-      <div className="loading-state">
-        <Spinner label="Cargando viajes por confirmar" />
-        <span>Cargando…</span>
-      </div>
+      <Cargando forma="filas" />
     );
   }
 
   if (error) return <Alert variant="error">No se pudieron cargar los viajes por confirmar</Alert>;
 
   if (hoy.length + manana.length === 0) {
-    return (
-      <div className="por-confirmar-vacio">
-        {ICONO_CALENDARIO}
-        <span>Nada pendiente para hoy ni mañana</span>
-      </div>
-    );
+    return <div className="dashboard-empty">Nada pendiente para hoy ni mañana</div>;
   }
 
   return (

@@ -1,0 +1,63 @@
+/* Tarjeta de un documento en la ficha de Documentación (ver
+   docs/design-system/componentes/TarjetaDocumento.md). */
+.doc-tarjeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.doc-tarjeta-info {
+  flex: 999 1 260px;
+  min-width: 0;
+}
+
+.doc-tarjeta-titulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.doc-tarjeta-nombre {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-text);
+}
+
+.doc-tarjeta-fechas {
+  margin: var(--space-1) 0 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.doc-tarjeta-fechas.is-vencido {
+  color: var(--state-error-text);
+  font-weight: 600;
+}
+
+.doc-tarjeta-acciones {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+@media (max-width: 479px) {
+  .doc-tarjeta-acciones {
+    width: 100%;
+  }
+
+  .doc-tarjeta-acciones .btn {
+    flex: 1;
+  }
+}

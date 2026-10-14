@@ -1,116 +1,76 @@
 const { Router } = require('express');
 const documentoController = require('../controllers/documentoController');
 const { autenticar, autorizar } = require('../middlewares/auth');
-const upload = require('../middlewares/upload');
+const { recibirArchivo } = require('../middlewares/upload');
 
 const router = Router();
 
-// Alertas globales de vencimiento
-router.get(
-  '/alertas',
-  autenticar,
-  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
-  documentoController.obtenerAlertas
-);
+// Todo el módulo es de Administrador y Encargado; Personal de Taller no entra.
+// Eliminar una versión queda solo para Administrador.
+const gestores = [autenticar, autorizar('ADMINISTRADOR', 'ENCARGADO')];
+const soloAdministrador = [autenticar, autorizar('ADMINISTRADOR')];
 
-// Catálogo de tipos de documento
-router.get(
-  '/tipos',
-  autenticar,
-  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
-  documentoController.listarTipos
-);
+// Alertas globales de vencimiento
+router.get('/alertas', ...gestores, documentoController.obtenerAlertas);
+
+// Catálogo de tipos de documento (?categoria=VEHICULO|CHOFER)
+router.get('/tipos', ...gestores, documentoController.listarTipos);
 
 // Resumen de estado de documentación de toda la flota
-router.get(
-  '/estado-flota',
-  autenticar,
-  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
-  documentoController.obtenerEstadoFlota
-);
+router.get('/estado-flota', ...gestores, documentoController.obtenerEstadoFlota);
 
 // Consulta de carpeta documental de un vehículo
-router.get(
-  '/vehiculos/:vehiculoId',
-  autenticar,
-  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
-  documentoController.obtenerPorVehiculo
-);
+router.get('/vehiculos/:vehiculoId', ...gestores, documentoController.obtenerPorVehiculo);
 
 // Historial de versiones de un documento
 router.get(
   '/vehiculos/:vehiculoId/tipos/:tipoDocumentoId/historial',
-  autenticar,
-  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
+  ...gestores,
   documentoController.obtenerHistorial
 );
 
 // Registro / actualización de documento
 router.post(
   '/vehiculos/:vehiculoId',
-  autenticar,
-  autorizar('ADMINISTRADOR', 'ENCARGADO'),
-  (req, res, next) => {
-    upload.single('archivo')(req, res, (err) => {
-      if (err) {
-        return res.status(400).json({ error: err.message });
-      }
-      next();
-    });
-  },
+  ...gestores,
+  recibirArchivo,
   documentoController.registrarDocumentoVehiculo
 );
 
 // Eliminación de documento
 router.delete(
   '/vehiculos/:vehiculoId/:documentoId',
-  autenticar,
-  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  ...soloAdministrador,
   documentoController.eliminarDocumentoVehiculo
 );
 
 // RUTAS PARA DOCUMENTACIÓN DE CHOFERES
-router.get(
-  '/estado-choferes',
-  autenticar,
-  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
-  documentoController.obtenerEstadoChoferes
-);
+router.get('/estado-choferes', ...gestores, documentoController.obtenerEstadoChoferes);
 
-router.get(
-  '/choferes/:choferId',
-  autenticar,
-  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
-  documentoController.obtenerPorChofer
-);
+router.get('/choferes/:choferId', ...gestores, documentoController.obtenerPorChofer);
 
 router.get(
   '/choferes/:choferId/tipos/:tipoDocumentoId/historial',
-  autenticar,
-  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
+  ...gestores,
   documentoController.obtenerHistorialChofer
 );
 
 router.post(
   '/choferes/:choferId',
-  autenticar,
-  autorizar('ADMINISTRADOR', 'ENCARGADO'),
-  (req, res, next) => {
-    upload.single('archivo')(req, res, (err) => {
-      if (err) {
-        return res.status(400).json({ error: err.message });
-      }
-      next();
-    });
-  },
+  ...gestores,
+  recibirArchivo,
   documentoController.registrarDocumentoChofer
 );
 
 router.delete(
   '/choferes/:choferId/:documentoId',
-  autenticar,
-  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  ...soloAdministrador,
   documentoController.eliminarDocumentoChofer
 );
+
+// URL firmada (5 minutos) del PDF de una versión. Se pide al tocar "Ver PDF" o
+// "Descargar PDF", así no vence con la página abierta ni se genera una por
+// documento al cargar cada carpeta.
+router.get('/:documentoId/archivo', ...gestores, documentoController.obtenerArchivo);
 
 module.exports = router;

@@ -8,13 +8,14 @@ import EstadoBadge from '../components/ui/EstadoBadge';
 import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
-import Spinner from '../components/ui/Spinner';
+import Cargando from '../components/ui/Cargando';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import { ESTADOS_VEHICULO } from '../constants/estadosVehiculo';
-import { formatearKm } from '../utils/viajeFormato';
+import { formatearFechaCorta, formatearKm } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import { ListadoCard, ListadoHeader, ListadoToolbar } from '../components/Listado';
+import IconoVehiculo from '../components/IconoVehiculo';
 import './FlotaVehiculos.css';
 
 const ICONO_ALERTA = (
@@ -45,20 +46,6 @@ const FORM_INICIAL = {
 };
 
 const PUEDE_GESTIONAR_FLOTA = ['ADMINISTRADOR', 'ENCARGADO'];
-
-const ICONO_COLECTIVO = (
-  <svg width="20" height="20" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M6.004 10V5m5 5V5m5 5V5.5M5.016 17c-1.42 0-2.13 0-2.571-.44c-.441-.439-.441-1.146-.441-2.56V8c0-1.414 0-2.121.441-2.56S3.596 5 5.016 5h7.085c3.473 0 5.21 0 6.54.706c.978.52 1.794 1.3 2.356 2.252c.764 1.293.836 3.021.98 6.478c.04.932.06 1.398-.123 1.75c-.134.26-.34.474-.595.618c-.346.196-.814.196-1.75.196h-.505m-10 0h6" />
-    <path d="M7.004 19a2 2 0 1 0 0-4a2 2 0 0 0 0 4Zm10 0a2 2 0 1 0 0-4a2 2 0 0 0 0 4Z" />
-    <path strokeLinecap="round" d="M1.996 10h13.368c.627 0 .84.368 1.32.944c.552.54.925.919 1.44.996c.72.108 3.384.054 3.384.054" />
-  </svg>
-);
-
-const ICONO_COMBI = (
-  <svg width="20" height="20" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M19.17 5.11A2 2 0 0 0 17.38 4H4c-1.1 0-2 .9-2 2v9c0 1.1.9 2 2 2c0 1.65 1.35 3 3 3s3-1.35 3-3h4c0 1.65 1.35 3 3 3s3-1.35 3-3c1.1 0 2-.9 2-2v-3.76c0-.31-.07-.62-.21-.89zM17.38 6l2 4h-4.13V6zm-4.13 0v4h-3.5V6zm-5.5 0v4H4V6zM7 18a1.003 1.003 0 0 1-.87-1.5c.37-.63 1.36-.63 1.73 0c.09.15.13.32.13.49c0 .55-.45 1-1 1Zm10 0a1.003 1.003 0 0 1-.87-1.5c.37-.63 1.36-.63 1.73 0c.09.15.13.32.13.49c0 .55-.45 1-1 1Zm3-3h-.77s-.05-.05-.08-.07c-.06-.06-.12-.11-.17-.16c-.12-.11-.25-.21-.38-.29a3 3 0 0 0-.67-.32c-.07-.02-.14-.05-.21-.07Q17.375 14 17 14c-.375 0-.49.04-.72.09c-.07.02-.14.05-.21.07c-.16.05-.31.11-.45.19c-.07.04-.15.08-.22.13c-.13.09-.26.18-.38.29c-.06.05-.12.1-.18.16c-.02.03-.05.04-.08.07H9.23s-.05-.05-.08-.07c-.06-.06-.12-.11-.17-.16c-.12-.11-.25-.21-.38-.29a3 3 0 0 0-.67-.32c-.07-.02-.14-.05-.21-.07Q7.375 14 7 14c-.375 0-.49.04-.72.09c-.07.02-.14.05-.21.07c-.16.05-.31.11-.45.19c-.07.04-.15.08-.22.13c-.13.09-.26.18-.38.29c-.06.05-.12.1-.18.16c-.02.03-.05.04-.08.07h-.77v-3h16v3Z" />
-  </svg>
-);
 
 function FlotaVehiculos() {
   const { usuario } = useAuth();
@@ -211,13 +198,7 @@ function FlotaVehiculos() {
   return (
     <Layout>
       {!mostrarForm && !seleccionado && (
-        <ListadoHeader titulo="Flota de vehículos">
-          {puedeGestionar && (
-            <Button variant="primary" onClick={abrirNuevo}>
-              + Nuevo vehículo
-            </Button>
-          )}
-        </ListadoHeader>
+        <ListadoHeader titulo="Flota de vehículos" />
       )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
@@ -228,27 +209,33 @@ function FlotaVehiculos() {
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
           </button>
-          <h1>{editando ? 'Editar vehículo' : 'Nuevo vehículo'}</h1>
+          <h1>{editando ? 'Editar vehículo' : 'Crear vehículo'}</h1>
           <Card className="form-card">
             <form onSubmit={handleSubmitForm} noValidate>
               <div className="form-grid">
-                <FormField id="dominio" label="Dominio" error={erroresForm.dominio}>
-                  <input name="dominio" value={form.dominio} onChange={handleFormChange} />
-                </FormField>
-
-                <FormField id="numeroInterno" label="Número de interno" error={erroresForm.numeroInterno}>
+                <FormField id="numeroInterno" label="Número de interno" required error={erroresForm.numeroInterno}>
                   <input name="numeroInterno" value={form.numeroInterno} onChange={handleFormChange} />
                 </FormField>
 
-                <FormField id="marca" label="Marca" error={erroresForm.marca}>
+                <FormField
+                  id="dominio"
+                  label="Dominio"
+                  required
+                  hint="Formato AB123CD o ABC123"
+                  error={erroresForm.dominio}
+                >
+                  <input name="dominio" value={form.dominio} onChange={handleFormChange} />
+                </FormField>
+
+                <FormField id="marca" label="Marca" required error={erroresForm.marca}>
                   <input name="marca" value={form.marca} onChange={handleFormChange} />
                 </FormField>
 
-                <FormField id="modelo" label="Modelo" error={erroresForm.modelo}>
+                <FormField id="modelo" label="Modelo" required error={erroresForm.modelo}>
                   <input name="modelo" value={form.modelo} onChange={handleFormChange} />
                 </FormField>
 
-                <FormField id="tipoVehiculoId" label="Tipo de vehículo" error={erroresForm.tipoVehiculoId}>
+                <FormField id="tipoVehiculoId" label="Tipo de vehículo" required error={erroresForm.tipoVehiculoId}>
                   <select name="tipoVehiculoId" value={form.tipoVehiculoId} onChange={handleFormChange}>
                     <option value="">Seleccionar…</option>
                     {tiposVehiculo.map((t) => (
@@ -259,15 +246,21 @@ function FlotaVehiculos() {
                   </select>
                 </FormField>
 
-                <FormField id="anio" label="Año" error={erroresForm.anio}>
+                <FormField id="anio" label="Año" required error={erroresForm.anio}>
                   <input name="anio" type="number" value={form.anio} onChange={handleFormChange} />
                 </FormField>
 
-                <FormField id="asientos" label="Cantidad de asientos" error={erroresForm.asientos}>
+                <FormField id="asientos" label="Cantidad de asientos" required error={erroresForm.asientos}>
                   <input name="asientos" type="number" value={form.asientos} onChange={handleFormChange} />
                 </FormField>
 
-                <FormField id="kilometraje" label="Kilometraje actual" error={erroresForm.kilometraje}>
+                <FormField
+                  id="kilometraje"
+                  label="Kilometraje actual"
+                  required
+                  hint="En kilómetros"
+                  error={erroresForm.kilometraje}
+                >
                   <input name="kilometraje" type="number" value={form.kilometraje} onChange={handleFormChange} />
                 </FormField>
               </div>
@@ -276,7 +269,7 @@ function FlotaVehiculos() {
 
               <div className="form-actions">
                 <Button type="submit" variant="primary" loading={enviandoForm}>
-                  {enviandoForm ? 'Guardando…' : 'Guardar'}
+                  {enviandoForm ? 'Guardando…' : editando ? 'Guardar cambios' : 'Crear vehículo'}
                 </Button>
                 <Button type="button" variant="secondary" onClick={cerrarForm}>
                   Cancelar
@@ -292,6 +285,7 @@ function FlotaVehiculos() {
           <ListadoToolbar
             busqueda={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Buscar por dominio, interno o marca' }}
             filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos: estado ? 1 : 0 }}
+            accion={puedeGestionar ? { etiqueta: 'Crear vehículo', onClick: abrirNuevo } : undefined}
           />
 
           {mostrarFiltros && (
@@ -308,12 +302,7 @@ function FlotaVehiculos() {
             </form>
           )}
 
-          {cargando && (
-            <div className="loading-state">
-              <Spinner label="Cargando vehículos" />
-              <span>Cargando vehículos…</span>
-            </div>
-          )}
+          {cargando && <Cargando forma="tarjetas" />}
 
           {!cargando && vehiculos.length === 0 && <div className="listado-vacio">No se encontraron vehículos</div>}
 
@@ -322,7 +311,7 @@ function FlotaVehiculos() {
               {ordenarPorInterno(vehiculos).map((v) => (
                 <ListadoCard
                   key={v.id}
-                  marca={v.tipoVehiculo.descripcion === 'Colectivo' ? ICONO_COLECTIVO : ICONO_COMBI}
+                  marca={<IconoVehiculo tipo={v.tipoVehiculo.descripcion} />}
                   titulo={
                     <>
                       {v.numeroInterno} - <span className="patente">{v.dominio}</span>
@@ -350,21 +339,23 @@ function FlotaVehiculos() {
           </button>
 
           <div className="flota-detalle-header">
-            <h1>Vehículo {seleccionado.dominio}</h1>
+            <h1>
+              Vehículo {seleccionado.numeroInterno} - <span className="patente">{seleccionado.dominio}</span>
+            </h1>
             <EstadoBadge tono={ESTADOS_VEHICULO[seleccionado.estado].tono}>
               {ESTADOS_VEHICULO[seleccionado.estado].label}
             </EstadoBadge>
           </div>
 
-          <Card className="flota-detalle" role="region" aria-label="Ficha del vehículo">
-            <dl className="flota-detalle-list">
-              <div className="detalle-item">
-                <dt>Dominio</dt>
-                <dd className="patente">{seleccionado.dominio}</dd>
-              </div>
+          <Card className="detalle-card flota-detalle" role="region" aria-label="Ficha del vehículo">
+            <dl className="detalle-grid">
               <div className="detalle-item">
                 <dt>Número de interno</dt>
                 <dd>{seleccionado.numeroInterno}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Dominio</dt>
+                <dd className="patente">{seleccionado.dominio}</dd>
               </div>
               <div className="detalle-item">
                 <dt>Marca</dt>
@@ -388,38 +379,40 @@ function FlotaVehiculos() {
               </div>
               <div className="detalle-item">
                 <dt>Kilometraje</dt>
-                <dd>{seleccionado.kilometraje}</dd>
+                <dd>{formatearKm(seleccionado.kilometraje)} km</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Registrado el</dt>
+                <dd>{formatearFechaCorta(seleccionado.creadoEn)}</dd>
               </div>
               {seleccionado.fechaBaja && (
                 <div className="detalle-item">
-                  <dt>Fecha de baja</dt>
-                  <dd>{new Date(seleccionado.fechaBaja).toLocaleDateString()}</dd>
+                  <dt>Dado de baja el</dt>
+                  <dd>{formatearFechaCorta(seleccionado.fechaBaja)}</dd>
                 </div>
               )}
-              <div className="detalle-item">
-                <dt>Registrado el</dt>
-                <dd>{new Date(seleccionado.creadoEn).toLocaleDateString()}</dd>
-              </div>
             </dl>
 
-            <div className="flota-detalle-actions">
-              <Button
-                variant="secondary"
-                onClick={() => navigate(`/documentacion?vehiculoId=${seleccionado.id}`)}
-              >
-                📄 Ver Documentación
-              </Button>
-              {puedeGestionar && seleccionado.estado !== 'DADO_DE_BAJA' && (
-                <>
-                  <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                    Editar
-                  </Button>
-                  <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
-                    Dar de baja
-                  </Button>
-                </>
-              )}
-            </div>
+            {puedeGestionar && (
+              <div className="detalle-acciones">
+                <Button
+                  variant="secondary"
+                  onClick={() => navigate(`/documentacion?vehiculoId=${seleccionado.id}`)}
+                >
+                  Ver documentación
+                </Button>
+                {seleccionado.estado !== 'DADO_DE_BAJA' && (
+                  <>
+                    <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                      Editar vehículo
+                    </Button>
+                    <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
+                      Dar de baja
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
           </Card>
         </>
       )}
@@ -435,10 +428,6 @@ function FlotaVehiculos() {
               <p>
                 Vas a dar de baja el vehículo de dominio <strong>{seleccionado.dominio}</strong> (interno{' '}
                 <strong>{seleccionado.numeroInterno}</strong>). Esta acción no se puede deshacer.
-              </p>
-              <p style={{ marginTop: '0.5rem', color: 'var(--color-danger)' }}>
-                ⚠️ Se eliminará permanentemente toda la documentación adjunta del vehículo y ya
-                no recibirá alertas de vencimiento.
               </p>
             </>
           )

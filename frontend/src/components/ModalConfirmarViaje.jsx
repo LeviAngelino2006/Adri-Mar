@@ -8,6 +8,7 @@ import { confirmarViaje, disponibilidadDeViaje } from '../services/viajesApi';
 import { aInputCordoba } from '../utils/fechaCordoba';
 import { nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
+import { avisosSinCandidatos } from '../utils/avisosSinCandidatos';
 
 const ICONO_CONFIRMAR = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -85,6 +86,10 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
 
   if (!viaje) return null;
 
+  // Si el viaje no tiene candidatos se explica arriba de los selects, para que se
+  // entienda por qué no aparecen los radios con "Elegir otro…".
+  const { antesDeChofer, antesDeVehiculo } = avisosSinCandidatos(viaje);
+
   const candidatosChofer = (viaje.choferesCandidatos ?? []).map((c) => ({ id: c.id, etiqueta: nombreChofer(c) }));
   const candidatosVehiculo = (viaje.vehiculosCandidatos ?? []).map((c) => ({ id: c.id, etiqueta: nombreVehiculo(c) }));
 
@@ -134,6 +139,8 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
       title="Confirmar viaje"
       description={
         <>
+          {antesDeChofer && <Alert variant="info">{antesDeChofer}</Alert>}
+
           <SeleccionCandidato
             id="confirmar-choferId"
             etiqueta="Chofer"
@@ -144,6 +151,8 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
             onChange={setChofer}
             error={errores.choferId}
           />
+
+          {antesDeVehiculo && <Alert variant="info">{antesDeVehiculo}</Alert>}
 
           <SeleccionCandidato
             id="confirmar-vehiculoId"

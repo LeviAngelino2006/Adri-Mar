@@ -33,7 +33,13 @@ export const NAV_ITEMS = [
     label: 'Documentación',
     to: '/documentacion',
     icon: 'documentacion',
-    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
+    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO'),
+  },
+  {
+    label: 'Presupuestos',
+    to: '/presupuestos',
+    icon: 'presupuestos',
+    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO'),
   },
   {
     label: 'Usuarios',

@@ -20,18 +20,29 @@ El teléfono se guarda como texto libre. `normalizarTelefonoAR` lo convierte al 
 - Con 12 dígitos hay un "15" intercalado. Si puede estar en más de una posición (característica de 2, 3 o 4 dígitos) se aceptan solo las interpretaciones que dan el mismo número final ("11 15 1512 3456" es válido); si dieran números distintos se rechaza, para no adivinar.
 
 ## Mensaje
-Sale con emojis porque es un mensaje de WhatsApp (el sistema visual de la app no los usa). Las líneas cuyo dato falta se omiten:
+Va con las negritas de WhatsApp (`*así*`) y **sin emojis**: los que están fuera del plano básico de Unicode (📅, 🚌, 🗺️…) llegan como "�" en WhatsApp Desktop de Windows al abrir el link `wa.me`. La flecha → y los acentos sí se ven bien. Un test verifica que ningún carácter del mensaje supere U+FFFF, para que no vuelvan a entrar. Las líneas cuyo dato falta se omiten.
 
 ```
-Hola Ana! Te confirmo el viaje:
-📅 20/10 · 08:00 a 12:30
-🚌 Interno 12 (AE452KD)
-📍 Río Tercero → Alta Gracia → Museo del Kempes → Córdoba
-👥 45 pasajeros
-Cliente: ACME
-🗺️ Ver recorrido en Google Maps:
+Hola Ana, te confirmo el viaje del *martes 20/10*.
+
+*Horario:* 08:00 a 12:30
+*Vehículo:* Interno 12 (AE452KD)
+*Recorrido:* Río Tercero → Córdoba
+*Pasajeros:* 45
+*Cliente:* ACME
+
+Ver el recorrido en el mapa:
 https://www.google.com/maps/dir/?api=1&…
 ```
-- Fecha y hora en hora de Córdoba. Si el viaje termina otro día, el fin lleva su fecha ("20/10 · 22:00 a 21/10 06:00").
-- El recorrido incluye todas las paradas. Los pasajeros solo si la cantidad está cargada ("1 pasajero" en singular).
-- El link de Google Maps es el último renglón y es el mismo de "Ver recorrido en Google Maps" (`urlRecorrido`).
+- El día de la semana va en español y en minúscula, y la fecha y las horas, en hora de Córdoba.
+- Si el viaje termina otro día, cada hora lleva su fecha: `*Horario:* 22:00 del 20/10 a 06:00 del 21/10`.
+- Con paradas el recorrido va en vertical: `*Recorrido:*` en su línea, después el origen y cada punto siguiente en su propia línea con `→ ` adelante:
+  ```
+  *Recorrido:*
+  Río Tercero
+  → Alta Gracia
+  → Museo del Kempes
+  → Córdoba
+  ```
+- `*Pasajeros:*` solo aparece si la cantidad está cargada.
+- Al final, en un bloque separado por una línea en blanco, el link de Google Maps: el mismo de "Ver recorrido en Google Maps" (`urlRecorrido`). Sin origen o sin destino no hay link y tampoco el bloque.

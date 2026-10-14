@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const bucketName = (process.env.SUPABASE_BUCKET_NAME || 'documentacion').replace(/"/g, '');
 
 let supabase = null;
@@ -59,13 +59,17 @@ async function generarSignedUrl(storagePath, segundosExpiracion = 3600) {
 }
 
 /**
- * Elimina un archivo del bucket de Supabase Storage.
+ * Elimina un archivo del bucket de Supabase Storage. Lanza si falla, para que
+ * quien lo llama decida qué hacer (documentoService lo atrapa y lo loguea).
  * @param {string} storagePath - Ruta del archivo en el bucket
- * @returns {Promise<boolean>}
+ * @returns {Promise<boolean>} true si lo eliminó; false si no había nada que eliminar
  */
 async function eliminarArchivo(storagePath) {
-  if (!supabase || !storagePath) {
+  if (!storagePath) {
     return false;
+  }
+  if (!supabase) {
+    throw new Error('Supabase Storage no está configurado en las variables de entorno.');
   }
 
   const { error } = await supabase.storage
@@ -73,8 +77,7 @@ async function eliminarArchivo(storagePath) {
     .remove([storagePath]);
 
   if (error) {
-    console.error(`Error al eliminar archivo ${storagePath} de Supabase:`, error.message);
-    return false;
+    throw new Error(`Error al eliminar ${storagePath} de Supabase Storage: ${error.message}`);
   }
 
   return true;

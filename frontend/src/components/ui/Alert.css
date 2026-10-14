@@ -21,6 +21,12 @@
   border-color: var(--state-error-border);
 }
 
+.alert-warning {
+  color: var(--state-warning-text);
+  background-color: var(--state-warning-bg);
+  border-color: var(--state-warning-border);
+}
+
 .alert-info {
   color: var(--state-info-text);
   background-color: var(--state-info-bg);

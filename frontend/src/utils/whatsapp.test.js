@@ -146,8 +146,8 @@ describe('urlWhatsApp', () => {
     assert.equal(url, 'https://wa.me/5493571612345?text=Hola%20Ana!');
   });
 
-  test('el mensaje sobrevive a la codificación (saltos de línea, &, #, tildes y emojis)', () => {
-    const mensaje = 'Línea 1\nLínea 2 & más #3 — 📍 Río Tercero → Córdoba';
+  test('el mensaje sobrevive a la codificación (saltos de línea, &, #, *, tildes y flecha)', () => {
+    const mensaje = 'Línea 1\nLínea 2 & más #3 — *negrita* Río Tercero → Córdoba';
 
     const texto = new URL(urlWhatsApp('5493571612345', mensaje)).searchParams.get('text');
 
@@ -163,114 +163,195 @@ describe('armarMensajeViaje', () => {
     { orden: 2, ubicacion: { id: 4, nombre: 'Museo del Kempes' } },
   ];
 
-  // 20/10/2026 de 08:00 a 12:30 en Córdoba (UTC-3).
+  // Martes 20/10/2026 de 08:00 a 12:30 en Córdoba (UTC-3).
   const viajeBase = {
     chofer: { nombre: 'Ana', apellido: 'Pérez', telefono: '03571 15-612345' },
     vehiculo: { numeroInterno: '12', dominio: 'AE452KD' },
     cliente: { nombre: 'ACME' },
     origen,
     destino,
-    paradas,
+    paradas: [],
     cantidadPasajeros: 45,
     fechaInicio: '2026-10-20T11:00:00.000Z',
     fechaFin: '2026-10-20T15:30:00.000Z',
   };
 
-  const enlaceMapa = (v) => urlRecorrido({ origen: v.origen, paradas: v.paradas.map((p) => p.ubicacion), destino: v.destino });
+  const enlaceMapa = (v) =>
+    urlRecorrido({ origen: v.origen, paradas: v.paradas.map((p) => p.ubicacion), destino: v.destino });
 
-  test('el mensaje completo, con recorrido, pasajeros y el link de Google Maps al final', () => {
+  test('el mensaje completo sin paradas: recorrido en una línea', () => {
     const esperado = [
-      'Hola Ana! Te confirmo el viaje:',
-      '📅 20/10 · 08:00 a 12:30',
-      '🚌 Interno 12 (AE452KD)',
-      '📍 Río Tercero → Alta Gracia → Museo del Kempes → Córdoba',
-      '👥 45 pasajeros',
-      'Cliente: ACME',
-      '🗺️ Ver recorrido en Google Maps:',
+      'Hola Ana, te confirmo el viaje del *martes 20/10*.',
+      '',
+      '*Horario:* 08:00 a 12:30',
+      '*Vehículo:* Interno 12 (AE452KD)',
+      '*Recorrido:* Río Tercero → Córdoba',
+      '*Pasajeros:* 45',
+      '*Cliente:* ACME',
+      '',
+      'Ver el recorrido en el mapa:',
       enlaceMapa(viajeBase),
     ].join('\n');
 
     assert.equal(armarMensajeViaje(viajeBase), esperado);
   });
 
-  test('el link de Google Maps es el último renglón y es el de urlRecorrido', () => {
-    const lineas = armarMensajeViaje(viajeBase).split('\n');
+  test('con paradas el recorrido va en vertical: el origen y cada punto siguiente con "→ " adelante', () => {
+    const viaje = { ...viajeBase, paradas };
 
-    assert.equal(lineas.at(-1), enlaceMapa(viajeBase));
-    assert.ok(lineas.at(-1).startsWith('https://www.google.com/maps/dir/'));
-    assert.equal(lineas.at(-2), '🗺️ Ver recorrido en Google Maps:');
+    const esperado = [
+      'Hola Ana, te confirmo el viaje del *martes 20/10*.',
+      '',
+      '*Horario:* 08:00 a 12:30',
+      '*Vehículo:* Interno 12 (AE452KD)',
+      '*Recorrido:*',
+      'Río Tercero',
+      '→ Alta Gracia',
+      '→ Museo del Kempes',
+      '→ Córdoba',
+      '*Pasajeros:* 45',
+      '*Cliente:* ACME',
+      '',
+      'Ver el recorrido en el mapa:',
+      enlaceMapa(viaje),
+    ].join('\n');
+
+    assert.equal(armarMensajeViaje(viaje), esperado);
   });
 
-  test('sin paradas el recorrido es "Origen → Destino" y el link no lleva waypoints', () => {
-    const mensaje = armarMensajeViaje({ ...viajeBase, paradas: [] });
+  test('el link de Google Maps es el último renglón, es el de urlRecorrido y lleva las paradas', () => {
+    const viaje = { ...viajeBase, paradas };
+    const lineas = armarMensajeViaje(viaje).split('\n');
 
-    assert.ok(mensaje.includes('📍 Río Tercero → Córdoba\n'));
-    assert.ok(!new URL(mensaje.split('\n').at(-1)).searchParams.has('waypoints'));
+    assert.equal(lineas.at(-1), enlaceMapa(viaje));
+    assert.equal(lineas.at(-2), 'Ver el recorrido en el mapa:');
+    assert.equal(lineas.at(-3), '');
+    assert.ok(new URL(lineas.at(-1)).searchParams.get('waypoints').includes('Alta Gracia'));
+  });
+
+  test('sin paradas el link no lleva waypoints', () => {
+    assert.ok(!new URL(armarMensajeViaje(viajeBase).split('\n').at(-1)).searchParams.has('waypoints'));
+  });
+
+  test('el día de la semana va en español, en minúscula y en hora de Córdoba', () => {
+    const DIAS = [
+      ['2026-10-19T15:00:00.000Z', 'lunes 19/10'],
+      ['2026-10-20T15:00:00.000Z', 'martes 20/10'],
+      ['2026-10-21T15:00:00.000Z', 'miércoles 21/10'],
+      ['2026-10-22T15:00:00.000Z', 'jueves 22/10'],
+      ['2026-10-23T15:00:00.000Z', 'viernes 23/10'],
+      ['2026-10-24T15:00:00.000Z', 'sábado 24/10'],
+      ['2026-10-25T15:00:00.000Z', 'domingo 25/10'],
+    ];
+
+    for (const [inicio, esperado] of DIAS) {
+      const primera = armarMensajeViaje({ ...viajeBase, fechaInicio: inicio, fechaFin: null }).split('\n')[0];
+      assert.equal(primera, `Hola Ana, te confirmo el viaje del *${esperado}*.`);
+    }
+  });
+
+  test('la fecha y la hora son las de Córdoba aunque el instante en UTC caiga en otro día', () => {
+    // 20/10 00:30 en Córdoba = 03:30 UTC del mismo día.
+    const madrugada = armarMensajeViaje({
+      ...viajeBase,
+      fechaInicio: '2026-10-20T03:30:00.000Z',
+      fechaFin: '2026-10-20T08:00:00.000Z',
+    }).split('\n');
+    assert.equal(madrugada[0], 'Hola Ana, te confirmo el viaje del *martes 20/10*.');
+    assert.equal(madrugada[2], '*Horario:* 00:30 a 05:00');
+
+    // 20/10 22:30 en Córdoba = 01:30 UTC del 21 (miércoles en UTC, martes en Córdoba).
+    const noche = armarMensajeViaje({
+      ...viajeBase,
+      fechaInicio: '2026-10-21T01:30:00.000Z',
+      fechaFin: '2026-10-21T02:30:00.000Z',
+    }).split('\n');
+    assert.equal(noche[0], 'Hola Ana, te confirmo el viaje del *martes 20/10*.');
+    assert.equal(noche[2], '*Horario:* 22:30 a 23:30');
+  });
+
+  test('un viaje que termina otro día lleva la fecha en cada hora', () => {
+    const lineas = armarMensajeViaje({
+      ...viajeBase,
+      fechaInicio: '2026-10-21T01:00:00.000Z', // 20/10 22:00 en Córdoba
+      fechaFin: '2026-10-21T09:00:00.000Z', // 21/10 06:00
+    }).split('\n');
+
+    assert.equal(lineas[0], 'Hola Ana, te confirmo el viaje del *martes 20/10*.');
+    assert.equal(lineas[2], '*Horario:* 22:00 del 20/10 a 06:00 del 21/10');
+  });
+
+  test('sin hora de fin queda solo la de salida', () => {
+    assert.equal(armarMensajeViaje({ ...viajeBase, fechaFin: null }).split('\n')[2], '*Horario:* 08:00');
   });
 
   test('la línea de pasajeros solo aparece si la cantidad está cargada', () => {
     for (const vacio of [null, undefined, '']) {
       const mensaje = armarMensajeViaje({ ...viajeBase, cantidadPasajeros: vacio });
-      assert.ok(!mensaje.includes('👥'), `no debería haber línea de pasajeros con ${String(vacio)}`);
-      assert.ok(!mensaje.includes('pasajero'));
+      assert.ok(!mensaje.includes('Pasajeros'), `no debería haber pasajeros con ${String(vacio)}`);
     }
-  });
-
-  test('con un solo pasajero va en singular', () => {
-    assert.ok(armarMensajeViaje({ ...viajeBase, cantidadPasajeros: 1 }).includes('👥 1 pasajero\n'));
-    assert.ok(armarMensajeViaje({ ...viajeBase, cantidadPasajeros: 2 }).includes('👥 2 pasajeros\n'));
-  });
-
-  test('un viaje que termina otro día lleva la fecha en el fin', () => {
-    const mensaje = armarMensajeViaje({
-      ...viajeBase,
-      fechaInicio: '2026-10-21T01:00:00.000Z', // 20/10 22:00 en Córdoba
-      fechaFin: '2026-10-21T09:00:00.000Z', // 21/10 06:00
-    });
-
-    assert.ok(mensaje.includes('📅 20/10 · 22:00 a 21/10 06:00\n'));
-  });
-
-  test('la fecha y la hora son las de Córdoba aunque el instante en UTC caiga en otro día', () => {
-    // 20/10 00:30 en Córdoba = 03:30 UTC del mismo día; 19/10 23:00 = 02:00 UTC del 20.
-    const medianoche = armarMensajeViaje({
-      ...viajeBase,
-      fechaInicio: '2026-10-20T03:30:00.000Z',
-      fechaFin: '2026-10-20T08:00:00.000Z',
-    });
-    assert.ok(medianoche.includes('📅 20/10 · 00:30 a 05:00\n'), medianoche);
-
-    const noche = armarMensajeViaje({
-      ...viajeBase,
-      fechaInicio: '2026-10-21T01:30:00.000Z',
-      fechaFin: '2026-10-21T02:30:00.000Z',
-    });
-    assert.ok(noche.includes('📅 20/10 · 22:30 a 23:30\n'), noche);
+    assert.ok(armarMensajeViaje({ ...viajeBase, cantidadPasajeros: 1 }).includes('\n*Pasajeros:* 1\n'));
   });
 
   test('omite las líneas cuyo dato falta en vez de dejarlas vacías', () => {
     const mensaje = armarMensajeViaje({ ...viajeBase, cliente: null, vehiculo: null });
 
     assert.ok(!mensaje.includes('Cliente'));
-    assert.ok(!mensaje.includes('🚌'));
-    assert.ok(mensaje.includes('📍'));
+    assert.ok(!mensaje.includes('Vehículo'));
+    assert.ok(mensaje.includes('*Recorrido:*'));
   });
 
-  test('sin origen o sin destino no hay recorrido ni link', () => {
+  test('sin origen o sin destino no hay recorrido ni link (ni la línea de "mapa")', () => {
     const mensaje = armarMensajeViaje({ ...viajeBase, origen: null });
 
-    assert.ok(!mensaje.includes('📍'));
-    assert.ok(!mensaje.includes('🗺️'));
+    assert.ok(!mensaje.includes('Recorrido'));
+    assert.ok(!mensaje.includes('mapa'));
     assert.ok(!mensaje.includes('http'));
+    // Sin link tampoco queda la línea en blanco que lo separaba.
+    assert.ok(!mensaje.endsWith('\n'));
   });
 
   test('el saludo usa el nombre del chofer', () => {
-    assert.ok(armarMensajeViaje({ ...viajeBase, chofer: { nombre: 'Beto' } }).startsWith('Hola Beto! Te confirmo el viaje:\n'));
+    assert.ok(
+      armarMensajeViaje({ ...viajeBase, chofer: { nombre: 'Beto' } }).startsWith('Hola Beto, te confirmo el viaje del *')
+    );
   });
 
   test('un viaje sin la clave paradas (por ejemplo, histórico) no rompe', () => {
     const { paradas: _omitida, ...sinParadas } = viajeBase;
-    assert.ok(armarMensajeViaje(sinParadas).includes('📍 Río Tercero → Córdoba'));
+    assert.ok(armarMensajeViaje(sinParadas).includes('*Recorrido:* Río Tercero → Córdoba'));
+  });
+
+  test('ningún carácter está fuera del plano básico de Unicode (sin emojis)', () => {
+    // Los emojis (📅, 🚌, 🗺️…) llegan como "�" en WhatsApp Desktop de Windows al abrir el
+    // link wa.me. Nada del mensaje armado puede estar por encima de U+FFFF.
+    const fueraDelPlanoBasico = (texto) => [...texto].filter((caracter) => caracter.codePointAt(0) > 0xffff);
+
+    const variantes = {
+      'sin paradas': viajeBase,
+      'con paradas': { ...viajeBase, paradas },
+      'con 9 paradas': {
+        ...viajeBase,
+        paradas: Array.from({ length: 9 }, (_, i) => ({ orden: i + 1, ubicacion: { id: i + 3, nombre: `Parada ñandú ${i + 1}` } })),
+      },
+      'cruza de día': { ...viajeBase, fechaInicio: '2026-10-21T01:00:00.000Z', fechaFin: '2026-10-21T09:00:00.000Z' },
+      'sin pasajeros ni cliente': { ...viajeBase, cantidadPasajeros: null, cliente: null },
+      'sin hora de fin': { ...viajeBase, fechaFin: null },
+    };
+
+    for (const [nombre, viaje] of Object.entries(variantes)) {
+      const mensaje = armarMensajeViaje(viaje);
+      assert.deepEqual(fueraDelPlanoBasico(mensaje), [], `"${nombre}" tiene caracteres fuera del plano básico`);
+    }
+
+    // La flecha y los acentos sí tienen que estar (son del plano básico).
+    const mensaje = armarMensajeViaje({ ...viajeBase, paradas });
+    assert.ok(mensaje.includes('→') && mensaje.includes('í'));
+  });
+
+  test('el chequeo de emojis detecta uno de verdad', () => {
+    const conEmoji = armarMensajeViaje({ ...viajeBase, cliente: { nombre: 'ACME 🚌' } });
+    assert.ok([...conEmoji].some((caracter) => caracter.codePointAt(0) > 0xffff));
   });
 });
 

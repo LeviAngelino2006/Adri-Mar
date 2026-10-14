@@ -6,10 +6,10 @@ import Layout from '../components/Layout';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
 import Button from '../components/ui/Button';
-import Spinner from '../components/ui/Spinner';
+import Cargando from '../components/ui/Cargando';
 import Toast from '../components/ui/Toast';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
-import TarjetaViaje from '../components/TarjetaViaje';
+import { ListadoViajesPorDia } from '../components/TarjetaViaje';
 import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
@@ -164,21 +164,12 @@ function MisViajes() {
             </form>
           )}
 
-          {cargando && (
-            <div className="loading-state">
-              <Spinner label="Cargando viajes" />
-              <span>Cargando viajes…</span>
-            </div>
-          )}
+          {cargando && <Cargando forma="viajes" />}
 
           {!cargando && viajes.length === 0 && <div className="listado-vacio">No tenés viajes asignados</div>}
 
           {!cargando && viajes.length > 0 && (
-            <div className="listado-cards">
-              {viajes.map((v) => (
-                <TarjetaViaje key={v.id} viaje={v} variante={varianteTarjeta} onClick={() => seleccionar(v)} />
-              ))}
-            </div>
+            <ListadoViajesPorDia viajes={viajes} variante={varianteTarjeta} onSeleccionar={seleccionar} />
           )}
         </>
       )}
@@ -203,7 +194,7 @@ function MisViajes() {
           {seleccionado.estado === 'PROGRAMADO' && (
             <div className="viajes-detalle-actions">
               <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
-                Comenzar
+                Comenzar viaje
               </Button>
             </div>
           )}
@@ -211,7 +202,7 @@ function MisViajes() {
           {seleccionado.estado === 'EN_VIAJE' && (
             <div className="viajes-detalle-actions">
               <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
-                Finalizar
+                Finalizar viaje
               </Button>
             </div>
           )}

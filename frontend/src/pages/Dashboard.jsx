@@ -6,40 +6,27 @@ import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import Spinner from '../components/ui/Spinner';
+import Cargando from '../components/ui/Cargando';
 import Toast from '../components/ui/Toast';
+import Alert from '../components/ui/Alert';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import RutaViaje from '../components/RutaViaje';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import PanelViajesPorConfirmar from '../components/PanelViajesPorConfirmar';
+import PanelViajesDeHoy from '../components/PanelViajesDeHoy';
+import FechaTile from '../components/FechaTile';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
-import { formatearDiaYHora, nombreVehiculo } from '../utils/viajeFormato';
+import { formatearDiaYHora, formatearHorarioViaje, nombreVehiculo } from '../utils/viajeFormato';
 import { porcentajeProgresoViaje } from '../utils/fechaCordoba';
+import { lineaAlertaDocumento, ordenarAlertas, resumenAlertas } from '../utils/documentacion';
 import './Dashboard.css';
 
 // Los que gestionan viajes (ver el panel de viajes por confirmar).
 const PERFILES_GESTORES = ['ADMINISTRADOR', 'ENCARGADO'];
 
 const MAX_VIAJES_INICIAL = 3;
+const MAX_DOCUMENTOS_INICIAL = 5;
 const INTERVALO_PROGRESO_MS = 60 * 1000;
-
-const ICONO_VIAJE = (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="5" width="18" height="16" rx="2" />
-    <line x1="3" y1="10" x2="21" y2="10" />
-    <line x1="8" y1="3" x2="8" y2="7" />
-    <line x1="16" y1="3" x2="16" y2="7" />
-  </svg>
-);
-
-const ICONO_CALENDARIO = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="5" width="18" height="16" rx="2" />
-    <line x1="3" y1="10" x2="21" y2="10" />
-    <line x1="8" y1="3" x2="8" y2="7" />
-    <line x1="16" y1="3" x2="16" y2="7" />
-  </svg>
-);
 
 function ViajeEnCurso({ viaje, onVerDetalle, onFinalizar }) {
   const [ahora, setAhora] = useState(() => Date.now());
@@ -106,18 +93,10 @@ function ProximosViajes({ viajes, cargando, onVerDetalle, onComenzar }) {
     <Card className="dashboard-panel dashboard-proximos-viajes">
       <h2>Tus próximos viajes</h2>
 
-      {cargando && (
-        <div className="loading-state">
-          <Spinner label="Cargando próximos viajes" />
-          <span>Cargando…</span>
-        </div>
-      )}
+      {cargando && <Cargando forma="filas" />}
 
       {!cargando && viajes.length === 0 && (
-        <div className="dashboard-empty">
-          {ICONO_VIAJE}
-          <span>No tenés viajes programados próximamente</span>
-        </div>
+        <div className="dashboard-empty">No tenés viajes programados próximamente</div>
       )}
 
       {!cargando && viajes.length > 0 && (
@@ -126,14 +105,18 @@ function ProximosViajes({ viajes, cargando, onVerDetalle, onComenzar }) {
             {visibles.map((v) => (
               <li key={v.id} className="proximos-viajes-item">
                 <button type="button" className="proximos-viajes-enlace" onClick={() => onVerDetalle(v)}>
-                  <div className="proximos-viajes-icono">{ICONO_CALENDARIO}</div>
-                  <div className="proximos-viajes-info">
+                  <FechaTile fecha={v.fechaInicio} />
+                  <span className="proximos-viajes-info">
                     <span className="proximos-viajes-ruta">
                       <RutaViaje origen={v.origen} destino={v.destino} paradas={v.paradas} />
                     </span>
-                    <span className="proximos-viajes-salida">{formatearDiaYHora(v.fechaInicio)}</span>
-                    <span className="proximos-viajes-vehiculo">{nombreVehiculo(v.vehiculo)}</span>
-                  </div>
+                    <span className="proximos-viajes-salida">{formatearHorarioViaje(v.fechaInicio, v.fechaFin)}</span>
+                    {v.vehiculo && (
+                      <span className="proximos-viajes-vehiculo">
+                        {v.vehiculo.numeroInterno} - <span className="patente">{v.vehiculo.dominio}</span>
+                      </span>
+                    )}
+                  </span>
                 </button>
                 <Button variant="secondary" className="proximos-viajes-accion" onClick={() => onComenzar(v)}>
                   Comenzar viaje
@@ -238,31 +221,50 @@ function ViajesDelChofer() {
   );
 }
 
-function SeccionAlertasDocumentacion() {
+// Documentos vencidos y por vencer de vehículos y choferes: primero los vencidos
+// (el más atrasado arriba), después los por vencer (el más próximo arriba). Se
+// muestran 5 y el resto con "Ver N más". Cada fila lleva a la ficha del vehículo
+// o del chofer en Documentación.
+function SeccionDocumentacion() {
   const navigate = useNavigate();
   const [alertas, setAlertas] = useState(null);
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState(false);
+  const [mostrarTodos, setMostrarTodos] = useState(false);
 
   useEffect(() => {
     obtenerAlertasVencimientos()
       .then((res) => setAlertas(res))
-      .catch((err) => console.error('Error al cargar alertas:', err))
+      .catch((err) => {
+        console.error('Error al cargar alertas:', err);
+        setError(true);
+      })
       .finally(() => setCargando(false));
   }, []);
 
   if (cargando) {
     return (
       <Card className="dashboard-panel">
-        <h2>Alertas de documentación</h2>
-        <div className="loading-state">
-          <Spinner label="Cargando alertas" />
-          <span>Cargando alertas…</span>
-        </div>
+        <h2>Documentación</h2>
+        <Cargando forma="filas" />
       </Card>
     );
   }
 
-  const sinAlertas = !alertas || alertas.totalAlertas === 0;
+  // Ante un error nunca se muestra "Sin alertas": no se sabe si las hay.
+  if (error) {
+    return (
+      <Card className="dashboard-panel">
+        <h2>Documentación</h2>
+        <Alert variant="error">No se pudieron cargar las alertas.</Alert>
+      </Card>
+    );
+  }
+
+  const sinAlertas = alertas.totalAlertas === 0;
+  const documentos = ordenarAlertas(alertas.documentos);
+  const visibles = mostrarTodos ? documentos : documentos.slice(0, MAX_DOCUMENTOS_INICIAL);
+  const restantes = documentos.length - MAX_DOCUMENTOS_INICIAL;
 
   function irADocumentacion(doc) {
     if (doc.categoria === 'VEHICULO') {
@@ -274,74 +276,53 @@ function SeccionAlertasDocumentacion() {
 
   return (
     <Card className="dashboard-panel">
-      <div className="dashboard-alertas-header">
-        <h2>Alertas de documentación</h2>
-        {!sinAlertas && (
-          <div className="dashboard-alertas-resumen">
-            {alertas.vencidos > 0 && (
-              <EstadoBadge tono="error">{alertas.vencidos} Vencidos</EstadoBadge>
-            )}
-            {alertas.proximosAVencer > 0 && (
-              <EstadoBadge tono="warning">{alertas.proximosAVencer} Por vencer</EstadoBadge>
-            )}
-          </div>
-        )}
+      <div className="dashboard-panel-header">
+        <h2>Documentación</h2>
+        {!sinAlertas && <span className="dashboard-resumen">{resumenAlertas(alertas)}</span>}
       </div>
 
       {sinAlertas ? (
         <div className="dashboard-empty">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 9v4" />
-            <path d="M12 17h.01" />
-            <path d="M10.3 3.9L2.5 17a1.8 1.8 0 0 0 1.6 2.7h15.8a1.8 1.8 0 0 0 1.6-2.7L13.7 3.9a1.8 1.8 0 0 0-3.2 0z" />
-          </svg>
           <span>Sin alertas por ahora</span>
           <span className="dashboard-empty-hint">
             Toda la documentación registrada de vehículos y choferes está al día
           </span>
         </div>
       ) : (
-        <ul className="alertas-lista">
-          {alertas.documentos.map((doc) => {
-            const esVehiculo = doc.categoria === 'VEHICULO';
-            const sujeto = esVehiculo
-              ? `${doc.vehiculo.marca} ${doc.vehiculo.modelo} (${doc.vehiculo.dominio})`
-              : `${doc.usuario.nombre} ${doc.usuario.apellido}`;
+        <>
+          <ul className="dashboard-lista">
+            {visibles.map((doc) => {
+              const vencido = doc.estado === 'VENCIDO';
+              return (
+                <li key={`${doc.categoria}-${doc.id}`}>
+                  <button type="button" className="dashboard-fila sin-hora" onClick={() => irADocumentacion(doc)}>
+                    <span className="dashboard-fila-info">
+                      <span className="dashboard-fila-titulo">
+                        {doc.categoria === 'VEHICULO' ? (
+                          <>
+                            {doc.vehiculo.numeroInterno} - <span className="patente">{doc.vehiculo.dominio}</span>
+                          </>
+                        ) : (
+                          `${doc.usuario.nombre} ${doc.usuario.apellido}`
+                        )}
+                      </span>
+                      <span className="dashboard-fila-meta">{lineaAlertaDocumento(doc)}</span>
+                    </span>
+                    <EstadoBadge tono={vencido ? 'error' : 'warning'} size="sm">
+                      {vencido ? 'Vencido' : 'Por vencer'}
+                    </EstadoBadge>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
 
-            const tono = doc.estado === 'VENCIDO' ? 'error' : 'warning';
-            const textoDias =
-              doc.diasRestantes < 0
-                ? `Vencido hace ${Math.abs(doc.diasRestantes)} día(s)`
-                : doc.diasRestantes === 0
-                ? 'Vence hoy'
-                : `Vence en ${doc.diasRestantes} día(s)`;
-
-            return (
-              <li
-                key={`${doc.categoria}-${doc.id}`}
-                className="alertas-item alertas-item-clickeable"
-                onClick={() => irADocumentacion(doc)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === 'Enter' && irADocumentacion(doc)}
-                title="Ir a la documentación"
-              >
-                <div className="alertas-info">
-                  <div className="alertas-titulo">
-                    <span className="alertas-tipo">{doc.tipo}</span>
-                    <span className="alertas-sujeto">• {sujeto}</span>
-                  </div>
-                  <span className="alertas-fecha">
-                    Fecha vencimiento: {new Date(doc.fechaVencimiento).toLocaleDateString('es-AR')} — {textoDias}
-                  </span>
-                </div>
-                <EstadoBadge tono={tono}>
-                  {doc.estado === 'VENCIDO' ? 'Vencido' : 'Próximo a vencer'}
-                </EstadoBadge>
-              </li>
-            );
-          })}
-        </ul>
+          {restantes > 0 && (
+            <Button variant="secondary" className="dashboard-ver-mas" onClick={() => setMostrarTodos((m) => !m)}>
+              {mostrarTodos ? 'Ver menos' : `Ver ${restantes} más`}
+            </Button>
+          )}
+        </>
       )}
     </Card>
   );
@@ -350,18 +331,23 @@ function SeccionAlertasDocumentacion() {
 function Dashboard() {
   const { usuario } = useAuth();
 
+  const esGestor = PERFILES_GESTORES.includes(usuario.perfil);
+
   return (
     <Layout>
-      <h1>Panel principal</h1>
-      <p className="dashboard-greeting">
-        Hola, {usuario.nombre} {usuario.apellido}
-      </p>
-
-      {PERFILES_GESTORES.includes(usuario.perfil) && <PanelViajesPorConfirmar />}
+      <h1>Hola, {usuario.nombre}</h1>
 
       {usuario.habilitadoParaConducir && <ViajesDelChofer />}
 
-      <SeccionAlertasDocumentacion />
+      {esGestor && (
+        <>
+          <PanelViajesDeHoy />
+          <div className="dashboard-columnas">
+            <PanelViajesPorConfirmar />
+            <SeccionDocumentacion />
+          </div>
+        </>
+      )}
     </Layout>
   );
 }

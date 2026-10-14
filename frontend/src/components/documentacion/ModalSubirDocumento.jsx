@@ -1,276 +1,166 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Button from '../ui/Button';
 import FormField from '../ui/FormField';
 import Alert from '../ui/Alert';
-import ConfirmModal from '../ui/ConfirmModal';
-import { useAuth } from '../../context/AuthContext';
+import ModalMarco from './ModalMarco';
 import api from '../../services/api';
-import './ModalDocumentacion.css';
+import { etiquetaTipoDocumento } from '../../constants/tiposDocumento';
+import { diasHasta, formatearFechaCorta } from '../../utils/documentacion';
+import { fechaCordobaISO, hoyCordobaISO } from '../../utils/fechaCordoba';
+import { formatearNombreArchivo } from '../../utils/archivoFormato';
 
-function ModalSubirDocumento({
-  open,
-  onClose,
-  vehiculo,
-  chofer,
-  tipoDocumento,
-  documentoActual,
-  onSuccess,
-}) {
-  const { usuario } = useAuth();
-  const esAdmin = usuario?.perfil === 'ADMINISTRADOR';
+const MAX_BYTES = 15 * 1024 * 1024;
 
+// Fecha "YYYY-MM-DD" para un <input type="date"> a partir de un instante de la API.
+const aInputFecha = (valor) => (valor ? fechaCordobaISO(valor) : '');
+
+// Aviso de lo que pasa con la versión actual al guardar una actualización.
+function avisoVersionActual(documento) {
+  const final = 'Al guardar, pasa al historial y esta queda como vigente.';
+  if (!documento.fechaVencimiento) {
+    return `La versión actual se cargó el ${formatearFechaCorta(documento.creadoEn)}. ${final}`;
+  }
+  const verbo = diasHasta(documento.fechaVencimiento) < 0 ? 'venció' : 'vence';
+  return `La versión actual ${verbo} el ${formatearFechaCorta(documento.fechaVencimiento)}. ${final}`;
+}
+
+// Cargar un documento que todavía no existe, o actualizarlo (una versión nueva
+// que pasa a ser la vigente). Se monta solo mientras está abierto, así el
+// formulario arranca siempre desde los datos del documento actual.
+function ModalSubirDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, documentoActual, onClose, onSuccess }) {
+  const esActualizacion = Boolean(documentoActual);
   const [archivo, setArchivo] = useState(null);
-  const [fechaEmision, setFechaEmision] = useState('');
-  const [fechaVencimiento, setFechaVencimiento] = useState('');
-  const [observaciones, setObservaciones] = useState('');
+  const [fechaEmision, setFechaEmision] = useState(aInputFecha(documentoActual?.fechaEmision));
+  const [fechaVencimiento, setFechaVencimiento] = useState(aInputFecha(documentoActual?.fechaVencimiento));
+  const [observaciones, setObservaciones] = useState(documentoActual?.observaciones ?? '');
   const [enviando, setEnviando] = useState(false);
-  const [eliminando, setEliminando] = useState(false);
-  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
+  // Un mensaje por campo (archivo, fechaEmision, fechaVencimiento), igual que los
+  // `errores` del backend; `error` es el mensaje general.
+  const [errores, setErrores] = useState({});
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (open) {
-      setArchivo(null);
-      setError('');
-      setConfirmandoEliminar(false);
-      if (documentoActual) {
-        setFechaEmision(documentoActual.fechaEmision ? documentoActual.fechaEmision.substring(0, 10) : '');
-        setFechaVencimiento(documentoActual.fechaVencimiento ? documentoActual.fechaVencimiento.substring(0, 10) : '');
-        setObservaciones(documentoActual.observaciones || '');
-      } else {
-        setFechaEmision('');
-        setFechaVencimiento('');
-        setObservaciones('');
-      }
-    }
-  }, [open, documentoActual]);
-
-  if (!open || (!vehiculo && !chofer) || !tipoDocumento) return null;
-
-  const esRenovacion = !!documentoActual;
+  const etiqueta = etiquetaTipoDocumento(tipoDocumento.descripcion);
 
   function handleFileChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
-      setError('Solo se admiten archivos en formato PDF.');
+      setErrores((prev) => ({ ...prev, archivo: 'Solo se permiten archivos PDF.' }));
+      setArchivo(null);
+      return;
+    }
+    if (file.size > MAX_BYTES) {
+      setErrores((prev) => ({ ...prev, archivo: 'El archivo supera el máximo de 15 MB.' }));
       setArchivo(null);
       return;
     }
 
-    if (file.size > 15 * 1024 * 1024) {
-      setError('El archivo supera el tamaño máximo permitido (15 MB).');
-      setArchivo(null);
-      return;
-    }
-
-    setError('');
+    setErrores((prev) => ({ ...prev, archivo: undefined }));
     setArchivo(file);
+  }
+
+  function validar() {
+    const nuevos = {};
+    if (tipoDocumento.requiereArchivo && !archivo && !esActualizacion) {
+      nuevos.archivo = 'Adjuntá un archivo PDF.';
+    }
+    if (tipoDocumento.requiereVencimiento && !fechaVencimiento) {
+      nuevos.fechaVencimiento = 'La fecha de vencimiento es obligatoria.';
+    } else if (fechaEmision && fechaVencimiento && fechaVencimiento < fechaEmision) {
+      nuevos.fechaVencimiento = 'La fecha de vencimiento no puede ser anterior a la fecha de emisión.';
+    }
+    return nuevos;
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
 
-    if (tipoDocumento.requiereArchivo && !archivo && !esRenovacion) {
-      setError('Debes adjuntar un archivo PDF para este documento.');
-      return;
-    }
-
-    if (tipoDocumento.requiereVencimiento && !fechaVencimiento) {
-      setError('La fecha de vencimiento es obligatoria.');
-      return;
-    }
-
-    if (fechaEmision && fechaVencimiento && fechaVencimiento < fechaEmision) {
-      setError('La fecha de vencimiento no puede ser anterior a la fecha de emisión.');
-      return;
-    }
+    const invalidos = validar();
+    setErrores(invalidos);
+    if (Object.keys(invalidos).length > 0) return;
 
     setEnviando(true);
     try {
       const formData = new FormData();
       formData.append('tipoDocumentoId', tipoDocumento.id);
       if (fechaEmision) formData.append('fechaEmision', fechaEmision);
-      if (fechaVencimiento) formData.append('fechaVencimiento', fechaVencimiento);
+      if (tipoDocumento.requiereVencimiento && fechaVencimiento) formData.append('fechaVencimiento', fechaVencimiento);
       if (observaciones) formData.append('observaciones', observaciones);
       if (archivo) formData.append('archivo', archivo);
 
-      const endpoint = chofer
-        ? `/documentos/choferes/${chofer.id}`
-        : `/documentos/vehiculos/${vehiculo.id}`;
-
-      const { data } = await api.post(endpoint, formData);
-
-      onSuccess(data.documento);
-      onClose();
+      const endpoint = chofer ? `/documentos/choferes/${chofer.id}` : `/documentos/vehiculos/${vehiculo.id}`;
+      await api.post(endpoint, formData);
+      onSuccess();
     } catch (err) {
-      setError(err.response?.data?.error || 'Error al guardar el documento. Intentá nuevamente.');
-    } finally {
+      const { errores: delBackend, error: mensaje } = err.response?.data ?? {};
+      if (delBackend) {
+        // tipoDocumentoId no tiene campo en el formulario: va como mensaje general.
+        const { tipoDocumentoId, ...porCampo } = delBackend;
+        setErrores(porCampo);
+        if (tipoDocumentoId) setError(tipoDocumentoId);
+      } else {
+        setError(mensaje || 'No se pudo guardar el documento. Intentá de nuevo.');
+      }
       setEnviando(false);
     }
   }
 
-  async function handleEliminar() {
-    setEliminando(true);
-    try {
-      const endpoint = chofer
-        ? `/documentos/choferes/${chofer.id}/${documentoActual.id}`
-        : `/documentos/vehiculos/${vehiculo.id}/${documentoActual.id}`;
-
-      await api.delete(endpoint);
-      setConfirmandoEliminar(false);
-      onSuccess();
-      onClose();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Error al eliminar el documento.');
-      setConfirmandoEliminar(false);
-    } finally {
-      setEliminando(false);
-    }
-  }
-
-  const hoyStr = new Date().toISOString().substring(0, 10);
-  const esFechaVencida = Boolean(fechaVencimiento && fechaVencimiento < hoyStr);
+  const archivoActual = documentoActual?.nombreArchivo ? formatearNombreArchivo(documentoActual.nombreArchivo) : null;
+  const hintArchivo =
+    esActualizacion && archivoActual
+      ? `Si no adjuntás uno nuevo, se mantiene el PDF actual (${archivoActual}). Máximo 15 MB.`
+      : 'Máximo 15 MB.';
+  const vencimientoPasado = Boolean(fechaVencimiento && fechaVencimiento < hoyCordobaISO());
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="modal-card modal-doc-card" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-doc-header">
-          <div>
-            <h2>{esRenovacion ? 'Renovar / Actualizar Documento' : 'Registrar Documento'}</h2>
-            <p className="modal-doc-subtitle">
-              {tipoDocumento.descripcion} —{' '}
-              {chofer ? (
-                <strong>{chofer.nombre} {chofer.apellido}</strong>
-              ) : (
-                <>Unidad <strong>{vehiculo.numeroInterno}</strong> ({vehiculo.dominio})</>
-              )}
-            </p>
-          </div>
-          <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Cerrar modal">
-            ✕
-          </button>
-        </div>
+    <ModalMarco
+      titulo={`${esActualizacion ? 'Actualizar' : 'Cargar'} ${etiqueta}`}
+      subtitulo={subtitulo}
+      onClose={onClose}
+      pie={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={enviando}>
+            Cancelar
+          </Button>
+          <Button variant="primary" type="submit" form="form-documento" loading={enviando}>
+            {enviando ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </>
+      }
+    >
+      <form id="form-documento" className="doc-modal-form" onSubmit={handleSubmit} noValidate>
+        {esActualizacion && <Alert variant="info">{avisoVersionActual(documentoActual)}</Alert>}
+        {error && <Alert variant="error">{error}</Alert>}
 
-        {error && <Alert variant="danger">{error}</Alert>}
+        {tipoDocumento.requiereArchivo && (
+          <FormField id="documento-archivo" label="Archivo PDF" required={!esActualizacion} hint={hintArchivo} error={errores.archivo}>
+            <input type="file" accept="application/pdf" onChange={handleFileChange} />
+          </FormField>
+        )}
 
-        <form onSubmit={handleSubmit} className="modal-doc-form">
-          {tipoDocumento.requiereArchivo ? (
-            <div className="file-upload-zone">
-              <label className="file-upload-label">
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={handleFileChange}
-                  className="file-upload-input"
-                />
-                <div className="file-upload-content">
-                  <span className="file-upload-icon">📄</span>
-                  {archivo ? (
-                    <div>
-                      <p className="file-upload-name">{archivo.name}</p>
-                      <p className="file-upload-size">{(archivo.size / 1024).toFixed(1)} KB — Click para cambiar</p>
-                    </div>
-                  ) : esRenovacion ? (
-                    <div>
-                      <p className="file-upload-text">Seleccioná un nuevo PDF para reemplazar el actual</p>
-                      <p className="file-upload-hint">Dejá vacío si solo deseás actualizar fechas/notas</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="file-upload-text">Click para seleccionar archivo PDF</p>
-                      <p className="file-upload-hint">Máximo 15 MB — Solo formato .PDF</p>
-                    </div>
-                  )}
-                </div>
-              </label>
-            </div>
-          ) : (
-            <div className="notice-box">
-              <span className="notice-icon">ℹ️</span>
-              <div>
-                <strong>Trámite sin archivo digital obligatorio</strong>
-                <p>Este control ({tipoDocumento.descripcion}) registra la vigencia y observaciones en el legajo de la unidad sin requerir PDF.</p>
-              </div>
-            </div>
-          )}
-
-          <div className="modal-doc-grid">
-            <FormField label="Fecha de emisión" error={null}>
-              <input
-                type="date"
-                value={fechaEmision}
-                onChange={(e) => setFechaEmision(e.target.value)}
-                className="modal-doc-input"
-              />
-            </FormField>
-
-            <FormField
-              label={`Fecha de vencimiento ${tipoDocumento.requiereVencimiento ? '*' : ''}`}
-              error={null}
-            >
-              <input
-                type="date"
-                value={fechaVencimiento}
-                onChange={(e) => setFechaVencimiento(e.target.value)}
-                required={tipoDocumento.requiereVencimiento}
-                className="modal-doc-input"
-              />
-            </FormField>
-          </div>
-
-          {esFechaVencida && (
-            <Alert variant="warning">
-              ⚠️ Atención: La fecha seleccionada ya pasó. El documento se registrará con estado <strong>Vencido</strong>.
-            </Alert>
-          )}
-
-          <FormField label="Observaciones o notas adicionales" error={null}>
-            <textarea
-              rows="3"
-              value={observaciones}
-              onChange={(e) => setObservaciones(e.target.value)}
-              placeholder="Ej. Póliza N° 584920 - La Segunda Seguros"
-              className="modal-doc-textarea"
-            />
+        <div className="form-grid">
+          <FormField id="documento-fecha-emision" label="Fecha de emisión" error={errores.fechaEmision}>
+            <input type="date" value={fechaEmision} onChange={(e) => setFechaEmision(e.target.value)} />
           </FormField>
 
-          <div className="modal-doc-actions" style={{ justifyContent: esRenovacion && esAdmin ? 'space-between' : 'flex-end' }}>
-            {esRenovacion && esAdmin && (
-              <Button
-                variant="danger"
-                type="button"
-                onClick={() => setConfirmandoEliminar(true)}
-                disabled={enviando || eliminando}
-              >
-                Eliminar documento
-              </Button>
-            )}
-            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-              <Button variant="secondary" type="button" onClick={onClose} disabled={enviando || eliminando}>
-                Cancelar
-              </Button>
-              <Button variant="primary" type="submit" loading={enviando} disabled={eliminando}>
-                {esRenovacion ? 'Guardar renovación' : 'Guardar documento'}
-              </Button>
-            </div>
-          </div>
-        </form>
+          {tipoDocumento.requiereVencimiento && (
+            <FormField id="documento-fecha-vencimiento" label="Fecha de vencimiento" required error={errores.fechaVencimiento}>
+              <input type="date" value={fechaVencimiento} onChange={(e) => setFechaVencimiento(e.target.value)} />
+            </FormField>
+          )}
+        </div>
 
-        <ConfirmModal
-          open={confirmandoEliminar}
-          tone="danger"
-          title="Eliminar documento"
-          description={`¿Seguro que deseás eliminar este documento (${tipoDocumento.descripcion})? Si existe una versión anterior en el historial, volverá a quedar vigente.`}
-          confirmLabel="Eliminar definitivamente"
-          loading={eliminando}
-          onConfirm={handleEliminar}
-          onCancel={() => setConfirmandoEliminar(false)}
-        />
-      </div>
-    </div>
+        {vencimientoPasado && (
+          <Alert variant="warning">La fecha de vencimiento ya pasó: el documento va a quedar como vencido.</Alert>
+        )}
+
+        <FormField id="documento-observaciones" label="Observaciones">
+          <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows="3" />
+        </FormField>
+      </form>
+    </ModalMarco>
   );
 }
 
