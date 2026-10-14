@@ -2,7 +2,7 @@ const vehiculoService = require('../services/vehiculoService');
 const lecturaOdometroService = require('../services/lecturaOdometroService');
 
 async function crear(req, res) {
-  const { dominio, numeroInterno, marca, modelo, anio, asientos, kilometraje, tipoVehiculoId } =
+  const { dominio, numeroInterno, modeloId, adquiridoUsado, anio, asientos, kilometraje, tipoVehiculoId } =
     req.body;
 
   try {
@@ -10,8 +10,8 @@ async function crear(req, res) {
       {
         dominio,
         numeroInterno,
-        marca,
-        modelo,
+        modeloId,
+        adquiridoUsado,
         anio,
         asientos,
         kilometraje,
@@ -68,15 +68,15 @@ async function listarLecturasOdometro(req, res) {
 }
 
 async function actualizar(req, res) {
-  const { dominio, numeroInterno, marca, modelo, anio, asientos, kilometraje, tipoVehiculoId } =
+  const { dominio, numeroInterno, modeloId, adquiridoUsado, anio, asientos, kilometraje, tipoVehiculoId } =
     req.body;
 
   try {
     const { vehiculo, kilometrajeIgnorado } = await vehiculoService.actualizarVehiculo(req.params.id, {
       dominio,
       numeroInterno,
-      marca,
-      modelo,
+      modeloId,
+      adquiridoUsado,
       anio,
       asientos,
       kilometraje,

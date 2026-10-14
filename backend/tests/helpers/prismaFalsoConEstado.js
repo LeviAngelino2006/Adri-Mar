@@ -92,8 +92,9 @@ function crearEntorno() {
       id,
       numeroInterno,
       dominio,
-      marca: 'Mercedes',
-      modelo: 'O500',
+      // Forma del include de modelo y marca (ver utils/marcaModeloVehiculo).
+      modeloId: 1,
+      modelo: { id: 1, nombre: 'O500', marcaId: 1, marca: { id: 1, nombre: 'Mercedes' } },
       kilometraje: 1000,
       estadoVehiculo: { descripcion: estado },
     });
