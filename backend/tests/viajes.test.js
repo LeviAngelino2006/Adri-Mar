@@ -1,4 +1,4 @@
-// Tests de viajes: alta con datos administrativos, permisos, PATCH de datos
+// Tests de viajes: alta (sin datos administrativos), permisos, PATCH de datos
 // administrativos y forma de la respuesta.
 //
 // Levantan la app real de Express (rutas, middlewares de autenticación y
@@ -212,38 +212,60 @@ const DATOS_ADMINISTRATIVOS_VALIDOS = {
 
 const CLAVES_ADMINISTRATIVAS = ['precio', 'pagoChofer', 'estadoPagoClienteId', 'metodoPagoClienteId'];
 
-// --- Alta con datos administrativos ----------------------------------------
+// --- Alta sin datos administrativos -----------------------------------------
 
-describe('POST /viajes con datosAdministrativos', () => {
+describe('POST /viajes ya no acepta datos administrativos', () => {
   for (const perfil of ['ADMINISTRADOR', 'ENCARGADO']) {
-    test(`${perfil}: los datos válidos se guardan en el mismo create`, async () => {
+    test(`${perfil}: con datosAdministrativos -> 400 y no se crea ningún viaje`, async () => {
       const { status, json } = await pedir('POST', '/viajes', {
         perfil,
         body: { ...CORE, datosAdministrativos: DATOS_ADMINISTRATIVOS_VALIDOS },
       });
 
-      assert.equal(status, 201);
-      assert.equal(llamadas.create.length, 1);
-      const data = llamadas.create[0];
-      assert.equal(data.precio, '150000.50');
-      assert.equal(data.pagoChofer, '30000.00');
-      assert.equal(data.estadoPagoClienteId, 1);
-      assert.equal(data.metodoPagoChoferId, 1);
-      assert.equal(data.fechaPagoChofer, null);
-      // "2026-10-10T00:00" se interpreta como hora de Córdoba (UTC-3).
-      assert.equal(data.fechaPagoCliente.toISOString(), '2026-10-10T03:00:00.000Z');
-      assert.equal(data.clienteId, 1);
-      assert.equal(json.viaje.estado, 'A_CONFIRMAR');
-      assert.equal(json.viaje.precio, 150000.5);
+      assert.equal(status, 400);
+      assert.ok('datosAdministrativos' in json.errores);
+      assert.equal(llamadas.create.length, 0, 'no debe quedar un viaje creado sin sus datos');
     });
   }
 
+  for (const [nombre, valor] of [['null', null], ['objeto vacío', {}], ['texto', 'x']]) {
+    test(`datosAdministrativos ${nombre}: también 400 (cualquier presencia se rechaza)`, async () => {
+      const { status } = await pedir('POST', '/viajes', {
+        perfil: 'ADMINISTRADOR',
+        body: { ...CORE, datosAdministrativos: valor },
+      });
+      assert.equal(status, 400);
+      assert.equal(llamadas.create.length, 0);
+    });
+  }
+
+  test('sin datosAdministrativos: 201, el create no lleva claves administrativas y el viaje queda SIN_PRECIO', async () => {
+    const { status, json } = await pedir('POST', '/viajes', { perfil: 'ADMINISTRADOR', body: { ...CORE } });
+
+    assert.equal(status, 201);
+    assert.equal(llamadas.create.length, 1);
+    for (const clave of CLAVES_ADMINISTRATIVAS) {
+      assert.ok(!(clave in llamadas.create[0]), `no debería enviarse ${clave}`);
+    }
+    assert.equal(json.viaje.precio, null);
+    assert.equal(json.viaje.pendienteAdministrativo, 'SIN_PRECIO');
+  });
+
+  test('campos administrativos sueltos en el body (precio, pagos) se ignoran: no llegan al create', async () => {
+    const { status } = await pedir('POST', '/viajes', {
+      perfil: 'ENCARGADO',
+      body: { ...CORE, ...DATOS_ADMINISTRATIVOS_VALIDOS },
+    });
+
+    assert.equal(status, 201);
+    for (const clave of [...CLAVES_ADMINISTRATIVAS, 'estadoPagoChoferId', 'fechaPagoCliente', 'metodoPagoChoferId']) {
+      assert.ok(!(clave in llamadas.create[0]), `no debería enviarse ${clave}`);
+    }
+  });
+
   for (const perfil of ['CHOFER', 'PERSONAL_TALLER']) {
     test(`${perfil}: 403 y no se crea ningún viaje`, async () => {
-      const { status } = await pedir('POST', '/viajes', {
-        perfil,
-        body: { ...CORE, datosAdministrativos: DATOS_ADMINISTRATIVOS_VALIDOS },
-      });
+      const { status } = await pedir('POST', '/viajes', { perfil, body: { ...CORE } });
 
       assert.equal(status, 403);
       assert.equal(llamadas.create.length, 0);
@@ -255,50 +277,6 @@ describe('POST /viajes con datosAdministrativos', () => {
     assert.equal(status, 401);
     assert.equal(llamadas.create.length, 0);
   });
-
-  const INVALIDOS = [
-    ['monto negativo', { precio: -5 }, 'precio'],
-    ['pago al chofer que no es número', { pagoChofer: 'abc' }, 'pagoChofer'],
-    ['estado de pago inexistente', { estadoPagoClienteId: 99 }, 'estadoPagoClienteId'],
-    ['método de pago inexistente', { metodoPagoChoferId: 77 }, 'metodoPagoChoferId'],
-    ['fecha inválida', { fechaPagoChofer: 'no-es-fecha' }, 'fechaPagoChofer'],
-  ];
-  for (const [nombre, datos, campo] of INVALIDOS) {
-    test(`inválido (${nombre}): 400 en "${campo}" y no se crea ningún viaje`, async () => {
-      const { status, json } = await pedir('POST', '/viajes', {
-        perfil: 'ADMINISTRADOR',
-        body: { ...CORE, datosAdministrativos: datos },
-      });
-
-      assert.equal(status, 400);
-      assert.ok(campo in json.errores, `falta el error de ${campo}`);
-      assert.equal(llamadas.create.length, 0, 'un dato inválido no debe dejar un viaje a medias');
-    });
-  }
-
-  for (const [nombre, valor] of [['texto', 'x'], ['arreglo', [1]]]) {
-    test(`datosAdministrativos con forma inválida (${nombre}): 400 y no se crea nada`, async () => {
-      const { status } = await pedir('POST', '/viajes', {
-        perfil: 'ADMINISTRADOR',
-        body: { ...CORE, datosAdministrativos: valor },
-      });
-      assert.equal(status, 400);
-      assert.equal(llamadas.create.length, 0);
-    });
-  }
-
-  for (const [nombre, valor] of [['ausente', undefined], ['null', null], ['objeto vacío', {}]]) {
-    test(`datosAdministrativos ${nombre}: el create queda sin claves administrativas`, async () => {
-      const body = valor === undefined ? { ...CORE } : { ...CORE, datosAdministrativos: valor };
-      const { status } = await pedir('POST', '/viajes', { perfil: 'ADMINISTRADOR', body });
-
-      assert.equal(status, 201);
-      assert.equal(llamadas.create.length, 1);
-      for (const clave of CLAVES_ADMINISTRATIVAS) {
-        assert.ok(!(clave in llamadas.create[0]), `no debería enviarse ${clave}`);
-      }
-    });
-  }
 });
 
 // --- Estado inicial, fecha obligatoria y pasajeros (Fase 1) -----------------
@@ -498,8 +476,49 @@ describe('cantidadPasajeros', () => {
 // --- PATCH de datos administrativos ----------------------------------------
 
 describe('PATCH /viajes/:id/datos-administrativos', () => {
+  for (const perfil of ['ADMINISTRADOR', 'ENCARGADO']) {
+    test(`${perfil}: los datos válidos se guardan con el mismo formato que siempre`, async () => {
+      const { status, json } = await pedir('PATCH', '/viajes/1/datos-administrativos', {
+        perfil,
+        body: DATOS_ADMINISTRATIVOS_VALIDOS,
+      });
+
+      assert.equal(status, 200);
+      assert.equal(llamadas.update.length, 1);
+      const data = llamadas.update[0];
+      assert.equal(data.precio, '150000.50');
+      assert.equal(data.pagoChofer, '30000.00');
+      assert.equal(data.estadoPagoClienteId, 1);
+      assert.equal(data.metodoPagoChoferId, 1);
+      assert.equal(data.fechaPagoChofer, null);
+      // "2026-10-10T00:00" se interpreta como hora de Córdoba (UTC-3).
+      assert.equal(data.fechaPagoCliente.toISOString(), '2026-10-10T03:00:00.000Z');
+      assert.equal(json.viaje.precio, 150000.5);
+    });
+  }
+
+  const INVALIDOS = [
+    ['monto negativo', { precio: -5 }, 'precio'],
+    ['pago al chofer que no es número', { pagoChofer: 'abc' }, 'pagoChofer'],
+    ['estado de pago inexistente', { estadoPagoClienteId: 99 }, 'estadoPagoClienteId'],
+    ['método de pago inexistente', { metodoPagoChoferId: 77 }, 'metodoPagoChoferId'],
+    ['fecha inválida', { fechaPagoChofer: 'no-es-fecha' }, 'fechaPagoChofer'],
+  ];
+  for (const [nombre, datos, campo] of INVALIDOS) {
+    test(`inválido (${nombre}): 400 en "${campo}" y no actualiza`, async () => {
+      const { status, json } = await pedir('PATCH', '/viajes/1/datos-administrativos', {
+        perfil: 'ADMINISTRADOR',
+        body: datos,
+      });
+
+      assert.equal(status, 400);
+      assert.ok(campo in json.errores, `falta el error de ${campo}`);
+      assert.equal(llamadas.update.length, 0);
+    });
+  }
+
   for (const perfil of ['CHOFER', 'PERSONAL_TALLER']) {
-    test(`${perfil}: 403 (misma regla que el alta)`, async () => {
+    test(`${perfil}: 403 (solo Administrador y Encargado)`, async () => {
       const { status } = await pedir('PATCH', '/viajes/1/datos-administrativos', { perfil, body: { precio: 10 } });
       assert.equal(status, 403);
       assert.equal(llamadas.update.length, 0);
