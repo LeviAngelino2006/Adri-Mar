@@ -74,8 +74,9 @@ Toda lectura de odómetro (`LecturaOdometro`) debe asociarse a un vehículo y a 
 
 ### 4.1. Semáforo y Estados de Vigencia
 Para cada documento reglamentario, el sistema calcula dinámicamente su estado:
-- `VIGENTE`: Documento cargado y al día, con más de 30 días restantes antes de su vencimiento (o sin vencimiento requerido).
-- `POR_VENCER`: Documento que vence dentro de los próximos **30 días corridos** (`0 <= días_restantes <= 30`). Requiere gestión de renovación.
+- `VIGENTE`: Documento cargado y al día, con más días restantes que los días de aviso de su tipo (o sin vencimiento requerido).
+- `POR_VENCER`: Documento que vence dentro de los días de aviso de su tipo (`0 <= días_restantes <= diasAviso`). Requiere gestión de renovación.
+- Los días de aviso se configuran por tipo en `tipos_documento.dias_aviso`: **30 días** para todos, salvo el comprobante de pago del seguro, que avisa con **5 días**.
 - `VENCIDO`: Documento cuya fecha de vencimiento ya expiró (`días_restantes < 0`).
 - `PENDIENTE`: Documento reglamentario obligatorio que aún no ha sido cargado en el sistema.
 
@@ -84,7 +85,7 @@ Para cada documento reglamentario, el sistema calcula dinámicamente su estado:
 | :--- | :---: | :---: | :--- |
 | **Póliza de seguro** | Sí | Sí | Cobertura integral contratada |
 | **Certificado de cobertura** | Sí | Sí | Emitido por la aseguradora para controles viales |
-| **Comprobante de pago de seguro** | No (mensual) | Sí | Último recibo o cupón de pago cancelado |
+| **Comprobante de pago de seguro** | Sí (mensual, aviso 5 días) | Sí | Último recibo o cupón de pago cancelado |
 | **Inspección Técnica Vehicular (ITV)** | Sí | Sí | Habilitación técnica obligatoria para circular |
 | **Control de Matafuegos** | Sí | No | Oblea/tarjeta física inspeccionada |
 | **Título del automotor** | No | Sí | Documento de propiedad dominial |
@@ -95,8 +96,9 @@ Para cada documento reglamentario, el sistema calcula dinámicamente su estado:
 | Tipo de Documento | Requiere Vencimiento | Requiere Archivo PDF | Observaciones |
 | :--- | :---: | :---: | :--- |
 | **Licencia de conducir profesional** | Sí | Sí | Carnet habilitante profesional con categoría de pasajeros |
-| **DNI del chofer** | No | Sí | Identificación oficial |
-| **Examen psicofísico / LINTI** | Sí | Sí | Apto médico interjurisdiccional para transporte |
+| **DNI del chofer** | Sí | Sí | Identificación oficial. Pasó a tener vencimiento en la migración `20261011120000_dni_chofer_con_vencimiento` |
+
+> El **Examen psicofísico** existió como tipo de documento y se eliminó en la migración `20261009044602_dias_aviso_tipos_documento`.
 
 ### 4.4. Regla de Historial Máximo y Purga de Archivos
 - Por cada tipo de documento de un vehículo o chofer, el sistema mantiene un historial de hasta **2 archivos antiguos + 1 archivo vigente actual** (máximo 3 documentos en total).
