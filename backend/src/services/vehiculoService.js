@@ -1,5 +1,10 @@
 const prisma = require('./prismaClient');
 const lecturaOdometroService = require('./lecturaOdometroService');
+const { normalizarNombre } = require('../utils/normalizarNombre');
+const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../utils/marcaModeloVehiculo');
+
+// Toda lectura de vehículo que pase por serializarVehiculo usa este include.
+const INCLUDE_VEHICULO = { tipoVehiculo: true, estadoVehiculo: true, ...INCLUDE_MODELO_Y_MARCA };
 
 class ValidacionError extends Error {
   constructor(errores) {
@@ -14,8 +19,8 @@ const DOMINIO_REGEX = /^([A-Z]{3}[0-9]{3}|[A-Z]{2}[0-9]{3}[A-Z]{2})$/;
 function validarDatos({
   dominio,
   numeroInterno,
-  marca,
-  modelo,
+  modeloId,
+  adquiridoUsado,
   anio,
   asientos,
   tipoVehiculoId,
@@ -30,8 +35,20 @@ function validarDatos({
   }
 
   if (!numeroInterno) errores.numeroInterno = 'El número de interno es obligatorio';
-  if (!marca) errores.marca = 'La marca es obligatoria';
-  if (!modelo) errores.modelo = 'El modelo es obligatorio';
+
+  // Solo el modelo: la marca sale de modelo.marca (ver Vehiculo en schema.prisma).
+  const modeloIdNumero = Number(modeloId);
+  if (modeloId === undefined || modeloId === null || modeloId === '') {
+    errores.modeloId = 'El modelo es obligatorio';
+  } else if (!Number.isInteger(modeloIdNumero) || modeloIdNumero <= 0) {
+    errores.modeloId = 'El modelo no es válido';
+  }
+
+  // Opcional: si no llega, el alta usa el default de la base (false) y la
+  // edición no lo toca. Un string "true" no se acepta (Boolean("false") === true).
+  if (adquiridoUsado !== undefined && typeof adquiridoUsado !== 'boolean') {
+    errores.adquiridoUsado = 'Adquirido usado debe ser verdadero o falso';
+  }
 
   const tipoVehiculoIdNumero = Number(tipoVehiculoId);
   if (tipoVehiculoId === undefined || tipoVehiculoId === null || tipoVehiculoId === '') {
@@ -62,8 +79,8 @@ function validarDatos({
   return {
     dominio: dominioNormalizado,
     numeroInterno,
-    marca,
-    modelo,
+    modeloId: modeloIdNumero,
+    ...(adquiridoUsado !== undefined ? { adquiridoUsado } : {}),
     anio: anioNumero,
     asientos: asientosNumero,
     tipoVehiculoId: tipoVehiculoIdNumero,
@@ -92,6 +109,13 @@ async function validarTipoVehiculo(tipoVehiculoId, errores) {
   }
 }
 
+async function validarModelo(modeloId) {
+  const modelo = await prisma.modelo.findUnique({ where: { id: modeloId }, select: { id: true } });
+  if (!modelo) {
+    throw new ValidacionError({ modeloId: 'El modelo no existe' });
+  }
+}
+
 async function obtenerEstadoVehiculoPorDescripcion(descripcion) {
   const estado = await prisma.estadoVehiculo.findUnique({ where: { descripcion } });
   if (!estado) {
@@ -105,8 +129,12 @@ function serializarVehiculo(vehiculo) {
     id: vehiculo.id,
     dominio: vehiculo.dominio,
     numeroInterno: vehiculo.numeroInterno,
-    marca: vehiculo.marca,
-    modelo: vehiculo.modelo,
+    // marca/modelo siguen saliendo como texto, como cuando eran columnas; los
+    // ids son para que el formulario de edición precargue los selectores.
+    ...nombresMarcaModelo(vehiculo),
+    marcaId: vehiculo.modelo.marcaId,
+    modeloId: vehiculo.modeloId,
+    adquiridoUsado: vehiculo.adquiridoUsado,
     anio: vehiculo.anio,
     asientos: vehiculo.asientos,
     kilometraje: vehiculo.kilometraje,
@@ -122,6 +150,7 @@ async function crearVehiculo(datos, { usuarioId } = {}) {
   const datosValidados = validarDatos(datos);
   const kilometrajeInicial = validarKilometrajeInicial(datos.kilometraje);
   await validarTipoVehiculo(datosValidados.tipoVehiculoId, {});
+  await validarModelo(datosValidados.modeloId);
 
   const existente = await prisma.vehiculo.findUnique({
     where: { dominio: datosValidados.dominio },
@@ -158,7 +187,7 @@ async function crearVehiculo(datos, { usuarioId } = {}) {
 
       return tx.vehiculo.findUnique({
         where: { id: creado.id },
-        include: { tipoVehiculo: true, estadoVehiculo: true },
+        include: INCLUDE_VEHICULO,
       });
     });
   } catch (err) {
@@ -186,17 +215,24 @@ async function listarVehiculos({ estado, busqueda } = {}) {
   // estado === 'TODOS' -> sin filtro de estado
 
   if (busqueda) {
+    // La marca se busca por el nombreNormalizado del catálogo (igual que
+    // marcaService.buscar), así "citroen" encuentra "Citroën". Si la búsqueda
+    // normalizada queda vacía (solo espacios) no se agrega: contains '' haría
+    // que todo coincida.
+    const busquedaNormalizada = normalizarNombre(busqueda);
     where.OR = [
       { dominio: { contains: busqueda, mode: 'insensitive' } },
       { numeroInterno: { contains: busqueda, mode: 'insensitive' } },
-      { marca: { contains: busqueda, mode: 'insensitive' } },
+      ...(busquedaNormalizada
+        ? [{ modelo: { marca: { nombreNormalizado: { contains: busquedaNormalizada } } } }]
+        : []),
     ];
   }
 
   const vehiculos = await prisma.vehiculo.findMany({
     where,
     orderBy: { creadoEn: 'desc' },
-    include: { tipoVehiculo: true, estadoVehiculo: true },
+    include: INCLUDE_VEHICULO,
   });
 
   return vehiculos.map(serializarVehiculo);
@@ -212,7 +248,7 @@ class DadoDeBajaError extends Error {}
 async function obtenerVehiculo(id) {
   const vehiculo = await prisma.vehiculo.findUnique({
     where: { id: Number(id) },
-    include: { tipoVehiculo: true, estadoVehiculo: true },
+    include: INCLUDE_VEHICULO,
   });
   if (!vehiculo) {
     throw new NoEncontradoError();
@@ -234,6 +270,7 @@ async function actualizarVehiculo(id, datos) {
 
   const datosValidados = validarDatos(datos);
   await validarTipoVehiculo(datosValidados.tipoVehiculoId, {});
+  await validarModelo(datosValidados.modeloId);
 
   const otroConMismoDominio = await prisma.vehiculo.findUnique({
     where: { dominio: datosValidados.dominio },
@@ -247,7 +284,7 @@ async function actualizarVehiculo(id, datos) {
     vehiculo = await prisma.vehiculo.update({
       where: { id: actual.id },
       data: datosValidados,
-      include: { tipoVehiculo: true, estadoVehiculo: true },
+      include: INCLUDE_VEHICULO,
     });
   } catch (err) {
     if (err.code === 'P2002') {
@@ -294,7 +331,7 @@ async function darDeBajaVehiculo(id) {
   const vehiculo = await prisma.vehiculo.update({
     where: { id: actual.id },
     data: { estadoVehiculoId: estadoDadoDeBaja.id, fechaBaja: new Date() },
-    include: { tipoVehiculo: true, estadoVehiculo: true },
+    include: INCLUDE_VEHICULO,
   });
 
   return serializarVehiculo(vehiculo);

@@ -70,8 +70,15 @@ model Vehiculo {
   id               Int               @id @default(autoincrement())
   dominio          String            @unique
   numeroInterno    String            @map("numero_interno")
-  marca            String
-  modelo           String
+  // Solo el modelo: la marca se obtiene por modelo.marca. Guardar también
+  // marcaId permitiría un vehículo con una marca que no es la de su modelo.
+  // onDelete: Restrict: no se puede borrar un modelo que usa algún vehículo.
+  modeloId         Int               @map("modelo_id")
+  modelo           Modelo            @relation(fields: [modeloId], references: [id], onDelete: Restrict)
+  // true = el vehículo se compró usado: el historial de mantenimiento previo
+  // a su incorporación a la flota es desconocido (lo que se registra en el
+  // sistema arranca el día del alta, no cuando el vehículo era 0 km).
+  adquiridoUsado   Boolean           @default(false) @map("adquirido_usado")
   anio             Int
   asientos         Int
   kilometraje      Int
@@ -88,6 +95,40 @@ model Vehiculo {
   presupuestoUnidades PresupuestoUnidad[]
 
   @@map("vehiculos")
+}
+
+// Catálogo de marcas de vehículo, con el mismo patrón "buscar o crear" que
+// Cliente y Ubicacion: nombreNormalizado lo calcula normalizarNombre() al crear
+// la fila, nunca se expone en la API y es la garantía dura de no-duplicados
+// ("Mercedes-Benz" y "MERCEDES-BENZ" son la misma marca).
+model Marca {
+  id                Int      @id @default(autoincrement())
+  nombre            String
+  nombreNormalizado String   @map("nombre_normalizado")
+  creadoEn          DateTime @default(now()) @map("creado_en")
+  modelos           Modelo[]
+
+  @@index([nombre])
+  @@unique([nombreNormalizado])
+  @@map("marcas")
+}
+
+// Modelo de una marca. El único es por (marca, nombre normalizado): el mismo
+// nombre de modelo puede existir en marcas distintas ("Daily" de Iveco y de
+// otra marca son dos filas). onDelete: Restrict: no se borra una marca con
+// modelos.
+model Modelo {
+  id                Int        @id @default(autoincrement())
+  nombre            String
+  nombreNormalizado String     @map("nombre_normalizado")
+  marcaId           Int        @map("marca_id")
+  marca             Marca      @relation(fields: [marcaId], references: [id], onDelete: Restrict)
+  creadoEn          DateTime   @default(now()) @map("creado_en")
+  vehiculos         Vehiculo[]
+
+  @@index([nombre])
+  @@unique([marcaId, nombreNormalizado])
+  @@map("modelos")
 }
 
 model OrigenLectura {

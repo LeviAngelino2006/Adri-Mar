@@ -11,6 +11,8 @@ import Alert from '../components/ui/Alert';
 import Cargando from '../components/ui/Cargando';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
+import SelectorBuscarOCrear from '../components/ui/SelectorBuscarOCrear';
+import Switch from '../components/ui/Switch';
 import { ESTADOS_VEHICULO } from '../constants/estadosVehiculo';
 import { formatearFechaCorta, formatearKm } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
@@ -37,8 +39,13 @@ const ESTADOS = [
 const FORM_INICIAL = {
   dominio: '',
   numeroInterno: '',
-  marca: '',
-  modelo: '',
+  // Marca y modelo son catálogos (SelectorBuscarOCrear): se guarda el id y el
+  // nombre para mostrar. Al backend solo va modeloId (la marca sale del modelo).
+  marcaId: '',
+  marcaNombre: '',
+  modeloId: '',
+  modeloNombre: '',
+  adquiridoUsado: false,
   anio: '',
   asientos: '',
   kilometraje: '',
@@ -145,8 +152,11 @@ function FlotaVehiculos() {
     setForm({
       dominio: v.dominio,
       numeroInterno: v.numeroInterno,
-      marca: v.marca,
-      modelo: v.modelo,
+      marcaId: v.marcaId,
+      marcaNombre: v.marca,
+      modeloId: v.modeloId,
+      modeloNombre: v.modelo,
+      adquiridoUsado: v.adquiridoUsado,
       anio: v.anio,
       asientos: v.asientos,
       kilometraje: v.kilometraje,
@@ -163,20 +173,50 @@ function FlotaVehiculos() {
   }
 
   function handleFormChange(e) {
-    const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setForm((f) => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
+  }
+
+  // Otra marca (o ninguna, mientras se escribe) invalida el modelo elegido: el
+  // modelo pertenece a una marca.
+  function handleSeleccionarMarca(item) {
+    setForm((f) => {
+      const marcaId = item?.id || '';
+      const mismaMarca = marcaId === f.marcaId;
+      return {
+        ...f,
+        marcaId,
+        marcaNombre: item?.nombre || '',
+        modeloId: mismaMarca ? f.modeloId : '',
+        modeloNombre: mismaMarca ? f.modeloNombre : '',
+      };
+    });
+  }
+
+  function handleSeleccionarModelo(item) {
+    setForm((f) => ({ ...f, modeloId: item?.id || '', modeloNombre: item?.nombre || '' }));
   }
 
   async function handleSubmitForm(e) {
     e.preventDefault();
     setErroresForm({});
     setEnviandoForm(true);
+    const datos = {
+      dominio: form.dominio,
+      numeroInterno: form.numeroInterno,
+      modeloId: form.modeloId,
+      adquiridoUsado: form.adquiridoUsado,
+      tipoVehiculoId: form.tipoVehiculoId,
+      anio: form.anio,
+      asientos: form.asientos,
+      kilometraje: form.kilometraje,
+    };
     try {
       if (editando) {
-        await api.put(`/vehiculos/${editando.id}`, form);
+        await api.put(`/vehiculos/${editando.id}`, datos);
         setMensaje('Cambios guardados correctamente.');
       } else {
-        await api.post('/vehiculos', form);
+        await api.post('/vehiculos', datos);
         setMensaje('Vehículo registrado correctamente.');
       }
       setMostrarForm(false);
@@ -227,12 +267,28 @@ function FlotaVehiculos() {
                   <input name="dominio" value={form.dominio} onChange={handleFormChange} />
                 </FormField>
 
-                <FormField id="marca" label="Marca" required error={erroresForm.marca}>
-                  <input name="marca" value={form.marca} onChange={handleFormChange} />
+                <FormField id="marcaId" label="Marca" required>
+                  <SelectorBuscarOCrear
+                    endpoint="/marcas"
+                    valor={form.marcaId}
+                    valorNombre={form.marcaNombre}
+                    onSeleccionar={handleSeleccionarMarca}
+                    placeholder="Buscar o crear marca…"
+                  />
                 </FormField>
 
-                <FormField id="modelo" label="Modelo" required error={erroresForm.modelo}>
-                  <input name="modelo" value={form.modelo} onChange={handleFormChange} />
+                {/* key: al cambiar de marca el selector se vuelve a montar, así no
+                    puede quedar abierta una lista con modelos de la marca anterior. */}
+                <FormField id="modeloId" label="Modelo" required error={erroresForm.modeloId}>
+                  <SelectorBuscarOCrear
+                    key={form.marcaId || 'sin-marca'}
+                    endpoint={`/marcas/${form.marcaId}/modelos`}
+                    valor={form.modeloId}
+                    valorNombre={form.modeloNombre}
+                    onSeleccionar={handleSeleccionarModelo}
+                    placeholder={form.marcaId ? 'Buscar o crear modelo…' : 'Elegí primero la marca'}
+                    disabled={!form.marcaId}
+                  />
                 </FormField>
 
                 <FormField id="tipoVehiculoId" label="Tipo de vehículo" required error={erroresForm.tipoVehiculoId}>
@@ -263,6 +319,27 @@ function FlotaVehiculos() {
                 >
                   <input name="kilometraje" type="number" value={form.kilometraje} onChange={handleFormChange} />
                 </FormField>
+
+                <div className="form-field switch-field">
+                  <label htmlFor="adquiridoUsado" className="switch-field-label">
+                    <Switch
+                      id="adquiridoUsado"
+                      name="adquiridoUsado"
+                      checked={form.adquiridoUsado}
+                      onChange={handleFormChange}
+                    />
+                    Adquirido usado
+                  </label>
+                  {erroresForm.adquiridoUsado ? (
+                    <p className="form-field-error" role="alert">
+                      {erroresForm.adquiridoUsado}
+                    </p>
+                  ) : (
+                    <p className="form-field-hint">
+                      Se compró usado: no se conoce su historial de mantenimiento anterior a la incorporación.
+                    </p>
+                  )}
+                </div>
               </div>
 
               {erroresForm.general && <Alert variant="error">{erroresForm.general}</Alert>}
@@ -380,6 +457,10 @@ function FlotaVehiculos() {
               <div className="detalle-item">
                 <dt>Kilometraje</dt>
                 <dd>{formatearKm(seleccionado.kilometraje)} km</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Adquirido usado</dt>
+                <dd>{seleccionado.adquiridoUsado ? 'Sí · historial de mantenimiento previo desconocido' : 'No'}</dd>
               </div>
               <div className="detalle-item">
                 <dt>Registrado el</dt>

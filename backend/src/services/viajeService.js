@@ -1,5 +1,6 @@
 const prisma = require('./prismaClient');
 const lecturaOdometroService = require('./lecturaOdometroService');
+const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../utils/marcaModeloVehiculo');
 
 const ESTADO_VEHICULO_HABILITADO = 'OPERATIVO';
 const ESTADOS_VIAJE_VALIDOS = ['A_CONFIRMAR', 'PROGRAMADO', 'EN_VIAJE', 'FINALIZADO', 'CANCELADO'];
@@ -17,7 +18,8 @@ const INCLUDE_RELACIONES_VIAJE = {
   // Siempre ordenadas: serializarViaje las devuelve tal cual vienen.
   paradas: { include: { ubicacion: true }, orderBy: { orden: 'asc' } },
   chofer: true,
-  vehiculo: true,
+  // Con modelo y marca: el vehículo ya no tiene esas columnas (ver Vehiculo).
+  vehiculo: { include: INCLUDE_MODELO_Y_MARCA },
   estadoViaje: true,
   origen: true,
   destino: true,
@@ -615,8 +617,7 @@ async function serializarViaje(viaje, usuarioSolicitante) {
           id: viaje.vehiculo.id,
           dominio: viaje.vehiculo.dominio,
           numeroInterno: viaje.vehiculo.numeroInterno,
-          marca: viaje.vehiculo.marca,
-          modelo: viaje.vehiculo.modelo,
+          ...nombresMarcaModelo(viaje.vehiculo),
           kilometraje: viaje.vehiculo.kilometraje,
         }
       : null,

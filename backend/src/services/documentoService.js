@@ -2,6 +2,11 @@ const crypto = require('crypto');
 const path = require('path');
 const prisma = require('./prismaClient');
 const storageService = require('./storageService');
+const {
+  INCLUDE_MODELO_Y_MARCA,
+  SELECT_MODELO_Y_MARCA,
+  nombresMarcaModelo,
+} = require('../utils/marcaModeloVehiculo');
 
 // Un documento pertenece a un vehículo o a un chofer. Todo el servicio se
 // escribe una sola vez y recibe el titular como { categoria, id }, donde
@@ -103,9 +108,10 @@ const TITULARES = {
     buscar: (id) =>
       prisma.vehiculo.findUnique({
         where: { id },
-        include: { tipoVehiculo: true, estadoVehiculo: true },
+        include: { tipoVehiculo: true, estadoVehiculo: true, ...INCLUDE_MODELO_Y_MARCA },
       }),
-    ficha: (vehiculo) => ({ vehiculo }),
+    // marca/modelo como texto (el objeto modelo de Prisma no sale por la API).
+    ficha: (vehiculo) => ({ vehiculo: { ...vehiculo, ...nombresMarcaModelo(vehiculo) } }),
   },
   CHOFER: {
     campo: 'choferId',
@@ -510,15 +516,14 @@ const LISTADOS = {
     listar: () =>
       prisma.vehiculo.findMany({
         where: { estadoVehiculo: { descripcion: { not: 'DADO_DE_BAJA' } } },
-        include: { tipoVehiculo: true, estadoVehiculo: true, documentos: DOCUMENTOS_VIGENTES },
+        include: { tipoVehiculo: true, estadoVehiculo: true, ...INCLUDE_MODELO_Y_MARCA, documentos: DOCUMENTOS_VIGENTES },
         orderBy: { numeroInterno: 'asc' },
       }),
     serializar: (v) => ({
       id: v.id,
       dominio: v.dominio,
       numeroInterno: v.numeroInterno,
-      marca: v.marca,
-      modelo: v.modelo,
+      ...nombresMarcaModelo(v),
       anio: v.anio,
       asientos: v.asientos,
       kilometraje: v.kilometraje,
@@ -579,8 +584,10 @@ const ALERTAS = {
   VEHICULO: {
     campo: 'vehiculoId',
     where: { vehiculoId: { not: null }, vehiculo: { estadoVehiculo: { descripcion: { not: 'DADO_DE_BAJA' } } } },
-    include: { vehiculo: { select: { id: true, dominio: true, numeroInterno: true, marca: true, modelo: true } } },
-    titular: (doc) => ({ vehiculo: doc.vehiculo }),
+    include: { vehiculo: { select: { id: true, dominio: true, numeroInterno: true, ...SELECT_MODELO_Y_MARCA } } },
+    titular: ({ vehiculo: { modelo, ...vehiculo } }) => ({
+      vehiculo: { ...vehiculo, ...nombresMarcaModelo({ modelo }) },
+    }),
   },
   CHOFER: {
     campo: 'choferId',
