@@ -1,17 +1,33 @@
+# Dependencias y compilación
 node_modules/
 dist/
 build/
+coverage/
 
+# Entorno y variables secretas
 .env
+.env.*
+!.env.example
 .env.local
 .env.*.local
 
+# Claves, certificados y credenciales
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+credentials.json
+*service-account*.json
+
+# Logs
 *.log
 npm-debug.log*
 
+# Editores y sistema operativo
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
 
-coverage/
