@@ -86,6 +86,28 @@ function viajeAValoresForm(viaje) {
   };
 }
 
+const MARGEN_SCROLL_PX = 16;
+
+// Scroll suave hasta la tarjeta de datos administrativos de la ficha. Si su
+// encabezado (título y botón "Editar datos administrativos") ya se ve entero
+// no se mueve nada: es el caso de escritorio. Descuenta la barra superior
+// sticky del celular (en escritorio está oculta y mide 0). Con "reducir
+// movimiento" el salto es directo.
+function llevarADatosAdministrativos(tarjeta) {
+  if (!tarjeta) return;
+  const alturaBarra = document.querySelector('.layout-topbar')?.offsetHeight ?? 0;
+  const encabezado = tarjeta.firstElementChild ?? tarjeta;
+  const { top } = tarjeta.getBoundingClientRect();
+  const { bottom } = encabezado.getBoundingClientRect();
+  if (top >= alturaBarra && bottom <= window.innerHeight) return;
+
+  const reducirMovimiento = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  window.scrollTo({
+    top: window.scrollY + top - alturaBarra - MARGEN_SCROLL_PX,
+    behavior: reducirMovimiento ? 'auto' : 'smooth',
+  });
+}
+
 // Todo viaje nace A_CONFIRMAR (ver viajeService.crearViaje): el único camino a
 // Programado es "Confirmar viaje". Editar nunca cambia el estado.
 const MENSAJE_CREADO = 'Viaje creado como A confirmar';
@@ -127,6 +149,12 @@ function Viajes() {
   // Viaje A_CONFIRMAR sobre el que se abrió el modal de "Confirmar viaje", o
   // null si está cerrado.
   const [pedidoConfirmar, setPedidoConfirmar] = useState(null);
+
+  // Tarjeta de datos administrativos de la ficha abierta, y si hay que llevar
+  // la vista hasta ella. Esto último lo pide solo el alta (handleGuardarForm):
+  // abrir la ficha desde el listado o después de editar no lo hace.
+  const datosAdministrativosRef = useRef(null);
+  const irADatosAdministrativos = useRef(false);
 
   // Las opciones de los selects de chofer/vehículo salen de los viajes ya
   // programados (se cargan una sola vez, sin filtros) en vez de pedirle la
@@ -201,9 +229,15 @@ function Viajes() {
   // esto conservan el scroll de la vista anterior (la ficha o el formulario
   // aparecen desplazados hacia abajo, y el listado también al cancelar o
   // guardar desde los botones del final).
+  // Después de crear, en el mismo efecto (para que corra después de volver
+  // arriba) se baja hasta la tarjeta de datos administrativos.
   const seleccionadoId = seleccionado?.id ?? null;
   useEffect(() => {
     window.scrollTo(0, 0);
+    if (irADatosAdministrativos.current) {
+      irADatosAdministrativos.current = false;
+      llevarADatosAdministrativos(datosAdministrativosRef.current);
+    }
   }, [seleccionadoId, mostrarForm]);
 
   function handleFiltroChange(e) {
@@ -251,6 +285,7 @@ function Viajes() {
     } else {
       const { data } = await api.post('/viajes', datos);
       mostrarMensaje(MENSAJE_CREADO);
+      irADatosAdministrativos.current = true;
       setSeleccionado(data.viaje);
     }
     setMostrarForm(false);
@@ -491,6 +526,7 @@ function Viajes() {
 
             {puedeGestionar && (
               <DatosAdministrativosViaje
+                ref={datosAdministrativosRef}
                 key={seleccionado.id}
                 viaje={seleccionado}
                 onGuardado={manejarExitoDatosAdministrativos}
