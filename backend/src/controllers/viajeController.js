@@ -54,12 +54,20 @@ async function crear(req, res) {
 }
 
 async function listar(req, res) {
-  const { estado, choferId, vehiculoId, fechaDesde, fechaHasta } = req.query;
-  const viajes = await viajeService.listarViajes(
-    { estado, choferId, vehiculoId, fechaDesde, fechaHasta },
-    req.usuario
-  );
-  return res.json({ viajes });
+  const { estado, choferId, vehiculoId, fechaDesde, fechaHasta, administrativoPendiente } = req.query;
+
+  try {
+    const viajes = await viajeService.listarViajes(
+      { estado, choferId, vehiculoId, fechaDesde, fechaHasta, administrativoPendiente },
+      req.usuario
+    );
+    return res.json({ viajes });
+  } catch (err) {
+    if (err instanceof viajeService.PermisoDenegadoError) {
+      return res.status(403).json({ error: err.message });
+    }
+    throw err;
+  }
 }
 
 // Viajes del usuario autenticado como chofer. El choferId SIEMPRE sale del

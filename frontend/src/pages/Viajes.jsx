@@ -53,6 +53,9 @@ const FILTROS_INICIALES = {
   vehiculoId: '',
   fechaDesde: '',
   fechaHasta: '',
+  // 'true' o '': viajes con badge "Sin precio" o "Cobro pendiente". Solo lo ven
+  // (y el backend solo lo acepta de) Administrador y Encargado.
+  administrativoPendiente: '',
 };
 
 function dedupePorId(lista) {
@@ -81,6 +84,28 @@ function viajeAValoresForm(viaje) {
     kilometrosEstimados: viaje.kilometrosEstimados ?? '',
     cantidadPasajeros: viaje.cantidadPasajeros ?? '',
   };
+}
+
+const MARGEN_SCROLL_PX = 16;
+
+// Scroll suave hasta la tarjeta de datos administrativos de la ficha. Si su
+// encabezado (título y botón "Editar datos administrativos") ya se ve entero
+// no se mueve nada: es el caso de escritorio. Descuenta la barra superior
+// sticky del celular (en escritorio está oculta y mide 0). Con "reducir
+// movimiento" el salto es directo.
+function llevarADatosAdministrativos(tarjeta) {
+  if (!tarjeta) return;
+  const alturaBarra = document.querySelector('.layout-topbar')?.offsetHeight ?? 0;
+  const encabezado = tarjeta.firstElementChild ?? tarjeta;
+  const { top } = tarjeta.getBoundingClientRect();
+  const { bottom } = encabezado.getBoundingClientRect();
+  if (top >= alturaBarra && bottom <= window.innerHeight) return;
+
+  const reducirMovimiento = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  window.scrollTo({
+    top: window.scrollY + top - alturaBarra - MARGEN_SCROLL_PX,
+    behavior: reducirMovimiento ? 'auto' : 'smooth',
+  });
 }
 
 // Todo viaje nace A_CONFIRMAR (ver viajeService.crearViaje): el único camino a
@@ -125,6 +150,12 @@ function Viajes() {
   // null si está cerrado.
   const [pedidoConfirmar, setPedidoConfirmar] = useState(null);
 
+  // Tarjeta de datos administrativos de la ficha abierta, y si hay que llevar
+  // la vista hasta ella. Esto último lo pide solo el alta (handleGuardarForm):
+  // abrir la ficha desde el listado o después de editar no lo hace.
+  const datosAdministrativosRef = useRef(null);
+  const irADatosAdministrativos = useRef(false);
+
   // Las opciones de los selects de chofer/vehículo salen de los viajes ya
   // programados (se cargan una sola vez, sin filtros) en vez de pedirle la
   // lista completa a /usuarios o /vehiculos, porque Personal de Taller puede
@@ -150,6 +181,7 @@ function Viajes() {
     if (filtros.vehiculoId) params.vehiculoId = filtros.vehiculoId;
     if (filtros.fechaDesde) params.fechaDesde = filtros.fechaDesde;
     if (filtros.fechaHasta) params.fechaHasta = filtros.fechaHasta;
+    if (filtros.administrativoPendiente) params.administrativoPendiente = filtros.administrativoPendiente;
 
     return api
       .get('/viajes', { params })
@@ -197,9 +229,15 @@ function Viajes() {
   // esto conservan el scroll de la vista anterior (la ficha o el formulario
   // aparecen desplazados hacia abajo, y el listado también al cancelar o
   // guardar desde los botones del final).
+  // Después de crear, en el mismo efecto (para que corra después de volver
+  // arriba) se baja hasta la tarjeta de datos administrativos.
   const seleccionadoId = seleccionado?.id ?? null;
   useEffect(() => {
     window.scrollTo(0, 0);
+    if (irADatosAdministrativos.current) {
+      irADatosAdministrativos.current = false;
+      llevarADatosAdministrativos(datosAdministrativosRef.current);
+    }
   }, [seleccionadoId, mostrarForm]);
 
   function handleFiltroChange(e) {
@@ -236,13 +274,19 @@ function Viajes() {
     setEditando(null);
   }
 
+  // Al crear se abre la ficha del viaje nuevo (no el listado): ahí está la
+  // tarjeta "Datos administrativos" con su botón de editar, así lo
+  // administrativo, que ya no se carga en el alta, queda a un clic. No bloquea
+  // nada: "Volver al listado" sigue como siempre. Editar vuelve al listado.
   async function handleGuardarForm(datos) {
     if (editando) {
       await api.put(`/viajes/${editando.id}`, datos);
       mostrarMensaje(MENSAJE_EDITADO);
     } else {
-      await api.post('/viajes', datos);
+      const { data } = await api.post('/viajes', datos);
       mostrarMensaje(MENSAJE_CREADO);
+      irADatosAdministrativos.current = true;
+      setSeleccionado(data.viaje);
     }
     setMostrarForm(false);
     setEditando(null);
@@ -338,7 +382,6 @@ function Viajes() {
               textoBoton={editando ? 'Guardar cambios' : 'Crear viaje'}
               textoEnviando={editando ? 'Guardando…' : 'Creando…'}
               onCancelar={cerrarForm}
-              conDatosAdministrativos={puedeGestionar && !editando}
             />
           </Card>
         </>
@@ -392,6 +435,19 @@ function Viajes() {
               <FormField id="fechaHasta" label="Hasta">
                 <input type="date" name="fechaHasta" value={filtros.fechaHasta} onChange={handleFiltroChange} />
               </FormField>
+
+              {puedeGestionar && (
+                <FormField id="administrativoPendiente" label="Administrativo">
+                  <select
+                    name="administrativoPendiente"
+                    value={filtros.administrativoPendiente}
+                    onChange={handleFiltroChange}
+                  >
+                    <option value="">Todos</option>
+                    <option value="true">Administrativo pendiente</option>
+                  </select>
+                </FormField>
+              )}
             </form>
           )}
 
@@ -400,7 +456,7 @@ function Viajes() {
           {!cargando && viajes.length === 0 && <div className="listado-vacio">No se encontraron viajes</div>}
 
           {!cargando && viajes.length > 0 && (
-            <ListadoViajesPorDia viajes={viajes} onSeleccionar={seleccionar} />
+            <ListadoViajesPorDia viajes={viajes} mostrarPendientes={puedeGestionar} onSeleccionar={seleccionar} />
           )}
         </>
       )}
@@ -470,6 +526,7 @@ function Viajes() {
 
             {puedeGestionar && (
               <DatosAdministrativosViaje
+                ref={datosAdministrativosRef}
                 key={seleccionado.id}
                 viaje={seleccionado}
                 onGuardado={manejarExitoDatosAdministrativos}

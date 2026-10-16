@@ -24,7 +24,9 @@ function Dato({ etiqueta, ancho = false, children }) {
 // del viaje. Es exclusiva de Administrador/Encargado — el que la renderiza
 // (Viajes.jsx) es quien decide no montarla para el resto. Funciona en
 // cualquier estado del viaje: el backend no restringe por estado.
-function DatosAdministrativosViaje({ viaje, onGuardado }) {
+// `ref` llega a la Card (React 19 lo pasa como prop): Viajes.jsx lo usa para
+// llevar la vista hasta esta tarjeta después de crear un viaje.
+function DatosAdministrativosViaje({ viaje, onGuardado, ref }) {
   const [editando, setEditando] = useState(false);
   const [valores, setValores] = useState(() => viajeAValores(viaje));
   const [errores, setErrores] = useState({});
@@ -79,7 +81,7 @@ function DatosAdministrativosViaje({ viaje, onGuardado }) {
   }
 
   return (
-    <Card className="detalle-card datos-admin" role="region" aria-label="Datos administrativos">
+    <Card ref={ref} className="detalle-card datos-admin" role="region" aria-label="Datos administrativos">
       <div className="datos-admin-header">
         <h2>Datos administrativos</h2>
         {!editando && (

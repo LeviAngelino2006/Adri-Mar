@@ -523,8 +523,50 @@ async function validarYArmarOperativos(campos, { obligatorios, excluirViajeId, e
 // dato. precio/pagoChofer vienen de Prisma como Decimal (objeto), se convierten
 // a number para que la API devuelva un número plano; las que no se cargaron
 // van en null, nunca se omite la clave para un Administrador/Encargado.
+// Qué le falta cargar a un viaje en lo administrativo, para el badge del
+// listado y el filtro "Administrativo pendiente". Un viaje CANCELADO nunca
+// queda pendiente. SIN_PRECIO tiene prioridad sobre COBRO_PENDIENTE: sin precio
+// no hay nada que cobrar todavía.
+//   SIN_PRECIO       precio sin cargar (cualquier estado salvo CANCELADO)
+//   COBRO_PENDIENTE  viaje FINALIZADO con precio cargado y estado de pago del
+//                    cliente distinto de PAGADO (incluido "sin definir"). Antes
+//                    de finalizar no se marca: que un viaje programado todavía
+//                    no esté cobrado es lo normal, no un olvido.
+// FILTRO_ADMINISTRATIVO_PENDIENTE es la misma regla escrita como `where` de
+// Prisma (para filtrar en la base): si cambia una, cambiar la otra. El test
+// "pendientes administrativos" de viajesPendientes.test.js chequea que
+// coincidan.
+const ESTADO_PAGO_PAGADO = 'PAGADO';
+
+function pendienteAdministrativo(viaje) {
+  const estado = viaje.estadoViaje.descripcion;
+  if (estado === 'CANCELADO') return null;
+  if (viaje.precio == null) return 'SIN_PRECIO';
+  if (estado === 'FINALIZADO' && viaje.estadoPagoCliente?.descripcion !== ESTADO_PAGO_PAGADO) {
+    return 'COBRO_PENDIENTE';
+  }
+  return null;
+}
+
+// Segunda rama del OR sin `precio: { not: null }`: si el precio es null ya
+// entra por la primera (SIN_PRECIO), así que el resultado es el mismo.
+const FILTRO_ADMINISTRATIVO_PENDIENTE = {
+  estadoViaje: { descripcion: { not: 'CANCELADO' } },
+  OR: [
+    { precio: null },
+    {
+      estadoViaje: { descripcion: 'FINALIZADO' },
+      OR: [
+        { estadoPagoClienteId: null },
+        { estadoPagoCliente: { is: { descripcion: { not: ESTADO_PAGO_PAGADO } } } },
+      ],
+    },
+  ],
+};
+
 function serializarDatosAdministrativos(viaje) {
   return {
+    pendienteAdministrativo: pendienteAdministrativo(viaje),
     precio: viaje.precio == null ? null : Number(viaje.precio),
     estadoPagoClienteId: viaje.estadoPagoClienteId,
     estadoPagoCliente: viaje.estadoPagoCliente
@@ -828,10 +870,10 @@ function erroresCandidatosAConfirmar({ choferId, vehiculoId }, candidatos) {
 // vehiculosCandidatos). clienteId/origenId/destinoId y fechaInicio son siempre
 // obligatorios.
 //
-// `datosAdministrativos` es opcional (solo lo manda el formulario de alta de
-// Administrador/Encargado): se valida con las mismas reglas que el PATCH
-// /:id/datos-administrativos y se guarda en el MISMO create, así el viaje se
-// crea con todo o no se crea, sin quedar a medias si esos datos son inválidos.
+// El alta es solo operativa: los datos administrativos (precio, pagos) se
+// cargan después, únicamente por PATCH /:id/datos-administrativos. Si un
+// cliente todavía manda `datosAdministrativos` se rechaza con 400 en vez de
+// ignorarlo, para que lo tipeado no se pierda en silencio.
 async function crearViaje(
   {
     choferId,
@@ -850,6 +892,12 @@ async function crearViaje(
   },
   usuarioSolicitante
 ) {
+  if (datosAdministrativos !== undefined) {
+    throw new ValidacionError({
+      datosAdministrativos: 'Los datos administrativos se cargan desde la ficha del viaje, no en el alta',
+    });
+  }
+
   const formatoParadas = validarFormatoParadas(paradasPayload);
   const core = await validarYArmarCore({ clienteId, origenId, destinoId }, { hayParadas: formatoParadas.ids.length > 0 });
   const paradas = validarParadasDelRecorrido(formatoParadas, core);
@@ -872,13 +920,10 @@ async function crearViaje(
   await validarExistenciaCandidatos(candidatos);
   await validarExistenciaParadas(paradas.ids);
 
-  const administrativos = await validarYArmarDatosAdministrativosOpcionales(datosAdministrativos);
-
   const estado = await obtenerEstadoViajePorDescripcion('A_CONFIRMAR');
 
   const viaje = await prisma.viaje.create({
     data: {
-      ...administrativos,
       choferId: operativos.choferId,
       vehiculoId: operativos.vehiculoId,
       fechaInicio: operativos.fechaInicio,
@@ -1378,10 +1423,10 @@ function validarFormatoIdPositivo(mensajeError) {
 }
 
 // Valida y arma los campos administrativos de un payload (parcial: un campo
-// ausente no entra en `data`; `null` explícito sí, para borrar el dato). La usan
-// actualizarDatosAdministrativos (PATCH) y crearViaje (alta con datos
-// administrativos), para que las dos rutas validen exactamente igual. Lanza
-// ValidacionError con los errores por campo; no toca la base.
+// ausente no entra en `data`; `null` explícito sí, para borrar el dato). La usa
+// actualizarDatosAdministrativos (PATCH), la única vía para cargar estos datos
+// (el alta ya no los acepta). Lanza ValidacionError con los errores por campo;
+// no toca la base.
 async function validarYArmarDatosAdministrativos(payload) {
   const data = {};
   const errores = {};
@@ -1444,17 +1489,6 @@ async function validarYArmarDatosAdministrativos(payload) {
   }
 
   return data;
-}
-
-// Variante para el alta de un viaje: `datosAdministrativos` puede no venir
-// (undefined/null: no hay nada que guardar, devuelve {}), pero si viene tiene
-// que ser un objeto.
-async function validarYArmarDatosAdministrativosOpcionales(datos) {
-  if (datos === undefined || datos === null) return {};
-  if (typeof datos !== 'object' || Array.isArray(datos)) {
-    throw new ValidacionError({ datosAdministrativos: 'Los datos administrativos no son válidos' });
-  }
-  return validarYArmarDatosAdministrativos(datos);
 }
 
 // Acción administrativa/financiera, separada por completo del ciclo de vida
@@ -1750,11 +1784,32 @@ function parsearFechaHasta(valor) {
 // que da una lista vacía en vez de un error o de ignorar el filtro. El
 // listado general (GET /viajes) nunca pasa esta opción, así que ve
 // A_CONFIRMAR con total normalidad.
+//
+// `administrativoPendiente` ('true' en la query) deja solo los viajes con algún
+// pendiente administrativo (ver FILTRO_ADMINISTRATIVO_PENDIENTE). Filtrar por
+// precio/pago ya revela esos datos, así que sigue la misma regla que la
+// serialización: solo Administrador/Encargado; para el resto es un 403 (no se
+// ignora en silencio, porque devolvería un listado que no es lo que se pidió).
 async function listarViajes(
-  { estado, choferId, vehiculoId, fechaDesde, fechaHasta, excluirAConfirmar = false } = {},
+  {
+    estado,
+    choferId,
+    vehiculoId,
+    fechaDesde,
+    fechaHasta,
+    administrativoPendiente,
+    excluirAConfirmar = false,
+  } = {},
   usuarioSolicitante
 ) {
   const where = {};
+
+  if (administrativoPendiente === 'true') {
+    if (!puedeVerDatosAdministrativos(usuarioSolicitante)) {
+      throw new PermisoDenegadoError('Solo Administrador y Encargado pueden filtrar por datos administrativos');
+    }
+    where.AND = [FILTRO_ADMINISTRATIVO_PENDIENTE];
+  }
 
   const filtroEstado = {};
   if (estado && ESTADOS_VIAJE_VALIDOS.includes(estado)) {
@@ -1814,6 +1869,8 @@ module.exports = {
   comenzarViaje,
   finalizarViaje,
   puedeOperarViaje,
+  pendienteAdministrativo,
+  FILTRO_ADMINISTRATIVO_PENDIENTE,
   ValidacionError,
   NoEncontradoError,
   EstadoNoEditableError,

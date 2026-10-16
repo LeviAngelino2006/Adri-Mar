@@ -6,19 +6,10 @@ import Alert from './ui/Alert';
 import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
 import SelectorMultiple from './ui/SelectorMultiple';
 import EditorRecorrido from './EditorRecorrido';
-import SeccionDatosAdministrativos from './SeccionDatosAdministrativos';
 import { consultarDisponibilidad } from '../services/viajesApi';
 import { nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { errorDeSecuencia, paradasAPayload } from '../utils/paradas';
 import { ordenarPorInterno } from '../utils/vehiculos';
-import {
-  CAMPOS_ADMINISTRATIVOS,
-  VALORES_ADMIN_VACIOS,
-  hayDatosAdministrativos,
-  useCatalogosPago,
-  validarMontos,
-  valoresAPayload,
-} from '../utils/datosAdministrativos';
 
 const FORM_INICIAL = {
   clienteId: '',
@@ -79,11 +70,9 @@ function avisosDe(lista) {
 // las listas de elegibles (p. ej. un chofer dado de baja), así el chip no
 // desaparece en silencio.
 //
-// `conDatosAdministrativos` agrega la sección colapsada de datos
-// administrativos (solo alta y solo para Administrador/Encargado: lo decide
-// quien monta el formulario). Si la sección queda vacía, no se manda nada; si
-// tiene datos, viajan en `datosAdministrativos` dentro del mismo POST, así el
-// viaje se crea completo o no se crea.
+// Solo datos operativos: precio y pagos no se cargan acá sino después, desde la
+// ficha del viaje (DatosAdministrativosViaje), para que el alta se enfoque en
+// crear el viaje.
 function ViajeForm({
   valoresIniciales,
   estadoActual,
@@ -91,7 +80,6 @@ function ViajeForm({
   textoBoton,
   textoEnviando,
   onCancelar,
-  conDatosAdministrativos = false,
   candidatosActuales,
 }) {
   const [choferes, setChoferes] = useState([]);
@@ -99,10 +87,7 @@ function ViajeForm({
   const [form, setForm] = useState(valoresIniciales || FORM_INICIAL);
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
-  const [administrativos, setAdministrativos] = useState(VALORES_ADMIN_VACIOS);
-  const [seccionAbierta, setSeccionAbierta] = useState(false);
   const [avisos, setAvisos] = useState(SIN_AVISOS);
-  const { estadosPago, metodosPago, cargarCatalogos } = useCatalogosPago();
 
   const requiereOperativos = estadoActual === 'PROGRAMADO';
   const usaCandidatos = !requiereOperativos;
@@ -172,26 +157,6 @@ function ViajeForm({
     setForm((f) => ({ ...f, [name]: value }));
   }
 
-  function handleChangeAdministrativo(e) {
-    const { name, value } = e.target;
-    setAdministrativos((a) => ({ ...a, [name]: value }));
-  }
-
-  function handleToggleSeccion(abierta) {
-    setSeccionAbierta(abierta);
-    // Los catálogos se piden la primera vez que se abre: quien no la abre no
-    // los necesita.
-    if (abierta) cargarCatalogos();
-  }
-
-  // Si hay un error adentro de la sección colapsada, se abre para que se vea.
-  function mostrarErrores(nuevos) {
-    setErrores(nuevos);
-    if (CAMPOS_ADMINISTRATIVOS.some((campo) => nuevos[campo])) {
-      handleToggleSeccion(true);
-    }
-  }
-
   function handleCambiarParadas(paradas) {
     setForm((f) => ({ ...f, paradas }));
   }
@@ -232,17 +197,13 @@ function ViajeForm({
       const mensaje = errorDeSecuencia(form.origenId, idsParadas, form.destinoId);
       if (mensaje) erroresLocales.paradas = mensaje;
     }
-    if (conDatosAdministrativos) {
-      Object.assign(erroresLocales, validarMontos(administrativos));
-    }
     if (Object.keys(erroresLocales).length > 0) {
-      mostrarErrores(erroresLocales);
+      setErrores(erroresLocales);
       return;
     }
 
     setEnviando(true);
     try {
-      const enviarAdministrativos = conDatosAdministrativos && hayDatosAdministrativos(administrativos);
       const { choferId, vehiculoId, choferesCandidatos, vehiculosCandidatos, paradas: filasParadas, ...resto } = form;
       const asignacion = usaCandidatos ? { choferesCandidatos, vehiculosCandidatos } : { choferId, vehiculoId };
       await onSubmit({
@@ -251,11 +212,10 @@ function ViajeForm({
         // Solo ids, en orden: el `orden` lo asigna el backend. No hay filas vacías
         // (ya se frenó el envío arriba).
         paradas: paradasAPayload(filasParadas).ids,
-        ...(enviarAdministrativos ? { datosAdministrativos: valoresAPayload(administrativos) } : {}),
       });
     } catch (err) {
       if (err.response?.status === 400 && err.response.data.errores) {
-        mostrarErrores(err.response.data.errores);
+        setErrores(err.response.data.errores);
       } else if (err.response?.status === 409) {
         setErrores({ general: err.response.data.error });
       } else {
@@ -396,17 +356,6 @@ function ViajeForm({
           />
         </FormField>
 
-        {conDatosAdministrativos && (
-          <SeccionDatosAdministrativos
-            valores={administrativos}
-            errores={errores}
-            estadosPago={estadosPago}
-            metodosPago={metodosPago}
-            abierta={seccionAbierta}
-            onToggle={handleToggleSeccion}
-            onChange={handleChangeAdministrativo}
-          />
-        )}
       </div>
 
       {errores.general && <Alert variant="error">{errores.general}</Alert>}

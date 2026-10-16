@@ -3,6 +3,7 @@ import EstadoBadge from './ui/EstadoBadge';
 import RutaViaje from './RutaViaje';
 import { FechaTileTexto } from './FechaTile';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
+import { PENDIENTES_ADMINISTRATIVOS } from '../constants/pendientesAdministrativos';
 import { formatearHorarioViaje, formatearKm, nombreChofer } from '../utils/viajeFormato';
 import { agruparViajesPorDia } from '../utils/viajesPorDia';
 
@@ -13,7 +14,12 @@ import { agruparViajesPorDia } from '../utils/viajesPorDia';
 // variante="chofer" es la vista de Mis viajes de un chofer: el sub es solo el
 // horario, sin el chofer (es él mismo). Sin variante (Viajes, y Mis viajes de un
 // gestor) el sub suma el chofer: "07:30 – 10:00 · Martín Gómez".
-function TarjetaViaje({ viaje, onClick, variante }) {
+//
+// `mostrarPendientes` (solo el listado de Viajes, para Administrador/Encargado)
+// agrega en el detalle el badge "Sin precio" o "Cobro pendiente". El valor lo
+// manda el backend solo a esos perfiles: para el resto la clave no existe y no
+// se muestra nada aunque la prop venga en true.
+function TarjetaViaje({ viaje, onClick, variante, mostrarPendientes = false }) {
   const { chofer, vehiculo, fechaInicio, fechaFin, kilometrosEstimados } = viaje;
   const vistaChofer = variante === 'chofer';
 
@@ -29,6 +35,8 @@ function TarjetaViaje({ viaje, onClick, variante }) {
     'Vehículo pendiente'
   );
 
+  const pendiente = mostrarPendientes ? PENDIENTES_ADMINISTRATIVOS[viaje.pendienteAdministrativo] : undefined;
+
   return (
     <ListadoCard
       marca={<FechaTileTexto fecha={fechaInicio} />}
@@ -40,6 +48,13 @@ function TarjetaViaje({ viaje, onClick, variante }) {
         </EstadoBadge>
       }
       sub={sub}
+      detalle={
+        pendiente && (
+          <EstadoBadge tono={pendiente.tono} size="sm">
+            {pendiente.label}
+          </EstadoBadge>
+        )
+      }
       pie={[
         vehiculoTexto,
         kilometrosEstimados != null ? `${formatearKm(kilometrosEstimados)} km estimados` : 'Km pendientes',
@@ -51,13 +66,19 @@ function TarjetaViaje({ viaje, onClick, variante }) {
 
 // Listado de Viajes y Mis viajes: las tarjetas agrupadas por día de inicio (día
 // de Córdoba), en el orden en que llegan ("Hoy · vie 9 oct", "mié 7 oct").
-export function ListadoViajesPorDia({ viajes, variante, onSeleccionar }) {
+export function ListadoViajesPorDia({ viajes, variante, mostrarPendientes, onSeleccionar }) {
   return agruparViajesPorDia(viajes).map((grupo) => (
     <section key={grupo.dia ?? 'sin-fecha'} className="listado-grupo">
       <h2 className="listado-dia">{grupo.titulo}</h2>
       <div className="listado-cards">
         {grupo.viajes.map((v) => (
-          <TarjetaViaje key={v.id} viaje={v} variante={variante} onClick={() => onSeleccionar(v)} />
+          <TarjetaViaje
+            key={v.id}
+            viaje={v}
+            variante={variante}
+            mostrarPendientes={mostrarPendientes}
+            onClick={() => onSeleccionar(v)}
+          />
         ))}
       </div>
     </section>
