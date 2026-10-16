@@ -58,17 +58,27 @@ function viaje(id, { estado = 'PROGRAMADO', precio = null, estadoPago = null } =
 
 // [nombre, viaje, pendiente esperado]
 const CASOS = [
-  ['sin precio', viaje(1), 'SIN_PRECIO'],
-  ['sin precio y con estado de pago PAGADO', viaje(2, { estadoPago: 'PAGADO' }), 'SIN_PRECIO'],
-  ['con precio y sin estado de pago', viaje(3, { precio: '1000.00' }), 'COBRO_PENDIENTE'],
-  ['con precio y PENDIENTE', viaje(4, { precio: '1000.00', estadoPago: 'PENDIENTE' }), 'COBRO_PENDIENTE'],
-  ['con precio y PARCIAL', viaje(5, { precio: '1000.00', estadoPago: 'PARCIAL' }), 'COBRO_PENDIENTE'],
-  ['con precio 0 y PENDIENTE (0 es un precio cargado)', viaje(6, { precio: '0.00', estadoPago: 'PENDIENTE' }), 'COBRO_PENDIENTE'],
-  ['con precio y PAGADO', viaje(7, { precio: '1000.00', estadoPago: 'PAGADO' }), null],
-  ['CANCELADO sin precio', viaje(8, { estado: 'CANCELADO' }), null],
-  ['CANCELADO con precio sin cobrar', viaje(9, { estado: 'CANCELADO', precio: '10.00', estadoPago: 'PENDIENTE' }), null],
-  ['A_CONFIRMAR sin precio', viaje(10, { estado: 'A_CONFIRMAR' }), 'SIN_PRECIO'],
-  ['FINALIZADO con precio y PENDIENTE', viaje(11, { estado: 'FINALIZADO', precio: '5.00', estadoPago: 'PENDIENTE' }), 'COBRO_PENDIENTE'],
+  // SIN_PRECIO: cualquier estado salvo CANCELADO.
+  ['PROGRAMADO sin precio', viaje(1), 'SIN_PRECIO'],
+  ['PROGRAMADO sin precio y con estado de pago PAGADO', viaje(2, { estadoPago: 'PAGADO' }), 'SIN_PRECIO'],
+  ['A_CONFIRMAR sin precio', viaje(3, { estado: 'A_CONFIRMAR' }), 'SIN_PRECIO'],
+  ['EN_VIAJE sin precio', viaje(4, { estado: 'EN_VIAJE' }), 'SIN_PRECIO'],
+  ['FINALIZADO sin precio', viaje(5, { estado: 'FINALIZADO' }), 'SIN_PRECIO'],
+  // Con precio y sin cobrar, antes de finalizar: no es un pendiente.
+  ['PROGRAMADO con precio y sin estado de pago', viaje(6, { precio: '1000.00' }), null],
+  ['PROGRAMADO con precio y PENDIENTE', viaje(7, { precio: '1000.00', estadoPago: 'PENDIENTE' }), null],
+  ['A_CONFIRMAR con precio y sin estado de pago', viaje(8, { estado: 'A_CONFIRMAR', precio: '1000.00' }), null],
+  ['EN_VIAJE con precio y PARCIAL', viaje(9, { estado: 'EN_VIAJE', precio: '1000.00', estadoPago: 'PARCIAL' }), null],
+  ['PROGRAMADO con precio y PAGADO', viaje(10, { precio: '1000.00', estadoPago: 'PAGADO' }), null],
+  // COBRO_PENDIENTE: solo FINALIZADO con precio y pago distinto de PAGADO.
+  ['FINALIZADO con precio y sin estado de pago', viaje(11, { estado: 'FINALIZADO', precio: '1000.00' }), 'COBRO_PENDIENTE'],
+  ['FINALIZADO con precio y PENDIENTE', viaje(12, { estado: 'FINALIZADO', precio: '5.00', estadoPago: 'PENDIENTE' }), 'COBRO_PENDIENTE'],
+  ['FINALIZADO con precio y PARCIAL', viaje(13, { estado: 'FINALIZADO', precio: '5.00', estadoPago: 'PARCIAL' }), 'COBRO_PENDIENTE'],
+  ['FINALIZADO con precio 0 y PENDIENTE (0 es un precio cargado)', viaje(14, { estado: 'FINALIZADO', precio: '0.00', estadoPago: 'PENDIENTE' }), 'COBRO_PENDIENTE'],
+  ['FINALIZADO con precio y PAGADO', viaje(15, { estado: 'FINALIZADO', precio: '1000.00', estadoPago: 'PAGADO' }), null],
+  // CANCELADO: nunca.
+  ['CANCELADO sin precio', viaje(16, { estado: 'CANCELADO' }), null],
+  ['CANCELADO con precio sin cobrar', viaje(17, { estado: 'CANCELADO', precio: '10.00', estadoPago: 'PENDIENTE' }), null],
 ];
 
 // Evalúa un `where` de Prisma sobre una fila en memoria. Cubre solo lo que usa

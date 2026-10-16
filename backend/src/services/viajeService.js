@@ -527,9 +527,11 @@ async function validarYArmarOperativos(campos, { obligatorios, excluirViajeId, e
 // listado y el filtro "Administrativo pendiente". Un viaje CANCELADO nunca
 // queda pendiente. SIN_PRECIO tiene prioridad sobre COBRO_PENDIENTE: sin precio
 // no hay nada que cobrar todavía.
-//   SIN_PRECIO       precio sin cargar
-//   COBRO_PENDIENTE  precio cargado y estado de pago del cliente distinto de
-//                    PAGADO (incluido "sin definir")
+//   SIN_PRECIO       precio sin cargar (cualquier estado salvo CANCELADO)
+//   COBRO_PENDIENTE  viaje FINALIZADO con precio cargado y estado de pago del
+//                    cliente distinto de PAGADO (incluido "sin definir"). Antes
+//                    de finalizar no se marca: que un viaje programado todavía
+//                    no esté cobrado es lo normal, no un olvido.
 // FILTRO_ADMINISTRATIVO_PENDIENTE es la misma regla escrita como `where` de
 // Prisma (para filtrar en la base): si cambia una, cambiar la otra. El test
 // "pendientes administrativos" de viajesPendientes.test.js chequea que
@@ -537,18 +539,28 @@ async function validarYArmarOperativos(campos, { obligatorios, excluirViajeId, e
 const ESTADO_PAGO_PAGADO = 'PAGADO';
 
 function pendienteAdministrativo(viaje) {
-  if (viaje.estadoViaje.descripcion === 'CANCELADO') return null;
+  const estado = viaje.estadoViaje.descripcion;
+  if (estado === 'CANCELADO') return null;
   if (viaje.precio == null) return 'SIN_PRECIO';
-  if (viaje.estadoPagoCliente?.descripcion !== ESTADO_PAGO_PAGADO) return 'COBRO_PENDIENTE';
+  if (estado === 'FINALIZADO' && viaje.estadoPagoCliente?.descripcion !== ESTADO_PAGO_PAGADO) {
+    return 'COBRO_PENDIENTE';
+  }
   return null;
 }
 
+// Segunda rama del OR sin `precio: { not: null }`: si el precio es null ya
+// entra por la primera (SIN_PRECIO), así que el resultado es el mismo.
 const FILTRO_ADMINISTRATIVO_PENDIENTE = {
   estadoViaje: { descripcion: { not: 'CANCELADO' } },
   OR: [
     { precio: null },
-    { estadoPagoClienteId: null },
-    { estadoPagoCliente: { is: { descripcion: { not: ESTADO_PAGO_PAGADO } } } },
+    {
+      estadoViaje: { descripcion: 'FINALIZADO' },
+      OR: [
+        { estadoPagoClienteId: null },
+        { estadoPagoCliente: { is: { descripcion: { not: ESTADO_PAGO_PAGADO } } } },
+      ],
+    },
   ],
 };
 
