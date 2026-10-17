@@ -250,6 +250,17 @@ model Ubicacion {
   // la API, solo sirve para la garantía dura de no-duplicados (índice único
   // de abajo) contra la carrera entre dos requests simultáneos.
   nombreNormalizado String   @map("nombre_normalizado")
+  // Punto en el mapa (grados decimales, WGS84) con el que se calculan los km
+  // estimados de un viaje (estimacionRecorridoService), sin geocodificar el
+  // nombre en cada cálculo. Nulas mientras nadie la haya ubicado: el cálculo
+  // las pide (422) y el formulario ofrece completarlas.
+  latitud           Float?
+  longitud          Float?
+  // Id de la localidad en la API Georef (datos.gob.ar) si la fila vino de
+  // scripts/importarLocalidadesCordoba.js o se completó con ella. Único, para
+  // que correr la importación de nuevo no duplique localidades. Nulo en los
+  // puntos de interés cargados a mano (colegios, hoteles, etc.).
+  georefId          String?  @unique @map("georef_id")
   creadoEn          DateTime @default(now()) @map("creado_en")
   viajesOrigen      Viaje[]  @relation("ViajeOrigen")
   viajesDestino     Viaje[]  @relation("ViajeDestino")
