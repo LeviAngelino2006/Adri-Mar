@@ -1,6 +1,8 @@
 // Smoke test de render del cálculo de km del formulario de viaje: el botón
-// "Calcular km" (deshabilitado sin origen/destino), el resultado con la
-// atribución de ORS, el aviso de desactualizado y el error en el campo.
+// "Calcular km" (deshabilitado sin origen/destino), el resultado en una línea
+// con la atribución de ORS, el aviso de desactualizado, el error en el campo
+// (con la acción para ubicar una ubicación sin coordenadas) y el paso "Ubicar en
+// el mapa" que usan el selector de ubicaciones y ese error.
 //
 // Mismo método que viajes.render.test.mjs: Vite en modo SSR (ws: false, así no
 // choca con otros tests en paralelo) y react-dom/server. Verifica estructura,
@@ -24,12 +26,16 @@ let vite;
 let ViajeForm;
 let CampoKmEstimados;
 let ResultadoEstimacionKm;
+let PasoUbicarEnMapa;
+let EditorRecorrido;
 
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
   ViajeForm = (await vite.ssrLoadModule('/src/components/ViajeForm.jsx')).default;
   CampoKmEstimados = (await vite.ssrLoadModule('/src/components/CampoKmEstimados.jsx')).default;
   ResultadoEstimacionKm = (await vite.ssrLoadModule('/src/components/ResultadoEstimacionKm.jsx')).default;
+  PasoUbicarEnMapa = (await vite.ssrLoadModule('/src/components/PasoUbicarEnMapa.jsx')).default;
+  EditorRecorrido = (await vite.ssrLoadModule('/src/components/EditorRecorrido.jsx')).default;
 });
 
 after(() => vite.close());
@@ -39,14 +45,7 @@ const sinEtiquetas = (html) => html.replace(/<[^>]+>/g, '');
 // El <button> "Calcular km" (el texto va en un <span> adentro).
 const botonCalcular = (html) => html.match(/<button[^>]*>(?:(?!<\/button>).)*Calcular km(?:(?!<\/button>).)*<\/button>/s)?.[0];
 
-const RESULTADO = {
-  kilometros: 38,
-  duracionMinutos: 41,
-  puntos: [
-    { ubicacionId: 1, nombre: 'Córdoba', interpretadoComo: 'Córdoba, Argentina' },
-    { ubicacionId: 2, nombre: 'Villa Carlos Paz', interpretadoComo: 'Villa Carlos Paz, CD, Argentina' },
-  ],
-};
+const RESULTADO = { kilometros: 38, duracionMinutos: 41 };
 
 describe('ViajeForm: botón "Calcular km"', () => {
   const renderForm = (valoresIniciales) =>
@@ -95,70 +94,45 @@ describe('CampoKmEstimados: error del cálculo', () => {
     );
 
   test('el error se muestra como mensaje del campo y no rompe nada', () => {
-    const html = renderCampo({ errorCalculo: 'No se encontró "Xqzwvlk" en el mapa.' });
-    assert.match(html, /id="kilometrosEstimados-error" class="form-field-error" role="alert">No se encontró &quot;Xqzwvlk&quot; en el mapa\.</);
+    const html = renderCampo({ errorCalculo: { mensaje: 'Se agotó la cuota de OpenRouteService. Intentá más tarde.', faltantes: [] } });
+    assert.match(html, /id="kilometrosEstimados-error" class="form-field-error" role="alert">Se agotó la cuota de OpenRouteService\. Intentá más tarde\.</);
     assert.match(html, /<input type="number" id="kilometrosEstimados" aria-invalid="true"[^>]*name="kilometrosEstimados"/);
     assert.doesNotMatch(botonCalcular(html), /disabled=""/, 'se puede volver a intentar');
+    assert.doesNotMatch(html, /campo-km-ubicar/);
+  });
+
+  test('una ubicación sin coordenadas: mensaje corto y la acción "Ubicarla" (type=button)', () => {
+    const html = renderCampo({
+      errorCalculo: { mensaje: 'Falta ubicar "Hotel Sierras" en el mapa.', faltantes: [{ ubicacionId: 21, nombre: 'Hotel Sierras' }] },
+    });
+    assert.match(
+      html,
+      /role="alert">Falta ubicar &quot;Hotel Sierras&quot; en el mapa\.<span> <button type="button" class="campo-km-ubicar">Ubicarla<\/button><\/span><\/p>/
+    );
+  });
+
+  test('varias sin coordenadas: una acción por cada una, con su nombre', () => {
+    const html = renderCampo({
+      errorCalculo: {
+        mensaje: 'Faltan ubicar en el mapa: "Hotel Sierras", "Colegio Nacional de Monserrat".',
+        faltantes: [
+          { ubicacionId: 21, nombre: 'Hotel Sierras' },
+          { ubicacionId: 20, nombre: 'Colegio Nacional de Monserrat' },
+        ],
+      },
+    });
+    const acciones = [...html.matchAll(/class="campo-km-ubicar">([^<]*)</g)].map((m) => m[1]);
+    assert.deepEqual(acciones, ['Ubicar Hotel Sierras', 'Ubicar Colegio Nacional de Monserrat']);
   });
 
   test('el error de validación al guardar tiene prioridad sobre el del cálculo', () => {
-    const html = renderCampo({ errorValidacion: 'Obligatorio para un viaje Programado.', errorCalculo: 'No se encontró…' });
+    const html = renderCampo({ errorValidacion: 'Obligatorio para un viaje Programado.', errorCalculo: { mensaje: 'Falta ubicar…', faltantes: [] } });
     assert.match(html, /Obligatorio para un viaje Programado\./);
-    assert.doesNotMatch(html, /No se encontró/);
+    assert.doesNotMatch(html, /Falta ubicar/);
   });
 
   test('mientras calcula, el botón queda ocupado', () => {
     assert.match(botonCalcular(renderCampo({ calculando: true })), /aria-busy="true"/);
-  });
-});
-
-// Los cuatro casos reales del informe, con lo que devuelve el backend.
-const CON_DUDOSOS = {
-  kilometros: 160,
-  duracionMinutos: 150,
-  puntos: [
-    { ubicacionId: 2, nombre: 'Villa Carlos Paz', interpretadoComo: 'Villa Carlos Paz, CD, Argentina', motivosRevision: [] },
-    { ubicacionId: 9, nombre: 'Cosquin', interpretadoComo: 'Cosquín, Córdoba, Argentina', motivosRevision: ['CALLE'] },
-    { ubicacionId: 7, nombre: 'Museo del Kempes', interpretadoComo: 'Parque del Kempes, Córdoba, Argentina', motivosRevision: ['NOMBRE_DISTINTO'] },
-    { ubicacionId: 10, nombre: 'Villa Gral Belgrano', interpretadoComo: 'Vila, SF, Argentina', motivosRevision: ['NOMBRE_DISTINTO', 'OTRA_PROVINCIA'] },
-  ],
-};
-
-describe('ResultadoEstimacionKm: puntos para revisar', () => {
-  const render = (props) => renderToStaticMarkup(h(ResultadoEstimacionKm, props));
-  const items = (html) => [...html.matchAll(/<li( class="[^"]*")?>(.*?)<\/li>/g)].map((m) => ({ clase: m[1] ?? '', texto: sinEtiquetas(m[2]) }));
-
-  test('con alguno dudoso la lista se muestra desplegada, con el aviso y la cantidad', () => {
-    const html = render({ resultado: CON_DUDOSOS });
-    assert.match(html, /<details class="estimacion-km-puntos" open="">/);
-    assert.match(sinEtiquetas(html), /Hay 3 ubicaciones que el mapa pudo haber interpretado mal: revisalas antes de usar los km\./);
-  });
-
-  test('cada punto dudoso queda resaltado con "Revisá esta ubicación" y el motivo; el limpio no', () => {
-    const [carlosPaz, cosquin, kempes, belgrano] = items(render({ resultado: CON_DUDOSOS }));
-    assert.equal(carlosPaz.clase, '');
-    assert.doesNotMatch(carlosPaz.texto, /Revisá/);
-    assert.match(cosquin.clase, /estimacion-km-punto-dudoso/);
-    assert.match(cosquin.texto, /Cosquin → Cosquín, Córdoba, Argentina.*Revisá esta ubicación: se ubicó en una calle/);
-    assert.match(kempes.texto, /Revisá esta ubicación: el lugar encontrado tiene otro nombre\./);
-    assert.match(belgrano.texto, /otro nombre; quedó fuera de la provincia de Córdoba\./);
-  });
-
-  test('con uno solo, el aviso va en singular', () => {
-    const resultado = { ...CON_DUDOSOS, puntos: CON_DUDOSOS.puntos.slice(0, 2) };
-    assert.match(sinEtiquetas(render({ resultado })), /Hay 1 ubicación que el mapa pudo haber interpretado mal: revisala/);
-  });
-
-  test('si todos se ven bien, la lista queda colapsada y sin aviso', () => {
-    const html = render({ resultado: RESULTADO });
-    assert.match(html, /<details class="estimacion-km-puntos">/);
-    assert.doesNotMatch(html, /open=""/);
-    assert.doesNotMatch(html, /Revisá|interpretado mal/);
-  });
-
-  test('una respuesta vieja sin motivosRevision se trata como limpia', () => {
-    const html = render({ resultado: { ...RESULTADO, puntos: RESULTADO.puntos.map(({ ubicacionId, nombre, interpretadoComo }) => ({ ubicacionId, nombre, interpretadoComo })) } });
-    assert.doesNotMatch(html, /open=""/);
   });
 });
 
@@ -169,22 +143,26 @@ describe('ResultadoEstimacionKm', () => {
     assert.equal(render({ resultado: null }), '');
   });
 
-  test('total, duración, cada punto interpretado, la indicación de Google Maps y la atribución', () => {
+  test('una sola línea "≈ km · duración" y la atribución en chico; nada más', () => {
     const html = render({ resultado: RESULTADO });
     const texto = sinEtiquetas(html);
-    assert.match(texto, /≈ 38 km · 41 min aprox\./);
-    assert.match(html, /<details class="estimacion-km-puntos"><summary>Cómo se interpretó cada punto<\/summary>/);
-    assert.match(texto, /Córdoba → Córdoba, Argentina/);
-    assert.match(texto, /Villa Carlos Paz → Villa Carlos Paz, CD, Argentina/);
-    assert.match(texto, /Ver recorrido en Google Maps/);
-    assert.ok(texto.includes(ATRIBUCION), 'falta la atribución de ORS/OpenStreetMap');
-    assert.doesNotMatch(texto, /volvé a calcular/);
+    assert.match(html, /<p class="estimacion-km-total"><span>≈ 38 km · 41 min<\/span><\/p>/);
+    assert.match(html, /<p class="estimacion-km-atribucion">© openrouteservice\.org by HeiGIT \| © OpenStreetMap contributors<\/p>/);
+    assert.equal(texto, `≈ 38 km · 41 min${ATRIBUCION}`);
+    assert.doesNotMatch(texto, /Google Maps|interpret|Revisá/);
+    assert.doesNotMatch(html, /<details/);
   });
 
-  test('desactualizado: avisa que hay que volver a calcular y tacha el total, sin sacar la atribución', () => {
+  test('más de una hora: "1 h 31 min"', () => {
+    assert.match(sinEtiquetas(render({ resultado: { kilometros: 123, duracionMinutos: 91 } })), /≈ 123 km · 1 h 31 min/);
+  });
+
+  test('desactualizado: total tachado y aviso corto en la misma línea, sin sacar la atribución', () => {
     const html = render({ resultado: RESULTADO, desactualizado: true });
-    assert.match(html, /role="status">El recorrido cambió después del cálculo: volvé a calcular los km\./);
-    assert.match(html, /class="estimacion-km-total estimacion-km-total-viejo"/);
+    assert.match(
+      html,
+      /<p class="estimacion-km-total"><span class="estimacion-km-total-viejo">≈ 38 km · 41 min<\/span><span class="estimacion-km-desactualizado" role="status">Cambió el recorrido: recalculá<\/span><\/p>/
+    );
     assert.ok(sinEtiquetas(html).includes(ATRIBUCION));
   });
 
@@ -195,7 +173,48 @@ describe('ResultadoEstimacionKm', () => {
         estimacion: { resultado: RESULTADO, desactualizado: true },
       })
     );
-    assert.match(html, /volvé a calcular los km/);
+    assert.match(html, /recalculá/);
     assert.match(sinEtiquetas(html), /≈ 38 km/);
+  });
+});
+
+describe('PasoUbicarEnMapa', () => {
+  const render = (props) =>
+    renderToStaticMarkup(h(PasoUbicarEnMapa, { nombre: 'Colegio Nacional de Monserrat', textoConfirmar: 'Crear ubicación', onConfirmar() {}, onCancelar() {}, ...props }));
+
+  test('título con el nombre, las dos formas de ubicarla y la búsqueda precargada con el nombre', () => {
+    const html = render();
+    assert.match(html, /role="alertdialog" aria-modal="true" aria-label="Ubicar &quot;Colegio Nacional de Monserrat&quot; en el mapa"/);
+    assert.match(html, /aria-pressed="true"[^>]*>Nombre</);
+    assert.match(html, /aria-pressed="false"[^>]*>Coordenadas</);
+    assert.match(html, /<input type="text"[^>]*value="Colegio Nacional de Monserrat"/);
+    assert.match(html, /role="group" aria-label="Ubicar por"/);
+    const nombres = [...html.matchAll(/<button[^>]*>(?:<span>)?([^<]*)/g)].map((m) => m[1]).filter(Boolean);
+    assert.equal(new Set(nombres).size, nombres.length, 'sin dos botones con el mismo nombre: ' + nombres);
+    assert.match(sinEtiquetas(html), /Crear ubicación/);
+  });
+
+  test('todos sus botones son type="button" (vive dentro del <form> del viaje)', () => {
+    const botones = [...render().matchAll(/<button[^>]*>/g)].map((m) => m[0]);
+    assert.ok(botones.length >= 4);
+    for (const b of botones) assert.match(b, /type="button"/, b);
+  });
+
+  test('para completar una existente, el botón dice "Guardar ubicación"', () => {
+    assert.match(sinEtiquetas(render({ nombre: 'Hotel Sierras', textoConfirmar: 'Guardar ubicación' })), /Guardar ubicación/);
+  });
+});
+
+describe('EditorRecorrido usa el selector de ubicaciones', () => {
+  test('origen, paradas y destino con el placeholder de ubicaciones', () => {
+    const html = renderToStaticMarkup(
+      h(EditorRecorrido, {
+        origen: { id: '', nombre: '' },
+        destino: { id: '', nombre: '' },
+        paradas: [{ clave: 'a', id: '', nombre: '' }],
+        onCambiarOrigen() {}, onCambiarDestino() {}, onCambiarParadas() {},
+      })
+    );
+    assert.equal([...html.matchAll(/placeholder="Buscar o crear ubicación…"/g)].length, 3);
   });
 });
