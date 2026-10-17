@@ -134,7 +134,9 @@ Para pasar un viaje a `PROGRAMADO`, el sistema valida:
 - Se admiten entre **0 y 9 paradas intermedias ordenadas** (`ViajeParada`).
 - No pueden existir puntos consecutivos idénticos en la secuencia `[origen, ...paradas, destino]`.
 - Se permite recorrido de "ida y vuelta" (`origen == destino`) únicamente si existe al menos una parada intermedia válida entre ellos.
-- Generación automática de enlace a **Google Maps** con waypoints para visualización satelital de la ruta.
+- Generación automática de enlace a **Google Maps** con waypoints para visualización satelital de la ruta (usa los nombres de las ubicaciones).
+- Cada ubicación guarda su punto en el mapa (`latitud`, `longitud`). Las localidades de Córdoba vienen de Georef (`scripts/importarLocalidadesCordoba.js`, con `georefId`); un punto de interés nuevo (colegio, hotel) se ubica al crearlo, buscándolo en el mapa o pegando las coordenadas de Google Maps.
+- **Km estimados:** "Calcular km" pide a OpenRouteService la ruta en auto por las coordenadas guardadas (origen → paradas → destino), sin interpretar nombres. Si alguna ubicación no tiene coordenadas, responde 422 con cuáles y el formulario ofrece ubicarlas. Es una ayuda: el campo sigue siendo editable y guardar el viaje no depende del cálculo.
 
 ### 5.4. Notificación al Chofer por WhatsApp
 - Se genera un link directo `https://wa.me/<telefono>?text=...` con el teléfono del chofer en formato internacional E.164 (`549...`).
