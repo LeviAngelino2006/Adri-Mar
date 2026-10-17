@@ -24,6 +24,8 @@ const UBICACIONES = [
   { id: 6, nombre: 'Lugar Sin Resultados' },
   { id: 7, nombre: 'Museo del Kempes' },
   { id: 8, nombre: 'Rosario, Santa Fe' },
+  { id: 9, nombre: 'Cosquin' },
+  { id: 10, nombre: 'Villa Gral Belgrano' },
 ];
 
 const llamadasPrisma = [];
@@ -48,17 +50,21 @@ const servicio = require(path.join(SRC, 'services', 'estimacionRecorridoService.
 // Lo que ORS geocoding devuelve para cada texto (ya con conContexto aplicado).
 // [lon, lat] como en GeoJSON.
 const GEOCODING = {
-  'Córdoba, Córdoba, Argentina': { label: 'Córdoba, Argentina', layer: 'locality', match_type: 'exact', coords: [-64.1811, -31.4135] },
-  'Villa Carlos Paz, Córdoba, Argentina': { label: 'Villa Carlos Paz, CD, Argentina', layer: 'locality', match_type: 'exact', coords: [-64.4978, -31.4241] },
-  'Alta Gracia, Córdoba, Argentina': { label: 'Alta Gracia, CD, Argentina', layer: 'locality', match_type: 'exact', coords: [-64.4283, -31.6593] },
-  'Río Cuarto, Córdoba, Argentina': { label: 'Río Cuarto, CD, Argentina', layer: 'locality', match_type: 'exact', coords: [-64.3499, -33.1232] },
+  'Córdoba, Córdoba, Argentina': { label: 'Córdoba, Argentina', name: 'Córdoba', region_a: 'CD', layer: 'locality', match_type: 'exact', coords: [-64.1811, -31.4135] },
+  'Villa Carlos Paz, Córdoba, Argentina': { label: 'Villa Carlos Paz, CD, Argentina', name: 'Villa Carlos Paz', region_a: 'CD', layer: 'locality', match_type: 'exact', coords: [-64.4978, -31.4241] },
+  'Alta Gracia, Córdoba, Argentina': { label: 'Alta Gracia, CD, Argentina', name: 'Alta Gracia', region_a: 'CD', layer: 'locality', match_type: 'exact', coords: [-64.4283, -31.6593] },
+  'Río Cuarto, Córdoba, Argentina': { label: 'Río Cuarto, CD, Argentina', name: 'Río Cuarto', region_a: 'CD', layer: 'locality', match_type: 'exact', coords: [-64.3499, -33.1232] },
+  // Casos reales que ORS interpreta mal sin avisar: una calle de Córdoba capital
+  // y una localidad de Santa Fe.
+  'Cosquin, Córdoba, Argentina': { label: 'Cosquín, Córdoba, Argentina', name: 'Cosquín', region_a: 'CD', layer: 'street', match_type: 'exact', coords: [-64.19, -31.40] },
+  'Villa Gral Belgrano, Córdoba, Argentina': { label: 'Vila, SF, Argentina', name: 'Vila', region_a: 'SF', layer: 'locality', match_type: 'exact', coords: [-61.83, -31.19] },
   // Lo que hace Pelias de verdad con un nombre que no conoce: se queda con el
   // contexto ("Córdoba") como fallback a la localidad.
   'Xqzwvlk, Córdoba, Argentina': { label: 'Córdoba, Argentina', layer: 'locality', match_type: 'fallback', coords: [-64.1811, -31.4135] },
   'Lugar Sin Resultados, Córdoba, Argentina': null,
   // Fallback a un lugar concreto (venue): se acepta.
-  'Museo del Kempes, Córdoba, Argentina': { label: 'Parque del Kempes, Córdoba, Argentina', layer: 'venue', match_type: 'fallback', coords: [-64.2468, -31.3687] },
-  'Rosario, Santa Fe': { label: 'Rosario, SF, Argentina', layer: 'locality', match_type: 'exact', coords: [-60.6393, -32.9468] },
+  'Museo del Kempes, Córdoba, Argentina': { label: 'Parque del Kempes, Córdoba, Argentina', name: 'Parque del Kempes', region_a: 'CD', layer: 'venue', match_type: 'fallback', coords: [-64.2468, -31.3687] },
+  'Rosario, Santa Fe': { label: 'Rosario, SF, Argentina', name: 'Rosario', region_a: 'SF', layer: 'locality', match_type: 'exact', coords: [-60.6393, -32.9468] },
 };
 
 let llamadasOrs = [];
@@ -91,7 +97,12 @@ function orsFalso(url, opciones) {
     const r = GEOCODING[llamada.params.text];
     if (!r) return json(200, { features: [] });
     return json(200, {
-      features: [{ geometry: { coordinates: r.coords }, properties: { label: r.label, layer: r.layer, match_type: r.match_type } }],
+      features: [
+        {
+          geometry: { coordinates: r.coords },
+          properties: { label: r.label, name: r.name, region_a: r.region_a, layer: r.layer, match_type: r.match_type },
+        },
+      ],
     });
   }
   if (llamada.path === '/openrouteservice/v2/directions/driving-car') {
@@ -151,10 +162,10 @@ describe('camino feliz', () => {
     assert.equal(r.kilometros, 123);
     assert.equal(r.duracionMinutos, 91);
     assert.deepEqual(r.puntos, [
-      { ubicacionId: 1, nombre: 'Córdoba', interpretadoComo: 'Córdoba, Argentina' },
-      { ubicacionId: 3, nombre: 'Alta Gracia', interpretadoComo: 'Alta Gracia, CD, Argentina' },
-      { ubicacionId: 2, nombre: 'Villa Carlos Paz', interpretadoComo: 'Villa Carlos Paz, CD, Argentina' },
-      { ubicacionId: 4, nombre: 'Río Cuarto', interpretadoComo: 'Río Cuarto, CD, Argentina' },
+      { ubicacionId: 1, nombre: 'Córdoba', interpretadoComo: 'Córdoba, Argentina', motivosRevision: [] },
+      { ubicacionId: 3, nombre: 'Alta Gracia', interpretadoComo: 'Alta Gracia, CD, Argentina', motivosRevision: [] },
+      { ubicacionId: 2, nombre: 'Villa Carlos Paz', interpretadoComo: 'Villa Carlos Paz, CD, Argentina', motivosRevision: [] },
+      { ubicacionId: 4, nombre: 'Río Cuarto', interpretadoComo: 'Río Cuarto, CD, Argentina', motivosRevision: [] },
     ]);
     assert.equal(geocodings().length, 4);
     assert.equal(directions().length, 1);
@@ -236,6 +247,29 @@ describe('camino feliz', () => {
     const { status, json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 7 });
     assert.equal(status, 200);
     assert.equal(r.puntos[1].interpretadoComo, 'Parque del Kempes, Córdoba, Argentina');
+  });
+});
+
+describe('puntos para revisar (motivosRevision)', () => {
+  test('los casos reales llegan marcados y el limpio no; igual se calcula la ruta', async () => {
+    const { status, json: r } = await estimar({ origenId: 2, paradaIds: [9, 7], destinoId: 10 });
+
+    assert.equal(status, 200);
+    assert.equal(directions().length, 1, 'marcar un punto no frena el cálculo');
+    assert.deepEqual(
+      r.puntos.map((p) => [p.nombre, p.motivosRevision]),
+      [
+        ['Villa Carlos Paz', []],
+        ['Cosquin', ['CALLE']],
+        ['Museo del Kempes', ['NOMBRE_DISTINTO']],
+        ['Villa Gral Belgrano', ['NOMBRE_DISTINTO', 'OTRA_PROVINCIA']],
+      ]
+    );
+  });
+
+  test('una ubicación que ya trae provincia no se marca por estar en otra', async () => {
+    const { json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 8 });
+    assert.deepEqual(r.puntos[1].motivosRevision, []);
   });
 });
 

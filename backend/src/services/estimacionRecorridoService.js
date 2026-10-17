@@ -1,5 +1,6 @@
 const prisma = require('./prismaClient');
 const { conContexto } = require('../utils/contextoUbicacion');
+const { motivosRevision } = require('../utils/revisionGeocodificacion');
 const {
   validarExtremosRecorrido,
   validarFormatoParadas,
@@ -122,8 +123,10 @@ function errorPorStatus(status) {
   return new EstimacionError(502, MENSAJES.errorOrs);
 }
 
-// Una ubicación → { coordenadas: [lon, lat], interpretadoComo } o null si ORS no
-// la encuentra. Mismo texto que el link de Google Maps (conContexto).
+// Una ubicación → { coordenadas: [lon, lat], interpretadoComo, motivosRevision }
+// o null si ORS no la encuentra. Mismo texto que el link de Google Maps
+// (conContexto). motivosRevision: por qué conviene que el encargado revise cómo
+// se interpretó (utils/revisionGeocodificacion), vacío si nada llama la atención.
 async function geocodificar(nombre, opciones) {
   const url = new URL(`${urlBase()}${RUTA_GEOCODING}`);
   url.search = new URLSearchParams({
@@ -141,10 +144,15 @@ async function geocodificar(nombre, opciones) {
   const coordenadas = resultado?.geometry?.coordinates;
   if (!resultado || !Array.isArray(coordenadas) || coordenadas.length < 2) return null;
 
-  const { match_type: tipoCoincidencia, layer: capa, label } = resultado.properties ?? {};
+  const { match_type: tipoCoincidencia, layer: capa, label, name, region_a: provincia } = resultado.properties ?? {};
   if (tipoCoincidencia === 'fallback' && CAPAS_ADMINISTRATIVAS.has(capa)) return null;
 
-  return { coordenadas: [coordenadas[0], coordenadas[1]], interpretadoComo: label ?? nombre };
+  const interpretadoComo = label ?? nombre;
+  return {
+    coordenadas: [coordenadas[0], coordenadas[1]],
+    interpretadoComo,
+    motivosRevision: motivosRevision(nombre, { capa, nombreInterpretado: name ?? interpretadoComo, provincia }),
+  };
 }
 
 // Ruta en auto por todos los puntos, en orden. ORS usa [longitud, latitud].
@@ -205,7 +213,8 @@ async function buscarUbicaciones(secuencia) {
 
 // { origenId, paradaIds, destinoId } → { kilometros, duracionMinutos, puntos }.
 // `puntos` va en el orden del recorrido (con repetidos), con lo que ORS entendió
-// de cada uno, para que el encargado lo verifique.
+// de cada uno y si conviene revisarlo (motivosRevision), para que el encargado
+// lo verifique.
 async function estimarKm({ origenId, paradaIds, destinoId } = {}, { timeoutMs = TIMEOUT_MS } = {}) {
   const clave = process.env.ORS_API_KEY;
   if (!clave) throw new EstimacionError(503, MENSAJES.sinClave);
@@ -243,6 +252,7 @@ async function estimarKm({ origenId, paradaIds, destinoId } = {}, { timeoutMs = 
       ubicacionId: id,
       nombre: ubicaciones.get(id).nombre,
       interpretadoComo: geocodificadas.get(id).interpretadoComo,
+      motivosRevision: geocodificadas.get(id).motivosRevision,
     })),
   };
 }
