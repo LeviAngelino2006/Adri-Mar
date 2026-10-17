@@ -1,8 +1,9 @@
 const estimacionRecorridoService = require('../services/estimacionRecorridoService');
 
-// Recibe solo ids de ubicaciones (nunca texto libre): los nombres salen de la
-// base. Los errores de ORS llegan como EstimacionError con su status y un
-// mensaje para mostrarle al usuario; nunca como un 500 genérico.
+// Recibe solo ids de ubicaciones (nunca texto libre): las coordenadas salen de
+// la base. Los errores de ORS y la falta de coordenadas llegan como ErrorMapa
+// con su status y un mensaje para mostrarle al usuario; nunca como un 500
+// genérico.
 async function estimarKm(req, res) {
   const { origenId, paradaIds, destinoId } = req.body ?? {};
 
@@ -13,7 +14,7 @@ async function estimarKm(req, res) {
     if (err instanceof estimacionRecorridoService.ValidacionError) {
       return res.status(400).json({ errores: err.errores });
     }
-    if (err instanceof estimacionRecorridoService.EstimacionError) {
+    if (err instanceof estimacionRecorridoService.ErrorMapa) {
       return res.status(err.status).json({ error: err.message, ...err.extra });
     }
     throw err;

@@ -1,4 +1,5 @@
-// Tests de POST /viajes/estimar-km (km estimados con OpenRouteService).
+// Tests de POST /viajes/estimar-km (km estimados con OpenRouteService a partir
+// de las coordenadas guardadas de cada ubicación).
 //
 // App real de Express con JWT real, Prisma reemplazado por un doble en memoria
 // y fetch reemplazado: las llamadas a ORS NUNCA salen a internet (las responde
@@ -15,17 +16,16 @@ const CLAVE = 'clave-ors-de-prueba-1234567890';
 
 // --- Ubicaciones en la base (doble de Prisma) -------------------------------
 
+// Coordenadas de Georef (centroides). Las dos últimas todavía no se ubicaron en
+// el mapa.
 const UBICACIONES = [
-  { id: 1, nombre: 'Córdoba' },
-  { id: 2, nombre: 'Villa Carlos Paz' },
-  { id: 3, nombre: 'Alta Gracia' },
-  { id: 4, nombre: 'Río Cuarto' },
-  { id: 5, nombre: 'Xqzwvlk' },
-  { id: 6, nombre: 'Lugar Sin Resultados' },
-  { id: 7, nombre: 'Museo del Kempes' },
-  { id: 8, nombre: 'Rosario, Santa Fe' },
-  { id: 9, nombre: 'Cosquin' },
-  { id: 10, nombre: 'Villa Gral Belgrano' },
+  { id: 1, nombre: 'Córdoba', latitud: -31.4168, longitud: -64.1836 },
+  { id: 2, nombre: 'Villa Carlos Paz', latitud: -31.4179, longitud: -64.494 },
+  { id: 3, nombre: 'Alta Gracia', latitud: -31.6498, longitud: -64.4299 },
+  { id: 4, nombre: 'Río Cuarto', latitud: -33.1238, longitud: -64.349 },
+  { id: 9, nombre: 'Cosquín', latitud: -31.2437, longitud: -64.4653 },
+  { id: 20, nombre: 'Colegio Nacional de Monserrat', latitud: null, longitud: null },
+  { id: 21, nombre: 'Hotel Sierras', latitud: null, longitud: null },
 ];
 
 const llamadasPrisma = [];
@@ -33,7 +33,9 @@ const prismaFalso = {
   ubicacion: {
     findMany: async (args) => {
       llamadasPrisma.push(args);
-      return UBICACIONES.filter((u) => args.where.id.in.includes(u.id)).map(({ id, nombre }) => ({ id, nombre }));
+      return UBICACIONES.filter((u) => args.where.id.in.includes(u.id)).map((u) =>
+        Object.fromEntries(Object.keys(args.select).map((k) => [k, u[k]]))
+      );
     },
   },
 };
@@ -44,28 +46,9 @@ require.cache[rutaPrisma] = { id: rutaPrisma, filename: rutaPrisma, loaded: true
 const app = require(path.join(SRC, 'app.js'));
 const { generarToken } = require(path.join(SRC, 'services', 'tokenService.js'));
 const servicio = require(path.join(SRC, 'services', 'estimacionRecorridoService.js'));
+const ors = require(path.join(SRC, 'services', 'openRouteService.js'));
 
 // --- ORS falso -------------------------------------------------------------
-
-// Lo que ORS geocoding devuelve para cada texto (ya con conContexto aplicado).
-// [lon, lat] como en GeoJSON.
-const GEOCODING = {
-  'Córdoba, Córdoba, Argentina': { label: 'Córdoba, Argentina', name: 'Córdoba', region_a: 'CD', layer: 'locality', match_type: 'exact', coords: [-64.1811, -31.4135] },
-  'Villa Carlos Paz, Córdoba, Argentina': { label: 'Villa Carlos Paz, CD, Argentina', name: 'Villa Carlos Paz', region_a: 'CD', layer: 'locality', match_type: 'exact', coords: [-64.4978, -31.4241] },
-  'Alta Gracia, Córdoba, Argentina': { label: 'Alta Gracia, CD, Argentina', name: 'Alta Gracia', region_a: 'CD', layer: 'locality', match_type: 'exact', coords: [-64.4283, -31.6593] },
-  'Río Cuarto, Córdoba, Argentina': { label: 'Río Cuarto, CD, Argentina', name: 'Río Cuarto', region_a: 'CD', layer: 'locality', match_type: 'exact', coords: [-64.3499, -33.1232] },
-  // Casos reales que ORS interpreta mal sin avisar: una calle de Córdoba capital
-  // y una localidad de Santa Fe.
-  'Cosquin, Córdoba, Argentina': { label: 'Cosquín, Córdoba, Argentina', name: 'Cosquín', region_a: 'CD', layer: 'street', match_type: 'exact', coords: [-64.19, -31.40] },
-  'Villa Gral Belgrano, Córdoba, Argentina': { label: 'Vila, SF, Argentina', name: 'Vila', region_a: 'SF', layer: 'locality', match_type: 'exact', coords: [-61.83, -31.19] },
-  // Lo que hace Pelias de verdad con un nombre que no conoce: se queda con el
-  // contexto ("Córdoba") como fallback a la localidad.
-  'Xqzwvlk, Córdoba, Argentina': { label: 'Córdoba, Argentina', layer: 'locality', match_type: 'fallback', coords: [-64.1811, -31.4135] },
-  'Lugar Sin Resultados, Córdoba, Argentina': null,
-  // Fallback a un lugar concreto (venue): se acepta.
-  'Museo del Kempes, Córdoba, Argentina': { label: 'Parque del Kempes, Córdoba, Argentina', name: 'Parque del Kempes', region_a: 'CD', layer: 'venue', match_type: 'fallback', coords: [-64.2468, -31.3687] },
-  'Rosario, Santa Fe': { label: 'Rosario, SF, Argentina', name: 'Rosario', region_a: 'SF', layer: 'locality', match_type: 'exact', coords: [-60.6393, -32.9468] },
-};
 
 let llamadasOrs = [];
 // Permite que un test cambie la respuesta de ORS: (llamada) => Response | undefined.
@@ -82,7 +65,6 @@ function orsFalso(url, opciones) {
     url: String(url),
     origen: u.origin,
     path: u.pathname,
-    params: Object.fromEntries(u.searchParams),
     method: opciones.method,
     headers: opciones.headers,
     body: opciones.body ? JSON.parse(opciones.body) : null,
@@ -93,18 +75,6 @@ function orsFalso(url, opciones) {
   const especial = comportamiento?.(llamada);
   if (especial) return especial;
 
-  if (llamada.path === '/pelias/v1/search') {
-    const r = GEOCODING[llamada.params.text];
-    if (!r) return json(200, { features: [] });
-    return json(200, {
-      features: [
-        {
-          geometry: { coordinates: r.coords },
-          properties: { label: r.label, name: r.name, region_a: r.region_a, layer: r.layer, match_type: r.match_type },
-        },
-      ],
-    });
-  }
   if (llamada.path === '/openrouteservice/v2/directions/driving-car') {
     return json(200, { routes: [{ summary: RUTA_FELIZ }] });
   }
@@ -149,63 +119,48 @@ async function estimar(body, perfil = 'ENCARGADO') {
   return { status: r.status, json: await r.json() };
 }
 
-const geocodings = () => llamadasOrs.filter((l) => l.path === '/pelias/v1/search');
 const directions = () => llamadasOrs.filter((l) => l.path === '/openrouteservice/v2/directions/driving-car');
 
 // --- Camino feliz ----------------------------------------------------------
 
 describe('camino feliz', () => {
-  test('con 2 paradas: km redondeados, duración en minutos y cada punto interpretado, en orden', async () => {
+  test('con 2 paradas: km redondeados, duración en minutos y UNA sola llamada a ORS', async () => {
     const { status, json: r } = await estimar({ origenId: 1, paradaIds: [3, 2], destinoId: 4 });
 
     assert.equal(status, 200);
-    assert.equal(r.kilometros, 123);
-    assert.equal(r.duracionMinutos, 91);
-    assert.deepEqual(r.puntos, [
-      { ubicacionId: 1, nombre: 'Córdoba', interpretadoComo: 'Córdoba, Argentina', motivosRevision: [] },
-      { ubicacionId: 3, nombre: 'Alta Gracia', interpretadoComo: 'Alta Gracia, CD, Argentina', motivosRevision: [] },
-      { ubicacionId: 2, nombre: 'Villa Carlos Paz', interpretadoComo: 'Villa Carlos Paz, CD, Argentina', motivosRevision: [] },
-      { ubicacionId: 4, nombre: 'Río Cuarto', interpretadoComo: 'Río Cuarto, CD, Argentina', motivosRevision: [] },
-    ]);
-    assert.equal(geocodings().length, 4);
+    assert.deepEqual(r, { kilometros: 123, duracionMinutos: 91 });
+    assert.equal(llamadasOrs.length, 1, 'nada de geocoding: solo directions');
     assert.equal(directions().length, 1);
-    assert.equal(llamadasPrisma.length, 1, 'los nombres salen de un solo findMany');
+    assert.equal(llamadasPrisma.length, 1, 'las coordenadas salen de un solo findMany');
+    assert.deepEqual(llamadasPrisma[0].select, { id: true, nombre: true, latitud: true, longitud: true });
   });
 
-  test('directions recibe las coordenadas en orden y como [longitud, latitud]', async () => {
+  test('directions recibe las coordenadas guardadas, en orden y como [longitud, latitud]', async () => {
     await estimar({ origenId: 1, paradaIds: [3], destinoId: 4 });
 
     const [ruta] = directions();
     assert.equal(ruta.method, 'POST');
-    assert.deepEqual(ruta.body, {
-      coordinates: [
-        [-64.1811, -31.4135], // Córdoba: [lon, lat]
-        [-64.4283, -31.6593], // Alta Gracia
-        [-64.3499, -33.1232], // Río Cuarto
-      ],
-    });
+    assert.deepEqual(ruta.body.coordinates, [
+      [-64.1836, -31.4168], // Córdoba: [lon, lat]
+      [-64.4299, -31.6498], // Alta Gracia
+      [-64.349, -33.1238], // Río Cuarto
+    ]);
   });
 
-  test('geocoding: misma regla conContexto que Google Maps, país AR, foco en Córdoba y size=1', async () => {
-    await estimar({ origenId: 1, paradaIds: [], destinoId: 8 });
-
-    const textos = geocodings().map((l) => l.params.text).sort();
-    assert.deepEqual(textos, ['Córdoba, Córdoba, Argentina', 'Rosario, Santa Fe']);
-    for (const llamada of geocodings()) {
-      assert.equal(llamada.params['boundary.country'], 'AR');
-      assert.equal(llamada.params.size, '1');
-      assert.ok(Math.abs(Number(llamada.params['focus.point.lat']) + 31.41) < 0.1, 'foco: latitud de Córdoba capital');
-      assert.ok(Math.abs(Number(llamada.params['focus.point.lon']) + 64.18) < 0.1, 'foco: longitud de Córdoba capital');
-    }
+  test('cada punto se engancha a la calle más cercana hasta 5 km (no los 350 m por defecto de ORS)', async () => {
+    await estimar({ origenId: 1, paradaIds: [3, 2], destinoId: 4 });
+    assert.equal(ors.RADIO_ENGANCHE_M, 5000);
+    assert.deepEqual(directions()[0].body.radiuses, [5000, 5000, 5000, 5000]);
   });
 
-  test('URLs del dominio nuevo (api.heigit.org), sin barra final antes de la ruta', async () => {
+  test('Córdoba → Cosquín usa el punto guardado de Cosquín (no se interpreta el nombre)', async () => {
+    await estimar({ origenId: 1, paradaIds: [], destinoId: 9 });
+    assert.deepEqual(directions()[0].body.coordinates[1], [-64.4653, -31.2437]);
+  });
+
+  test('URL del dominio nuevo (api.heigit.org), sin barra final antes de la ruta', async () => {
     await estimar({ origenId: 1, paradaIds: [], destinoId: 2 });
-    for (const llamada of llamadasOrs) {
-      assert.equal(llamada.origen, 'https://api.heigit.org');
-      assert.ok(!llamada.url.includes('heigit.org//'));
-    }
-    assert.ok(geocodings().every((l) => l.url.startsWith('https://api.heigit.org/pelias/v1/search?')));
+    assert.equal(directions()[0].origen, 'https://api.heigit.org');
     assert.equal(directions()[0].url, 'https://api.heigit.org/openrouteservice/v2/directions/driving-car');
   });
 
@@ -218,23 +173,19 @@ describe('camino feliz', () => {
   test('la key va en el header Authorization y en ninguna URL ni cuerpo', async () => {
     await estimar({ origenId: 1, paradaIds: [3, 2], destinoId: 4 });
 
-    assert.ok(llamadasOrs.length > 0);
-    for (const llamada of llamadasOrs) {
-      assert.equal(llamada.headers.Authorization, CLAVE);
-      assert.ok(!llamada.url.includes(CLAVE), `la key no debe ir en la URL: ${llamada.url}`);
-      assert.ok(!('api_key' in llamada.params));
-      assert.ok(!JSON.stringify(llamada.body ?? {}).includes(CLAVE));
-    }
+    const [llamada] = llamadasOrs;
+    assert.equal(llamada.headers.Authorization, CLAVE);
+    assert.ok(!llamada.url.includes(CLAVE));
+    assert.ok(!JSON.stringify(llamada.body).includes(CLAVE));
   });
 
-  test('una ubicación repetida (ida y vuelta) se geocodifica una sola vez', async () => {
-    const { status, json: r } = await estimar({ origenId: 1, paradaIds: [2, 3], destinoId: 1 });
+  test('ida y vuelta: la ruta pasa por los 4 puntos aunque Córdoba se repita', async () => {
+    const { status } = await estimar({ origenId: 1, paradaIds: [2, 3], destinoId: 1 });
 
     assert.equal(status, 200);
-    assert.equal(geocodings().length, 3, 'Córdoba aparece dos veces pero se pide una');
-    assert.equal(directions()[0].body.coordinates.length, 4, 'la ruta igual pasa por los 4 puntos');
-    assert.deepEqual(directions()[0].body.coordinates[0], directions()[0].body.coordinates[3]);
-    assert.deepEqual(r.puntos.map((p) => p.ubicacionId), [1, 2, 3, 1]);
+    const { coordinates } = directions()[0].body;
+    assert.equal(coordinates.length, 4);
+    assert.deepEqual(coordinates[0], coordinates[3]);
   });
 
   test('paradaIds ausente equivale a sin paradas', async () => {
@@ -242,79 +193,42 @@ describe('camino feliz', () => {
     assert.equal(status, 200);
     assert.equal(directions()[0].body.coordinates.length, 2);
   });
-
-  test('un fallback a un lugar concreto (venue) se acepta y se informa cómo se interpretó', async () => {
-    const { status, json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 7 });
-    assert.equal(status, 200);
-    assert.equal(r.puntos[1].interpretadoComo, 'Parque del Kempes, Córdoba, Argentina');
-  });
 });
 
-describe('puntos para revisar (motivosRevision)', () => {
-  test('los casos reales llegan marcados y el limpio no; igual se calcula la ruta', async () => {
-    const { status, json: r } = await estimar({ origenId: 2, paradaIds: [9, 7], destinoId: 10 });
+// --- Ubicaciones sin coordenadas -------------------------------------------
 
-    assert.equal(status, 200);
-    assert.equal(directions().length, 1, 'marcar un punto no frena el cálculo');
+describe('ubicación sin coordenadas', () => {
+  test('422 que dice cuál, con su id, y no se llama a ORS', async () => {
+    const { status, json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 20 });
+
+    assert.equal(status, 422);
+    assert.equal(r.error, 'Falta ubicar "Colegio Nacional de Monserrat" en el mapa.');
+    assert.deepEqual(r.ubicacionesSinCoordenadas, [{ ubicacionId: 20, nombre: 'Colegio Nacional de Monserrat' }]);
+    assert.equal(llamadasOrs.length, 0);
+  });
+
+  test('varias: todas, en el orden del recorrido y sin repetir', async () => {
+    const { status, json: r } = await estimar({ origenId: 21, paradaIds: [1, 20, 2], destinoId: 21 });
+
+    assert.equal(status, 422);
+    assert.equal(r.error, 'Faltan ubicar en el mapa: "Hotel Sierras", "Colegio Nacional de Monserrat".');
     assert.deepEqual(
-      r.puntos.map((p) => [p.nombre, p.motivosRevision]),
-      [
-        ['Villa Carlos Paz', []],
-        ['Cosquin', ['CALLE']],
-        ['Museo del Kempes', ['NOMBRE_DISTINTO']],
-        ['Villa Gral Belgrano', ['NOMBRE_DISTINTO', 'OTRA_PROVINCIA']],
-      ]
+      r.ubicacionesSinCoordenadas.map((u) => u.ubicacionId),
+      [21, 20]
     );
-  });
-
-  test('una ubicación que ya trae provincia no se marca por estar en otra', async () => {
-    const { json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 8 });
-    assert.deepEqual(r.puntos[1].motivosRevision, []);
-  });
-});
-
-// --- Ubicaciones que ORS no encuentra --------------------------------------
-
-describe('ubicación no encontrada', () => {
-  test('fallback a un área administrativa (solo reconoció "Córdoba"): 422 que dice cuál, sin pedir la ruta', async () => {
-    const { status, json: r } = await estimar({ origenId: 1, paradaIds: [5], destinoId: 2 });
-
-    assert.equal(status, 422);
-    assert.match(r.error, /No se encontró "Xqzwvlk"/);
-    assert.deepEqual(r.ubicacionesNoEncontradas, [{ ubicacionId: 5, nombre: 'Xqzwvlk' }]);
-    assert.equal(directions().length, 0);
-  });
-
-  test('sin resultados: 422', async () => {
-    const { status, json: r } = await estimar({ origenId: 6, paradaIds: [], destinoId: 2 });
-    assert.equal(status, 422);
-    assert.match(r.error, /Lugar Sin Resultados/);
-  });
-
-  test('dos no encontradas: el mensaje nombra las dos', async () => {
-    const { status, json: r } = await estimar({ origenId: 5, paradaIds: [1], destinoId: 6 });
-    assert.equal(status, 422);
-    assert.match(r.error, /"Xqzwvlk".*"Lugar Sin Resultados"/);
-    assert.equal(r.ubicacionesNoEncontradas.length, 2);
+    assert.equal(llamadasOrs.length, 0);
   });
 });
 
 // --- Errores de ORS ---------------------------------------------------------
 
 describe('errores de ORS', () => {
-  test('cuota agotada (429) en geocoding: 429 con "intentá más tarde"', async () => {
-    comportamiento = (l) => (l.path === '/pelias/v1/search' ? json(429, { error: 'Rate limit exceeded' }) : undefined);
-    const { status, json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 2 });
-    assert.equal(status, 429);
-    assert.match(r.error, /Intentá más tarde/);
-    assert.equal(directions().length, 0);
-  });
-
-  test('cuota agotada (429) en directions: 429', async () => {
+  test('cuota agotada (429): 429 con "intentá más tarde"', async () => {
     comportamiento = (l) => (l.path.includes('directions') ? json(429, {}) : undefined);
     const { status, json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 2 });
     assert.equal(status, 429);
     assert.match(r.error, /cuota/);
+    assert.match(r.error, /Intentá más tarde/);
   });
 
   test('ruta imposible (404 de directions, código 2010): 422', async () => {
@@ -352,14 +266,14 @@ describe('errores de ORS', () => {
     const inicio = Date.now();
     await assert.rejects(
       servicio.estimarKm({ origenId: 1, paradaIds: [], destinoId: 2 }, { timeoutMs: 50 }),
-      (err) => err instanceof servicio.EstimacionError && err.status === 503
+      (err) => err instanceof servicio.ErrorMapa && err.status === 503
     );
     assert.ok(Date.now() - inicio < 2000, 'tiene que cortar por el plazo, no quedarse esperando');
     assert.ok(abortadas >= 1);
   });
 
   test('el plazo por defecto es de 8 segundos', () => {
-    assert.equal(servicio.TIMEOUT_MS, 8000);
+    assert.equal(ors.TIMEOUT_MS, 8000);
   });
 
   test('ORS caído (error de red): 502', async () => {
@@ -446,6 +360,6 @@ describe('validación (mismas reglas que el recorrido de un viaje)', () => {
   test('9 paradas (el máximo) sí se aceptan', async () => {
     const { status } = await estimar({ origenId: 1, paradaIds: [2, 3, 2, 3, 2, 3, 2, 3, 2], destinoId: 4 });
     assert.equal(status, 200);
-    assert.equal(geocodings().length, 4, '11 puntos, 4 ubicaciones distintas');
+    assert.equal(directions()[0].body.coordinates.length, 11);
   });
 });
