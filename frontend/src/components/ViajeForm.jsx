@@ -6,7 +6,15 @@ import Alert from './ui/Alert';
 import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
 import SelectorMultiple from './ui/SelectorMultiple';
 import EditorRecorrido from './EditorRecorrido';
-import { consultarDisponibilidad } from '../services/viajesApi';
+import CampoKmEstimados from './CampoKmEstimados';
+import { consultarDisponibilidad, estimarKm } from '../services/viajesApi';
+import {
+  aplicarEstimacion,
+  firmaRecorrido,
+  idsDelRecorrido,
+  mensajeErrorEstimacion,
+  puedeCalcularKm,
+} from '../utils/estimacionKm';
 import { nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { errorDeSecuencia, paradasAPayload } from '../utils/paradas';
 import { ordenarPorInterno } from '../utils/vehiculos';
@@ -88,6 +96,17 @@ function ViajeForm({
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
   const [avisos, setAvisos] = useState(SIN_AVISOS);
+  // "Calcular km": el último resultado y el último error, cada uno con la firma
+  // del recorrido con el que se pidió. Si el recorrido cambia, el resultado se
+  // marca desactualizado (no se recalcula solo) y el error deja de mostrarse.
+  // Guardar el viaje no depende de nada de esto.
+  const [estimacion, setEstimacion] = useState(null);
+  const [errorKm, setErrorKm] = useState(null);
+  const [calculandoKm, setCalculandoKm] = useState(false);
+  const idsRecorrido = idsDelRecorrido(form);
+  const firmaActual = firmaRecorrido(idsRecorrido);
+  const puedeCalcular = puedeCalcularKm(idsRecorrido);
+  const errorKmVigente = errorKm && errorKm.firma === firmaActual ? errorKm.mensaje : undefined;
 
   const requiereOperativos = estadoActual === 'PROGRAMADO';
   const usaCandidatos = !requiereOperativos;
@@ -167,6 +186,21 @@ function ViajeForm({
 
   function handleSeleccionarOrigen(item) {
     setForm((f) => ({ ...f, origenId: item?.id || '', origenNombre: item?.nombre || '' }));
+  }
+
+  async function handleCalcularKm() {
+    const firma = firmaActual;
+    setCalculandoKm(true);
+    setErrorKm(null);
+    try {
+      const { data } = await estimarKm(idsRecorrido);
+      setEstimacion({ resultado: data, firma });
+      setForm((f) => aplicarEstimacion(f, data));
+    } catch (err) {
+      setErrorKm({ mensaje: mensajeErrorEstimacion(err), firma });
+    } finally {
+      setCalculandoKm(false);
+    }
   }
 
   function handleSeleccionarDestino(item) {
@@ -331,19 +365,19 @@ function ViajeForm({
           </>
         )}
 
-        <FormField
-          id="kilometrosEstimados"
-          label="Kilómetros estimados"
-          error={errores.kilometrosEstimados}
-          required={requiereOperativos}
-        >
-          <input
-            type="number"
-            name="kilometrosEstimados"
-            value={form.kilometrosEstimados}
-            onChange={handleChange}
-          />
-        </FormField>
+        <CampoKmEstimados
+          valor={form.kilometrosEstimados}
+          onChange={handleChange}
+          requerido={requiereOperativos}
+          errorValidacion={errores.kilometrosEstimados}
+          errorCalculo={errorKmVigente}
+          puedeCalcular={puedeCalcular}
+          calculando={calculandoKm}
+          onCalcular={handleCalcularKm}
+          estimacion={
+            estimacion && { resultado: estimacion.resultado, desactualizado: estimacion.firma !== firmaActual }
+          }
+        />
 
         <FormField id="cantidadPasajeros" label="Cantidad de pasajeros" error={errores.cantidadPasajeros}>
           <input

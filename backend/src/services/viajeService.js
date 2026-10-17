@@ -1,5 +1,11 @@
 const prisma = require('./prismaClient');
 const lecturaOdometroService = require('./lecturaOdometroService');
+const {
+  campoAusente,
+  validarExtremosRecorrido,
+  validarFormatoParadas,
+  errorDeSecuencia,
+} = require('../utils/recorridoViaje');
 const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../utils/marcaModeloVehiculo');
 
 const ESTADO_VEHICULO_HABILITADO = 'OPERATIVO';
@@ -109,10 +115,6 @@ class ValidacionError extends Error {
   }
 }
 
-function campoAusente(valor) {
-  return valor === undefined || valor === null || valor === '';
-}
-
 // clienteId/origenId/destinoId: dato "core" del viaje (quién lo pidió y
 // adónde), no operativo — siempre obligatorios, en cualquier estado, tanto al
 // crear como al editar (a diferencia de los 5 campos operativos de abajo, que
@@ -120,10 +122,9 @@ function campoAusente(valor) {
 // tarea; antes vivía (por error de alcance) como uno de los 9 campos
 // opcionales de datos-administrativos.
 //
-// origen == destino solo es un error si el viaje NO tiene paradas: con al menos
-// una parada es un ida y vuelta legítimo (Río Tercero → Córdoba → Río Tercero).
-// El caso con paradas lo cubre errorDeSecuencia (no pueden ser consecutivos
-// iguales ni origen/destino con una parada en el medio de igual nombre).
+// Origen y destino se validan con validarExtremosRecorrido (utils/recorridoViaje),
+// la misma regla que usa el cálculo de km: origen == destino solo es un error si
+// el viaje NO tiene paradas.
 function validarCamposCore({ clienteId, origenId, destinoId }, { hayParadas = false } = {}) {
   const errores = {};
 
@@ -134,29 +135,14 @@ function validarCamposCore({ clienteId, origenId, destinoId }, { hayParadas = fa
     errores.clienteId = 'El cliente elegido no es válido';
   }
 
-  const origenIdNumero = Number(origenId);
-  if (campoAusente(origenId)) {
-    errores.origenId = 'El origen es obligatorio';
-  } else if (!Number.isInteger(origenIdNumero) || origenIdNumero <= 0) {
-    errores.origenId = 'El origen elegido no es válido';
-  }
-
-  const destinoIdNumero = Number(destinoId);
-  if (campoAusente(destinoId)) {
-    errores.destinoId = 'El destino es obligatorio';
-  } else if (!Number.isInteger(destinoIdNumero) || destinoIdNumero <= 0) {
-    errores.destinoId = 'El destino elegido no es válido';
-  }
-
-  if (!errores.origenId && !errores.destinoId && !hayParadas && origenIdNumero === destinoIdNumero) {
-    errores.destinoId = 'El destino no puede ser el mismo que el origen';
-  }
+  const extremos = validarExtremosRecorrido({ origenId, destinoId }, { hayParadas });
+  Object.assign(errores, extremos.errores);
 
   if (Object.keys(errores).length > 0) {
     throw new ValidacionError(errores);
   }
 
-  return { clienteId: clienteIdNumero, origenId: origenIdNumero, destinoId: destinoIdNumero };
+  return { clienteId: clienteIdNumero, origenId: extremos.origenId, destinoId: extremos.destinoId };
 }
 
 // Los 5 campos operativos (quién maneja, qué vehículo, cuándo, cuántos km).
@@ -716,46 +702,8 @@ async function serializarViaje(viaje, usuarioSolicitante) {
 // puede repetirse (un ida y vuelta pasa dos veces por el mismo lugar); lo único
 // que no puede es repetirse de forma CONSECUTIVA.
 
-// Es el límite de puntos intermedios de los links de Google Maps.
-const MAX_PARADAS = 9;
-
-// Forma de la lista (todavía sin tocar la base): ausente/null → [], si viene
-// tiene que ser un arreglo de enteros positivos y no pasar el máximo.
-function validarFormatoParadas(valor) {
-  if (valor === undefined || valor === null) return { ids: [], errores: {} };
-
-  if (!Array.isArray(valor)) {
-    return { ids: [], errores: { paradas: 'Debe ser una lista de ids de ubicaciones' } };
-  }
-
-  const ids = valor.map((v) => (typeof v === 'number' || typeof v === 'string' ? Number(v) : NaN));
-  if (ids.some((n) => !Number.isInteger(n) || n <= 0)) {
-    return { ids: [], errores: { paradas: 'La lista tiene ubicaciones que no son válidas' } };
-  }
-  if (ids.length > MAX_PARADAS) {
-    return { ids: [], errores: { paradas: `Máximo ${MAX_PARADAS} paradas` } };
-  }
-
-  return { ids, errores: {} };
-}
-
-// Revisa la secuencia COMPLETA [origen, ...paradas, destino]: dos puntos
-// consecutivos no pueden ser la misma ubicación. Devuelve el mensaje del primer
-// problema o null. Con 0 paradas, origen == destino no se reporta acá: ya lo
-// cubre validarCamposCore con su mensaje de siempre, en destinoId.
-function errorDeSecuencia(origenId, paradas, destinoId) {
-  const secuencia = [origenId, ...paradas, destinoId];
-
-  for (let i = 1; i < secuencia.length; i += 1) {
-    if (secuencia[i] !== secuencia[i - 1]) continue;
-
-    const esDestino = i === secuencia.length - 1;
-    if (!esDestino) return `La parada ${i} es igual al punto anterior`;
-    if (paradas.length > 0) return `La parada ${paradas.length} es igual al destino`;
-  }
-
-  return null;
-}
+// MAX_PARADAS, validarFormatoParadas y errorDeSecuencia viven en
+// utils/recorridoViaje (los comparte el cálculo de km).
 
 // Existencia de todas las ubicaciones de la lista (un findMany, no uno por id).
 async function validarExistenciaParadas(ids) {
