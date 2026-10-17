@@ -1,6 +1,6 @@
 import FormField from './ui/FormField';
 import Button from './ui/Button';
-import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
+import SelectorUbicacion from './SelectorUbicacion';
 import BotonVerRecorrido from './BotonVerRecorrido';
 import { MAX_PARADAS, agregarParada, elegirUbicacion, moverParada, quitarParada } from '../utils/paradas';
 import './EditorRecorrido.css';
@@ -25,8 +25,6 @@ const ICONO_QUITAR = (
   </svg>
 );
 
-const PLACEHOLDER = 'Buscar o crear ubicación…';
-
 // Bloque "Recorrido" del formulario de viaje: el origen, las paradas intermedias
 // y el destino como una línea de tiempo vertical.
 //
@@ -37,9 +35,9 @@ const PLACEHOLDER = 'Buscar o crear ubicación…';
 //
 // No guarda estado: es controlado por ViajeForm (origen, destino y la lista de
 // paradas viven en su formulario) y la lista se transforma con las funciones
-// puras de utils/paradas. Cada punto usa el mismo SelectorBuscarOCrear con
-// /ubicaciones, así que las paradas nuevas se crean igual que un origen o un
-// destino.
+// puras de utils/paradas. Cada punto usa el mismo SelectorUbicacion, así que
+// las paradas nuevas se crean igual que un origen o un destino (con su punto en
+// el mapa).
 //
 //  - origen / destino: { id, nombre } (vacíos mientras no se elija).
 //  - paradas: [{ clave, id, nombre }].
@@ -64,12 +62,10 @@ function EditorRecorrido({
       <ol className="editor-recorrido-puntos">
         <li className="editor-recorrido-punto editor-recorrido-extremo">
           <FormField id="origenId" label="Origen" error={errores.origenId} required>
-            <SelectorBuscarOCrear
-              endpoint="/ubicaciones"
+            <SelectorUbicacion
               valor={origen.id}
               valorNombre={origen.nombre}
               onSeleccionar={onCambiarOrigen}
-              placeholder={PLACEHOLDER}
             />
           </FormField>
         </li>
@@ -81,12 +77,10 @@ function EditorRecorrido({
               label={`Parada ${indice + 1}`}
               error={parada.id ? undefined : errores.filasParadas?.[parada.clave]}
             >
-              <SelectorBuscarOCrear
-                endpoint="/ubicaciones"
+              <SelectorUbicacion
                 valor={parada.id}
                 valorNombre={parada.nombre}
                 onSeleccionar={(item) => onCambiarParadas(elegirUbicacion(paradas, parada.clave, item))}
-                placeholder={PLACEHOLDER}
               />
             </FormField>
 
@@ -133,12 +127,10 @@ function EditorRecorrido({
 
         <li className="editor-recorrido-punto editor-recorrido-extremo">
           <FormField id="destinoId" label="Destino" error={errores.destinoId} required>
-            <SelectorBuscarOCrear
-              endpoint="/ubicaciones"
+            <SelectorUbicacion
               valor={destino.id}
               valorNombre={destino.nombre}
               onSeleccionar={onCambiarDestino}
-              placeholder={PLACEHOLDER}
             />
           </FormField>
         </li>
