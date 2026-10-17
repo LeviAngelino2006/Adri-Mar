@@ -9,6 +9,7 @@ import {
   idsDelRecorrido,
   mensajeErrorEstimacion,
   puedeCalcularKm,
+  textoMotivosRevision,
 } from './estimacionKm.js';
 
 describe('idsDelRecorrido y puedeCalcularKm', () => {
@@ -92,5 +93,19 @@ describe('aplicarEstimacion (el campo se completa)', () => {
 
   test('pisa un valor cargado a mano (el usuario apretó Calcular)', () => {
     assert.equal(aplicarEstimacion({ kilometrosEstimados: '100' }, { kilometros: 215 }).kilometrosEstimados, '215');
+  });
+});
+
+describe('textoMotivosRevision', () => {
+  test('cada código en palabras, varios separados por punto y coma', () => {
+    assert.equal(textoMotivosRevision(['CALLE']), 'se ubicó en una calle, no en una localidad o un lugar');
+    assert.equal(
+      textoMotivosRevision(['NOMBRE_DISTINTO', 'OTRA_PROVINCIA']),
+      'el lugar encontrado tiene otro nombre; quedó fuera de la provincia de Córdoba'
+    );
+  });
+
+  test('un código desconocido no esconde el aviso', () => {
+    assert.equal(textoMotivosRevision(['ALGO_NUEVO']), 'conviene verificarla en el mapa');
   });
 });

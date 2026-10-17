@@ -47,3 +47,25 @@
 .estimacion-km-atribucion {
   font-size: 0.75rem;
 }
+
+/* Puntos que el backend marcó para revisar: aviso arriba de la lista y el punto
+   resaltado con el motivo. */
+.estimacion-km .estimacion-km-aviso-revisar {
+  margin-top: var(--space-1);
+  color: var(--state-warning-text);
+  font-weight: 600;
+}
+
+.estimacion-km-punto-dudoso {
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-left: 3px solid var(--state-warning-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--state-warning-bg);
+}
+
+.estimacion-km-revisar {
+  display: block;
+  color: var(--state-warning-text);
+  font-weight: 600;
+}

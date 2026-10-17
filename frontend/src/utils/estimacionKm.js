@@ -45,6 +45,19 @@ export function aplicarEstimacion(form, resultado) {
   return { ...form, kilometrosEstimados: String(resultado.kilometros) };
 }
 
+// Por qué un punto merece revisión, en palabras para el encargado. Los códigos
+// los decide el backend (utils/revisionGeocodificacion.js); uno desconocido se
+// muestra igual con un texto genérico, para no esconder el aviso.
+const TEXTOS_MOTIVOS_REVISION = {
+  CALLE: 'se ubicó en una calle, no en una localidad o un lugar',
+  NOMBRE_DISTINTO: 'el lugar encontrado tiene otro nombre',
+  OTRA_PROVINCIA: 'quedó fuera de la provincia de Córdoba',
+};
+
+export function textoMotivosRevision(motivos = []) {
+  return motivos.map((m) => TEXTOS_MOTIVOS_REVISION[m] ?? 'conviene verificarla en el mapa').join('; ');
+}
+
 // 45 → "45 min"; 91 → "1 h 31 min"; 120 → "2 h".
 export function formatearDuracion(minutos) {
   if (!Number.isFinite(minutos) || minutos < 60) return `${Math.max(0, Math.round(minutos || 0))} min`;

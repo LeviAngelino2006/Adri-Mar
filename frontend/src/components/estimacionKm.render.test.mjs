@@ -112,6 +112,56 @@ describe('CampoKmEstimados: error del cálculo', () => {
   });
 });
 
+// Los cuatro casos reales del informe, con lo que devuelve el backend.
+const CON_DUDOSOS = {
+  kilometros: 160,
+  duracionMinutos: 150,
+  puntos: [
+    { ubicacionId: 2, nombre: 'Villa Carlos Paz', interpretadoComo: 'Villa Carlos Paz, CD, Argentina', motivosRevision: [] },
+    { ubicacionId: 9, nombre: 'Cosquin', interpretadoComo: 'Cosquín, Córdoba, Argentina', motivosRevision: ['CALLE'] },
+    { ubicacionId: 7, nombre: 'Museo del Kempes', interpretadoComo: 'Parque del Kempes, Córdoba, Argentina', motivosRevision: ['NOMBRE_DISTINTO'] },
+    { ubicacionId: 10, nombre: 'Villa Gral Belgrano', interpretadoComo: 'Vila, SF, Argentina', motivosRevision: ['NOMBRE_DISTINTO', 'OTRA_PROVINCIA'] },
+  ],
+};
+
+describe('ResultadoEstimacionKm: puntos para revisar', () => {
+  const render = (props) => renderToStaticMarkup(h(ResultadoEstimacionKm, props));
+  const items = (html) => [...html.matchAll(/<li( class="[^"]*")?>(.*?)<\/li>/g)].map((m) => ({ clase: m[1] ?? '', texto: sinEtiquetas(m[2]) }));
+
+  test('con alguno dudoso la lista se muestra desplegada, con el aviso y la cantidad', () => {
+    const html = render({ resultado: CON_DUDOSOS });
+    assert.match(html, /<details class="estimacion-km-puntos" open="">/);
+    assert.match(sinEtiquetas(html), /Hay 3 ubicaciones que el mapa pudo haber interpretado mal: revisalas antes de usar los km\./);
+  });
+
+  test('cada punto dudoso queda resaltado con "Revisá esta ubicación" y el motivo; el limpio no', () => {
+    const [carlosPaz, cosquin, kempes, belgrano] = items(render({ resultado: CON_DUDOSOS }));
+    assert.equal(carlosPaz.clase, '');
+    assert.doesNotMatch(carlosPaz.texto, /Revisá/);
+    assert.match(cosquin.clase, /estimacion-km-punto-dudoso/);
+    assert.match(cosquin.texto, /Cosquin → Cosquín, Córdoba, Argentina.*Revisá esta ubicación: se ubicó en una calle/);
+    assert.match(kempes.texto, /Revisá esta ubicación: el lugar encontrado tiene otro nombre\./);
+    assert.match(belgrano.texto, /otro nombre; quedó fuera de la provincia de Córdoba\./);
+  });
+
+  test('con uno solo, el aviso va en singular', () => {
+    const resultado = { ...CON_DUDOSOS, puntos: CON_DUDOSOS.puntos.slice(0, 2) };
+    assert.match(sinEtiquetas(render({ resultado })), /Hay 1 ubicación que el mapa pudo haber interpretado mal: revisala/);
+  });
+
+  test('si todos se ven bien, la lista queda colapsada y sin aviso', () => {
+    const html = render({ resultado: RESULTADO });
+    assert.match(html, /<details class="estimacion-km-puntos">/);
+    assert.doesNotMatch(html, /open=""/);
+    assert.doesNotMatch(html, /Revisá|interpretado mal/);
+  });
+
+  test('una respuesta vieja sin motivosRevision se trata como limpia', () => {
+    const html = render({ resultado: { ...RESULTADO, puntos: RESULTADO.puntos.map(({ ubicacionId, nombre, interpretadoComo }) => ({ ubicacionId, nombre, interpretadoComo })) } });
+    assert.doesNotMatch(html, /open=""/);
+  });
+});
+
 describe('ResultadoEstimacionKm', () => {
   const render = (props) => renderToStaticMarkup(h(ResultadoEstimacionKm, props));
 
