@@ -1,0 +1,125 @@
+# CI de Adri-Mar Gestión Online.
+#
+# Render despliega el backend desde main y aplica las migraciones en el build, así
+# que lo que llega a main llega a producción. Este workflow corre en cada pull
+# request y en cada push a main, con tres jobs en paralelo:
+#
+# - Backend: tests. Instala con `npm ci`, genera el cliente de Prisma y corre
+#   `npm test` (node:test). Los tests usan un doble de Prisma en memoria
+#   (backend/tests/helpers) y se setean su propio JWT_SECRET falso, así que no
+#   necesitan base ni secretos.
+#
+# - Frontend: tests, build y lint. `npm test` (node:test + Vite en modo SSR),
+#   `npm run build` (lo mismo que compila Vercel) y `npm run lint` (oxlint). oxlint
+#   sale con código 1 solo si hay errores; los warnings se muestran pero no
+#   rompen el job.
+#
+# - Migraciones: levanta un Postgres 18 vacío (la versión de Neon) y:
+#   1. `prisma migrate deploy`: todas las migraciones tienen que aplicarse desde
+#      cero, en orden y sin errores, igual que en el build de Render.
+#   2. `prisma migrate diff --exit-code`: compara la base resultante con
+#      schema.prisma. Si alguien cambió el schema sin crear la migración (o al
+#      revés), sale con código 2 y el job falla.
+#   La base es descartable y las credenciales son de prueba: este job no toca Neon.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Un push nuevo a un PR cancela la corrida anterior de ese PR. En main no se
+# cancela nada: cada commit que llega a producción queda verificado.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: "Backend: tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm test
+
+  frontend:
+    name: "Frontend: tests, build y lint"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npm run lint
+
+  migraciones:
+    name: "Migraciones: aplicar y comparar con el schema"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci_password_falsa
+          POSTGRES_DB: adrimar_ci
+          # Mismo proveedor de locale que Neon (builtin, C.UTF-8).
+          POSTGRES_INITDB_ARGS: --locale-provider=builtin --builtin-locale=C.UTF-8
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d adrimar_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # schema.prisma usa directUrl para las migraciones: en CI es la misma base.
+      DATABASE_URL: postgresql://ci:ci_password_falsa@localhost:5432/adrimar_ci?schema=public
+      DIRECT_URL: postgresql://ci:ci_password_falsa@localhost:5432/adrimar_ci?schema=public
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - name: Aplicar todas las migraciones sobre la base vacía
+        run: npx prisma migrate deploy
+
+      - name: Comparar la base migrada con schema.prisma
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
