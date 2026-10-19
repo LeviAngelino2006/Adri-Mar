@@ -1,11 +1,13 @@
 // Lista de paradas intermedias del formulario de viaje, como funciones puras
 // (no tocan el estado de React: reciben una lista y devuelven otra).
 //
-// Cada parada del formulario es { clave, id, nombre }:
+// Cada parada del formulario es { clave, id, nombre, placeId, latitud, longitud }:
 //  - `clave` identifica a la FILA, no a la ubicación (una ubicación puede repetirse
 //    en un ida y vuelta). Es la `key` de React: al reordenar, cada selector se
 //    mueve con su texto en vez de quedarse en el lugar y mostrar el de otra fila.
 //  - `id` y `nombre` son la ubicación elegida; '' mientras la fila está vacía.
+//  - `placeId`, `latitud` y `longitud` son su lugar en el mapa (null si no
+//    tiene): solo los usa el link "Ver recorrido en Google Maps".
 
 // Es el límite de puntos intermedios de los links de Google Maps y el que valida
 // el backend (MAX_PARADAS en viajeService).
@@ -15,12 +17,19 @@ export const ERROR_PARADA_VACIA = 'Elegí una ubicación o quitá la parada';
 
 let contador = 0;
 
+// El lugar en el mapa de una ubicación (o todo null para una fila vacía).
+const lugar = (ubicacion) => ({
+  placeId: ubicacion?.placeId ?? null,
+  latitud: ubicacion?.latitud ?? null,
+  longitud: ubicacion?.longitud ?? null,
+});
+
 export function nuevaParada(ubicacion) {
   contador += 1;
-  return { clave: `parada-${contador}`, id: ubicacion?.id ?? '', nombre: ubicacion?.nombre ?? '' };
+  return { clave: `parada-${contador}`, id: ubicacion?.id ?? '', nombre: ubicacion?.nombre ?? '', ...lugar(ubicacion) };
 }
 
-// Las paradas que devuelve la API ([{ orden, ubicacion: { id, nombre } }],
+// Las paradas que devuelve la API ([{ orden, ubicacion: { id, nombre, placeId, … } }],
 // ya ordenadas) como filas del formulario.
 export function paradasDesdeViaje(viaje) {
   return (viaje?.paradas ?? []).map((parada) => nuevaParada(parada.ubicacion));
@@ -50,7 +59,7 @@ export function moverParada(lista, indice, delta) {
 // Elige (o vacía, con `item` null) la ubicación de una fila.
 export function elegirUbicacion(lista, clave, item) {
   return lista.map((parada) =>
-    parada.clave === clave ? { ...parada, id: item?.id ?? '', nombre: item?.nombre ?? '' } : parada
+    parada.clave === clave ? { ...parada, id: item?.id ?? '', nombre: item?.nombre ?? '', ...lugar(item) } : parada
   );
 }
 

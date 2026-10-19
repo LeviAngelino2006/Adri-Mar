@@ -23,13 +23,6 @@ function extraerDato(data) {
 // (buscarOCrear ya deduplica por nombre normalizado); este componente se
 // limita a mostrar la opción de crear y confiar en lo que el backend
 // devuelva, nunca a ocultarla o resolverla localmente.
-//
-// pasoCrear (opcional): si una entidad necesita más datos que el nombre para
-// crearse (ej. una ubicación pide su punto en el mapa, ver SelectorUbicacion),
-// "+ Crear" abre ese paso en vez de crear directo. Es una función
-// ({ nombre, onConfirmar, onCancelar }) => elemento; onConfirmar(datosExtra)
-// hace el POST con { nombre, ...datosExtra } y devuelve la promesa, para que el
-// paso muestre el error si falla.
 function SelectorBuscarOCrear({
   id,
   endpoint,
@@ -38,7 +31,6 @@ function SelectorBuscarOCrear({
   onSeleccionar,
   placeholder = 'Buscar…',
   disabled = false,
-  pasoCrear,
   ...resto
 }) {
   const [texto, setTexto] = useState(valorNombre || '');
@@ -46,8 +38,6 @@ function SelectorBuscarOCrear({
   const [abierto, setAbierto] = useState(false);
   const [buscando, setBuscando] = useState(false);
   const [creando, setCreando] = useState(false);
-  // Nombre que se está creando con pasoCrear (el paso queda abierto), o null.
-  const [nombreEnPaso, setNombreEnPaso] = useState(null);
   const contenedorRef = useRef(null);
 
   // Si el valor seleccionado cambia desde afuera (ej. el formulario carga un
@@ -95,27 +85,17 @@ function SelectorBuscarOCrear({
     onSeleccionar(item);
   }
 
-  async function crearCon(nombre, datosExtra = {}) {
-    const { data } = await api.post(endpoint, { nombre, ...datosExtra });
-    const item = extraerDato(data);
-    setTexto(item.nombre);
-    setAbierto(false);
-    onSeleccionar(item);
-  }
-
   async function crear() {
     const nombre = texto.trim();
     if (!nombre || creando) return;
 
-    if (pasoCrear) {
-      setAbierto(false);
-      setNombreEnPaso(nombre);
-      return;
-    }
-
     setCreando(true);
     try {
-      await crearCon(nombre);
+      const { data } = await api.post(endpoint, { nombre });
+      const item = extraerDato(data);
+      setTexto(item.nombre);
+      setAbierto(false);
+      onSeleccionar(item);
     } finally {
       setCreando(false);
     }
@@ -170,16 +150,6 @@ function SelectorBuscarOCrear({
           )}
         </ul>
       )}
-
-      {nombreEnPaso !== null &&
-        pasoCrear({
-          nombre: nombreEnPaso,
-          onConfirmar: async (datosExtra) => {
-            await crearCon(nombreEnPaso, datosExtra);
-            setNombreEnPaso(null);
-          },
-          onCancelar: () => setNombreEnPaso(null),
-        })}
     </div>
   );
 }

@@ -7,9 +7,10 @@ import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
 import SelectorMultiple from './ui/SelectorMultiple';
 import EditorRecorrido from './EditorRecorrido';
 import CampoKmEstimados from './CampoKmEstimados';
-import PasoUbicarEnMapa from './PasoUbicarEnMapa';
+import UbicarConGoogle from './UbicarConGoogle';
 import { consultarDisponibilidad, estimarKm } from '../services/viajesApi';
-import { ubicarEnMapa } from '../services/ubicacionesApi';
+import { ubicarDesdeGoogle } from '../services/ubicacionesApi';
+import { lugarDe } from '../utils/sugerenciasGoogle';
 import {
   aplicarEstimacion,
   firmaRecorrido,
@@ -30,12 +31,17 @@ const FORM_INICIAL = {
   vehiculoId: '',
   choferesCandidatos: [],
   vehiculosCandidatos: [],
-  // Paradas intermedias, en orden: [{ clave, id, nombre }] (ver utils/paradas).
+  // Paradas intermedias, en orden: [{ clave, id, nombre, placeId, latitud,
+  // longitud }] (ver utils/paradas).
   paradas: [],
   origenId: '',
   origenNombre: '',
   destinoId: '',
   destinoNombre: '',
+  // Lugar en el mapa del origen y del destino ({ placeId, latitud, longitud }):
+  // solo para el link "Ver recorrido en Google Maps"; no viaja al backend.
+  origenLugar: null,
+  destinoLugar: null,
   fechaInicio: '',
   fechaFin: '',
   kilometrosEstimados: '',
@@ -193,7 +199,7 @@ function ViajeForm({
   }
 
   function handleSeleccionarOrigen(item) {
-    setForm((f) => ({ ...f, origenId: item?.id || '', origenNombre: item?.nombre || '' }));
+    setForm((f) => ({ ...f, origenId: item?.id || '', origenNombre: item?.nombre || '', origenLugar: lugarDe(item) }));
   }
 
   async function handleCalcularKm() {
@@ -211,11 +217,11 @@ function ViajeForm({
     }
   }
 
-  // Guarda el punto de una ubicación que faltaba (si falla, el error se ve en
-  // el paso). Cuando ya no falta ninguna, vuelve a calcular: es lo que el
-  // usuario había pedido.
-  async function handleUbicarFaltante(coordenadas) {
-    await ubicarEnMapa(ubicando.ubicacionId, coordenadas);
+  // Ubica con Google una ubicación que faltaba (si falla, el error se ve en el
+  // modal). Cuando ya no falta ninguna, vuelve a calcular: es lo que el usuario
+  // había pedido.
+  async function handleUbicarFaltante({ placeId, sessionToken }) {
+    await ubicarDesdeGoogle(ubicando.ubicacionId, { placeId, sessionToken });
     const restante = quitarFaltante(errorKm, ubicando.ubicacionId);
     setUbicando(null);
     setErrorKm(restante);
@@ -223,7 +229,7 @@ function ViajeForm({
   }
 
   function handleSeleccionarDestino(item) {
-    setForm((f) => ({ ...f, destinoId: item?.id || '', destinoNombre: item?.nombre || '' }));
+    setForm((f) => ({ ...f, destinoId: item?.id || '', destinoNombre: item?.nombre || '', destinoLugar: lugarDe(item) }));
   }
 
   async function handleSubmit(e) {
@@ -257,7 +263,16 @@ function ViajeForm({
 
     setEnviando(true);
     try {
-      const { choferId, vehiculoId, choferesCandidatos, vehiculosCandidatos, paradas: filasParadas, ...resto } = form;
+      const {
+        choferId,
+        vehiculoId,
+        choferesCandidatos,
+        vehiculosCandidatos,
+        paradas: filasParadas,
+        origenLugar: _origenLugar,
+        destinoLugar: _destinoLugar,
+        ...resto
+      } = form;
       const asignacion = usaCandidatos ? { choferesCandidatos, vehiculosCandidatos } : { choferId, vehiculoId };
       await onSubmit({
         ...resto,
@@ -296,8 +311,8 @@ function ViajeForm({
 
         <div className="form-field-ancho">
           <EditorRecorrido
-            origen={{ id: form.origenId, nombre: form.origenNombre }}
-            destino={{ id: form.destinoId, nombre: form.destinoNombre }}
+            origen={{ id: form.origenId, nombre: form.origenNombre, ...form.origenLugar }}
+            destino={{ id: form.destinoId, nombre: form.destinoNombre, ...form.destinoLugar }}
             paradas={form.paradas}
             onCambiarOrigen={handleSeleccionarOrigen}
             onCambiarDestino={handleSeleccionarDestino}
@@ -400,10 +415,9 @@ function ViajeForm({
         />
 
         {ubicando && (
-          <PasoUbicarEnMapa
+          <UbicarConGoogle
             nombre={ubicando.nombre}
-            textoConfirmar="Guardar ubicación"
-            onConfirmar={handleUbicarFaltante}
+            onUbicar={handleUbicarFaltante}
             onCancelar={() => setUbicando(null)}
           />
         )}

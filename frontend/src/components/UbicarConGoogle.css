@@ -1,39 +1,17 @@
-/* Paso "Ubicar en el mapa" (modal al crear una ubicación o completar una sin
-   coordenadas). Va dentro de .confirm-modal-description. */
-.ubicar-mapa {
+/* Modal "Ubicar en el mapa" con el buscador de Google (desde el error de
+   "Calcular km"). Va dentro de .confirm-modal-description. */
+.ubicar-google {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   text-align: left;
 }
 
-.ubicar-mapa .control-segmentado {
-  align-self: flex-start;
-}
-
-/* Campo de búsqueda con el botón al lado, alineado con el input (bajado lo que
-   mide el label, igual que .campo-km). */
-.ubicar-mapa-busqueda {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-}
-
-.ubicar-mapa-busqueda > .form-field {
-  flex: 1;
-  min-width: 0;
-}
-
-.confirm-modal-description .ubicar-mapa .form-field {
+.confirm-modal-description .ubicar-google .form-field {
   margin-bottom: 0;
 }
 
-.ubicar-mapa-boton-buscar {
-  flex: 0 0 auto;
-  margin-top: calc(1.5em + var(--space-1));
-}
-
-.ubicar-mapa-candidatos {
+.ubicar-google-candidatos {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -43,7 +21,7 @@
 }
 
 /* Mismo patrón que .seleccion-candidato-opcion. */
-.ubicar-mapa-candidato {
+.ubicar-google-candidato {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -54,14 +32,14 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   font-weight: 400;
-  color: var(--color-text);
   font-size: 0.875rem;
   line-height: 1.4;
+  color: var(--color-text);
 }
 
 /* Los inputs tienen estilo global de campo de texto (ancho completo, alto 44);
    un radio no. */
-.ubicar-mapa-candidato input[type='radio'] {
+.ubicar-google-candidato input[type='radio'] {
   flex: 0 0 auto;
   width: 18px;
   min-height: 0;
@@ -71,12 +49,28 @@
   accent-color: var(--brand-600);
 }
 
-.ubicar-mapa-candidato.is-elegido {
+.ubicar-google-candidato.is-elegido {
   border-color: var(--brand-600);
   background-color: var(--brand-50);
 }
 
-.confirm-modal-description .ubicar-mapa-nota {
-  margin: 0;
+.ubicar-google-principal {
+  display: block;
+}
+
+.ubicar-google-secundario {
+  display: block;
   font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.confirm-modal-description .ubicar-google-nota {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.confirm-modal-description .ubicar-google-atribucion {
+  margin: 0;
+  font-size: 0.6875rem;
+  text-align: right;
 }
