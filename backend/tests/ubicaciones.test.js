@@ -1,18 +1,21 @@
-// Tests de POST /ubicaciones (también lo que usa SelectorBuscarOCrear): el
-// nombre se guarda con formato de título y nunca se crea una ubicación
-// duplicada, sin importar mayúsculas, acentos ni espacios. También las
-// coordenadas: al crear (opcionales) y PUT /ubicaciones/:id/coordenadas.
+// Tests de /ubicaciones: POST por nombre (el nombre se guarda con formato de
+// título y nunca se duplica, sin importar mayúsculas, acentos ni espacios), el
+// buscador (solo FRECUENTES) y los endpoints de Google Maps: sugerencias,
+// alta desde Google (upsert por placeId, PARTICULAR o FRECUENTE) y ubicar una
+// existente.
 //
-// Usan la app real de Express con un JWT real y un doble de Prisma en memoria:
-// no tocan la base de datos ni leen el .env.
+// Usan la app real de Express con un JWT real, un doble de Prisma en memoria y
+// un Google falso (fetch reemplazado): no tocan la base de datos, no leen el
+// .env y NUNCA llaman a Google de verdad.
 
 process.env.JWT_SECRET = 'secreto-solo-para-tests';
 
-const { test, describe, before, after, beforeEach } = require('node:test');
+const { test, describe, before, after, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 
 const SRC = path.join(__dirname, '..', 'src');
+const CLAVE = 'clave-google-de-prueba-AIzaXYZ123';
 
 // --- Doble de Prisma (tabla de ubicaciones en memoria) ---------------------
 
@@ -24,18 +27,37 @@ let actualizaciones = [];
 // que la otra request ya insertó, y el INSERT choca contra el índice único.
 let ocultarEnLaPrimeraBusqueda = false;
 
+const COLUMNAS = { latitud: null, longitud: null, placeId: null, direccion: null, georefId: null, esFrecuente: true };
 const publico = (fila) => ({ id: fila.id, nombre: fila.nombre, creadoEn: fila.creadoEn });
 // Como Prisma: solo los campos del select (sin select, los públicos).
 const elegir = (fila, select) => (select ? Object.fromEntries(Object.keys(select).map((k) => [k, fila[k] ?? null])) : publico(fila));
 
+// Índices únicos como en Postgres: nombreNormalizado y placeId, donde varios
+// null NO chocan entre sí.
+function chocaConIndice(data, excepto) {
+  return filas.some(
+    (f) =>
+      f !== excepto &&
+      ((data.nombreNormalizado != null && f.nombreNormalizado === data.nombreNormalizado) ||
+        (data.placeId != null && f.placeId === data.placeId))
+  );
+}
+
+function errorUnico() {
+  const error = new Error('Unique constraint failed');
+  error.code = 'P2002';
+  return error;
+}
+
 const prismaFalso = {
   ubicacion: {
-    findUnique: async ({ where: { nombreNormalizado }, select }) => {
+    findUnique: async ({ where, select }) => {
       if (ocultarEnLaPrimeraBusqueda) {
         ocultarEnLaPrimeraBusqueda = false;
         return null;
       }
-      const fila = filas.find((f) => f.nombreNormalizado === nombreNormalizado);
+      const [[campo, valor]] = Object.entries(where);
+      const fila = filas.find((f) => f[campo] === valor);
       return fila ? elegir(fila, select) : null;
     },
     update: async ({ where: { id }, data, select }) => {
@@ -45,18 +67,15 @@ const prismaFalso = {
         error.code = 'P2025';
         throw error;
       }
+      if (chocaConIndice(data, fila)) throw errorUnico();
       actualizaciones.push({ id, data });
       Object.assign(fila, data);
       return elegir(fila, select);
     },
     create: async ({ data, select }) => {
-      if (filas.some((f) => f.nombreNormalizado === data.nombreNormalizado)) {
-        const error = new Error('Unique constraint failed');
-        error.code = 'P2002';
-        throw error;
-      }
+      if (chocaConIndice(data)) throw errorUnico();
       creaciones.push(data);
-      const fila = { id: proximoId++, creadoEn: new Date('2026-01-01T00:00:00Z'), latitud: null, longitud: null, ...data };
+      const fila = { id: proximoId++, creadoEn: new Date('2026-01-01T00:00:00Z'), ...COLUMNAS, ...data };
       filas.push(fila);
       return elegir(fila, select);
     },
@@ -66,14 +85,18 @@ const prismaFalso = {
       assert.ok(!where || !('nombre' in where), 'la búsqueda debe filtrar por nombreNormalizado, no por nombre');
       const contiene = where?.nombreNormalizado?.contains;
       assert.ok(contiene === undefined || !where.nombreNormalizado.mode, 'no hace falta mode: insensitive');
-      let resultado = filas.filter((f) => contiene === undefined || f.nombreNormalizado.includes(contiene));
+      let resultado = filas.filter(
+        (f) =>
+          (where?.esFrecuente === undefined || f.esFrecuente === where.esFrecuente) &&
+          (contiene === undefined || (f.nombreNormalizado ?? '').includes(contiene))
+      );
       if (orderBy?.nombre === 'asc') {
         resultado = [...resultado].sort((a, b) => (a.nombre < b.nombre ? -1 : a.nombre > b.nombre ? 1 : 0));
       }
       if (take !== undefined) resultado = resultado.slice(0, take);
       // Sin select devuelve la fila completa (con nombreNormalizado): si el
       // service no lo pide, el test de "no se expone" lo detecta.
-      return resultado.map((f) => (select ? Object.fromEntries(Object.keys(select).map((k) => [k, f[k]])) : { ...f }));
+      return resultado.map((f) => (select ? Object.fromEntries(Object.keys(select).map((k) => [k, f[k] ?? null])) : { ...f }));
     },
   },
 };
@@ -83,9 +106,71 @@ require.cache[rutaPrisma] = { id: rutaPrisma, filename: rutaPrisma, loaded: true
 
 const app = require(path.join(SRC, 'app.js'));
 const { generarToken } = require(path.join(SRC, 'services', 'tokenService.js'));
+const google = require(path.join(SRC, 'services', 'googleMapsService.js'));
+
+// --- Google falso ------------------------------------------------------------
+
+// Lugares que "conoce" Google: placeId → formattedAddress.
+const LUGARES = {
+  ChIJ_casa_colon_1234: 'Av. Colón 1234, X5000 Córdoba',
+  ChIJ_casa_otra: 'Obispo Trejo 350, X5000 Córdoba',
+  ChIJ_monserrat: 'Obispo Trejo 294, X5000 Córdoba',
+  ChIJ_aeropuerto: 'Av. La Voz del Interior 8500, X5008 Córdoba',
+};
+
+let llamadasGoogle = [];
+// Permite que un test cambie la respuesta: (llamada) => Response | undefined.
+let comportamiento = null;
+
+const json = (status, cuerpo) =>
+  new Response(JSON.stringify(cuerpo), { status, headers: { 'Content-Type': 'application/json' } });
+
+function googleFalso(url, opciones) {
+  const u = new URL(url);
+  const llamada = {
+    url: String(url),
+    host: u.host,
+    path: decodeURIComponent(u.pathname),
+    params: Object.fromEntries(u.searchParams),
+    method: opciones.method,
+    headers: opciones.headers,
+    body: opciones.body ? JSON.parse(opciones.body) : null,
+  };
+  llamadasGoogle.push(llamada);
+  const especial = comportamiento?.(llamada);
+  if (especial) return especial;
+
+  if (llamada.path === '/v1/places:autocomplete') {
+    return json(200, {
+      suggestions: [
+        {
+          placePrediction: {
+            placeId: 'ChIJ_casa_colon_1234',
+            structuredFormat: { mainText: { text: 'Av. Colón 1234' }, secondaryText: { text: 'Córdoba, Argentina' } },
+          },
+        },
+        {
+          placePrediction: {
+            placeId: 'ChIJ_monserrat',
+            structuredFormat: { mainText: { text: 'Colegio Nacional de Monserrat' }, secondaryText: { text: 'Obispo Trejo, Córdoba' } },
+          },
+        },
+        // Una sugerencia de consulta (sin placePrediction) se descarta.
+        { queryPrediction: { text: { text: 'colón 1234 córdoba' } } },
+      ],
+    });
+  }
+  if (llamada.path.startsWith('/v1/places/')) {
+    const id = llamada.path.slice('/v1/places/'.length);
+    if (!LUGARES[id]) return json(404, { error: { code: 404, status: 'NOT_FOUND' } });
+    return json(200, { id, formattedAddress: LUGARES[id] });
+  }
+  return json(404, { error: 'ruta desconocida en el Google falso' });
+}
 
 // --- Helpers ---------------------------------------------------------------
 
+const fetchReal = globalThis.fetch;
 let servidor;
 let base;
 
@@ -94,9 +179,15 @@ before(async () => {
     servidor = app.listen(0, resolver);
   });
   base = `http://127.0.0.1:${servidor.address().port}/api`;
+  // Lo que va a la app usa el fetch real; todo lo demás es "Google".
+  globalThis.fetch = (url, opciones = {}) =>
+    String(url).startsWith(base) ? fetchReal(url, opciones) : Promise.resolve().then(() => googleFalso(url, opciones));
 });
 
-after(() => new Promise((resolver) => servidor.close(resolver)));
+after(() => {
+  globalThis.fetch = fetchReal;
+  return new Promise((resolver) => servidor.close(resolver));
+});
 
 beforeEach(() => {
   filas = [];
@@ -104,39 +195,40 @@ beforeEach(() => {
   creaciones = [];
   actualizaciones = [];
   ocultarEnLaPrimeraBusqueda = false;
+  llamadasGoogle = [];
+  comportamiento = null;
+  process.env.GOOGLE_MAPS_API_KEY = CLAVE;
 });
 
-async function crear(nombre, perfil = 'ADMINISTRADOR', coordenadas = {}) {
-  const respuesta = await fetch(`${base}/ubicaciones`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${generarToken({ id: 1, nombreUsuario: 'test', perfil })}` },
-    body: JSON.stringify({ nombre, ...coordenadas }),
-  });
+afterEach(() => {
+  delete process.env.GOOGLE_MAPS_API_KEY;
+});
+
+const auth = (perfil) => ({ Authorization: `Bearer ${generarToken({ id: 1, nombreUsuario: 'test', perfil })}` });
+
+async function pedir(metodo, ruta, { body, perfil = 'ENCARGADO' } = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(perfil ? auth(perfil) : {}) };
+  const respuesta = await fetchReal(`${base}${ruta}`, { method: metodo, headers, body: body ? JSON.stringify(body) : undefined });
   return { status: respuesta.status, json: await respuesta.json() };
 }
 
-async function ubicar(id, coordenadas, perfil = 'ENCARGADO') {
-  const respuesta = await fetch(`${base}/ubicaciones/${id}/coordenadas`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${generarToken({ id: 1, nombreUsuario: 'test', perfil })}` },
-    body: JSON.stringify(coordenadas),
-  });
-  return { status: respuesta.status, json: await respuesta.json() };
-}
+const crear = (nombre, perfil = 'ADMINISTRADOR') => pedir('POST', '/ubicaciones', { body: { nombre }, perfil });
 
 async function buscar(busqueda, perfil = 'ADMINISTRADOR') {
   const query = busqueda === undefined ? '' : `?busqueda=${encodeURIComponent(busqueda)}`;
-  const respuesta = await fetch(`${base}/ubicaciones${query}`, {
-    headers: { Authorization: `Bearer ${generarToken({ id: 1, nombreUsuario: 'test', perfil })}` },
-  });
-  return { status: respuesta.status, json: await respuesta.json() };
+  return pedir('GET', `/ubicaciones${query}`, { perfil });
 }
 
 // nombreNormalizado escrito a mano (no calculado con normalizarNombre) para que
 // el test no dependa de la misma función que prueba.
-function cargarFila(nombre, nombreNormalizado) {
-  filas.push({ id: proximoId++, nombre, nombreNormalizado, creadoEn: new Date('2026-01-01T00:00:00Z') });
+function cargarFila(nombre, nombreNormalizado, extra = {}) {
+  const fila = { id: proximoId++, nombre, nombreNormalizado, creadoEn: new Date('2026-01-01T00:00:00Z'), ...COLUMNAS, ...extra };
+  filas.push(fila);
+  return fila;
 }
+
+const CAMPOS_PUBLICOS = ['creadoEn', 'id', 'latitud', 'longitud', 'nombre', 'placeId'];
+const TOKEN = '3f1c9a2e-7b4d-4c1e-9a8f-0d2b6e5c4a11';
 
 // --- Tests -----------------------------------------------------------------
 
@@ -186,7 +278,7 @@ describe('POST /ubicaciones', () => {
 
   test('nunca expone el nombre normalizado', async () => {
     const { json } = await crear('Almafuerte');
-    assert.deepEqual(Object.keys(json.ubicacion).sort(), ['creadoEn', 'id', 'nombre']);
+    assert.deepEqual(Object.keys(json.ubicacion).sort(), CAMPOS_PUBLICOS);
   });
 
   test('un nombre vacío o de solo espacios: 400 y no se crea nada', async () => {
@@ -259,7 +351,7 @@ describe('GET /ubicaciones?busqueda=', () => {
       const { json } = await buscar(texto);
       assert.ok(json.ubicaciones.length > 0);
       for (const ubicacion of json.ubicaciones) {
-        assert.deepEqual(Object.keys(ubicacion).sort(), ['creadoEn', 'id', 'nombre']);
+        assert.deepEqual(Object.keys(ubicacion).sort(), CAMPOS_PUBLICOS);
       }
     }
   });
@@ -270,102 +362,352 @@ describe('GET /ubicaciones?busqueda=', () => {
   });
 });
 
-// Punto de Google Maps (click derecho → copiar coordenadas) del Colegio Monserrat.
-const MONSERRAT = { latitud: -31.4201, longitud: -64.1888 };
 
-describe('POST /ubicaciones con coordenadas', () => {
-  test('crea la ubicación con su punto y no expone las coordenadas', async () => {
-    const { status, json } = await crear('Colegio Nacional de Monserrat', 'ENCARGADO', MONSERRAT);
+// --- Google: sugerencias -----------------------------------------------------
+
+const autocompletes = () => llamadasGoogle.filter((l) => l.path === '/v1/places:autocomplete');
+const detalles = () => llamadasGoogle.filter((l) => l.path.startsWith('/v1/places/'));
+
+const sugerir = (texto, sessionToken = TOKEN, perfil) => {
+  const params = new URLSearchParams();
+  if (texto !== undefined) params.set('texto', texto);
+  if (sessionToken != null) params.set('sessionToken', sessionToken);
+  return pedir('GET', `/ubicaciones/sugerencias-google?${params}`, { perfil });
+};
+
+describe('GET /ubicaciones/sugerencias-google', () => {
+  test('devuelve { placeId, textoPrincipal, textoSecundario } y descarta las sugerencias de consulta', async () => {
+    const { status, json: r } = await sugerir('colon 1234');
 
     assert.equal(status, 200);
-    assert.deepEqual(Object.keys(json.ubicacion).sort(), ['creadoEn', 'id', 'nombre']);
-    assert.equal(creaciones[0].latitud, -31.4201);
-    assert.equal(creaciones[0].longitud, -64.1888);
+    assert.deepEqual(r.sugerencias, [
+      { placeId: 'ChIJ_casa_colon_1234', textoPrincipal: 'Av. Colón 1234', textoSecundario: 'Córdoba, Argentina' },
+      { placeId: 'ChIJ_monserrat', textoPrincipal: 'Colegio Nacional de Monserrat', textoSecundario: 'Obispo Trejo, Córdoba' },
+    ]);
   });
 
-  test('acepta strings numéricos (lo que manda un input)', async () => {
-    await crear('Monserrat', 'ENCARGADO', { latitud: '-31.4201', longitud: '-64.1888' });
-    assert.equal(creaciones[0].latitud, -31.4201);
+  test('Autocomplete (New): POST, field mask, Argentina, sesgo a Córdoba, castellano y el sessionToken', async () => {
+    await sugerir('  colon   1234 ');
+
+    assert.equal(llamadasGoogle.length, 1);
+    const [l] = llamadasGoogle;
+    assert.equal(l.url, 'https://places.googleapis.com/v1/places:autocomplete');
+    assert.equal(l.method, 'POST');
+    assert.equal(l.headers['X-Goog-FieldMask'], 'suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat');
+    assert.deepEqual(l.body, {
+      input: 'colon 1234',
+      sessionToken: TOKEN,
+      includedRegionCodes: ['ar'],
+      locationBias: { circle: { center: { latitude: -31.4135, longitude: -64.1811 }, radius: 50000 } },
+      languageCode: 'es',
+    });
   });
 
-  test('sin coordenadas se sigue pudiendo crear (queda sin ubicar)', async () => {
-    const { status } = await crear('Hotel Sierras');
+  test('la key va en el header X-Goog-Api-Key: nunca en la URL, el cuerpo ni la respuesta', async () => {
+    const { json: r } = await sugerir('colon 1234');
+    const [l] = llamadasGoogle;
+    assert.equal(l.headers['X-Goog-Api-Key'], CLAVE);
+    assert.ok(!l.url.includes(CLAVE));
+    assert.ok(!JSON.stringify(l.body).includes(CLAVE));
+    assert.ok(!JSON.stringify(r).includes(CLAVE));
+  });
+
+  test('sin sessionToken también funciona (sin sesión)', async () => {
+    const { status } = await sugerir('colon 1234', null);
     assert.equal(status, 200);
-    assert.equal(creaciones[0].latitud, undefined);
+    assert.ok(!('sessionToken' in llamadasGoogle[0].body));
   });
 
-  for (const [caso, coordenadas, mensaje] of [
-    ['latitud y longitud invertidas', { latitud: -64.1888, longitud: -31.4201 }, /invertidas/],
-    ['fuera de Argentina (Madrid)', { latitud: 40.4168, longitud: -3.7038 }, /fuera de Argentina/],
-    ['sin los signos menos', { latitud: 31.4201, longitud: 64.1888 }, /signos menos/],
-    ['solo la latitud', { latitud: -31.4201 }, /Faltan/],
-    ['texto que no es número', { latitud: 'abc', longitud: '-64.1' }, /números/],
-  ]) {
-    test(`${caso}: 400 en "coordenadas" y no se crea nada`, async () => {
-      const { status, json } = await crear('Colegio Nacional de Monserrat', 'ENCARGADO', coordenadas);
+  for (const texto of [undefined, '', '  ', 'ab']) {
+    test(`texto ${JSON.stringify(texto)}: 400 y no se llama a Google`, async () => {
+      const { status, json: r } = await sugerir(texto);
       assert.equal(status, 400);
-      assert.match(json.errores.coordenadas, mensaje);
-      assert.equal(creaciones.length, 0);
+      assert.match(r.errores.texto, /al menos 3 letras/);
+      assert.equal(llamadasGoogle.length, 0);
     });
   }
 
-  test('si ya existía SIN coordenadas, se le completan y no se crea otra', async () => {
-    cargarFila('Cosquín', 'cosquin');
-
-    const { status, json } = await crear('cosquin', 'ENCARGADO', { latitud: -31.2437, longitud: -64.4653 });
-
-    assert.equal(status, 200);
-    assert.equal(json.ubicacion.id, 1);
-    assert.equal(json.ubicacion.nombre, 'Cosquín');
-    assert.equal(creaciones.length, 0);
-    assert.deepEqual(actualizaciones, [{ id: 1, data: { latitud: -31.2437, longitud: -64.4653 } }]);
+  test('sessionToken con un formato que Google no acepta: 400', async () => {
+    const { status, json: r } = await sugerir('colon 1234', 'token con espacios');
+    assert.equal(status, 400);
+    assert.ok(r.errores.sessionToken);
+    assert.equal(llamadasGoogle.length, 0);
   });
 
-  test('si ya existía CON coordenadas, no se tocan', async () => {
-    filas.push({ id: 5, nombre: 'Cosquín', nombreNormalizado: 'cosquin', latitud: -31.24, longitud: -64.46, creadoEn: new Date() });
+  test('sin GOOGLE_MAPS_API_KEY: 503 claro, sin llamar a Google; el buscador de frecuentes sigue andando', async () => {
+    delete process.env.GOOGLE_MAPS_API_KEY;
+    cargarFila('Río Tercero', 'rio tercero');
 
-    const { status, json } = await crear('Cosquín', 'ENCARGADO', { latitud: -31.3, longitud: -64.3 });
+    const { status, json: r } = await sugerir('colon 1234');
+    assert.equal(status, 503);
+    assert.match(r.error, /falta configurar GOOGLE_MAPS_API_KEY/);
+    assert.equal(llamadasGoogle.length, 0);
 
-    assert.equal(status, 200);
-    assert.equal(json.ubicacion.id, 5);
-    assert.equal(actualizaciones.length, 0);
-    assert.equal(filas[0].latitud, -31.24);
+    const frecuentes = await buscar('rio');
+    assert.equal(frecuentes.status, 200);
+    assert.deepEqual(frecuentes.json.ubicaciones.map((u) => u.nombre), ['Río Tercero']);
+  });
+
+  test('cuota agotada (429 RESOURCE_EXHAUSTED): 429 con "intentá más tarde"', async () => {
+    comportamiento = () => json(429, { error: { status: 'RESOURCE_EXHAUSTED' } });
+    const { status, json: r } = await sugerir('colon 1234');
+    assert.equal(status, 429);
+    assert.match(r.error, /cuota de Google Maps/);
+  });
+
+  test('key rechazada o API no habilitada (403): 503 sin mostrar la key', async () => {
+    comportamiento = () => json(403, { error: { status: 'PERMISSION_DENIED' } });
+    const { status, json: r } = await sugerir('colon 1234');
+    assert.equal(status, 503);
+    assert.match(r.error, /no es válida/);
+    assert.ok(!JSON.stringify(r).includes(CLAVE));
+  });
+
+  test('timeout: 503; red caída: 502; error interno: 502', async () => {
+    comportamiento = () => {
+      throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+    };
+    assert.equal((await sugerir('colon 1234')).status, 503);
+    comportamiento = () => {
+      throw new TypeError('fetch failed');
+    };
+    assert.equal((await sugerir('colon 1234')).status, 502);
+    comportamiento = () => json(500, {});
+    assert.equal((await sugerir('colon 1234')).status, 502);
+  });
+
+  test('el plazo por defecto es de 8 segundos', () => {
+    assert.equal(google.TIMEOUT_MS, 8000);
   });
 });
 
-describe('PUT /ubicaciones/:id/coordenadas', () => {
-  beforeEach(() => cargarFila('Colegio Nacional de Monserrat', 'colegio nacional de monserrat'));
+// --- Google: alta desde una sugerencia --------------------------------------
 
-  test('ubica una existente y devuelve los datos públicos', async () => {
-    const { status, json } = await ubicar(1, MONSERRAT);
+const desdeGoogle = (body, perfil) => pedir('POST', '/ubicaciones/desde-google', { body, perfil });
+
+describe('POST /ubicaciones/desde-google: PARTICULAR (la casa de un pasajero)', () => {
+  test('crea la particular: nombre = la dirección de Google, sin nombreNormalizado, fuera del buscador', async () => {
+    const { status, json: r } = await desdeGoogle({ placeId: 'ChIJ_casa_colon_1234', sessionToken: TOKEN, frecuente: false });
 
     assert.equal(status, 200);
-    assert.deepEqual(Object.keys(json.ubicacion).sort(), ['creadoEn', 'id', 'nombre']);
-    assert.deepEqual(actualizaciones, [{ id: 1, data: MONSERRAT }]);
+    assert.deepEqual(Object.keys(r.ubicacion).sort(), CAMPOS_PUBLICOS);
+    assert.equal(r.ubicacion.nombre, 'Av. Colón 1234, X5000 Córdoba');
+    assert.equal(r.ubicacion.placeId, 'ChIJ_casa_colon_1234');
+    assert.deepEqual(creaciones, [
+      { nombre: 'Av. Colón 1234, X5000 Córdoba', nombreNormalizado: null, esFrecuente: false, placeId: 'ChIJ_casa_colon_1234' },
+    ]);
+
+    const enBuscador = await buscar('colon');
+    assert.deepEqual(enBuscador.json.ubicaciones, []);
+    assert.deepEqual((await buscar(undefined)).json.ubicaciones, [], 'tampoco sin texto');
   });
 
-  test('invertidas: 400 y no se guarda', async () => {
-    const { status, json } = await ubicar(1, { latitud: -64.1888, longitud: -31.4201 });
-    assert.equal(status, 400);
-    assert.match(json.errores.coordenadas, /invertidas/);
-    assert.equal(actualizaciones.length, 0);
+  test('de Google solo se guarda el placeId: ni coordenadas ni dirección (términos de Google)', async () => {
+    await desdeGoogle({ placeId: 'ChIJ_casa_colon_1234', sessionToken: TOKEN });
+    const [fila] = filas;
+    assert.equal(fila.latitud, null);
+    assert.equal(fila.longitud, null);
+    assert.equal(fila.direccion, null);
   });
 
-  test('sin coordenadas: 400 (acá son obligatorias)', async () => {
-    const { status, json } = await ubicar(1, {});
+  test('Place Details (New): field mask mínimo (Essentials, sin displayName), el mismo sessionToken, es-AR', async () => {
+    await desdeGoogle({ placeId: 'ChIJ_casa_colon_1234', sessionToken: TOKEN });
+
+    assert.equal(detalles().length, 1);
+    const [l] = detalles();
+    assert.equal(l.host, 'places.googleapis.com');
+    assert.equal(l.path, '/v1/places/ChIJ_casa_colon_1234');
+    assert.equal(l.method, 'GET');
+    assert.equal(l.headers['X-Goog-FieldMask'], 'id,formattedAddress');
+    assert.ok(!l.headers['X-Goog-FieldMask'].includes('displayName'), 'displayName dispara el SKU Pro');
+    assert.deepEqual(l.params, { languageCode: 'es', regionCode: 'ar', sessionToken: TOKEN });
+    assert.equal(l.headers['X-Goog-Api-Key'], CLAVE);
+    assert.ok(!l.url.includes(CLAVE));
+  });
+
+  test('elegir dos veces la misma casa no duplica: misma fila y sin volver a llamar a Google', async () => {
+    const primera = await desdeGoogle({ placeId: 'ChIJ_casa_colon_1234', sessionToken: TOKEN });
+    const segunda = await desdeGoogle({ placeId: 'ChIJ_casa_colon_1234', sessionToken: 'otro-token-123' });
+
+    assert.equal(segunda.status, 200);
+    assert.equal(segunda.json.ubicacion.id, primera.json.ubicacion.id);
+    assert.equal(filas.length, 1);
+    assert.equal(detalles().length, 1);
+  });
+
+  test('dos casas distintas conviven aunque las dos tengan nombreNormalizado null', async () => {
+    await desdeGoogle({ placeId: 'ChIJ_casa_colon_1234' });
+    const { status } = await desdeGoogle({ placeId: 'ChIJ_casa_otra' });
+    assert.equal(status, 200);
+    assert.equal(filas.length, 2);
+    assert.ok(filas.every((f) => f.nombreNormalizado === null && f.esFrecuente === false));
+  });
+
+  test('Google devuelve un id más nuevo para el mismo lugar: se guarda el nuevo', async () => {
+    comportamiento = (l) => (l.path === '/v1/places/ChIJ_viejo' ? json(200, { id: 'ChIJ_casa_otra', formattedAddress: 'Obispo Trejo 350, X5000 Córdoba' }) : undefined);
+    const { json: r } = await desdeGoogle({ placeId: 'ChIJ_viejo' });
+    assert.equal(r.ubicacion.placeId, 'ChIJ_casa_otra');
+  });
+
+  test('placeId que Google no reconoce: 422 y no se crea nada', async () => {
+    const { status, json: r } = await desdeGoogle({ placeId: 'ChIJ_no_existe' });
+    assert.equal(status, 422);
+    assert.match(r.error, /no reconoce ese lugar/);
+    assert.equal(filas.length, 0);
+  });
+
+  for (const placeId of [undefined, '', 'con espacios', 42, 'a/../b']) {
+    test(`placeId inválido (${JSON.stringify(placeId)}): 400 sin llamar a Google`, async () => {
+      const { status, json: r } = await desdeGoogle({ placeId });
+      assert.equal(status, 400);
+      assert.ok(r.errores.placeId);
+      assert.equal(llamadasGoogle.length, 0);
+    });
+  }
+
+  test('sin GOOGLE_MAPS_API_KEY: 503 y no se crea nada', async () => {
+    delete process.env.GOOGLE_MAPS_API_KEY;
+    const { status } = await desdeGoogle({ placeId: 'ChIJ_casa_colon_1234' });
+    assert.equal(status, 503);
+    assert.equal(filas.length, 0);
+  });
+
+  test('cuota agotada en Place Details: 429', async () => {
+    comportamiento = () => json(429, {});
+    assert.equal((await desdeGoogle({ placeId: 'ChIJ_casa_colon_1234' })).status, 429);
+    assert.equal(filas.length, 0);
+  });
+});
+
+describe('POST /ubicaciones/desde-google: FRECUENTE ("Guardar como frecuente")', () => {
+  test('nombre = el texto principal de la sugerencia, con nombreNormalizado, y aparece en el buscador', async () => {
+    const { status, json: r } = await desdeGoogle({
+      placeId: 'ChIJ_aeropuerto', sessionToken: TOKEN, frecuente: true, nombre: '  Aeropuerto Internacional Ing. Ambrosio L.V. Taravella ',
+    });
+
+    assert.equal(status, 200);
+    assert.equal(r.ubicacion.nombre, 'Aeropuerto Internacional Ing. Ambrosio L.V. Taravella', 'tal cual, sin formato de título');
+    assert.deepEqual(creaciones, [
+      {
+        nombre: 'Aeropuerto Internacional Ing. Ambrosio L.V. Taravella',
+        nombreNormalizado: 'aeropuerto internacional ing. ambrosio l.v. taravella',
+        esFrecuente: true,
+        placeId: 'ChIJ_aeropuerto',
+      },
+    ]);
+    assert.deepEqual((await buscar('taravella')).json.ubicaciones.map((u) => u.id), [r.ubicacion.id]);
+  });
+
+  test('sin nombre: 400', async () => {
+    const { status, json: r } = await desdeGoogle({ placeId: 'ChIJ_aeropuerto', frecuente: true });
     assert.equal(status, 400);
-    assert.ok(json.errores.coordenadas);
+    assert.match(r.errores.nombre, /obligatorio/);
+  });
+
+  test('frecuente que no es booleano: 400', async () => {
+    assert.equal((await desdeGoogle({ placeId: 'ChIJ_aeropuerto', frecuente: 'si' })).status, 400);
+  });
+
+  test('mismo nombre que una frecuente sin lugar de Google (la del Excel): se le completa el placeId, no se duplica', async () => {
+    const excel = cargarFila('Colegio Nacional de Monserrat', 'colegio nacional de monserrat');
+
+    const { status, json: r } = await desdeGoogle({ placeId: 'ChIJ_monserrat', frecuente: true, nombre: 'Colegio Nacional de Monserrat' });
+
+    assert.equal(status, 200);
+    assert.equal(r.ubicacion.id, excel.id);
+    assert.equal(excel.placeId, 'ChIJ_monserrat');
+    assert.equal(filas.length, 1);
+  });
+
+  test('mismo nombre que una frecuente con OTRO placeId: 409 y no se toca nada', async () => {
+    cargarFila('Colegio Nacional de Monserrat', 'colegio nacional de monserrat', { placeId: 'ChIJ_otro_lado' });
+    const { status, json: r } = await desdeGoogle({ placeId: 'ChIJ_monserrat', frecuente: true, nombre: 'Colegio Nacional de Monserrat' });
+    assert.equal(status, 409);
+    assert.match(r.error, /Ya hay una ubicación frecuente llamada "Colegio Nacional de Monserrat"/);
+    assert.equal(filas.length, 1);
+  });
+
+  test('una particular elegida de nuevo como frecuente pasa a frecuente (misma fila, con el nombre del lugar)', async () => {
+    const casa = await desdeGoogle({ placeId: 'ChIJ_monserrat' });
+    const { json: r } = await desdeGoogle({ placeId: 'ChIJ_monserrat', frecuente: true, nombre: 'Colegio Nacional de Monserrat' });
+
+    assert.equal(r.ubicacion.id, casa.json.ubicacion.id);
+    assert.equal(r.ubicacion.nombre, 'Colegio Nacional de Monserrat');
+    assert.equal(filas[0].esFrecuente, true);
+    assert.equal(filas[0].nombreNormalizado, 'colegio nacional de monserrat');
+    assert.equal(detalles().length, 1, 'la segunda vez no llama a Google');
+  });
+});
+
+// --- Google: ubicar una existente --------------------------------------------
+
+const ubicar = (id, body, perfil) => pedir('PUT', `/ubicaciones/${id}/ubicar-desde-google`, { body, perfil });
+
+describe('PUT /ubicaciones/:id/ubicar-desde-google', () => {
+  test('a una frecuente sin ubicar (del Excel) le completa el placeId, con el sessionToken de la búsqueda', async () => {
+    const excel = cargarFila('Colegio Nacional de Monserrat', 'colegio nacional de monserrat');
+
+    const { status, json: r } = await ubicar(excel.id, { placeId: 'ChIJ_monserrat', sessionToken: TOKEN });
+
+    assert.equal(status, 200);
+    assert.equal(r.ubicacion.placeId, 'ChIJ_monserrat');
+    assert.equal(r.ubicacion.nombre, 'Colegio Nacional de Monserrat', 'el nombre no cambia');
+    assert.deepEqual(actualizaciones, [{ id: excel.id, data: { placeId: 'ChIJ_monserrat' } }]);
+    assert.equal(detalles()[0].params.sessionToken, TOKEN);
+  });
+
+  test('ya ubicada (coordenadas de Georef): 409 y no se llama a Google', async () => {
+    const cosquin = cargarFila('Cosquín', 'cosquin', { latitud: -31.24, longitud: -64.46 });
+    const { status, json: r } = await ubicar(cosquin.id, { placeId: 'ChIJ_monserrat' });
+    assert.equal(status, 409);
+    assert.match(r.error, /ya está ubicada/);
+    assert.equal(llamadasGoogle.length, 0);
+  });
+
+  test('ese lugar ya es otra ubicación: 409 que dice cuál', async () => {
+    cargarFila('Monserrat', 'monserrat', { placeId: 'ChIJ_monserrat' });
+    const excel = cargarFila('Colegio Nacional de Monserrat', 'colegio nacional de monserrat');
+    const { status, json: r } = await ubicar(excel.id, { placeId: 'ChIJ_monserrat' });
+    assert.equal(status, 409);
+    assert.match(r.error, /ya está cargado como "Monserrat"/);
+    assert.equal(excel.placeId, null);
   });
 
   test('ubicación inexistente o id inválido: 404', async () => {
-    assert.equal((await ubicar(99, MONSERRAT)).status, 404);
-    assert.equal((await ubicar('abc', MONSERRAT)).status, 404);
+    assert.equal((await ubicar(99, { placeId: 'ChIJ_monserrat' })).status, 404);
+    assert.equal((await ubicar('abc', { placeId: 'ChIJ_monserrat' })).status, 404);
   });
 
-  for (const perfil of ['CHOFER', 'PERSONAL_TALLER']) {
-    test(`${perfil}: 403 y no se guarda`, async () => {
-      assert.equal((await ubicar(1, MONSERRAT, perfil)).status, 403);
-      assert.equal(actualizaciones.length, 0);
+  test('sin placeId: 400', async () => {
+    const excel = cargarFila('Colegio Nacional de Monserrat', 'colegio nacional de monserrat');
+    assert.equal((await ubicar(excel.id, {})).status, 400);
+  });
+
+  test('sin GOOGLE_MAPS_API_KEY: 503 y no se toca la fila', async () => {
+    delete process.env.GOOGLE_MAPS_API_KEY;
+    const excel = cargarFila('Colegio Nacional de Monserrat', 'colegio nacional de monserrat');
+    assert.equal((await ubicar(excel.id, { placeId: 'ChIJ_monserrat' })).status, 503);
+    assert.equal(excel.placeId, null);
+  });
+});
+
+describe('permisos de los endpoints de Google (los mismos que crear una ubicación)', () => {
+  for (const perfil of ['ADMINISTRADOR', 'ENCARGADO']) {
+    test(`${perfil}: puede`, async () => {
+      assert.equal((await sugerir('colon 1234', TOKEN, perfil)).status, 200);
+      assert.equal((await desdeGoogle({ placeId: 'ChIJ_casa_colon_1234' }, perfil)).status, 200);
     });
   }
+  for (const perfil of ['CHOFER', 'PERSONAL_TALLER']) {
+    test(`${perfil}: 403 en los tres y no se llama a Google`, async () => {
+      const excel = cargarFila('Colegio Nacional de Monserrat', 'colegio nacional de monserrat');
+      assert.equal((await sugerir('colon 1234', TOKEN, perfil)).status, 403);
+      assert.equal((await desdeGoogle({ placeId: 'ChIJ_casa_colon_1234' }, perfil)).status, 403);
+      assert.equal((await ubicar(excel.id, { placeId: 'ChIJ_monserrat' }, perfil)).status, 403);
+      assert.equal(llamadasGoogle.length, 0);
+    });
+  }
+  test('sin token: 401', async () => {
+    assert.equal((await sugerir('colon 1234', TOKEN, null)).status, 401);
+  });
 });
