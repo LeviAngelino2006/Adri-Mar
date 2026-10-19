@@ -1,9 +1,9 @@
-// Tests de POST /viajes/estimar-km (km estimados con OpenRouteService a partir
-// de las coordenadas guardadas de cada ubicación).
+// Tests de POST /viajes/estimar-km (km estimados con la Routes API de Google a
+// partir del placeId o de las coordenadas guardadas de cada ubicación).
 //
 // App real de Express con JWT real, Prisma reemplazado por un doble en memoria
-// y fetch reemplazado: las llamadas a ORS NUNCA salen a internet (las responde
-// un ORS falso); las del test a la app sí usan el fetch real.
+// y fetch reemplazado: las llamadas a Google NUNCA salen a internet (las
+// responde un Google falso); las del test a la app sí usan el fetch real.
 
 process.env.JWT_SECRET = 'secreto-solo-para-tests';
 
@@ -12,20 +12,22 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 const SRC = path.join(__dirname, '..', 'src');
-const CLAVE = 'clave-ors-de-prueba-1234567890';
+const CLAVE = 'clave-google-de-prueba-AIzaXYZ123';
 
 // --- Ubicaciones en la base (doble de Prisma) -------------------------------
 
-// Coordenadas de Georef (centroides). Las dos últimas todavía no se ubicaron en
-// el mapa.
+// Localidades de Georef (coordenadas), lugares elegidos en Google (placeId) y
+// dos frecuentes que todavía no están en el mapa.
 const UBICACIONES = [
   { id: 1, nombre: 'Córdoba', latitud: -31.4168, longitud: -64.1836 },
   { id: 2, nombre: 'Villa Carlos Paz', latitud: -31.4179, longitud: -64.494 },
   { id: 3, nombre: 'Alta Gracia', latitud: -31.6498, longitud: -64.4299 },
   { id: 4, nombre: 'Río Cuarto', latitud: -33.1238, longitud: -64.349 },
   { id: 9, nombre: 'Cosquín', latitud: -31.2437, longitud: -64.4653 },
-  { id: 20, nombre: 'Colegio Nacional de Monserrat', latitud: null, longitud: null },
-  { id: 21, nombre: 'Hotel Sierras', latitud: null, longitud: null },
+  { id: 10, nombre: 'Av. Colón 1234, X5000 Córdoba', placeId: 'ChIJ_casa_colon_1234' },
+  { id: 11, nombre: 'Aeropuerto Internacional Ing. Ambrosio L.V. Taravella', placeId: 'ChIJ_aeropuerto' },
+  { id: 20, nombre: 'Colegio Nacional de Monserrat' },
+  { id: 21, nombre: 'Hotel Sierras' },
 ];
 
 const llamadasPrisma = [];
@@ -34,7 +36,7 @@ const prismaFalso = {
     findMany: async (args) => {
       llamadasPrisma.push(args);
       return UBICACIONES.filter((u) => args.where.id.in.includes(u.id)).map((u) =>
-        Object.fromEntries(Object.keys(args.select).map((k) => [k, u[k]]))
+        Object.fromEntries(Object.keys(args.select).map((k) => [k, u[k] ?? null]))
       );
     },
   },
@@ -46,39 +48,36 @@ require.cache[rutaPrisma] = { id: rutaPrisma, filename: rutaPrisma, loaded: true
 const app = require(path.join(SRC, 'app.js'));
 const { generarToken } = require(path.join(SRC, 'services', 'tokenService.js'));
 const servicio = require(path.join(SRC, 'services', 'estimacionRecorridoService.js'));
-const ors = require(path.join(SRC, 'services', 'openRouteService.js'));
+const google = require(path.join(SRC, 'services', 'googleMapsService.js'));
 
-// --- ORS falso -------------------------------------------------------------
+// --- Google falso -------------------------------------------------------------
 
-let llamadasOrs = [];
-// Permite que un test cambie la respuesta de ORS: (llamada) => Response | undefined.
+let llamadasGoogle = [];
+// Permite que un test cambie la respuesta: (llamada) => Response | undefined.
 let comportamiento = null;
-const RUTA_FELIZ = { distance: 123456.7, duration: 5430 }; // 123 km, 91 min
+const RUTA_FELIZ = { distanceMeters: 123457, duration: '5430s' }; // 123 km, 91 min
 
 function json(status, cuerpo) {
   return new Response(JSON.stringify(cuerpo), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-function orsFalso(url, opciones) {
-  const u = new URL(url);
+function googleFalso(url, opciones) {
   const llamada = {
     url: String(url),
-    origen: u.origin,
-    path: u.pathname,
     method: opciones.method,
     headers: opciones.headers,
     body: opciones.body ? JSON.parse(opciones.body) : null,
     signal: opciones.signal,
   };
-  llamadasOrs.push(llamada);
+  llamadasGoogle.push(llamada);
 
   const especial = comportamiento?.(llamada);
   if (especial) return especial;
 
-  if (llamada.path === '/openrouteservice/v2/directions/driving-car') {
-    return json(200, { routes: [{ summary: RUTA_FELIZ }] });
+  if (llamada.url === 'https://routes.googleapis.com/directions/v2:computeRoutes') {
+    return json(200, { routes: [RUTA_FELIZ] });
   }
-  return json(404, { error: 'ruta desconocida en el ORS falso' });
+  return json(404, { error: 'ruta desconocida en el Google falso' });
 }
 
 const fetchReal = globalThis.fetch;
@@ -90,9 +89,9 @@ before(async () => {
     servidor = app.listen(0, resolver);
   });
   base = `http://127.0.0.1:${servidor.address().port}/api`;
-  // Lo que va a la app usa el fetch real; todo lo demás es "ORS".
+  // Lo que va a la app usa el fetch real; todo lo demás es "Google".
   globalThis.fetch = (url, opciones = {}) =>
-    String(url).startsWith(base) ? fetchReal(url, opciones) : Promise.resolve().then(() => orsFalso(url, opciones));
+    String(url).startsWith(base) ? fetchReal(url, opciones) : Promise.resolve().then(() => googleFalso(url, opciones));
 });
 
 after(() => {
@@ -101,15 +100,14 @@ after(() => {
 });
 
 beforeEach(() => {
-  llamadasOrs = [];
+  llamadasGoogle = [];
   llamadasPrisma.length = 0;
   comportamiento = null;
-  process.env.ORS_API_KEY = CLAVE;
-  delete process.env.ORS_BASE_URL;
+  process.env.GOOGLE_MAPS_API_KEY = CLAVE;
 });
 
 afterEach(() => {
-  delete process.env.ORS_API_KEY;
+  delete process.env.GOOGLE_MAPS_API_KEY;
 });
 
 async function estimar(body, perfil = 'ENCARGADO') {
@@ -119,92 +117,99 @@ async function estimar(body, perfil = 'ENCARGADO') {
   return { status: r.status, json: await r.json() };
 }
 
-const directions = () => llamadasOrs.filter((l) => l.path === '/openrouteservice/v2/directions/driving-car');
+const latLng = (latitude, longitude) => ({ location: { latLng: { latitude, longitude } } });
 
 // --- Camino feliz ----------------------------------------------------------
 
 describe('camino feliz', () => {
-  test('con 2 paradas: km redondeados, duración en minutos y UNA sola llamada a ORS', async () => {
+  test('con 2 paradas: km redondeados, duración en minutos y UNA sola llamada a computeRoutes', async () => {
     const { status, json: r } = await estimar({ origenId: 1, paradaIds: [3, 2], destinoId: 4 });
 
     assert.equal(status, 200);
     assert.deepEqual(r, { kilometros: 123, duracionMinutos: 91 });
-    assert.equal(llamadasOrs.length, 1, 'nada de geocoding: solo directions');
-    assert.equal(directions().length, 1);
-    assert.equal(llamadasPrisma.length, 1, 'las coordenadas salen de un solo findMany');
-    assert.deepEqual(llamadasPrisma[0].select, { id: true, nombre: true, latitud: true, longitud: true });
+    assert.equal(llamadasGoogle.length, 1);
+    assert.equal(llamadasPrisma.length, 1, 'los puntos salen de un solo findMany');
+    assert.deepEqual(llamadasPrisma[0].select, { id: true, nombre: true, placeId: true, latitud: true, longitud: true });
   });
 
-  test('directions recibe las coordenadas guardadas, en orden y como [longitud, latitud]', async () => {
+  test('computeRoutes: POST, DRIVE, TRAFFIC_UNAWARE (SKU Essentials), métrico y en castellano', async () => {
+    await estimar({ origenId: 1, paradaIds: [], destinoId: 2 });
+
+    const [l] = llamadasGoogle;
+    assert.equal(l.url, 'https://routes.googleapis.com/directions/v2:computeRoutes');
+    assert.equal(l.method, 'POST');
+    assert.equal(l.headers['X-Goog-FieldMask'], 'routes.distanceMeters,routes.duration');
+    assert.equal(l.body.travelMode, 'DRIVE');
+    assert.equal(l.body.routingPreference, 'TRAFFIC_UNAWARE');
+    assert.equal(l.body.languageCode, 'es');
+    assert.equal(l.body.units, 'METRIC');
+    assert.ok(!('intermediates' in l.body), 'sin paradas no se manda intermediates');
+  });
+
+  test('sin placeId cada punto va por latLng, en orden', async () => {
     await estimar({ origenId: 1, paradaIds: [3], destinoId: 4 });
 
-    const [ruta] = directions();
-    assert.equal(ruta.method, 'POST');
-    assert.deepEqual(ruta.body.coordinates, [
-      [-64.1836, -31.4168], // Córdoba: [lon, lat]
-      [-64.4299, -31.6498], // Alta Gracia
-      [-64.349, -33.1238], // Río Cuarto
-    ]);
+    const { body } = llamadasGoogle[0];
+    assert.deepEqual(body.origin, latLng(-31.4168, -64.1836));
+    assert.deepEqual(body.intermediates, [latLng(-31.6498, -64.4299)]);
+    assert.deepEqual(body.destination, latLng(-33.1238, -64.349));
   });
 
-  test('cada punto se engancha a la calle más cercana hasta 5 km (no los 350 m por defecto de ORS)', async () => {
-    await estimar({ origenId: 1, paradaIds: [3, 2], destinoId: 4 });
-    assert.equal(ors.RADIO_ENGANCHE_M, 5000);
-    assert.deepEqual(directions()[0].body.radiuses, [5000, 5000, 5000, 5000]);
+  test('con placeId va por placeId (la dirección exacta elegida en Google): casa del pasajero → aeropuerto', async () => {
+    const { status } = await estimar({ origenId: 10, paradaIds: [], destinoId: 11 });
+
+    assert.equal(status, 200);
+    assert.deepEqual(llamadasGoogle[0].body.origin, { placeId: 'ChIJ_casa_colon_1234' });
+    assert.deepEqual(llamadasGoogle[0].body.destination, { placeId: 'ChIJ_aeropuerto' });
   });
 
-  test('Córdoba → Cosquín usa el punto guardado de Cosquín (no se interpreta el nombre)', async () => {
-    await estimar({ origenId: 1, paradaIds: [], destinoId: 9 });
-    assert.deepEqual(directions()[0].body.coordinates[1], [-64.4653, -31.2437]);
+  test('mezcla de placeId y latLng en el mismo recorrido', async () => {
+    await estimar({ origenId: 10, paradaIds: [9], destinoId: 11 });
+    assert.deepEqual(llamadasGoogle[0].body.intermediates, [latLng(-31.2437, -64.4653)]);
   });
 
-  test('URL del dominio nuevo (api.heigit.org), sin barra final antes de la ruta', async () => {
-    await estimar({ origenId: 1, paradaIds: [], destinoId: 2 });
-    assert.equal(directions()[0].origen, 'https://api.heigit.org');
-    assert.equal(directions()[0].url, 'https://api.heigit.org/openrouteservice/v2/directions/driving-car');
-  });
+  test('la key va en el header X-Goog-Api-Key y en ninguna URL, cuerpo ni respuesta', async () => {
+    const { json: r } = await estimar({ origenId: 1, paradaIds: [3, 2], destinoId: 4 });
 
-  test('ORS_BASE_URL con barra final: se le saca la barra', async () => {
-    process.env.ORS_BASE_URL = 'https://ors.ejemplo.test/';
-    await estimar({ origenId: 1, paradaIds: [], destinoId: 2 });
-    assert.equal(directions()[0].url, 'https://ors.ejemplo.test/openrouteservice/v2/directions/driving-car');
-  });
-
-  test('la key va en el header Authorization y en ninguna URL ni cuerpo', async () => {
-    await estimar({ origenId: 1, paradaIds: [3, 2], destinoId: 4 });
-
-    const [llamada] = llamadasOrs;
-    assert.equal(llamada.headers.Authorization, CLAVE);
-    assert.ok(!llamada.url.includes(CLAVE));
-    assert.ok(!JSON.stringify(llamada.body).includes(CLAVE));
+    const [l] = llamadasGoogle;
+    assert.equal(l.headers['X-Goog-Api-Key'], CLAVE);
+    assert.ok(!l.url.includes(CLAVE));
+    assert.ok(!JSON.stringify(l.body).includes(CLAVE));
+    assert.ok(!JSON.stringify(r).includes(CLAVE));
   });
 
   test('ida y vuelta: la ruta pasa por los 4 puntos aunque Córdoba se repita', async () => {
     const { status } = await estimar({ origenId: 1, paradaIds: [2, 3], destinoId: 1 });
 
     assert.equal(status, 200);
-    const { coordinates } = directions()[0].body;
-    assert.equal(coordinates.length, 4);
-    assert.deepEqual(coordinates[0], coordinates[3]);
+    const { body } = llamadasGoogle[0];
+    assert.equal(body.intermediates.length, 2);
+    assert.deepEqual(body.origin, body.destination);
   });
 
   test('paradaIds ausente equivale a sin paradas', async () => {
     const { status } = await estimar({ origenId: 1, destinoId: 2 });
     assert.equal(status, 200);
-    assert.equal(directions()[0].body.coordinates.length, 2);
+    assert.ok(!('intermediates' in llamadasGoogle[0].body));
+  });
+
+  test('un recorrido de distancia 0 viene sin distanceMeters: 0 km', async () => {
+    comportamiento = () => json(200, { routes: [{ duration: '0s' }] });
+    const { json: r } = await estimar({ origenId: 1, destinoId: 2 });
+    assert.deepEqual(r, { kilometros: 0, duracionMinutos: 0 });
   });
 });
 
-// --- Ubicaciones sin coordenadas -------------------------------------------
+// --- Ubicaciones sin ubicar ---------------------------------------------------
 
-describe('ubicación sin coordenadas', () => {
-  test('422 que dice cuál, con su id, y no se llama a ORS', async () => {
+describe('ubicación sin placeId ni coordenadas', () => {
+  test('422 que dice cuál, con su id, y no se llama a Google', async () => {
     const { status, json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 20 });
 
     assert.equal(status, 422);
     assert.equal(r.error, 'Falta ubicar "Colegio Nacional de Monserrat" en el mapa.');
     assert.deepEqual(r.ubicacionesSinCoordenadas, [{ ubicacionId: 20, nombre: 'Colegio Nacional de Monserrat' }]);
-    assert.equal(llamadasOrs.length, 0);
+    assert.equal(llamadasGoogle.length, 0);
   });
 
   test('varias: todas, en el orden del recorrido y sin repetir', async () => {
@@ -212,36 +217,38 @@ describe('ubicación sin coordenadas', () => {
 
     assert.equal(status, 422);
     assert.equal(r.error, 'Faltan ubicar en el mapa: "Hotel Sierras", "Colegio Nacional de Monserrat".');
-    assert.deepEqual(
-      r.ubicacionesSinCoordenadas.map((u) => u.ubicacionId),
-      [21, 20]
-    );
-    assert.equal(llamadasOrs.length, 0);
+    assert.deepEqual(r.ubicacionesSinCoordenadas.map((u) => u.ubicacionId), [21, 20]);
+    assert.equal(llamadasGoogle.length, 0);
+  });
+
+  test('una que tiene placeId pero no coordenadas NO falta (las de Google no guardan coordenadas)', async () => {
+    assert.equal((await estimar({ origenId: 10, destinoId: 11 })).status, 200);
   });
 });
 
-// --- Errores de ORS ---------------------------------------------------------
+// --- Errores de Google --------------------------------------------------------
 
-describe('errores de ORS', () => {
+describe('errores de Google', () => {
   test('cuota agotada (429): 429 con "intentá más tarde"', async () => {
-    comportamiento = (l) => (l.path.includes('directions') ? json(429, {}) : undefined);
+    comportamiento = () => json(429, { error: { status: 'RESOURCE_EXHAUSTED' } });
     const { status, json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 2 });
     assert.equal(status, 429);
     assert.match(r.error, /cuota/);
     assert.match(r.error, /Intentá más tarde/);
   });
 
-  test('ruta imposible (404 de directions, código 2010): 422', async () => {
-    comportamiento = (l) =>
-      l.path.includes('directions') ? json(404, { error: { code: 2010, message: 'Could not find routable point' } }) : undefined;
+  test('sin ruta posible (200 con objeto vacío): 422', async () => {
+    comportamiento = () => json(200, {});
     const { status, json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 2 });
     assert.equal(status, 422);
     assert.match(r.error, /No hay una ruta/);
   });
 
-  test('ruta imposible (400 de directions, código 2004): 422', async () => {
-    comportamiento = (l) => (l.path.includes('directions') ? json(400, { error: { code: 2004 } }) : undefined);
-    assert.equal((await estimar({ origenId: 1, paradaIds: [], destinoId: 2 })).status, 422);
+  test('un placeId que Google ya no reconoce (400/404): 422', async () => {
+    comportamiento = () => json(400, { error: { status: 'INVALID_ARGUMENT' } });
+    assert.equal((await estimar({ origenId: 10, destinoId: 11 })).status, 422);
+    comportamiento = () => json(404, { error: { status: 'NOT_FOUND' } });
+    assert.equal((await estimar({ origenId: 10, destinoId: 11 })).status, 422);
   });
 
   test('timeout (AbortError): 503 con mensaje de "no respondió a tiempo"', async () => {
@@ -255,7 +262,7 @@ describe('errores de ORS', () => {
 
   test('timeout real: el AbortController corta la llamada al vencer el plazo', async () => {
     let abortadas = 0;
-    // ORS que nunca contesta: solo termina cuando se aborta la señal.
+    // Google que nunca contesta: solo termina cuando se aborta la señal.
     comportamiento = (l) =>
       new Promise((_, rechazar) => {
         l.signal.addEventListener('abort', () => {
@@ -273,10 +280,10 @@ describe('errores de ORS', () => {
   });
 
   test('el plazo por defecto es de 8 segundos', () => {
-    assert.equal(ors.TIMEOUT_MS, 8000);
+    assert.equal(google.TIMEOUT_MS, 8000);
   });
 
-  test('ORS caído (error de red): 502', async () => {
+  test('Google caído (error de red): 502', async () => {
     comportamiento = () => {
       throw new TypeError('fetch failed');
     };
@@ -285,34 +292,34 @@ describe('errores de ORS', () => {
     assert.match(r.error, /No se pudo conectar/);
   });
 
-  test('ORS con error interno (500): 502', async () => {
-    comportamiento = (l) => (l.path.includes('directions') ? json(500, {}) : undefined);
+  test('Google con error interno (500): 502', async () => {
+    comportamiento = () => json(500, {});
     assert.equal((await estimar({ origenId: 1, paradaIds: [], destinoId: 2 })).status, 502);
   });
 
-  test('key rechazada por ORS (401/403): 503 sin mostrar la key', async () => {
-    comportamiento = () => json(403, { error: 'Access to this API has been disallowed' });
+  test('key rechazada o Routes API no habilitada (403): 503 sin mostrar la key', async () => {
+    comportamiento = () => json(403, { error: { status: 'PERMISSION_DENIED' } });
     const { status, json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 2 });
     assert.equal(status, 503);
-    assert.match(r.error, /clave de OpenRouteService no es válida/);
+    assert.match(r.error, /no es válida/);
     assert.ok(!JSON.stringify(r).includes(CLAVE));
   });
 });
 
 // --- Configuración, permisos y validación ----------------------------------
 
-describe('falta ORS_API_KEY', () => {
-  test('503 con mensaje claro y sin llamar a ORS ni a la base', async () => {
-    delete process.env.ORS_API_KEY;
+describe('falta GOOGLE_MAPS_API_KEY', () => {
+  test('503 con mensaje claro y sin llamar a Google ni a la base', async () => {
+    delete process.env.GOOGLE_MAPS_API_KEY;
     const { status, json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 2 });
     assert.equal(status, 503);
-    assert.match(r.error, /falta configurar OpenRouteService/);
-    assert.equal(llamadasOrs.length, 0);
+    assert.match(r.error, /falta configurar GOOGLE_MAPS_API_KEY/);
+    assert.equal(llamadasGoogle.length, 0);
     assert.equal(llamadasPrisma.length, 0);
   });
 
   test('el resto de la app sigue funcionando', async () => {
-    delete process.env.ORS_API_KEY;
+    delete process.env.GOOGLE_MAPS_API_KEY;
     const r = await fetchReal(`${base}/health`);
     assert.equal(r.status, 200);
   });
@@ -325,14 +332,14 @@ describe('permisos', () => {
     });
   }
   for (const perfil of ['CHOFER', 'PERSONAL_TALLER']) {
-    test(`${perfil}: 403 y no se llama a ORS`, async () => {
+    test(`${perfil}: 403 y no se llama a Google`, async () => {
       assert.equal((await estimar({ origenId: 1, paradaIds: [], destinoId: 2 }, perfil)).status, 403);
-      assert.equal(llamadasOrs.length, 0);
+      assert.equal(llamadasGoogle.length, 0);
     });
   }
   test('sin token: 401', async () => {
     assert.equal((await estimar({ origenId: 1, paradaIds: [], destinoId: 2 }, null)).status, 401);
-    assert.equal(llamadasOrs.length, 0);
+    assert.equal(llamadasGoogle.length, 0);
   });
 });
 
@@ -349,17 +356,17 @@ describe('validación (mismas reglas que el recorrido de un viaje)', () => {
     ['origen igual a destino sin paradas', { origenId: 1, paradaIds: [], destinoId: 1 }, 'destinoId', /mismo que el origen/],
   ];
   for (const [nombre, body, campo, mensaje] of CASOS) {
-    test(`${nombre}: 400 en "${campo}" y no se llama a ORS`, async () => {
+    test(`${nombre}: 400 en "${campo}" y no se llama a Google`, async () => {
       const { status, json: r } = await estimar(body);
       assert.equal(status, 400);
       assert.match(r.errores[campo], mensaje);
-      assert.equal(llamadasOrs.length, 0);
+      assert.equal(llamadasGoogle.length, 0);
     });
   }
 
-  test('9 paradas (el máximo) sí se aceptan', async () => {
+  test('9 paradas (el máximo) sí se aceptan y siguen en el SKU Essentials (≤ 10 intermedios)', async () => {
     const { status } = await estimar({ origenId: 1, paradaIds: [2, 3, 2, 3, 2, 3, 2, 3, 2], destinoId: 4 });
     assert.equal(status, 200);
-    assert.equal(directions()[0].body.coordinates.length, 11);
+    assert.equal(llamadasGoogle[0].body.intermediates.length, 9);
   });
 });

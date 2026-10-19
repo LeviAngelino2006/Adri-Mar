@@ -64,7 +64,7 @@ router.get(
   autorizar('ADMINISTRADOR', 'ENCARGADO'),
   viajeController.disponibilidadDeViaje
 );
-// Km estimados de un recorrido con OpenRouteService (ayuda para completar el
+// Km estimados de un recorrido con la Routes API de Google (ayuda para completar el
 // campo del formulario). Mismos perfiles que crear un viaje. No choca con /:id:
 // ese solo existe para PUT.
 router.post(

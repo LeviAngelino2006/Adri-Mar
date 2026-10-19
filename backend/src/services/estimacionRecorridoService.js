@@ -1,29 +1,31 @@
 const prisma = require('./prismaClient');
-const openRouteService = require('./openRouteService');
+const googleMapsService = require('./googleMapsService');
 const {
   validarExtremosRecorrido,
   validarFormatoParadas,
   errorDeSecuencia,
 } = require('../utils/recorridoViaje');
 
-const { ErrorMapa } = openRouteService;
+const { ErrorMapa } = googleMapsService;
 
 // Estimación de los km de un viaje a partir de su recorrido (origen → paradas →
-// destino) con OpenRouteService (ORS). Son solo los km del recorrido: sin salida
+// destino) con la Routes API de Google, así coinciden con lo que muestra el link
+// "Ver recorrido en Google Maps". Son solo los km del recorrido: sin salida
 // desde una base ni vuelta vacía (un ida y vuelta ya se modela con origen =
 // destino y paradas en el medio). Es una ayuda para completar el campo: guardar
 // un viaje nunca depende de esto.
 //
 // Flujo de un cálculo:
 //  1. Valida el recorrido con las mismas reglas que un viaje (utils/recorridoViaje)
-//     y lee las coordenadas guardadas de cada ubicación (un findMany).
-//  2. Si a alguna le faltan, 422 con cuáles (el formulario ofrece completarlas).
-//  3. Pide la ruta en auto por todos los puntos, en orden: UNA llamada a ORS.
+//     y lee de cada ubicación su placeId y sus coordenadas (un findMany).
+//  2. Si alguna no tiene ni placeId ni coordenadas, 422 con cuáles (el
+//     formulario ofrece ubicarla con el buscador de Google).
+//  3. Pide la ruta en auto por todos los puntos, en orden: UNA llamada a
+//     computeRoutes. Cada punto va por placeId si lo tiene (la dirección exacta
+//     elegida en Google), si no por sus coordenadas (localidades de Georef).
 //
 // No se geocodifica el nombre al calcular: hacerlo fallaba de forma grosera e
-// indetectable ("Cosquin" → una calle de Córdoba capital). Las coordenadas se
-// eligen una vez, al crear la ubicación (o vienen de la importación de
-// localidades de Georef), y quedan guardadas.
+// indetectable ("Cosquin" → una calle de Córdoba capital).
 
 class ValidacionError extends Error {
   constructor(errores) {
@@ -33,6 +35,7 @@ class ValidacionError extends Error {
 }
 
 const tieneCoordenadas = (u) => Number.isFinite(u.latitud) && Number.isFinite(u.longitud);
+const estaUbicada = (u) => Boolean(u.placeId) || tieneCoordenadas(u);
 
 // Mismas reglas de recorrido que un viaje; errores por campo como en viajes
 // (origenId, destinoId, paradas) para que el formulario los muestre igual.
@@ -56,7 +59,7 @@ async function buscarUbicaciones(secuencia) {
   const unicos = [...new Set(secuencia)];
   const encontradas = await prisma.ubicacion.findMany({
     where: { id: { in: unicos } },
-    select: { id: true, nombre: true, latitud: true, longitud: true },
+    select: { id: true, nombre: true, placeId: true, latitud: true, longitud: true },
   });
   const porId = new Map(encontradas.map((u) => [u.id, u]));
 
@@ -87,17 +90,21 @@ function errorSinCoordenadas(faltantes) {
 // { origenId, paradaIds, destinoId } → { kilometros, duracionMinutos }.
 async function estimarKm({ origenId, paradaIds, destinoId } = {}, { timeoutMs } = {}) {
   // Sin key no tiene sentido ni leer la base.
-  if (!process.env.ORS_API_KEY) throw new ErrorMapa(503, openRouteService.MENSAJES.sinClave);
+  if (!process.env.GOOGLE_MAPS_API_KEY) throw new ErrorMapa(503, googleMapsService.MENSAJES.sinClave);
 
   const secuencia = validarRecorrido({ origenId, paradaIds, destinoId });
   const ubicaciones = await buscarUbicaciones(secuencia);
 
-  const faltantes = [...new Set(secuencia)].map((id) => ubicaciones.get(id)).filter((u) => !tieneCoordenadas(u));
+  const faltantes = [...new Set(secuencia)].map((id) => ubicaciones.get(id)).filter((u) => !estaUbicada(u));
   if (faltantes.length > 0) throw errorSinCoordenadas(faltantes);
 
-  // ORS usa [longitud, latitud].
-  const coordenadas = secuencia.map((id) => [ubicaciones.get(id).longitud, ubicaciones.get(id).latitud]);
-  const ruta = await openRouteService.calcularRuta(coordenadas, { timeoutMs });
+  const ruta = await googleMapsService.calcularRuta(
+    secuencia.map((id) => {
+      const { placeId, latitud, longitud } = ubicaciones.get(id);
+      return placeId ? { placeId } : { latitud, longitud };
+    }),
+    { timeoutMs }
+  );
 
   return {
     kilometros: Math.round(ruta.metros / 1000),

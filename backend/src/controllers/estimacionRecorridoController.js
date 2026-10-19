@@ -1,7 +1,7 @@
 const estimacionRecorridoService = require('../services/estimacionRecorridoService');
 
 // Recibe solo ids de ubicaciones (nunca texto libre): las coordenadas salen de
-// la base. Los errores de ORS y la falta de coordenadas llegan como ErrorMapa
+// la base. Los errores de Google y la falta de ubicación llegan como ErrorMapa
 // con su status y un mensaje para mostrarle al usuario; nunca como un 500
 // genérico.
 async function estimarKm(req, res) {
