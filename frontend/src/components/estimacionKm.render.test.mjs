@@ -1,8 +1,8 @@
 // Smoke test de render del cálculo de km del formulario de viaje: el botón
 // "Calcular km" (deshabilitado sin origen/destino), el resultado en una línea
-// con la atribución de ORS, el aviso de desactualizado, el error en el campo
-// (con la acción para ubicar una ubicación sin coordenadas) y el paso "Ubicar en
-// el mapa" que usan el selector de ubicaciones y ese error.
+// con la atribución de Google Maps, el aviso de desactualizado, el error en el
+// campo (con la acción para ubicar una ubicación sin coordenadas), el modal de
+// Google que abre esa acción y el link al recorrido con el placeId.
 //
 // Mismo método que viajes.render.test.mjs: Vite en modo SSR (ws: false, así no
 // choca con otros tests en paralelo) y react-dom/server. Verifica estructura,
@@ -26,7 +26,7 @@ let vite;
 let ViajeForm;
 let CampoKmEstimados;
 let ResultadoEstimacionKm;
-let PasoUbicarEnMapa;
+let UbicarConGoogle;
 let EditorRecorrido;
 
 before(async () => {
@@ -34,13 +34,13 @@ before(async () => {
   ViajeForm = (await vite.ssrLoadModule('/src/components/ViajeForm.jsx')).default;
   CampoKmEstimados = (await vite.ssrLoadModule('/src/components/CampoKmEstimados.jsx')).default;
   ResultadoEstimacionKm = (await vite.ssrLoadModule('/src/components/ResultadoEstimacionKm.jsx')).default;
-  PasoUbicarEnMapa = (await vite.ssrLoadModule('/src/components/PasoUbicarEnMapa.jsx')).default;
+  UbicarConGoogle = (await vite.ssrLoadModule('/src/components/UbicarConGoogle.jsx')).default;
   EditorRecorrido = (await vite.ssrLoadModule('/src/components/EditorRecorrido.jsx')).default;
 });
 
 after(() => vite.close());
 
-const ATRIBUCION = '© openrouteservice.org by HeiGIT | © OpenStreetMap contributors';
+const ATRIBUCION = 'Google Maps';
 const sinEtiquetas = (html) => html.replace(/<[^>]+>/g, '');
 // El <button> "Calcular km" (el texto va en un <span> adentro).
 const botonCalcular = (html) => html.match(/<button[^>]*>(?:(?!<\/button>).)*Calcular km(?:(?!<\/button>).)*<\/button>/s)?.[0];
@@ -94,8 +94,8 @@ describe('CampoKmEstimados: error del cálculo', () => {
     );
 
   test('el error se muestra como mensaje del campo y no rompe nada', () => {
-    const html = renderCampo({ errorCalculo: { mensaje: 'Se agotó la cuota de OpenRouteService. Intentá más tarde.', faltantes: [] } });
-    assert.match(html, /id="kilometrosEstimados-error" class="form-field-error" role="alert">Se agotó la cuota de OpenRouteService\. Intentá más tarde\.</);
+    const html = renderCampo({ errorCalculo: { mensaje: 'Se agotó la cuota de Google Maps. Intentá más tarde.', faltantes: [] } });
+    assert.match(html, /id="kilometrosEstimados-error" class="form-field-error" role="alert">Se agotó la cuota de Google Maps\. Intentá más tarde\.</);
     assert.match(html, /<input type="number" id="kilometrosEstimados" aria-invalid="true"[^>]*name="kilometrosEstimados"/);
     assert.doesNotMatch(botonCalcular(html), /disabled=""/, 'se puede volver a intentar');
     assert.doesNotMatch(html, /campo-km-ubicar/);
@@ -143,14 +143,13 @@ describe('ResultadoEstimacionKm', () => {
     assert.equal(render({ resultado: null }), '');
   });
 
-  test('una sola línea "≈ km · duración" y la atribución en chico; nada más', () => {
+  test('una sola línea "≈ km · duración" con "Google Maps" en chico al final; nada de ORS ni OpenStreetMap', () => {
     const html = render({ resultado: RESULTADO });
-    const texto = sinEtiquetas(html);
-    assert.match(html, /<p class="estimacion-km-total"><span>≈ 38 km · 41 min<\/span><\/p>/);
-    assert.match(html, /<p class="estimacion-km-atribucion">© openrouteservice\.org by HeiGIT \| © OpenStreetMap contributors<\/p>/);
-    assert.equal(texto, `≈ 38 km · 41 min${ATRIBUCION}`);
-    assert.doesNotMatch(texto, /Google Maps|interpret|Revisá/);
-    assert.doesNotMatch(html, /<details/);
+    assert.equal(
+      html,
+      '<p class="estimacion-km" aria-live="polite"><span class="estimacion-km-total">≈ 38 km · 41 min</span><span class="estimacion-km-atribucion">Google Maps</span></p>'
+    );
+    assert.doesNotMatch(html, /openrouteservice|OpenStreetMap|HeiGIT|interpret|Revisá|<details/);
   });
 
   test('más de una hora: "1 h 31 min"', () => {
@@ -161,7 +160,7 @@ describe('ResultadoEstimacionKm', () => {
     const html = render({ resultado: RESULTADO, desactualizado: true });
     assert.match(
       html,
-      /<p class="estimacion-km-total"><span class="estimacion-km-total-viejo">≈ 38 km · 41 min<\/span><span class="estimacion-km-desactualizado" role="status">Cambió el recorrido: recalculá<\/span><\/p>/
+      /<span class="estimacion-km-total estimacion-km-total-viejo">≈ 38 km · 41 min<\/span><span class="estimacion-km-desactualizado" role="status">Cambió el recorrido: recalculá<\/span><span class="estimacion-km-atribucion">Google Maps<\/span>/
     );
     assert.ok(sinEtiquetas(html).includes(ATRIBUCION));
   });
@@ -178,30 +177,22 @@ describe('ResultadoEstimacionKm', () => {
   });
 });
 
-describe('PasoUbicarEnMapa', () => {
+describe('UbicarConGoogle (la acción "Ubicarla" del error)', () => {
   const render = (props) =>
-    renderToStaticMarkup(h(PasoUbicarEnMapa, { nombre: 'Colegio Nacional de Monserrat', textoConfirmar: 'Crear ubicación', onConfirmar() {}, onCancelar() {}, ...props }));
+    renderToStaticMarkup(h(UbicarConGoogle, { nombre: 'Colegio Nacional de Monserrat', onUbicar() {}, onCancelar() {}, ...props }));
 
-  test('título con el nombre, las dos formas de ubicarla y la búsqueda precargada con el nombre', () => {
+  test('título con el nombre y el buscador de Google precargado con él; ya no hay coordenadas para pegar', () => {
     const html = render();
     assert.match(html, /role="alertdialog" aria-modal="true" aria-label="Ubicar &quot;Colegio Nacional de Monserrat&quot; en el mapa"/);
-    assert.match(html, /aria-pressed="true"[^>]*>Nombre</);
-    assert.match(html, /aria-pressed="false"[^>]*>Coordenadas</);
-    assert.match(html, /<input type="text"[^>]*value="Colegio Nacional de Monserrat"/);
-    assert.match(html, /role="group" aria-label="Ubicar por"/);
-    const nombres = [...html.matchAll(/<button[^>]*>(?:<span>)?([^<]*)/g)].map((m) => m[1]).filter(Boolean);
-    assert.equal(new Set(nombres).size, nombres.length, 'sin dos botones con el mismo nombre: ' + nombres);
-    assert.match(sinEtiquetas(html), /Crear ubicación/);
+    assert.match(html, /<label[^>]*>Buscar en Google Maps<\/label><input type="text"[^>]*value="Colegio Nacional de Monserrat"/);
+    assert.doesNotMatch(html, /Coordenadas|Pegar/);
+    assert.match(sinEtiquetas(html), /Guardar ubicación/);
   });
 
   test('todos sus botones son type="button" (vive dentro del <form> del viaje)', () => {
     const botones = [...render().matchAll(/<button[^>]*>/g)].map((m) => m[0]);
-    assert.ok(botones.length >= 4);
+    assert.ok(botones.length >= 2);
     for (const b of botones) assert.match(b, /type="button"/, b);
-  });
-
-  test('para completar una existente, el botón dice "Guardar ubicación"', () => {
-    assert.match(sinEtiquetas(render({ nombre: 'Hotel Sierras', textoConfirmar: 'Guardar ubicación' })), /Guardar ubicación/);
   });
 });
 
@@ -215,6 +206,21 @@ describe('EditorRecorrido usa el selector de ubicaciones', () => {
         onCambiarOrigen() {}, onCambiarDestino() {}, onCambiarParadas() {},
       })
     );
-    assert.equal([...html.matchAll(/placeholder="Buscar o crear ubicación…"/g)].length, 3);
+    assert.equal([...html.matchAll(/placeholder="Buscar ubicación o dirección…"/g)].length, 3);
+  });
+
+  test('"Ver recorrido en Google Maps" usa el placeId de la casa elegida en Google y las coordenadas de la localidad', () => {
+    const html = renderToStaticMarkup(
+      h(EditorRecorrido, {
+        origen: { id: 10, nombre: 'Av. Colón 1234, X5000 Córdoba', placeId: 'ChIJ_casa', latitud: null, longitud: null },
+        destino: { id: 9, nombre: 'Cosquín', placeId: null, latitud: -31.2437, longitud: -64.4653 },
+        paradas: [],
+        onCambiarOrigen() {}, onCambiarDestino() {}, onCambiarParadas() {},
+      })
+    );
+    const href = html.match(/href="([^"]+)"/)[1].replaceAll('&amp;', '&');
+    const params = new URL(href).searchParams;
+    assert.equal(params.get('origin_place_id'), 'ChIJ_casa');
+    assert.equal(params.get('destination'), '-31.2437,-64.4653');
   });
 });

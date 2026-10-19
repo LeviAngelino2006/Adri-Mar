@@ -1,7 +1,7 @@
 // Lógica del botón "Calcular km" del formulario de viaje (sin React, para
 // poder testearla con node:test). El cálculo lo hace el backend con
-// OpenRouteService (POST /viajes/estimar-km) a partir de los ids del recorrido
-// y las coordenadas guardadas de cada ubicación.
+// la Routes API de Google (POST /viajes/estimar-km) a partir de los ids del
+// recorrido y del placeId o las coordenadas guardadas de cada ubicación.
 
 // Ids del recorrido tal como los tiene el formulario. Las filas de parada sin
 // ubicación elegida se ignoran, igual que en el link de Google Maps

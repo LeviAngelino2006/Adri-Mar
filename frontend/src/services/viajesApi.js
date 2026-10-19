@@ -28,9 +28,10 @@ export function disponibilidadDeViaje(id, { todos = false } = {}) {
   return api.get(`/viajes/${id}/disponibilidad`, { params: todos ? { todos: true } : undefined });
 }
 
-// Km estimados de un recorrido (OpenRouteService, del lado del backend). Solo
-// ids: las coordenadas las busca el backend. Devuelve { kilometros,
-// duracionMinutos }, o un 422 con ubicacionesSinCoordenadas.
+// Km estimados de un recorrido (Routes API de Google, del lado del backend).
+// Solo ids: el placeId o las coordenadas de cada punto los busca el backend.
+// Devuelve { kilometros, duracionMinutos }, o un 422 con
+// ubicacionesSinCoordenadas.
 export function estimarKm({ origenId, paradaIds, destinoId }) {
   return api.post('/viajes/estimar-km', { origenId, paradaIds, destinoId });
 }
