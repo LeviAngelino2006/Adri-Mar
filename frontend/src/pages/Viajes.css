@@ -32,3 +32,15 @@
 .detalle-card + .viajes-detalle-actions {
   margin-top: var(--space-4);
 }
+
+/* "Duplicar viaje" va en su propia fila, debajo de las acciones del estado. */
+.viajes-detalle-actions + .viajes-detalle-actions {
+  margin-top: var(--space-3);
+}
+
+/* Aviso de "Duplicar viaje", entre el título y el formulario. */
+.viajes-aviso-duplicado {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}

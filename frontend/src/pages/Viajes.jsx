@@ -21,9 +21,8 @@ import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { DURACION_TOAST_CON_ACCION_MS, DURACION_TOAST_MS } from '../constants/toast';
-import { aInputCordoba } from '../utils/fechaCordoba';
-import { paradasDesdeViaje } from '../utils/paradas';
-import { lugarDe } from '../utils/sugerenciasGoogle';
+import DuplicarViaje from '../components/DuplicarViaje';
+import { avisoDuplicado, valoresParaDuplicar, viajeAValoresForm } from '../utils/valoresFormViaje';
 import { avisoWhatsApp } from '../utils/whatsapp';
 import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
@@ -65,28 +64,6 @@ function dedupePorId(lista) {
     if (!vistos.has(item.id)) vistos.set(item.id, item);
   }
   return [...vistos.values()];
-}
-
-function viajeAValoresForm(viaje) {
-  return {
-    clienteId: viaje.clienteId || '',
-    clienteNombre: viaje.cliente?.nombre || '',
-    choferId: viaje.choferId || '',
-    vehiculoId: viaje.vehiculoId || '',
-    choferesCandidatos: (viaje.choferesCandidatos ?? []).map((c) => c.id),
-    vehiculosCandidatos: (viaje.vehiculosCandidatos ?? []).map((c) => c.id),
-    origenId: viaje.origenId || '',
-    origenNombre: viaje.origen?.nombre || '',
-    destinoId: viaje.destinoId || '',
-    destinoNombre: viaje.destino?.nombre || '',
-    origenLugar: lugarDe(viaje.origen),
-    destinoLugar: lugarDe(viaje.destino),
-    paradas: paradasDesdeViaje(viaje),
-    fechaInicio: aInputCordoba(viaje.fechaInicio),
-    fechaFin: aInputCordoba(viaje.fechaFin),
-    kilometrosEstimados: viaje.kilometrosEstimados ?? '',
-    cantidadPasajeros: viaje.cantidadPasajeros ?? '',
-  };
 }
 
 const MARGEN_SCROLL_PX = 16;
@@ -141,6 +118,9 @@ function Viajes() {
 
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editando, setEditando] = useState(null);
+  // "Duplicar viaje": { original, valores, aviso }. El formulario es un alta
+  // precargada con `valores`.
+  const [duplicando, setDuplicando] = useState(null);
 
   const [cancelando, setCancelando] = useState(null);
   const [errorCancelar, setErrorCancelar] = useState('');
@@ -272,9 +252,27 @@ function Viajes() {
     setMostrarForm(true);
   }
 
+  // Valores y aviso se calculan una sola vez y con el mismo "ahora": si el
+  // viaje empieza en minutos, los dos tienen que coincidir en si la fecha se
+  // copió o se vació.
+  function abrirDuplicar(viaje) {
+    const ahora = Date.now();
+    setErrorCancelar('');
+    setDuplicando({
+      original: viaje,
+      valores: valoresParaDuplicar(viaje, ahora),
+      aviso: avisoDuplicado(viaje, ahora),
+    });
+    setSeleccionado(null);
+    setMostrarForm(true);
+  }
+
+  // Cancelar un duplicado vuelve a la ficha del original, de donde se abrió.
   function cerrarForm() {
+    if (duplicando) setSeleccionado(duplicando.original);
     setMostrarForm(false);
     setEditando(null);
+    setDuplicando(null);
   }
 
   // Al crear se abre la ficha del viaje nuevo (no el listado): ahí está la
@@ -293,6 +291,7 @@ function Viajes() {
     }
     setMostrarForm(false);
     setEditando(null);
+    setDuplicando(null);
     cargarViajes();
   }
 
@@ -371,12 +370,13 @@ function Viajes() {
       {mostrarForm && (
         <>
           <button type="button" className="back-link" onClick={cerrarForm}>
-            ← Volver al listado
+            {duplicando ? '← Volver al viaje' : '← Volver al listado'}
           </button>
-          <h1>{editando ? 'Editar viaje' : 'Crear viaje'}</h1>
+          <h1>{editando ? 'Editar viaje' : duplicando ? 'Duplicar viaje' : 'Crear viaje'}</h1>
+          {duplicando && <p className="viajes-aviso-duplicado">{duplicando.aviso}</p>}
           <Card className="form-card">
             <ViajeForm
-              valoresIniciales={editando ? viajeAValoresForm(editando) : undefined}
+              valoresIniciales={editando ? viajeAValoresForm(editando) : duplicando?.valores}
               estadoActual={editando?.estado}
               candidatosActuales={
                 editando && { choferes: editando.choferesCandidatos, vehiculos: editando.vehiculosCandidatos }
@@ -526,6 +526,8 @@ function Viajes() {
                 </Button>
               </div>
             )}
+
+            <DuplicarViaje viaje={seleccionado} perfil={usuario.perfil} onDuplicar={abrirDuplicar} />
 
             {puedeGestionar && (
               <DatosAdministrativosViaje
