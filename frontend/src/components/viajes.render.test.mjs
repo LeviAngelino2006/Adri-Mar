@@ -173,8 +173,8 @@ describe('Duplicar viaje', () => {
     });
   }
 
-  test('el formulario abre en modo alta, precargado con el recorrido y sin pasajeros ni unidad', () => {
-    const original = viaje({
+  const original = () =>
+    viaje({
       estado: 'FINALIZADO',
       clienteId: 3,
       cliente: { id: 3, nombre: 'Colegio San José' },
@@ -193,17 +193,23 @@ describe('Duplicar viaje', () => {
       vehiculosCandidatos: [{ id: 4, numeroInterno: 12, dominio: 'AE452KD' }],
       precio: '420000.00',
     });
-    // Las mismas props que arma Viajes.jsx al duplicar: sin estadoActual ni
-    // candidatosActuales, como un alta.
-    const html = renderToStaticMarkup(
+
+  // Las mismas props que arma Viajes.jsx al duplicar: sin estadoActual ni
+  // candidatosActuales, como un alta.
+  const renderDuplicado = (ahora) =>
+    renderToStaticMarkup(
       h(ViajeForm, {
-        valoresIniciales: valoresParaDuplicar(original),
+        valoresIniciales: valoresParaDuplicar(original(), ahora),
         onSubmit() {},
         textoBoton: 'Crear viaje',
         textoEnviando: 'Creando…',
         onCancelar() {},
       })
     );
+
+  test('el formulario abre en modo alta, precargado con el recorrido y sin pasajeros ni unidad', () => {
+    // Mismo día, antes de la salida (06:00 en Córdoba): las fechas se copian.
+    const html = renderDuplicado(Date.parse('2026-10-09T09:00:00Z'));
     // Modo alta: choferes y vehículos POSIBLES (vacíos), no el select de un chofer.
     assert.match(html, /id="choferesCandidatos"/);
     assert.match(html, /id="vehiculosCandidatos"/);
@@ -221,6 +227,14 @@ describe('Duplicar viaje', () => {
     assert.match(html, /name="cantidadPasajeros"[^>]*value=""/);
     assert.ok(!html.includes('420000'));
     assert.match(html, /<span>Crear viaje<\/span>/);
+  });
+
+  test('si el original ya salió, las fechas aparecen vacías y lo demás igual', () => {
+    const html = renderDuplicado(AHORA);
+    assert.match(html, /name="fechaInicio" value=""/);
+    assert.match(html, /name="fechaFin" value=""/);
+    assert.match(html, /value="Río Tercero"[\s\S]*value="Almafuerte"[\s\S]*value="Despeñaderos"[\s\S]*value="Córdoba"/);
+    assert.match(html, /name="kilometrosEstimados"[^>]*value="110"/);
   });
 });
 

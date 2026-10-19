@@ -34,7 +34,13 @@ export function viajeAValoresForm(viaje) {
 // unidad (otro micro, otro chofer). Precio, pagos, estado, odómetros, horas
 // reales y observación final no son campos del formulario, así que tampoco se
 // copian. El original no se toca: al guardar se hace un POST como cualquier alta.
-export function valoresParaDuplicar(viaje) {
+//
+// Si el original ya empezó (su inicio es anterior a `ahora`), inicio y fin
+// quedan vacíos: copiarlos crearía un viaje en el pasado si nadie los cambia.
+// Se comparan instantes, así que da lo mismo que en hora de Córdoba; un viaje
+// de hoy más tarde todavía no empezó y se copia con sus fechas.
+export function valoresParaDuplicar(viaje, ahora = Date.now()) {
+  const fechas = fechaYaPaso(viaje, ahora) ? { fechaInicio: '', fechaFin: '' } : {};
   return {
     ...viajeAValoresForm(viaje),
     choferId: '',
@@ -42,13 +48,23 @@ export function valoresParaDuplicar(viaje) {
     choferesCandidatos: [],
     vehiculosCandidatos: [],
     cantidadPasajeros: '',
+    ...fechas,
   };
+}
+
+function fechaYaPaso(viaje, ahora) {
+  return Boolean(viaje.fechaInicio) && new Date(viaje.fechaInicio).getTime() < ahora;
 }
 
 // Línea que va arriba del formulario al duplicar: "Duplicado del viaje del
 // 09 oct 2026 a Córdoba. …". Un viaje histórico puede no tener fecha o destino.
-export function avisoDuplicado(viaje) {
+// Con el mismo `ahora` que valoresParaDuplicar: si las fechas se vaciaron, pide
+// elegir una.
+export function avisoDuplicado(viaje, ahora = Date.now()) {
   const fecha = viaje.fechaInicio ? ` del ${formatearFechaCorta(viaje.fechaInicio)}` : '';
   const destino = viaje.destino?.nombre ? ` a ${viaje.destino.nombre}` : '';
-  return `Duplicado del viaje${fecha}${destino}. Revisá fecha, pasajeros y unidad antes de crear.`;
+  const pedido = fechaYaPaso(viaje, ahora)
+    ? 'Elegí la fecha nueva y revisá pasajeros y unidad antes de crear.'
+    : 'Revisá fecha, pasajeros y unidad antes de crear.';
+  return `Duplicado del viaje${fecha}${destino}. ${pedido}`;
 }

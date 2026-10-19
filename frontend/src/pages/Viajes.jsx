@@ -118,7 +118,8 @@ function Viajes() {
 
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editando, setEditando] = useState(null);
-  // Viaje original de "Duplicar viaje": el formulario es un alta precargada.
+  // "Duplicar viaje": { original, valores, aviso }. El formulario es un alta
+  // precargada con `valores`.
   const [duplicando, setDuplicando] = useState(null);
 
   const [cancelando, setCancelando] = useState(null);
@@ -251,16 +252,24 @@ function Viajes() {
     setMostrarForm(true);
   }
 
+  // Valores y aviso se calculan una sola vez y con el mismo "ahora": si el
+  // viaje empieza en minutos, los dos tienen que coincidir en si la fecha se
+  // copió o se vació.
   function abrirDuplicar(viaje) {
+    const ahora = Date.now();
     setErrorCancelar('');
-    setDuplicando(viaje);
+    setDuplicando({
+      original: viaje,
+      valores: valoresParaDuplicar(viaje, ahora),
+      aviso: avisoDuplicado(viaje, ahora),
+    });
     setSeleccionado(null);
     setMostrarForm(true);
   }
 
   // Cancelar un duplicado vuelve a la ficha del original, de donde se abrió.
   function cerrarForm() {
-    if (duplicando) setSeleccionado(duplicando);
+    if (duplicando) setSeleccionado(duplicando.original);
     setMostrarForm(false);
     setEditando(null);
     setDuplicando(null);
@@ -364,12 +373,10 @@ function Viajes() {
             {duplicando ? '← Volver al viaje' : '← Volver al listado'}
           </button>
           <h1>{editando ? 'Editar viaje' : duplicando ? 'Duplicar viaje' : 'Crear viaje'}</h1>
-          {duplicando && <p className="viajes-aviso-duplicado">{avisoDuplicado(duplicando)}</p>}
+          {duplicando && <p className="viajes-aviso-duplicado">{duplicando.aviso}</p>}
           <Card className="form-card">
             <ViajeForm
-              valoresIniciales={
-                editando ? viajeAValoresForm(editando) : duplicando ? valoresParaDuplicar(duplicando) : undefined
-              }
+              valoresIniciales={editando ? viajeAValoresForm(editando) : duplicando?.valores}
               estadoActual={editando?.estado}
               candidatosActuales={
                 editando && { choferes: editando.choferesCandidatos, vehiculos: editando.vehiculosCandidatos }

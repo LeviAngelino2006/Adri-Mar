@@ -11,6 +11,10 @@ const ubicacion = (id, nombre, extra = {}) => ({ id, nombre, placeId: null, lati
 // con candidatos (vacíos fuera de A_CONFIRMAR, acá cargados para probar que no
 // se copian), asignación, datos administrativos y datos de la ejecución.
 // Hora de Córdoba = UTC - 3.
+// "Ahora" anterior al viaje (1/10/2026 12:00 en Córdoba): las fechas se copian.
+// Los casos de un original que ya pasó están al final.
+const ANTES = Date.parse('2026-10-01T12:00:00-03:00');
+
 const viajeCompleto = (extra = {}) => ({
   id: 7,
   estado: 'FINALIZADO',
@@ -81,7 +85,7 @@ const CLAVES_FORM = [
 ];
 
 describe('valoresParaDuplicar: lo que se copia', () => {
-  const valores = valoresParaDuplicar(viajeCompleto());
+  const valores = valoresParaDuplicar(viajeCompleto(), ANTES);
 
   test('cliente', () => {
     assert.equal(valores.clienteId, 3);
@@ -134,7 +138,7 @@ describe('valoresParaDuplicar: lo que se copia', () => {
 });
 
 describe('valoresParaDuplicar: lo que NO se copia', () => {
-  const valores = valoresParaDuplicar(viajeCompleto());
+  const valores = valoresParaDuplicar(viajeCompleto(), ANTES);
 
   test('cantidad de pasajeros queda vacía', () => {
     assert.equal(valores.cantidadPasajeros, '');
@@ -223,15 +227,16 @@ describe('valoresParaDuplicar: casos borde', () => {
       vehiculo: null,
       cantidadPasajeros: null,
     });
-    const { paradas: p1, ...resto1 } = valoresParaDuplicar(aConfirmar);
-    const { paradas: p2, ...resto2 } = valoresParaDuplicar(viajeCompleto());
+    const { paradas: p1, ...resto1 } = valoresParaDuplicar(aConfirmar, ANTES);
+    const { paradas: p2, ...resto2 } = valoresParaDuplicar(viajeCompleto(), ANTES);
     assert.deepEqual(resto1, resto2);
     assert.deepEqual(p1.map((p) => p.id), p2.map((p) => p.id));
   });
 
   test('un viaje histórico sin cliente, origen, destino ni km da esos campos vacíos', () => {
     const valores = valoresParaDuplicar(
-      viajeCompleto({ clienteId: null, cliente: null, origenId: null, origen: null, destinoId: null, destino: null, paradas: [], kilometrosEstimados: null, fechaFin: null })
+      viajeCompleto({ clienteId: null, cliente: null, origenId: null, origen: null, destinoId: null, destino: null, paradas: [], kilometrosEstimados: null, fechaFin: null }),
+      ANTES
     );
     assert.equal(valores.clienteId, '');
     assert.equal(valores.origenId, '');
@@ -254,7 +259,7 @@ describe('valoresParaDuplicar: casos borde', () => {
 describe('avisoDuplicado', () => {
   test('con fecha (día de Córdoba) y destino', () => {
     assert.equal(
-      avisoDuplicado(viajeCompleto()),
+      avisoDuplicado(viajeCompleto(), ANTES),
       'Duplicado del viaje del 09 oct 2026 a Córdoba. Revisá fecha, pasajeros y unidad antes de crear.'
     );
   });
@@ -267,6 +272,62 @@ describe('avisoDuplicado', () => {
     assert.equal(
       avisoDuplicado(viajeCompleto({ fechaInicio: null, destino: null, destinoId: null })),
       'Duplicado del viaje. Revisá fecha, pasajeros y unidad antes de crear.'
+    );
+  });
+});
+
+// El original sale el viernes 9/10/2026 a las 07:30 de Córdoba (10:30 UTC) y
+// llega a las 18:00.
+describe('duplicar un viaje cuya fecha ya pasó', () => {
+  const cba = (fechaHora) => Date.parse(`${fechaHora}:00-03:00`);
+
+  test('inicio anterior a ahora: inicio y fin quedan vacíos', () => {
+    const valores = valoresParaDuplicar(viajeCompleto(), cba('2026-10-19T12:00'));
+    assert.equal(valores.fechaInicio, '');
+    assert.equal(valores.fechaFin, '');
+  });
+
+  test('también si el viaje empezó hoy más temprano', () => {
+    const valores = valoresParaDuplicar(viajeCompleto(), cba('2026-10-09T08:00'));
+    assert.equal(valores.fechaInicio, '');
+    assert.equal(valores.fechaFin, '');
+  });
+
+  test('un viaje de hoy más tarde se copia con sus fechas', () => {
+    const valores = valoresParaDuplicar(viajeCompleto(), cba('2026-10-09T07:00'));
+    assert.equal(valores.fechaInicio, '2026-10-09T07:30');
+    assert.equal(valores.fechaFin, '2026-10-09T18:00');
+  });
+
+  test('un viaje futuro se copia con sus fechas', () => {
+    const valores = valoresParaDuplicar(viajeCompleto(), cba('2026-10-01T12:00'));
+    assert.equal(valores.fechaInicio, '2026-10-09T07:30');
+    assert.equal(valores.fechaFin, '2026-10-09T18:00');
+  });
+
+  test('justo a la hora de inicio todavía no es anterior: se copia', () => {
+    const valores = valoresParaDuplicar(viajeCompleto(), cba('2026-10-09T07:30'));
+    assert.equal(valores.fechaInicio, '2026-10-09T07:30');
+  });
+
+  test('vaciar las fechas no cambia lo demás que se copia', () => {
+    const { fechaInicio: _i, fechaFin: _f, paradas: p1, ...pasado } = valoresParaDuplicar(viajeCompleto(), cba('2026-10-19T12:00'));
+    const { fechaInicio: _i2, fechaFin: _f2, paradas: p2, ...futuro } = valoresParaDuplicar(viajeCompleto(), ANTES);
+    assert.deepEqual(pasado, futuro);
+    assert.deepEqual(p1.map((p) => p.id), p2.map((p) => p.id));
+  });
+
+  test('el aviso pide elegir la fecha nueva', () => {
+    assert.equal(
+      avisoDuplicado(viajeCompleto(), cba('2026-10-19T12:00')),
+      'Duplicado del viaje del 09 oct 2026 a Córdoba. Elegí la fecha nueva y revisá pasajeros y unidad antes de crear.'
+    );
+  });
+
+  test('el aviso de un viaje de hoy más tarde sigue pidiendo revisar la fecha', () => {
+    assert.equal(
+      avisoDuplicado(viajeCompleto(), cba('2026-10-09T07:00')),
+      'Duplicado del viaje del 09 oct 2026 a Córdoba. Revisá fecha, pasajeros y unidad antes de crear.'
     );
   });
 });
