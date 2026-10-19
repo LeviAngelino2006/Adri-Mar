@@ -101,6 +101,7 @@ Variables de `backend/.env` (ver `.env.example`):
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET_NAME` | Acceso a Supabase Storage para los PDFs. |
 | `FIRMAS_DIR` *(opcional)* | Carpeta con las firmas de los presupuestos. Por defecto se usa `backend/privado/firmas/`. |
 | `GOOGLE_MAPS_API_KEY` | Key de Google Maps Platform con **Places API (New)** y **Routes API** habilitadas: buscar direcciones y lugares al cargar un recorrido y "Calcular km". Sin ella esas funciones responden 503 y el resto (incluido el buscador de ubicaciones frecuentes) anda igual. Solo la usa el backend. |
+| `GOOGLE_LIMITE_DIARIO_AUTOCOMPLETE`, `GOOGLE_LIMITE_DIARIO_DETALLES`, `GOOGLE_LIMITE_DIARIO_RUTAS` *(opcionales)* | Tope diario propio de llamadas a Google por tipo (por defecto 1000, 300 y 300; día de Córdoba). Pasado el tope responde 429 sin llamar a Google. Se cuenta en memoria: se reinicia con el servidor. |
 
 Nunca commitees el `.env` ni las firmas: ambos están en `.gitignore`. Para configurar las firmas de los presupuestos, seguí [backend/README.md](backend/README.md#firmas-de-los-presupuestos).
 
