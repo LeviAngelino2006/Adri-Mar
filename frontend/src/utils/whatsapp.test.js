@@ -233,6 +233,17 @@ describe('armarMensajeViaje', () => {
     assert.ok(!new URL(armarMensajeViaje(viajeBase).split('\n').at(-1)).searchParams.has('waypoints'));
   });
 
+  test('si el origen es una casa elegida en Google, el link lleva su placeId: el chofer llega a la dirección exacta', () => {
+    const viaje = {
+      ...viajeBase,
+      origen: { id: 10, nombre: 'Av. Colón 1234, X5000 Córdoba', placeId: 'ChIJ_casa', latitud: null, longitud: null },
+    };
+    const lineas = armarMensajeViaje(viaje).split('\n');
+    const params = new URL(lineas.at(-1)).searchParams;
+    assert.equal(params.get('origin_place_id'), 'ChIJ_casa');
+    assert.ok(lineas.includes('*Recorrido:* Av. Colón 1234, X5000 Córdoba → Córdoba'));
+  });
+
   test('el día de la semana va en español, en minúscula y en hora de Córdoba', () => {
     const DIAS = [
       ['2026-10-19T15:00:00.000Z', 'lunes 19/10'],
