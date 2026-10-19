@@ -247,6 +247,13 @@ describe('errores de Google', () => {
     assert.match(r.error, /No hay una ruta/);
   });
 
+  test('sin ruta posible (200 con routes vacío): 422', async () => {
+    comportamiento = () => json(200, { routes: [] });
+    const { status, json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 2 });
+    assert.equal(status, 422);
+    assert.match(r.error, /No hay una ruta/);
+  });
+
   test('un placeId que Google ya no reconoce (400/404): 422', async () => {
     comportamiento = () => json(400, { error: { status: 'INVALID_ARGUMENT' } });
     assert.equal((await estimar({ origenId: 10, destinoId: 11 })).status, 422);
@@ -306,6 +313,130 @@ describe('errores de Google', () => {
     assert.equal(status, 503);
     assert.match(r.error, /no es válida/);
     assert.ok(!JSON.stringify(r).includes(CLAVE));
+  });
+});
+
+// --- Sin ruta: qué tramo falla -----------------------------------------------
+
+describe('sin ruta: qué tramo falla', () => {
+  // Córdoba → Alta Gracia → Villa Carlos Paz → Río Cuarto: 3 tramos.
+  const RECORRIDO = { origenId: 1, paradaIds: [3, 2], destinoId: 4 };
+  const PUNTOS = {
+    1: latLng(-31.4168, -64.1836),
+    3: latLng(-31.6498, -64.4299),
+    2: latLng(-31.4179, -64.494),
+    4: latLng(-33.1238, -64.349),
+  };
+  const GENERICO = 'No hay una ruta en auto que una todos los puntos del recorrido. Revisá las ubicaciones.';
+
+  const esTramo = (body, desde, hasta) =>
+    !body.intermediates &&
+    JSON.stringify(body.origin) === JSON.stringify(PUNTOS[desde]) &&
+    JSON.stringify(body.destination) === JSON.stringify(PUNTOS[hasta]);
+
+  // Google falso: el recorrido completo no tiene ruta (200 con {}) y el tramo
+  // desde → hasta tampoco; los demás tramos sí.
+  const sinRutaEntre = (desde, hasta) => (l) => {
+    if (l.body.intermediates || esTramo(l.body, desde, hasta)) return json(200, {});
+    return undefined;
+  };
+
+  test('camino feliz: una sola llamada, con el recorrido completo, y una sola del tope', async () => {
+    const { status } = await estimar(RECORRIDO);
+    assert.equal(status, 200);
+    assert.equal(llamadasGoogle.length, 1);
+    assert.equal(llamadasGoogle[0].body.intermediates.length, 2);
+    assert.equal(limiteDiario.usoDeHoy().rutas, 1);
+  });
+
+  test('falla el primer tramo: 422 con «Córdoba» y «Alta Gracia», 2 llamadas', async () => {
+    comportamiento = sinRutaEntre(1, 3);
+    const { status, json: r } = await estimar(RECORRIDO);
+    assert.equal(status, 422);
+    assert.equal(r.error, 'No hay una ruta en auto entre «Córdoba» y «Alta Gracia». Revisá esas ubicaciones.');
+    assert.equal(llamadasGoogle.length, 2);
+    assert.equal(limiteDiario.usoDeHoy().rutas, 2);
+  });
+
+  test('falla un tramo del medio: 422 con «Alta Gracia» y «Villa Carlos Paz», 3 llamadas en orden', async () => {
+    comportamiento = sinRutaEntre(3, 2);
+    const { status, json: r } = await estimar(RECORRIDO);
+    assert.equal(status, 422);
+    assert.equal(r.error, 'No hay una ruta en auto entre «Alta Gracia» y «Villa Carlos Paz». Revisá esas ubicaciones.');
+    assert.equal(llamadasGoogle.length, 3);
+    assert.ok(esTramo(llamadasGoogle[1].body, 1, 3));
+    assert.ok(esTramo(llamadasGoogle[2].body, 3, 2));
+  });
+
+  test('falla el último tramo: 422 con «Villa Carlos Paz» y «Río Cuarto», 4 llamadas', async () => {
+    comportamiento = sinRutaEntre(2, 4);
+    const { status, json: r } = await estimar(RECORRIDO);
+    assert.equal(status, 422);
+    assert.equal(r.error, 'No hay una ruta en auto entre «Villa Carlos Paz» y «Río Cuarto». Revisá esas ubicaciones.');
+    assert.equal(llamadasGoogle.length, 4);
+    assert.ok(esTramo(llamadasGoogle[3].body, 2, 4));
+  });
+
+  test('cada tramo es un computeRoutes igual al completo (field mask, DRIVE, TRAFFIC_UNAWARE), sin intermedios', async () => {
+    comportamiento = sinRutaEntre(2, 4);
+    await estimar(RECORRIDO);
+    for (const l of llamadasGoogle) {
+      assert.equal(l.url, google.URL_RUTAS);
+      assert.equal(l.method, 'POST');
+      assert.equal(l.headers['X-Goog-FieldMask'], 'routes.distanceMeters,routes.duration');
+      assert.equal(l.body.travelMode, 'DRIVE');
+      assert.equal(l.body.routingPreference, 'TRAFFIC_UNAWARE');
+    }
+    assert.ok(esTramo(llamadasGoogle[1].body, 1, 3));
+    assert.ok(esTramo(llamadasGoogle[2].body, 3, 2));
+    assert.ok(esTramo(llamadasGoogle[3].body, 2, 4));
+  });
+
+  test('tope alcanzado a mitad del diagnóstico: 422 con el mensaje genérico, no 429', async () => {
+    process.env.GOOGLE_LIMITE_DIARIO_RUTAS = '2';
+    comportamiento = sinRutaEntre(2, 4);
+    const { status, json: r } = await estimar(RECORRIDO);
+    assert.equal(status, 422);
+    assert.equal(r.error, GENERICO);
+    // Completo + primer tramo; el segundo ya no sale (el tope lo corta).
+    assert.equal(llamadasGoogle.length, 2);
+    assert.equal(limiteDiario.usoDeHoy().rutas, 2);
+  });
+
+  test('Google con error durante el diagnóstico: 422 con el mensaje genérico', async () => {
+    comportamiento = (l) => (l.body.intermediates ? json(200, {}) : json(500, {}));
+    const { status, json: r } = await estimar(RECORRIDO);
+    assert.equal(status, 422);
+    assert.equal(r.error, GENERICO);
+    assert.equal(llamadasGoogle.length, 2);
+  });
+
+  test('todos los tramos tienen ruta: 422 con el mensaje genérico, 4 llamadas', async () => {
+    comportamiento = (l) => (l.body.intermediates ? json(200, {}) : undefined);
+    const { status, json: r } = await estimar(RECORRIDO);
+    assert.equal(status, 422);
+    assert.equal(r.error, GENERICO);
+    assert.equal(llamadasGoogle.length, 4);
+  });
+
+  test('sin paradas el único tramo es el recorrido: mensaje con los dos puntos y UNA sola llamada', async () => {
+    comportamiento = () => json(200, {});
+    const { status, json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 4 });
+    assert.equal(status, 422);
+    assert.equal(r.error, 'No hay una ruta en auto entre «Córdoba» y «Río Cuarto». Revisá esas ubicaciones.');
+    assert.equal(llamadasGoogle.length, 1);
+  });
+
+  test('un placeId que Google ya no reconoce (400) también se diagnostica por tramo', async () => {
+    // Casa del pasajero → Córdoba → aeropuerto, con el placeId del aeropuerto vencido.
+    comportamiento = (l) => (JSON.stringify(l.body).includes('ChIJ_aeropuerto') ? json(400, { error: { status: 'INVALID_ARGUMENT' } }) : undefined);
+    const { status, json: r } = await estimar({ origenId: 10, paradaIds: [1], destinoId: 11 });
+    assert.equal(status, 422);
+    assert.equal(
+      r.error,
+      'No hay una ruta en auto entre «Córdoba» y «Aeropuerto Internacional Ing. Ambrosio L.V. Taravella». Revisá esas ubicaciones.'
+    );
+    assert.equal(llamadasGoogle.length, 3);
   });
 });
 
