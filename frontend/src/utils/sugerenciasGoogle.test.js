@@ -2,7 +2,15 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { debeBuscarEnGoogle, lugarDe, mensajeErrorGoogle, nuevoSessionToken } from './sugerenciasGoogle.js';
+import {
+  debeBuscarEnGoogle,
+  debeConsultarGoogle,
+  frecuenteExistenteDe,
+  lugarDe,
+  mensajeErrorGoogle,
+  nuevoSessionToken,
+  ofrecerCrearPorNombre,
+} from './sugerenciasGoogle.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 // El formato que acepta el backend (y Google): letras, números, - y _, hasta 36.
@@ -58,5 +66,52 @@ describe('lugarDe', () => {
     assert.deepEqual(lugarDe({ id: 1, nombre: 'Casa', placeId: 'ChIJ_x' }), { placeId: 'ChIJ_x', latitud: null, longitud: null });
     assert.deepEqual(lugarDe({ id: 2, nombre: 'Cosquín', latitud: -31.2, longitud: -64.4 }), { placeId: null, latitud: -31.2, longitud: -64.4 });
     assert.equal(lugarDe(null), null);
+  });
+});
+
+describe('debeConsultarGoogle (cuándo se le pregunta a Google)', () => {
+  const base = { texto: 'monserrat', textoFrecuentes: 'monserrat', buscandoFrecuentes: false, cantidadFrecuentes: 0 };
+
+  test('sin frecuentes que coincidan con lo escrito: sí', () => {
+    assert.equal(debeConsultarGoogle(base), true);
+  });
+
+  test('con alguna frecuente que coincide: no (salvo que lo pida el usuario)', () => {
+    assert.equal(debeConsultarGoogle({ ...base, cantidadFrecuentes: 1 }), false);
+    assert.equal(debeConsultarGoogle({ ...base, cantidadFrecuentes: 1, forzado: true }), true);
+  });
+
+  test('mientras se buscan las frecuentes, o si la respuesta es de otro texto: no', () => {
+    assert.equal(debeConsultarGoogle({ ...base, buscandoFrecuentes: true }), false);
+    assert.equal(debeConsultarGoogle({ ...base, texto: 'monserrat 2' }), false);
+    assert.equal(debeConsultarGoogle({ ...base, textoFrecuentes: undefined }), false);
+  });
+
+  test('menos de 3 letras: nunca, ni forzado', () => {
+    assert.equal(debeConsultarGoogle({ ...base, texto: 'mo', textoFrecuentes: 'mo' }), false);
+    assert.equal(debeConsultarGoogle({ ...base, texto: 'mo', forzado: true }), false);
+  });
+});
+
+describe('frecuenteExistenteDe (409 por nombre repetido)', () => {
+  test('devuelve la existente de un 409; null para cualquier otro error', () => {
+    const existente = { id: 7, nombre: 'Hotel Sierras' };
+    assert.deepEqual(frecuenteExistenteDe({ response: { status: 409, data: { error: '…', frecuenteExistente: existente } } }), existente);
+    assert.equal(frecuenteExistenteDe({ response: { status: 409, data: { error: 'ya está ubicada' } } }), null);
+    assert.equal(frecuenteExistenteDe({ response: { status: 429, data: {} } }), null);
+    assert.equal(frecuenteExistenteDe(new Error('Network Error')), null);
+  });
+});
+
+describe('ofrecerCrearPorNombre (plan B sin Google)', () => {
+  test('si Google falló (sin key, tope, caído) y hay texto: sí', () => {
+    assert.equal(ofrecerCrearPorNombre({ texto: 'Escuela Carbó', errorGoogle: 'Se alcanzó el límite diario…' }), true);
+    assert.equal(ofrecerCrearPorNombre({ texto: 'Escuela Carbó', errorEleccion: { mensaje: 'falta configurar…' } }), true);
+  });
+
+  test('con Google andando, sin texto o con un conflicto de nombre: no', () => {
+    assert.equal(ofrecerCrearPorNombre({ texto: 'Escuela Carbó' }), false);
+    assert.equal(ofrecerCrearPorNombre({ texto: '  ', errorGoogle: 'caído' }), false);
+    assert.equal(ofrecerCrearPorNombre({ texto: 'Hotel', errorEleccion: { mensaje: 'Ya hay…', frecuenteExistente: { id: 1 } } }), false);
   });
 });

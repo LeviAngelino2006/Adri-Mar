@@ -51,3 +51,30 @@ export function lugarDe(ubicacion) {
   if (!ubicacion) return null;
   return { placeId: ubicacion.placeId ?? null, latitud: ubicacion.latitud ?? null, longitud: ubicacion.longitud ?? null };
 }
+
+// Cuándo se le pregunta a Google desde el selector de ubicaciones (cada
+// pregunta se cobra): solo con 3 letras o más y
+//  - si el usuario tocó "Buscar dirección en Google" (forzado), o
+//  - si ya se sabe que NO hay frecuentes que coincidan con lo escrito (la
+//    búsqueda de frecuentes terminó y fue para este mismo texto).
+// Mientras se buscan las frecuentes, o si hay alguna, Google no se consulta: así
+// elegir una frecuente nunca gasta una llamada a Google.
+export function debeConsultarGoogle({ texto, forzado = false, textoFrecuentes, buscandoFrecuentes, cantidadFrecuentes }) {
+  if (!debeBuscarEnGoogle(texto)) return false;
+  if (forzado) return true;
+  return !buscandoFrecuentes && textoFrecuentes === texto && cantidadFrecuentes === 0;
+}
+
+// La frecuente que ya existe con el nombre que se quiso guardar (409 del
+// backend), para ofrecer usarla; null si el error es otro.
+export function frecuenteExistenteDe(err) {
+  return err?.response?.status === 409 ? (err.response.data?.frecuenteExistente ?? null) : null;
+}
+
+// Plan B: si Google no está disponible (sin key, tope diario, cuota, caído…),
+// se vuelve a ofrecer "+ Crear «X»" por nombre. Un conflicto de nombre (409)
+// no es "Google no disponible": ahí se ofrece usar la existente.
+export function ofrecerCrearPorNombre({ texto, errorGoogle, errorEleccion }) {
+  if (!String(texto ?? '').trim()) return false;
+  return Boolean(errorGoogle) || Boolean(errorEleccion && !errorEleccion.frecuenteExistente);
+}

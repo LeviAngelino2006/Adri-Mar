@@ -68,3 +68,35 @@
   text-align: right;
   color: var(--color-text-secondary);
 }
+
+/* Nombre de la frecuente (después de elegir una sugerencia con "Guardar como
+   frecuente"): campo editable con Guardar/Cancelar, dentro de la lista. */
+.selector-ubicacion-nombrar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-1) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--brand-600);
+  border-radius: var(--radius-sm);
+  background-color: var(--brand-50);
+}
+
+.selector-ubicacion-nombrar label {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.selector-ubicacion-nombrar-acciones {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.selector-buscar-crear-lista .selector-ubicacion-nombrar-acciones button {
+  width: auto;
+}
+
+.selector-ubicacion-nombrar .selector-ubicacion-error {
+  font-size: 0.8125rem;
+}
