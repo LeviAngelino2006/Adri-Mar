@@ -8,6 +8,18 @@ const {
 } = require('../utils/recorridoViaje');
 const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../utils/marcaModeloVehiculo');
 
+// Un punto del recorrido (origen, destino o parada) como lo ve el front: con el
+// placeId de Google y las coordenadas (null si no tiene), para que el link
+// "Ver recorrido en Google Maps" y el mensaje de WhatsApp lleven al chofer a la
+// dirección exacta (utils/googleMaps.urlRecorrido del front).
+const serializarPunto = (u) => ({
+  id: u.id,
+  nombre: u.nombre,
+  placeId: u.placeId ?? null,
+  latitud: u.latitud ?? null,
+  longitud: u.longitud ?? null,
+});
+
 const ESTADO_VEHICULO_HABILITADO = 'OPERATIVO';
 const ESTADOS_VIAJE_VALIDOS = ['A_CONFIRMAR', 'PROGRAMADO', 'EN_VIAJE', 'FINALIZADO', 'CANCELADO'];
 const SOLO_FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -653,14 +665,14 @@ async function serializarViaje(viaje, usuarioSolicitante) {
     // históricos que no los tienen (no se inventa ni se omite la clave, ver
     // tarea de Origen/Destino).
     origenId: viaje.origenId,
-    origen: viaje.origen ? { id: viaje.origen.id, nombre: viaje.origen.nombre } : null,
+    origen: viaje.origen ? serializarPunto(viaje.origen) : null,
     destinoId: viaje.destinoId,
-    destino: viaje.destino ? { id: viaje.destino.id, nombre: viaje.destino.nombre } : null,
+    destino: viaje.destino ? serializarPunto(viaje.destino) : null,
     // Paradas intermedias, ordenadas. No son un dato administrativo ni de
     // planificación interna: las ven todos los perfiles que ven el viaje.
     paradas: (viaje.paradas ?? []).map((parada) => ({
       orden: parada.orden,
-      ubicacion: { id: parada.ubicacion.id, nombre: parada.ubicacion.nombre },
+      ubicacion: serializarPunto(parada.ubicacion),
     })),
     // Cliente es un dato core del viaje, visible para todos los perfiles.
     clienteId: viaje.clienteId,

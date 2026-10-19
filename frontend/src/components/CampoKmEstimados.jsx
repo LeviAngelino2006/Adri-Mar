@@ -9,7 +9,9 @@ import './CampoKmEstimados.css';
 // del cálculo se muestra como mensaje del campo y no bloquea nada.
 //
 //  - errorValidacion: error del backend al guardar el viaje (tiene prioridad).
-//  - errorCalculo: mensaje del último "Calcular km" fallido, si sigue vigente.
+//  - errorCalculo: { mensaje, faltantes } del último "Calcular km" fallido, si
+//    sigue vigente. faltantes: ubicaciones sin coordenadas, cada una con su
+//    acción para ubicarla en el mapa (onUbicar).
 //  - estimacion: { resultado, desactualizado } | null.
 function CampoKmEstimados({
   valor,
@@ -17,18 +19,38 @@ function CampoKmEstimados({
   requerido,
   errorValidacion,
   errorCalculo,
+  onUbicar,
   puedeCalcular,
   calculando,
   onCalcular,
   estimacion,
 }) {
+  const faltantes = errorCalculo?.faltantes ?? [];
+  const error =
+    errorValidacion ||
+    (errorCalculo && (
+      <>
+        {errorCalculo.mensaje}
+        {/* Separadas por un espacio (no por margen): si una baja de renglón,
+            arranca sin sangría. */}
+        {faltantes.map((u) => (
+          <span key={u.ubicacionId}>
+            {' '}
+            <button type="button" className="campo-km-ubicar" onClick={() => onUbicar(u)}>
+              {faltantes.length === 1 ? 'Ubicarla' : `Ubicar ${u.nombre}`}
+            </button>
+          </span>
+        ))}
+      </>
+    ));
+
   return (
     <div>
       <div className="campo-km">
         <FormField
           id="kilometrosEstimados"
           label="Kilómetros estimados"
-          error={errorValidacion || errorCalculo}
+          error={error || undefined}
           hint={puedeCalcular ? undefined : 'Elegí origen y destino para calcularlos'}
           required={requerido}
         >

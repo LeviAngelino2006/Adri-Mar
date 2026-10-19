@@ -23,6 +23,7 @@ import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { DURACION_TOAST_CON_ACCION_MS, DURACION_TOAST_MS } from '../constants/toast';
 import { aInputCordoba } from '../utils/fechaCordoba';
 import { paradasDesdeViaje } from '../utils/paradas';
+import { lugarDe } from '../utils/sugerenciasGoogle';
 import { avisoWhatsApp } from '../utils/whatsapp';
 import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
@@ -78,6 +79,8 @@ function viajeAValoresForm(viaje) {
     origenNombre: viaje.origen?.nombre || '',
     destinoId: viaje.destinoId || '',
     destinoNombre: viaje.destino?.nombre || '',
+    origenLugar: lugarDe(viaje.origen),
+    destinoLugar: lugarDe(viaje.destino),
     paradas: paradasDesdeViaje(viaje),
     fechaInicio: aInputCordoba(viaje.fechaInicio),
     fechaFin: aInputCordoba(viaje.fechaFin),

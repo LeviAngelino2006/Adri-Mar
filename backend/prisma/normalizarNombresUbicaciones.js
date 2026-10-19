@@ -126,7 +126,10 @@ async function main() {
   const prisma = new PrismaClient();
 
   try {
+    // Solo frecuentes: el nombre de una particular es la dirección de Google y
+    // no lleva nombreNormalizado (si se lo calculara, chocaría con el índice).
     const filas = await prisma.ubicacion.findMany({
+      where: { esFrecuente: true },
       select: {
         id: true,
         nombre: true,

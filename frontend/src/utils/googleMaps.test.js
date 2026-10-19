@@ -89,3 +89,59 @@ test('un ida y vuelta repite el lugar sin problema', () => {
   assert.equal(params.get('origin'), params.get('destination'));
   assert.equal(params.get('waypoints'), 'Córdoba, Córdoba, Argentina');
 });
+
+// --- Lugar en el mapa: placeId, coordenadas o nombre -------------------------
+
+const CASA = { nombre: 'Av. Colón 1234, X5000 Córdoba', placeId: 'ChIJ_casa' };
+const AEROPUERTO = { nombre: 'Aeropuerto Internacional Ing. Ambrosio L.V. Taravella', placeId: 'ChIJ_aeropuerto' };
+const COSQUIN = { nombre: 'Cosquín', latitud: -31.2437, longitud: -64.4653 };
+const MONSERRAT = { nombre: 'Colegio Nacional de Monserrat' };
+
+test('con placeId: origin_place_id y destination_place_id, con el nombre como texto', () => {
+  const params = parametros(urlRecorrido({ origen: CASA, destino: AEROPUERTO }));
+
+  assert.equal(params.get('origin'), 'Av. Colón 1234, X5000 Córdoba');
+  assert.equal(params.get('origin_place_id'), 'ChIJ_casa');
+  assert.equal(params.get('destination'), 'Aeropuerto Internacional Ing. Ambrosio L.V. Taravella, Córdoba, Argentina');
+  assert.equal(params.get('destination_place_id'), 'ChIJ_aeropuerto');
+});
+
+test('sin placeId pero con coordenadas: "lat,lng" y sin place_id', () => {
+  const params = parametros(urlRecorrido({ origen: COSQUIN, destino: { nombre: 'Córdoba', latitud: -31.4168, longitud: -64.1836 } }));
+
+  assert.equal(params.get('origin'), '-31.2437,-64.4653');
+  assert.equal(params.get('destination'), '-31.4168,-64.1836');
+  assert.equal(params.has('origin_place_id'), false);
+  assert.equal(params.has('destination_place_id'), false);
+});
+
+test('sin placeId ni coordenadas: el nombre con la regla de siempre', () => {
+  const params = parametros(urlRecorrido({ origen: MONSERRAT, destino: COSQUIN }));
+  assert.equal(params.get('origin'), 'Colegio Nacional de Monserrat, Córdoba, Argentina');
+  assert.equal(params.get('destination'), '-31.2437,-64.4653');
+});
+
+test('paradas todas con placeId: waypoint_place_ids en el mismo orden que waypoints', () => {
+  const params = parametros(urlRecorrido({ origen: COSQUIN, paradas: [CASA, AEROPUERTO], destino: COSQUIN }));
+
+  assert.equal(params.get('waypoint_place_ids'), 'ChIJ_casa|ChIJ_aeropuerto');
+  assert.equal(
+    params.get('waypoints'),
+    'Av. Colón 1234, X5000 Córdoba|Aeropuerto Internacional Ing. Ambrosio L.V. Taravella, Córdoba, Argentina'
+  );
+});
+
+test('paradas mezcladas: sin waypoint_place_ids; cada una por su dirección, coordenadas o nombre', () => {
+  const params = parametros(urlRecorrido({ origen: CASA, paradas: [CASA, COSQUIN, MONSERRAT], destino: AEROPUERTO }));
+
+  assert.equal(params.has('waypoint_place_ids'), false);
+  assert.equal(
+    params.get('waypoints'),
+    'Av. Colón 1234, X5000 Córdoba|-31.2437,-64.4653|Colegio Nacional de Monserrat, Córdoba, Argentina'
+  );
+});
+
+test('la key de Google nunca va en el link (no la necesita)', () => {
+  const url = urlRecorrido({ origen: CASA, destino: AEROPUERTO });
+  assert.equal(new URL(url).searchParams.has('key'), false);
+});

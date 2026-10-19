@@ -1,6 +1,7 @@
 // Lógica del botón "Calcular km" del formulario de viaje (sin React, para
 // poder testearla con node:test). El cálculo lo hace el backend con
-// OpenRouteService (POST /viajes/estimar-km) a partir de los ids del recorrido.
+// la Routes API de Google (POST /viajes/estimar-km) a partir de los ids del
+// recorrido y del placeId o las coordenadas guardadas de cada ubicación.
 
 // Ids del recorrido tal como los tiene el formulario. Las filas de parada sin
 // ubicación elegida se ignoran, igual que en el link de Google Maps
@@ -26,8 +27,8 @@ export function firmaRecorrido({ origenId, paradaIds, destinoId }) {
 }
 
 // Mensaje para el usuario a partir del error de axios. El backend manda
-// { error } (ORS: no encontrada, cuota, timeout…) o { errores } por campo
-// (recorrido inválido).
+// { error } (ubicación sin coordenadas, cuota, timeout…) o { errores } por
+// campo (recorrido inválido).
 export function mensajeErrorEstimacion(err) {
   const datos = err?.response?.data;
   if (datos?.error) return datos.error;
@@ -45,17 +46,27 @@ export function aplicarEstimacion(form, resultado) {
   return { ...form, kilometrosEstimados: String(resultado.kilometros) };
 }
 
-// Por qué un punto merece revisión, en palabras para el encargado. Los códigos
-// los decide el backend (utils/revisionGeocodificacion.js); uno desconocido se
-// muestra igual con un texto genérico, para no esconder el aviso.
-const TEXTOS_MOTIVOS_REVISION = {
-  CALLE: 'se ubicó en una calle, no en una localidad o un lugar',
-  NOMBRE_DISTINTO: 'el lugar encontrado tiene otro nombre',
-  OTRA_PROVINCIA: 'quedó fuera de la provincia de Córdoba',
-};
+// Ubicaciones del recorrido que todavía no están en el mapa, según el 422 del
+// backend: [{ ubicacionId, nombre }] (vacío para cualquier otro error).
+export function ubicacionesSinCoordenadas(err) {
+  const lista = err?.response?.status === 422 ? err.response.data?.ubicacionesSinCoordenadas : null;
+  return Array.isArray(lista) ? lista : [];
+}
 
-export function textoMotivosRevision(motivos = []) {
-  return motivos.map((m) => TEXTOS_MOTIVOS_REVISION[m] ?? 'conviene verificarla en el mapa').join('; ');
+// Mismo texto que el backend (estimacionRecorridoService.errorSinCoordenadas).
+export function mensajeSinCoordenadas(faltantes) {
+  const nombres = faltantes.map((u) => `"${u.nombre}"`);
+  return faltantes.length === 1
+    ? `Falta ubicar ${nombres[0]} en el mapa.`
+    : `Faltan ubicar en el mapa: ${nombres.join(', ')}.`;
+}
+
+// Después de ubicar una en el mapa: el error sin esa ubicación, o null si ya
+// no falta ninguna (entonces se puede volver a calcular).
+export function quitarFaltante(errorKm, ubicacionId) {
+  const faltantes = (errorKm?.faltantes ?? []).filter((u) => u.ubicacionId !== ubicacionId);
+  if (faltantes.length === 0) return null;
+  return { ...errorKm, faltantes, mensaje: mensajeSinCoordenadas(faltantes) };
 }
 
 // 45 → "45 min"; 91 → "1 h 31 min"; 120 → "2 h".

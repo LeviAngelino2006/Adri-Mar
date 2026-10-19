@@ -5,6 +5,7 @@ import FormField from './ui/FormField';
 import Alert from './ui/Alert';
 import ControlSegmentado from './ui/ControlSegmentado';
 import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
+import SelectorUbicacion from './SelectorUbicacion';
 import SelectorMultiple from './ui/SelectorMultiple';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import { calcularImportes, centavosAString, formatearAlicuota, importeIngresadoACentavos } from '../utils/importes';
@@ -138,22 +139,18 @@ function PresupuestoForm({ valoresIniciales, unidadesOriginales = [], onSubmit, 
         </div>
 
         <FormField id="origenId" label="Origen" error={errores.origenId} required>
-          <SelectorBuscarOCrear
-            endpoint="/ubicaciones"
+          <SelectorUbicacion
             valor={form.origenId}
             valorNombre={form.origenNombre}
             onSeleccionar={seleccionar('origen')}
-            placeholder="Buscar o crear ubicación…"
           />
         </FormField>
 
         <FormField id="destinoId" label="Destino" error={errores.destinoId} required>
-          <SelectorBuscarOCrear
-            endpoint="/ubicaciones"
+          <SelectorUbicacion
             valor={form.destinoId}
             valorNombre={form.destinoNombre}
             onSeleccionar={seleccionar('destino')}
-            placeholder="Buscar o crear ubicación…"
           />
         </FormField>
 

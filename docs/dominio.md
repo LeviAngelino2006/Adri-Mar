@@ -134,7 +134,11 @@ Para pasar un viaje a `PROGRAMADO`, el sistema valida:
 - Se admiten entre **0 y 9 paradas intermedias ordenadas** (`ViajeParada`).
 - No pueden existir puntos consecutivos idénticos en la secuencia `[origen, ...paradas, destino]`.
 - Se permite recorrido de "ida y vuelta" (`origen == destino`) únicamente si existe al menos una parada intermedia válida entre ellos.
-- Generación automática de enlace a **Google Maps** con waypoints para visualización satelital de la ruta.
+- Generación automática de enlace a **Google Maps** con waypoints. Cada punto va por su `placeId` de Google si lo tiene (`origin_place_id`, …), si no por sus coordenadas y, en último caso, por su nombre: el chofer llega a la dirección exacta.
+- **Ubicaciones FRECUENTES y PARTICULARES** (`esFrecuente`). Las frecuentes (localidades de Georef, aeropuerto, colegios, hoteles) aparecen en el buscador; las particulares (la casa de un pasajero) se crean al elegir una dirección de Google, se llaman como esa dirección, no aparecen en el buscador y no tienen `nombreNormalizado`. Elegir dos veces la misma dirección no duplica la fila (`placeId` único). Una dirección de Google se puede guardar como frecuente con el check "Guardar como frecuente".
+- Las localidades de Córdoba vienen de Georef (`scripts/importarLocalidadesCordoba.js`, con `georefId` y sus coordenadas). De Google solo se guarda el `placeId`: sus términos limitan guardar coordenadas (30 días) y direcciones.
+- **Km estimados:** "Calcular km" pide a la Routes API de Google la ruta en auto (origen → paradas → destino), cada punto por `placeId` o por coordenadas, sin interpretar nombres. Coinciden con la ruta que muestra el link de Google Maps. Si alguna ubicación no tiene ni `placeId` ni coordenadas, responde 422 con cuáles y el formulario ofrece ubicarla con el buscador de Google. Es una ayuda: el campo sigue siendo editable y guardar el viaje no depende del cálculo.
+- **Costo de Google:** el selector consulta a Google solo si ninguna frecuente coincide con lo escrito o si el usuario toca "Buscar dirección en Google"; elegir una frecuente no llama a Google. Hay un tope diario propio por tipo de llamada (`GOOGLE_LIMITE_DIARIO_*`). Si Google no está disponible (sin key, tope, caído), el selector ofrece "+ Crear «X»" por nombre y esa ubicación se ubica después con "Ubicarla".
 
 ### 5.4. Notificación al Chofer por WhatsApp
 - Se genera un link directo `https://wa.me/<telefono>?text=...` con el teléfono del chofer en formato internacional E.164 (`549...`).

@@ -8,8 +8,10 @@ import {
   formatearDuracion,
   idsDelRecorrido,
   mensajeErrorEstimacion,
+  mensajeSinCoordenadas,
   puedeCalcularKm,
-  textoMotivosRevision,
+  quitarFaltante,
+  ubicacionesSinCoordenadas,
 } from './estimacionKm.js';
 
 describe('idsDelRecorrido y puedeCalcularKm', () => {
@@ -57,8 +59,8 @@ describe('firmaRecorrido (cálculo desactualizado)', () => {
 
 describe('mensajeErrorEstimacion', () => {
   test('usa el mensaje del backend ({ error })', () => {
-    const err = { response: { status: 422, data: { error: 'No se encontró "Xqzwvlk" en el mapa.' } } };
-    assert.equal(mensajeErrorEstimacion(err), 'No se encontró "Xqzwvlk" en el mapa.');
+    const err = { response: { status: 422, data: { error: 'Falta ubicar "Hotel Sierras" en el mapa.' } } };
+    assert.equal(mensajeErrorEstimacion(err), 'Falta ubicar "Hotel Sierras" en el mapa.');
   });
 
   test('junta los errores por campo ({ errores })', () => {
@@ -87,7 +89,7 @@ describe('formatearDuracion', () => {
 describe('aplicarEstimacion (el campo se completa)', () => {
   test('pone el total redondeado en kilometrosEstimados y no toca el resto', () => {
     const form = { kilometrosEstimados: '', origenId: 1, destinoId: 2, cantidadPasajeros: '30' };
-    const nuevo = aplicarEstimacion(form, { kilometros: 38, duracionMinutos: 41, puntos: [] });
+    const nuevo = aplicarEstimacion(form, { kilometros: 38, duracionMinutos: 41 });
     assert.deepEqual(nuevo, { ...form, kilometrosEstimados: '38' });
   });
 
@@ -96,16 +98,30 @@ describe('aplicarEstimacion (el campo se completa)', () => {
   });
 });
 
-describe('textoMotivosRevision', () => {
-  test('cada código en palabras, varios separados por punto y coma', () => {
-    assert.equal(textoMotivosRevision(['CALLE']), 'se ubicó en una calle, no en una localidad o un lugar');
+describe('ubicaciones sin coordenadas (422)', () => {
+  const HOTEL = { ubicacionId: 21, nombre: 'Hotel Sierras' };
+  const COLEGIO = { ubicacionId: 20, nombre: 'Colegio Nacional de Monserrat' };
+  const error422 = (lista) => ({ response: { status: 422, data: { error: '…', ubicacionesSinCoordenadas: lista } } });
+
+  test('ubicacionesSinCoordenadas: la lista del 422, vacía para cualquier otro error', () => {
+    assert.deepEqual(ubicacionesSinCoordenadas(error422([HOTEL])), [HOTEL]);
+    assert.deepEqual(ubicacionesSinCoordenadas({ response: { status: 429, data: { error: 'cuota' } } }), []);
+    assert.deepEqual(ubicacionesSinCoordenadas({ response: { status: 422, data: { error: 'ruta imposible' } } }), []);
+    assert.deepEqual(ubicacionesSinCoordenadas(new Error('Network Error')), []);
+  });
+
+  test('mensajeSinCoordenadas: mismo texto que el backend, en singular y en plural', () => {
+    assert.equal(mensajeSinCoordenadas([HOTEL]), 'Falta ubicar "Hotel Sierras" en el mapa.');
     assert.equal(
-      textoMotivosRevision(['NOMBRE_DISTINTO', 'OTRA_PROVINCIA']),
-      'el lugar encontrado tiene otro nombre; quedó fuera de la provincia de Córdoba'
+      mensajeSinCoordenadas([HOTEL, COLEGIO]),
+      'Faltan ubicar en el mapa: "Hotel Sierras", "Colegio Nacional de Monserrat".'
     );
   });
 
-  test('un código desconocido no esconde el aviso', () => {
-    assert.equal(textoMotivosRevision(['ALGO_NUEVO']), 'conviene verificarla en el mapa');
+  test('quitarFaltante: saca la ubicada y rehace el mensaje; null cuando no queda ninguna', () => {
+    const errorKm = { mensaje: mensajeSinCoordenadas([HOTEL, COLEGIO]), firma: '21>20', faltantes: [HOTEL, COLEGIO] };
+    const restante = quitarFaltante(errorKm, 21);
+    assert.deepEqual(restante, { mensaje: 'Falta ubicar "Colegio Nacional de Monserrat" en el mapa.', firma: '21>20', faltantes: [COLEGIO] });
+    assert.equal(quitarFaltante(restante, 20), null);
   });
 });

@@ -7,13 +7,18 @@ import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
 import SelectorMultiple from './ui/SelectorMultiple';
 import EditorRecorrido from './EditorRecorrido';
 import CampoKmEstimados from './CampoKmEstimados';
+import UbicarConGoogle from './UbicarConGoogle';
 import { consultarDisponibilidad, estimarKm } from '../services/viajesApi';
+import { ubicarDesdeGoogle } from '../services/ubicacionesApi';
+import { lugarDe } from '../utils/sugerenciasGoogle';
 import {
   aplicarEstimacion,
   firmaRecorrido,
   idsDelRecorrido,
   mensajeErrorEstimacion,
   puedeCalcularKm,
+  quitarFaltante,
+  ubicacionesSinCoordenadas,
 } from '../utils/estimacionKm';
 import { nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { errorDeSecuencia, paradasAPayload } from '../utils/paradas';
@@ -26,12 +31,17 @@ const FORM_INICIAL = {
   vehiculoId: '',
   choferesCandidatos: [],
   vehiculosCandidatos: [],
-  // Paradas intermedias, en orden: [{ clave, id, nombre }] (ver utils/paradas).
+  // Paradas intermedias, en orden: [{ clave, id, nombre, placeId, latitud,
+  // longitud }] (ver utils/paradas).
   paradas: [],
   origenId: '',
   origenNombre: '',
   destinoId: '',
   destinoNombre: '',
+  // Lugar en el mapa del origen y del destino ({ placeId, latitud, longitud }):
+  // solo para el link "Ver recorrido en Google Maps"; no viaja al backend.
+  origenLugar: null,
+  destinoLugar: null,
   fechaInicio: '',
   fechaFin: '',
   kilometrosEstimados: '',
@@ -101,12 +111,16 @@ function ViajeForm({
   // marca desactualizado (no se recalcula solo) y el error deja de mostrarse.
   // Guardar el viaje no depende de nada de esto.
   const [estimacion, setEstimacion] = useState(null);
+  // { mensaje, firma, faltantes }: faltantes son las ubicaciones sin
+  // coordenadas (422), que se pueden ubicar desde el mismo error.
   const [errorKm, setErrorKm] = useState(null);
   const [calculandoKm, setCalculandoKm] = useState(false);
+  // Ubicación sin coordenadas que se está ubicando en el mapa ({ ubicacionId, nombre }).
+  const [ubicando, setUbicando] = useState(null);
   const idsRecorrido = idsDelRecorrido(form);
   const firmaActual = firmaRecorrido(idsRecorrido);
   const puedeCalcular = puedeCalcularKm(idsRecorrido);
-  const errorKmVigente = errorKm && errorKm.firma === firmaActual ? errorKm.mensaje : undefined;
+  const errorKmVigente = errorKm && errorKm.firma === firmaActual ? errorKm : null;
 
   const requiereOperativos = estadoActual === 'PROGRAMADO';
   const usaCandidatos = !requiereOperativos;
@@ -185,7 +199,7 @@ function ViajeForm({
   }
 
   function handleSeleccionarOrigen(item) {
-    setForm((f) => ({ ...f, origenId: item?.id || '', origenNombre: item?.nombre || '' }));
+    setForm((f) => ({ ...f, origenId: item?.id || '', origenNombre: item?.nombre || '', origenLugar: lugarDe(item) }));
   }
 
   async function handleCalcularKm() {
@@ -197,14 +211,25 @@ function ViajeForm({
       setEstimacion({ resultado: data, firma });
       setForm((f) => aplicarEstimacion(f, data));
     } catch (err) {
-      setErrorKm({ mensaje: mensajeErrorEstimacion(err), firma });
+      setErrorKm({ mensaje: mensajeErrorEstimacion(err), firma, faltantes: ubicacionesSinCoordenadas(err) });
     } finally {
       setCalculandoKm(false);
     }
   }
 
+  // Ubica con Google una ubicación que faltaba (si falla, el error se ve en el
+  // modal). Cuando ya no falta ninguna, vuelve a calcular: es lo que el usuario
+  // había pedido.
+  async function handleUbicarFaltante({ placeId, sessionToken }) {
+    await ubicarDesdeGoogle(ubicando.ubicacionId, { placeId, sessionToken });
+    const restante = quitarFaltante(errorKm, ubicando.ubicacionId);
+    setUbicando(null);
+    setErrorKm(restante);
+    if (!restante) handleCalcularKm();
+  }
+
   function handleSeleccionarDestino(item) {
-    setForm((f) => ({ ...f, destinoId: item?.id || '', destinoNombre: item?.nombre || '' }));
+    setForm((f) => ({ ...f, destinoId: item?.id || '', destinoNombre: item?.nombre || '', destinoLugar: lugarDe(item) }));
   }
 
   async function handleSubmit(e) {
@@ -238,7 +263,16 @@ function ViajeForm({
 
     setEnviando(true);
     try {
-      const { choferId, vehiculoId, choferesCandidatos, vehiculosCandidatos, paradas: filasParadas, ...resto } = form;
+      const {
+        choferId,
+        vehiculoId,
+        choferesCandidatos,
+        vehiculosCandidatos,
+        paradas: filasParadas,
+        origenLugar: _origenLugar,
+        destinoLugar: _destinoLugar,
+        ...resto
+      } = form;
       const asignacion = usaCandidatos ? { choferesCandidatos, vehiculosCandidatos } : { choferId, vehiculoId };
       await onSubmit({
         ...resto,
@@ -277,8 +311,8 @@ function ViajeForm({
 
         <div className="form-field-ancho">
           <EditorRecorrido
-            origen={{ id: form.origenId, nombre: form.origenNombre }}
-            destino={{ id: form.destinoId, nombre: form.destinoNombre }}
+            origen={{ id: form.origenId, nombre: form.origenNombre, ...form.origenLugar }}
+            destino={{ id: form.destinoId, nombre: form.destinoNombre, ...form.destinoLugar }}
             paradas={form.paradas}
             onCambiarOrigen={handleSeleccionarOrigen}
             onCambiarDestino={handleSeleccionarDestino}
@@ -371,6 +405,7 @@ function ViajeForm({
           requerido={requiereOperativos}
           errorValidacion={errores.kilometrosEstimados}
           errorCalculo={errorKmVigente}
+          onUbicar={setUbicando}
           puedeCalcular={puedeCalcular}
           calculando={calculandoKm}
           onCalcular={handleCalcularKm}
@@ -378,6 +413,14 @@ function ViajeForm({
             estimacion && { resultado: estimacion.resultado, desactualizado: estimacion.firma !== firmaActual }
           }
         />
+
+        {ubicando && (
+          <UbicarConGoogle
+            nombre={ubicando.nombre}
+            onUbicar={handleUbicarFaltante}
+            onCancelar={() => setUbicando(null)}
+          />
+        )}
 
         <FormField id="cantidadPasajeros" label="Cantidad de pasajeros" error={errores.cantidadPasajeros}>
           <input
