@@ -1,6 +1,7 @@
 // Smoke test de render de la tarjeta de viaje del listado (agrupado por día,
 // con el badge de pendiente administrativo), del formulario de alta (sin datos
-// administrativos) y de los paneles del Dashboard (Viajes de hoy y estados vacíos). Se corre con `npm test` (node:test).
+// administrativos, y precargado al duplicar), del botón "Duplicar viaje" y de los
+// paneles del Dashboard (Viajes de hoy y estados vacíos). Se corre con `npm test` (node:test).
 //
 // Mismo método que confirmarViaje.render.test.mjs: Vite en modo SSR carga los
 // .jsx y se renderiza a HTML con react-dom/server. Verifica la estructura, NO los
@@ -24,6 +25,8 @@ let vite;
 let TarjetaViaje;
 let ListadoViajesPorDia;
 let ViajeForm;
+let DuplicarViaje;
+let valoresParaDuplicar;
 let ContenidoViajesDeHoy;
 let ContenidoPorConfirmar;
 
@@ -33,6 +36,8 @@ before(async () => {
   TarjetaViaje = moduloTarjeta.default;
   ListadoViajesPorDia = moduloTarjeta.ListadoViajesPorDia;
   ViajeForm = (await vite.ssrLoadModule('/src/components/ViajeForm.jsx')).default;
+  DuplicarViaje = (await vite.ssrLoadModule('/src/components/DuplicarViaje.jsx')).default;
+  ({ valoresParaDuplicar } = await vite.ssrLoadModule('/src/utils/valoresFormViaje.js'));
   ({ ContenidoViajesDeHoy } = await vite.ssrLoadModule('/src/components/PanelViajesDeHoy.jsx'));
   ({ ContenidoPorConfirmar } = await vite.ssrLoadModule('/src/components/PanelViajesPorConfirmar.jsx'));
 });
@@ -142,6 +147,80 @@ describe('ViajeForm de alta', () => {
     }
     assert.ok(!/Datos administrativos/i.test(html));
     assert.ok(!html.includes('form-seccion'));
+  });
+});
+
+describe('Duplicar viaje', () => {
+  const ESTADOS = ['A_CONFIRMAR', 'PROGRAMADO', 'EN_VIAJE', 'FINALIZADO', 'CANCELADO'];
+  const render = (perfil, estado) =>
+    renderToStaticMarkup(h(DuplicarViaje, { viaje: viaje({ estado }), perfil, onDuplicar() {} }));
+
+  for (const perfil of ['ADMINISTRADOR', 'ENCARGADO']) {
+    test(`${perfil} ve el botón en todos los estados, en su propia fila`, () => {
+      for (const estado of ESTADOS) {
+        assert.equal(
+          render(perfil, estado),
+          '<div class="viajes-detalle-actions"><button type="button" class="btn btn-secondary"><span>Duplicar viaje</span></button></div>',
+          estado
+        );
+      }
+    });
+  }
+
+  for (const perfil of ['CHOFER', 'PERSONAL_TALLER']) {
+    test(`${perfil} no lo ve en ningún estado`, () => {
+      for (const estado of ESTADOS) assert.equal(render(perfil, estado), '', estado);
+    });
+  }
+
+  test('el formulario abre en modo alta, precargado con el recorrido y sin pasajeros ni unidad', () => {
+    const original = viaje({
+      estado: 'FINALIZADO',
+      clienteId: 3,
+      cliente: { id: 3, nombre: 'Colegio San José' },
+      origenId: 10,
+      origen: { id: 10, nombre: 'Río Tercero' },
+      destinoId: 20,
+      destino: { id: 20, nombre: 'Córdoba' },
+      paradas: [
+        { orden: 1, ubicacion: { id: 31, nombre: 'Almafuerte' } },
+        { orden: 2, ubicacion: { id: 32, nombre: 'Despeñaderos' } },
+      ],
+      cantidadPasajeros: 45,
+      choferId: 115,
+      vehiculoId: 4,
+      choferesCandidatos: [{ id: 115, nombre: 'Martín', apellido: 'Gómez' }],
+      vehiculosCandidatos: [{ id: 4, numeroInterno: 12, dominio: 'AE452KD' }],
+      precio: '420000.00',
+    });
+    // Las mismas props que arma Viajes.jsx al duplicar: sin estadoActual ni
+    // candidatosActuales, como un alta.
+    const html = renderToStaticMarkup(
+      h(ViajeForm, {
+        valoresIniciales: valoresParaDuplicar(original),
+        onSubmit() {},
+        textoBoton: 'Crear viaje',
+        textoEnviando: 'Creando…',
+        onCancelar() {},
+      })
+    );
+    // Modo alta: choferes y vehículos POSIBLES (vacíos), no el select de un chofer.
+    assert.match(html, /id="choferesCandidatos"/);
+    assert.match(html, /id="vehiculosCandidatos"/);
+    assert.ok(!html.includes('name="choferId"'));
+    assert.ok(!html.includes('name="vehiculoId"'));
+    assert.ok(!html.includes('Martín'));
+    assert.ok(!html.includes('AE452KD'));
+    // Copiado: cliente, recorrido en orden, fechas y km.
+    assert.match(html, /value="Colegio San José"/);
+    assert.match(html, /value="Río Tercero"[\s\S]*value="Almafuerte"[\s\S]*value="Despeñaderos"[\s\S]*value="Córdoba"/);
+    assert.match(html, /name="fechaInicio" value="2026-10-09T07:30"/);
+    assert.match(html, /name="fechaFin" value="2026-10-09T10:00"/);
+    assert.match(html, /name="kilometrosEstimados"[^>]*value="110"/);
+    // Vacío: pasajeros y nada administrativo.
+    assert.match(html, /name="cantidadPasajeros"[^>]*value=""/);
+    assert.ok(!html.includes('420000'));
+    assert.match(html, /<span>Crear viaje<\/span>/);
   });
 });
 
