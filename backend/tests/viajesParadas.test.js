@@ -95,8 +95,8 @@ describe('POST /viajes con paradas', () => {
       { ubicacionId: 4, orden: 2 },
     ]);
     assert.deepEqual(json.viaje.paradas, [
-      { orden: 1, ubicacion: { id: 3, nombre: 'Alta Gracia' } },
-      { orden: 2, ubicacion: { id: 4, nombre: 'Museo del Kempes' } },
+      { orden: 1, ubicacion: { id: 3, nombre: 'Alta Gracia', placeId: null, latitud: -31.6498, longitud: -64.4299 } },
+      { orden: 2, ubicacion: { id: 4, nombre: 'Museo del Kempes', placeId: 'ChIJ_museo_kempes', latitud: null, longitud: null } },
     ]);
   });
 
@@ -513,13 +513,13 @@ describe('visibilidad de las paradas', () => {
     assert.deepEqual(chofer.json.viajes[0].paradas, []);
   });
 
-  test('las paradas no traen datos propios: solo orden y ubicación (id y nombre)', async () => {
+  test('las paradas no traen datos propios: solo orden y ubicación (id, nombre y su lugar en el mapa)', async () => {
     agregarViaje({ paradas: [3] });
 
     const { json } = await pedir('GET', '/viajes', { perfil: 'ADMINISTRADOR' });
 
     assert.deepEqual(Object.keys(json.viajes[0].paradas[0]).sort(), ['orden', 'ubicacion']);
-    assert.deepEqual(Object.keys(json.viajes[0].paradas[0].ubicacion).sort(), ['id', 'nombre']);
+    assert.deepEqual(Object.keys(json.viajes[0].paradas[0].ubicacion).sort(), ['id', 'latitud', 'longitud', 'nombre', 'placeId']);
   });
 });
 

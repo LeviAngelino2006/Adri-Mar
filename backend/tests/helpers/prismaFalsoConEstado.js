@@ -108,8 +108,10 @@ function crearEntorno() {
     reemplazar(db.ubicaciones, [
       { id: 1, nombre: 'Río Tercero' },
       { id: 2, nombre: 'Córdoba' },
-      { id: 3, nombre: 'Alta Gracia' },
-      { id: 4, nombre: 'Museo del Kempes' },
+      // Localidad de Georef (con coordenadas) y lugar elegido en Google (con
+      // placeId): así se ve qué viaja de cada punto.
+      { id: 3, nombre: 'Alta Gracia', latitud: -31.6498, longitud: -64.4299 },
+      { id: 4, nombre: 'Museo del Kempes', placeId: 'ChIJ_museo_kempes' },
       { id: 5, nombre: 'Villa del Dique' },
     ]);
 
