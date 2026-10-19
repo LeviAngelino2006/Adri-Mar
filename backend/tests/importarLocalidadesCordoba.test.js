@@ -74,14 +74,20 @@ const EXISTENTES = () => [
 // escritura, para probar que el dry-run no escribe.
 function crearPrisma(filas, { soloLectura = false } = {}) {
   const escrituras = [];
+  const consultas = [];
   const prohibido = (metodo) => {
     throw new Error(`el dry-run no debe llamar a ${metodo}`);
   };
   const prisma = {
     filas,
     escrituras,
+    consultas,
     ubicacion: {
-      findMany: async () => filas.map((f) => ({ ...f })),
+      // Como la base: el script tiene que pedir solo las frecuentes.
+      findMany: async (args) => {
+        consultas.push(args);
+        return filas.filter((f) => args?.where?.esFrecuente === undefined || (f.esFrecuente ?? true) === args.where.esFrecuente).map((f) => ({ ...f }));
+      },
       createMany: ({ data }) => {
         if (soloLectura) prohibido('createMany');
         return async () => {
@@ -212,6 +218,13 @@ describe('planificar', () => {
     assert.ok(!p.crear.some((c) => c.georefId === '14091070'));
   });
 
+  test('una frecuente ya ubicada con Google (placeId, sin coordenadas) no se toca', () => {
+    const existentes = [fila(9, 'Cosquín', 'cosquin', { placeId: 'ChIJ_cosquin' })];
+    const p = planificar(LOCALIDADES, existentes);
+    assert.deepEqual(p.conCoordenadas.map((c) => c.id), [9]);
+    assert.ok(!p.completar.some((c) => c.id === 9));
+  });
+
   test('mismo nombre pero con otro georefId guardado: conflicto, no se toca', () => {
     const existentes = [fila(9, 'Cosquín', 'cosquin', { latitud: -31.2, longitud: -64.4, georefId: 'otro' })];
     const p = planificar(LOCALIDADES, existentes);
@@ -262,6 +275,16 @@ describe('obtenerLocalidades (API de Georef mockeada)', () => {
 // --- ejecutar (flujo completo) -----------------------------------------------
 
 describe('ejecutar', () => {
+  test('solo lee las FRECUENTES: una casa particular (nombreNormalizado null) no entra al plan', async () => {
+    const casa = fila(50, 'Av. Colón 1234, X5000 Córdoba', null, { esFrecuente: false, placeId: 'ChIJ_casa' });
+    const prisma = crearPrisma([...EXISTENTES(), casa], { soloLectura: true });
+
+    const { plan } = await ejecutar({ prisma, fetchFn: fetchGeoref(), log: silencio });
+
+    assert.deepEqual(prisma.consultas[0].where, { esFrecuente: true });
+    assert.ok(!plan.sinCoincidencia.some((x) => x.id === 50));
+  });
+
   test('dry-run (por defecto): no escribe nada e imprime el resumen', async () => {
     const prisma = crearPrisma(EXISTENTES(), { soloLectura: true });
     const lineas = [];

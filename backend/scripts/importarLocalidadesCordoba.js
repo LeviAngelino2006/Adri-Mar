@@ -16,8 +16,10 @@
 //  - Coincidencia con las ubicaciones existentes por nombreNormalizado (igual
 //    que buscarOCrear). Si la existente no tiene coordenadas, se le completan
 //    con el centroide de Georef y su georefId, y si el nombre está escrito
-//    distinto ("Cosquin"), se lo corrige al oficial ("Cosquín"). Si ya tiene
-//    coordenadas (alguien la ubicó a mano), no se toca.
+//    distinto ("Cosquin"), se lo corrige al oficial ("Cosquín"). Si ya está
+//    ubicada (coordenadas o lugar de Google), no se toca.
+//  - Solo se miran las FRECUENTES: las particulares (casas de pasajeros
+//    elegidas en Google) no tienen nombreNormalizado y nunca coinciden.
 //  - Las que no coinciden con ninguna se crean.
 //  - Georef lista a veces una "Entidad" con el mismo nombre y departamento que
 //    su localidad (ej. "Córdoba" Entidad y "Córdoba" Componente, ambas en
@@ -80,12 +82,12 @@ function agruparPor(lista, clave) {
 
 // Arma el plan. Función pura: no toca la base ni la red.
 //   localidades: respuesta de Georef ([{ id, nombre, categoria, centroide, departamento, municipio }])
-//   existentes:  [{ id, nombre, nombreNormalizado, latitud, longitud, georefId }]
+//   existentes:  [{ id, nombre, nombreNormalizado, latitud, longitud, georefId, placeId }] (solo frecuentes)
 // Devuelve:
 //   crear:          [{ georefId, nombre, nombreNormalizado, latitud, longitud, categoria }]
 //   completar:      [{ id, nombreActual, nombre, latitud, longitud, georefId, categoria, renombrar }]
 //                   (renombrar: el nombre cambia al oficial)
-//   conCoordenadas: [{ id, nombre, georefId, categoria }]  coinciden pero ya tienen coordenadas: no se tocan
+//   conCoordenadas: [{ id, nombre, georefId, categoria }]  coinciden pero ya están ubicadas (coordenadas o placeId): no se tocan
 //   yaImportadas:   [{ id, nombre, georefId, categoria }]  ya tienen ese georefId
 //   conflictos:     [{ id, nombre, georefIdGuardado, georefId }]  mismo nombre, otro georefId: no se tocan
 //   homonimos:      [{ nombre, localidades: [{ georefId, nombreFinal, departamento, categoria }] }]
@@ -161,7 +163,7 @@ function planificar(localidades, existentes) {
     usadas.add(existente.id);
     if (existente.georefId) {
       conflictos.push({ id: existente.id, nombre: existente.nombre, georefIdGuardado: existente.georefId, georefId: l.id });
-    } else if (existente.latitud != null && existente.longitud != null) {
+    } else if ((existente.latitud != null && existente.longitud != null) || existente.placeId) {
       conCoordenadas.push({ id: existente.id, nombre: existente.nombre, georefId: l.id, categoria: l.categoria });
     } else {
       completar.push({
@@ -184,7 +186,7 @@ function planificar(localidades, existentes) {
     .map((e) => ({
       id: e.id,
       nombre: e.nombre,
-      tieneCoordenadas: e.latitud != null && e.longitud != null,
+      tieneCoordenadas: (e.latitud != null && e.longitud != null) || Boolean(e.placeId),
       ambigua: clavesHomonimas.has(e.nombreNormalizado),
     }));
 
@@ -210,7 +212,7 @@ function imprimirResumen(plan, { totalGeoref, totalBase }, log = console.log) {
   log(`Nuevas (se crean): ${plan.crear.length}`);
   log(`Coinciden con existentes: ${plan.completar.length + plan.conCoordenadas.length + plan.yaImportadas.length}`);
   log(`  sin coordenadas, se completan: ${plan.completar.length} (con renombre: ${renombres.length})`);
-  log(`  ya tenían coordenadas, no se tocan: ${plan.conCoordenadas.length}`);
+  log(`  ya estaban ubicadas, no se tocan: ${plan.conCoordenadas.length}`);
   log(`  ya importadas (mismo georefId): ${plan.yaImportadas.length}`);
   log(`Mismo lugar listado dos veces en Georef (se importa uno): ${plan.descartadas.length}`);
 
@@ -230,7 +232,7 @@ function imprimirResumen(plan, { totalGeoref, totalBase }, log = console.log) {
   for (const c of plan.completar) log(`  #${c.id} "${c.nombre}" (${c.latitud.toFixed(4)}, ${c.longitud.toFixed(4)})`);
 
   if (plan.conCoordenadas.length > 0) {
-    log(`\nCoinciden pero ya tenían coordenadas, no se tocan (${plan.conCoordenadas.length}):`);
+    log(`\nCoinciden pero ya estaban ubicadas, no se tocan (${plan.conCoordenadas.length}):`);
     for (const c of plan.conCoordenadas) log(`  #${c.id} "${c.nombre}"`);
   }
 
@@ -272,7 +274,8 @@ async function aplicarPlan(prisma, plan) {
 async function ejecutar({ aplicar = false, prisma, fetchFn = globalThis.fetch, log = console.log }) {
   const localidades = await obtenerLocalidades(fetchFn);
   const existentes = await prisma.ubicacion.findMany({
-    select: { id: true, nombre: true, nombreNormalizado: true, latitud: true, longitud: true, georefId: true },
+    where: { esFrecuente: true },
+    select: { id: true, nombre: true, nombreNormalizado: true, latitud: true, longitud: true, georefId: true, placeId: true },
     orderBy: { id: 'asc' },
   });
 
