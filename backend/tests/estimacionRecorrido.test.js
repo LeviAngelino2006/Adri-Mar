@@ -49,6 +49,7 @@ const app = require(path.join(SRC, 'app.js'));
 const { generarToken } = require(path.join(SRC, 'services', 'tokenService.js'));
 const servicio = require(path.join(SRC, 'services', 'estimacionRecorridoService.js'));
 const google = require(path.join(SRC, 'services', 'googleMapsService.js'));
+const limiteDiario = require(path.join(SRC, 'utils', 'limiteDiarioGoogle.js'));
 
 // --- Google falso -------------------------------------------------------------
 
@@ -104,6 +105,8 @@ beforeEach(() => {
   llamadasPrisma.length = 0;
   comportamiento = null;
   process.env.GOOGLE_MAPS_API_KEY = CLAVE;
+  limiteDiario.reiniciar();
+  for (const v of ['GOOGLE_LIMITE_DIARIO_AUTOCOMPLETE', 'GOOGLE_LIMITE_DIARIO_DETALLES', 'GOOGLE_LIMITE_DIARIO_RUTAS']) delete process.env[v];
 });
 
 afterEach(() => {
@@ -307,6 +310,23 @@ describe('errores de Google', () => {
 });
 
 // --- Configuración, permisos y validación ----------------------------------
+
+describe('tope diario de rutas', () => {
+  test('pasado GOOGLE_LIMITE_DIARIO_RUTAS: 429 "cargá los km a mano" sin llamar a Google', async () => {
+    process.env.GOOGLE_LIMITE_DIARIO_RUTAS = '1';
+    assert.equal((await estimar({ origenId: 1, paradaIds: [], destinoId: 2 })).status, 200);
+
+    const { status, json: r } = await estimar({ origenId: 1, paradaIds: [], destinoId: 9 });
+    assert.equal(status, 429);
+    assert.equal(r.error, 'Se alcanzó el límite diario de consultas a Google Maps. Intentá mañana o cargá los km a mano.');
+    assert.equal(llamadasGoogle.length, 1);
+  });
+
+  test('un 422 por ubicación sin ubicar no gasta del tope', async () => {
+    await estimar({ origenId: 1, paradaIds: [], destinoId: 20 });
+    assert.equal(limiteDiario.usoDeHoy().rutas, 0);
+  });
+});
 
 describe('falta GOOGLE_MAPS_API_KEY', () => {
   test('503 con mensaje claro y sin llamar a Google ni a la base', async () => {

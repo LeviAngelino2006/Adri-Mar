@@ -15,6 +15,8 @@
 // Términos: de lo que devuelve Google solo se guarda el placeId (lo único que
 // se puede guardar sin límite de tiempo). Las coordenadas de Places tienen un
 // máximo de 30 días, así que no se piden ni se guardan.
+const limiteDiario = require('../utils/limiteDiarioGoogle');
+
 const URL_AUTOCOMPLETE = 'https://places.googleapis.com/v1/places:autocomplete';
 const URL_DETALLE = 'https://places.googleapis.com/v1/places/';
 const URL_RUTAS = 'https://routes.googleapis.com/directions/v2:computeRoutes';
@@ -61,12 +63,15 @@ function claveGoogle() {
 }
 
 // fetch con timeout (AbortController), leyendo el cuerpo adentro del mismo
-// plazo. La key va en el header X-Goog-Api-Key, nunca en la URL, para que no
+// plazo. Antes de llamar descuenta del tope diario propio del tipo (tipo:
+// autocomplete, detalles o rutas; ver utils/limiteDiarioGoogle): si ya se
+// alcanzó, 429 sin llamar a Google. La key va en el header X-Goog-Api-Key, nunca en la URL, para que no
 // quede en logs de nadie; tampoco se loguea ni se devuelve. Se usa
 // globalThis.fetch al momento de la llamada para que los tests puedan
 // reemplazarlo.
-async function llamarGoogle(url, { method = 'GET', body, fieldMask, timeoutMs = TIMEOUT_MS }) {
+async function llamarGoogle(url, { tipo, method = 'GET', body, fieldMask, timeoutMs = TIMEOUT_MS }) {
   const clave = claveGoogle();
+  if (!limiteDiario.consumir(tipo)) throw new ErrorMapa(429, limiteDiario.MENSAJE_LIMITE);
   const controlador = new AbortController();
   const temporizador = setTimeout(() => controlador.abort(), timeoutMs);
   try {
@@ -113,6 +118,7 @@ function errorPorStatus(status) {
 // Details que la cierra (ver detalleLugar).
 async function sugerencias(texto, sessionToken, { timeoutMs } = {}) {
   const { status, datos } = await llamarGoogle(URL_AUTOCOMPLETE, {
+    tipo: 'autocomplete',
     method: 'POST',
     fieldMask: FIELD_MASK_AUTOCOMPLETE,
     timeoutMs,
@@ -147,7 +153,7 @@ async function detalleLugar(placeId, sessionToken, { timeoutMs } = {}) {
     ...(sessionToken ? { sessionToken } : {}),
   }).toString();
 
-  const { status, datos } = await llamarGoogle(url.toString(), { fieldMask: FIELD_MASK_DETALLE, timeoutMs });
+  const { status, datos } = await llamarGoogle(url.toString(), { tipo: 'detalles', fieldMask: FIELD_MASK_DETALLE, timeoutMs });
   // Un placeId inexistente o vencido: 400 INVALID_ARGUMENT o 404 NOT_FOUND.
   if (status === 400 || status === 404) throw new ErrorMapa(422, MENSAJES.lugarInvalido);
   if (status !== 200) throw errorPorStatus(status);
@@ -172,6 +178,7 @@ async function calcularRuta(puntos, { timeoutMs } = {}) {
   const [origen, ...resto] = puntos;
   const destino = resto.pop();
   const { status, datos } = await llamarGoogle(URL_RUTAS, {
+    tipo: 'rutas',
     method: 'POST',
     fieldMask: FIELD_MASK_RUTAS,
     timeoutMs,
