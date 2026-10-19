@@ -100,8 +100,7 @@ Variables de `backend/.env` (ver `.env.example`):
 | `ADMIN_NOMBRE`, `ADMIN_APELLIDO`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` | Datos del Administrador inicial que crea el seed. |
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET_NAME` | Acceso a Supabase Storage para los PDFs. |
 | `FIRMAS_DIR` *(opcional)* | Carpeta con las firmas de los presupuestos. Por defecto se usa `backend/privado/firmas/`. |
-| `ORS_API_KEY` | Key de [OpenRouteService](https://openrouteservice.org/dev) para "Calcular km" y para buscar en el mapa al crear una ubicación. Sin ella esas dos funciones responden 503 y el resto anda igual. |
-| `ORS_BASE_URL` *(opcional)* | Por defecto `https://api.heigit.org`, **sin barra final**. |
+| `GOOGLE_MAPS_API_KEY` | Key de Google Maps Platform con **Places API (New)** y **Routes API** habilitadas: buscar direcciones y lugares al cargar un recorrido y "Calcular km". Sin ella esas funciones responden 503 y el resto (incluido el buscador de ubicaciones frecuentes) anda igual. Solo la usa el backend. |
 
 Nunca commitees el `.env` ni las firmas: ambos están en `.gitignore`. Para configurar las firmas de los presupuestos, seguí [backend/README.md](backend/README.md#firmas-de-los-presupuestos).
 
