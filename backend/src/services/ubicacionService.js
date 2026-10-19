@@ -35,7 +35,14 @@ class ValidacionError extends Error {
 class NoEncontradaError extends Error {}
 
 // 409: el pedido choca con otra ubicación (mismo lugar o mismo nombre).
-class ConflictoError extends Error {}
+// `extra` va en la respuesta: con un nombre repetido, la frecuente que ya
+// existe ({ frecuenteExistente }), para que el front ofrezca usarla.
+class ConflictoError extends Error {
+  constructor(mensaje, extra = {}) {
+    super(mensaje);
+    this.extra = extra;
+  }
+}
 
 // Busca contra nombreNormalizado (ya en minúscula y sin acentos) pasando el
 // texto por la misma normalizarNombre, así "rio" encuentra "Río Tercero" sin
@@ -158,18 +165,30 @@ function nombreFrecuente(nombre) {
   return String(nombre ?? '').normalize('NFC').trim().replace(/\s+/g, ' ');
 }
 
-// Si la frecuente que se quiere guardar tiene el mismo nombre que otra
-// frecuente: si esa otra todavía no tiene lugar de Google, es el mismo sitio
-// cargado a mano (ej. "Colegio Nacional de Monserrat" del Excel) y se le
-// completa el placeId; si ya tiene otro, es un homónimo y se rechaza.
+// 409 por nombre repetido, con la frecuente que ya existe para ofrecer usarla.
+function conflictoDeNombre(otra) {
+  return new ConflictoError(
+    `Ya hay una ubicación frecuente llamada "${otra.nombre}". Usala o elegí otro nombre.`,
+    { frecuenteExistente: publico(otra) }
+  );
+}
+
+// La frecuente con ese nombre, si hay una que choca con guardar `placeId`:
+// una que ya está ubicada (coordenadas de Georef u otro placeId) es otro
+// lugar o el mismo cargado de otra forma, y la decisión es del usuario (409
+// con la existente). Una SIN ubicar (ej. "Colegio Nacional de Monserrat" del
+// Excel) no choca: es el mismo sitio cargado a mano y se le completa el placeId.
+async function frecuenteQueChoca(nombreNormalizado, placeId) {
+  const otra = await prisma.ubicacion.findUnique({ where: { nombreNormalizado }, select: SELECT_INTERNO });
+  if (!otra || otra.placeId === placeId || !estaUbicada(otra)) return null;
+  return otra;
+}
+
 async function frecuenteConMismoNombre(nombreNormalizado, placeId) {
+  const choca = await frecuenteQueChoca(nombreNormalizado, placeId);
+  if (choca) throw conflictoDeNombre(choca);
   const otra = await prisma.ubicacion.findUnique({ where: { nombreNormalizado }, select: SELECT_INTERNO });
   if (!otra) return null;
-  if (otra.placeId && otra.placeId !== placeId) {
-    throw new ConflictoError(
-      `Ya hay una ubicación frecuente llamada "${otra.nombre}" en otro lugar. Elegila de Frecuentes o guardá esta como particular.`
-    );
-  }
   if (otra.placeId === placeId) return publico(otra);
   return prisma.ubicacion.update({ where: { id: otra.id }, data: { placeId }, select: SELECT_PUBLICO });
 }
@@ -179,9 +198,7 @@ async function frecuenteConMismoNombre(nombreNormalizado, placeId) {
 async function promoverAFrecuente(particular, nombre) {
   const nombreNormalizado = normalizarNombre(nombre);
   const otra = await prisma.ubicacion.findUnique({ where: { nombreNormalizado }, select: SELECT_INTERNO });
-  if (otra && otra.id !== particular.id) {
-    throw new ConflictoError(`Ya hay una ubicación frecuente llamada "${otra.nombre}". Elegila de Frecuentes.`);
-  }
+  if (otra && otra.id !== particular.id) throw conflictoDeNombre(otra);
   return prisma.ubicacion.update({
     where: { id: particular.id },
     data: { esFrecuente: true, nombre, nombreNormalizado },
@@ -193,8 +210,10 @@ async function promoverAFrecuente(particular, nombre) {
 // la misma dirección devuelve la misma fila (y no vuelve a llamar a Google).
 //  - PARTICULAR (frecuente false): nombre = la dirección formateada de Google,
 //    nombreNormalizado null (no choca con nadie por nombre) y fuera del buscador.
-//  - FRECUENTE: nombre = el texto principal de la sugerencia (`nombre`, lo manda
-//    el front). No se usa displayName del detalle: dispara el SKU Pro.
+//  - FRECUENTE: nombre = el que confirma el usuario (`nombre`; el front lo
+//    precarga con el texto principal de la sugerencia). No se usa displayName
+//    del detalle: dispara el SKU Pro. Si ese nombre ya es otra frecuente
+//    ubicada, 409 con la existente ANTES de llamar a Google.
 // De Google solo se guarda el placeId (ver googleMapsService): latitud,
 // longitud y direccion quedan en null.
 async function crearDesdeGoogle({ placeId, sessionToken, frecuente, nombre } = {}) {
@@ -212,6 +231,11 @@ async function crearDesdeGoogle({ placeId, sessionToken, frecuente, nombre } = {
   if (existente) {
     if (esFrecuente && !existente.esFrecuente) return promoverAFrecuente(existente, nombreLimpio);
     return publico(existente);
+  }
+
+  if (esFrecuente) {
+    const choca = await frecuenteQueChoca(normalizarNombre(nombreLimpio), id);
+    if (choca) throw conflictoDeNombre(choca);
   }
 
   // Valida el placeId con Google, trae la dirección y cierra la sesión de
@@ -240,7 +264,9 @@ async function crearDesdeGoogle({ placeId, sessionToken, frecuente, nombre } = {
     // Carrera: otra request creó el mismo lugar (o la misma frecuente) recién.
     const ganadora = await prisma.ubicacion.findUnique({ where: { placeId: placeIdFinal }, select: SELECT_PUBLICO });
     if (ganadora) return ganadora;
-    throw new ConflictoError('Ya hay una ubicación frecuente con ese nombre. Elegila de Frecuentes.');
+    const mismoNombre = await prisma.ubicacion.findUnique({ where: { nombreNormalizado: data.nombreNormalizado }, select: SELECT_INTERNO });
+    if (mismoNombre) throw conflictoDeNombre(mismoNombre);
+    throw err;
   }
 }
 

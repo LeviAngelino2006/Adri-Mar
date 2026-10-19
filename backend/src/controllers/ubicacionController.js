@@ -16,7 +16,7 @@ function responderError(res, err) {
     return res.status(404).json({ error: 'La ubicación no existe' });
   }
   if (err instanceof ubicacionService.ConflictoError) {
-    return res.status(409).json({ error: err.message });
+    return res.status(409).json({ error: err.message, ...err.extra });
   }
   if (err instanceof ubicacionService.ErrorMapa) {
     return res.status(err.status).json({ error: err.message, ...err.extra });

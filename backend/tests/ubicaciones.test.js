@@ -107,6 +107,7 @@ require.cache[rutaPrisma] = { id: rutaPrisma, filename: rutaPrisma, loaded: true
 const app = require(path.join(SRC, 'app.js'));
 const { generarToken } = require(path.join(SRC, 'services', 'tokenService.js'));
 const google = require(path.join(SRC, 'services', 'googleMapsService.js'));
+const limiteDiario = require(path.join(SRC, 'utils', 'limiteDiarioGoogle.js'));
 
 // --- Google falso ------------------------------------------------------------
 
@@ -198,6 +199,8 @@ beforeEach(() => {
   llamadasGoogle = [];
   comportamiento = null;
   process.env.GOOGLE_MAPS_API_KEY = CLAVE;
+  limiteDiario.reiniciar();
+  for (const v of ['GOOGLE_LIMITE_DIARIO_AUTOCOMPLETE', 'GOOGLE_LIMITE_DIARIO_DETALLES', 'GOOGLE_LIMITE_DIARIO_RUTAS']) delete process.env[v];
 });
 
 afterEach(() => {
@@ -619,12 +622,40 @@ describe('POST /ubicaciones/desde-google: FRECUENTE ("Guardar como frecuente")',
     assert.equal(filas.length, 1);
   });
 
-  test('mismo nombre que una frecuente con OTRO placeId: 409 y no se toca nada', async () => {
-    cargarFila('Colegio Nacional de Monserrat', 'colegio nacional de monserrat', { placeId: 'ChIJ_otro_lado' });
-    const { status, json: r } = await desdeGoogle({ placeId: 'ChIJ_monserrat', frecuente: true, nombre: 'Colegio Nacional de Monserrat' });
+  test('mismo nombre que una frecuente con OTRO placeId: 409 con la existente, sin llamar a Google ni tocar nada', async () => {
+    const otra = cargarFila('Colegio Nacional de Monserrat', 'colegio nacional de monserrat', { placeId: 'ChIJ_otro_lado' });
+    const { status, json: r } = await desdeGoogle({ placeId: 'ChIJ_monserrat', frecuente: true, nombre: 'colegio nacional  de MONSERRAT' });
     assert.equal(status, 409);
-    assert.match(r.error, /Ya hay una ubicación frecuente llamada "Colegio Nacional de Monserrat"/);
+    assert.match(r.error, /Ya hay una ubicación frecuente llamada "Colegio Nacional de Monserrat"\. Usala o elegí otro nombre\./);
+    assert.equal(r.frecuenteExistente.id, otra.id);
+    assert.deepEqual(Object.keys(r.frecuenteExistente).sort(), CAMPOS_PUBLICOS);
     assert.equal(filas.length, 1);
+    assert.equal(llamadasGoogle.length, 0, 'el conflicto se detecta antes de gastar un Place Details');
+  });
+
+  test('mismo nombre que una localidad de Georef (con coordenadas): 409 con la existente; no le pega el placeId', async () => {
+    const cosquin = cargarFila('Cosquín', 'cosquin', { latitud: -31.24, longitud: -64.46 });
+    const { status, json: r } = await desdeGoogle({ placeId: 'ChIJ_casa_colon_1234', frecuente: true, nombre: 'Cosquin' });
+    assert.equal(status, 409);
+    assert.equal(r.frecuenteExistente.id, cosquin.id);
+    assert.equal(cosquin.placeId, null);
+  });
+
+  test('el nombre que confirma el usuario (editado) es el que se guarda', async () => {
+    const { status, json: r } = await desdeGoogle({
+      placeId: 'ChIJ_aeropuerto', frecuente: true, nombre: '  Aeropuerto de Córdoba (Taravella) ',
+    });
+    assert.equal(status, 200);
+    assert.equal(r.ubicacion.nombre, 'Aeropuerto de Córdoba (Taravella)');
+    assert.equal(creaciones[0].nombreNormalizado, 'aeropuerto de cordoba (taravella)');
+  });
+
+  test('promover una particular con un nombre que ya es otra frecuente: 409 con la existente', async () => {
+    const otra = cargarFila('Hotel Sierras', 'hotel sierras', { placeId: 'ChIJ_hotel' });
+    await desdeGoogle({ placeId: 'ChIJ_monserrat' });
+    const { status, json: r } = await desdeGoogle({ placeId: 'ChIJ_monserrat', frecuente: true, nombre: 'Hotel Sierras' });
+    assert.equal(status, 409);
+    assert.equal(r.frecuenteExistente.id, otra.id);
   });
 
   test('una particular elegida de nuevo como frecuente pasa a frecuente (misma fila, con el nombre del lugar)', async () => {
@@ -709,5 +740,67 @@ describe('permisos de los endpoints de Google (los mismos que crear una ubicaci�
   }
   test('sin token: 401', async () => {
     assert.equal((await sugerir('colon 1234', TOKEN, null)).status, 401);
+  });
+});
+
+// --- Tope diario propio -----------------------------------------------------
+
+const MENSAJE_TOPE = 'Se alcanzó el límite diario de consultas a Google Maps. Intentá mañana o cargá los km a mano.';
+
+describe('tope diario de llamadas a Google', () => {
+  test('autocomplete: pasado el límite, 429 con el mensaje y SIN llamar a Google', async () => {
+    process.env.GOOGLE_LIMITE_DIARIO_AUTOCOMPLETE = '2';
+    assert.equal((await sugerir('colon 1234')).status, 200);
+    assert.equal((await sugerir('colon 1235')).status, 200);
+
+    const { status, json: r } = await sugerir('colon 1236');
+    assert.equal(status, 429);
+    assert.equal(r.error, MENSAJE_TOPE);
+    assert.equal(autocompletes().length, 2);
+  });
+
+  test('place details tiene su propio tope: 429 y no se crea nada', async () => {
+    process.env.GOOGLE_LIMITE_DIARIO_DETALLES = '0';
+    const { status, json: r } = await desdeGoogle({ placeId: 'ChIJ_casa_colon_1234' });
+    assert.equal(status, 429);
+    assert.equal(r.error, MENSAJE_TOPE);
+    assert.equal(filas.length, 0);
+    assert.equal(llamadasGoogle.length, 0);
+    assert.equal((await sugerir('colon 1234')).status, 200, 'el tope de detalles no frena las sugerencias');
+  });
+
+  test('una casa ya guardada se puede volver a elegir aunque se haya llegado al tope (no llama a Google)', async () => {
+    await desdeGoogle({ placeId: 'ChIJ_casa_colon_1234' });
+    process.env.GOOGLE_LIMITE_DIARIO_DETALLES = '0';
+    assert.equal((await desdeGoogle({ placeId: 'ChIJ_casa_colon_1234' })).status, 200);
+  });
+
+  test('sin key no se cuenta nada (503 antes del tope)', async () => {
+    delete process.env.GOOGLE_MAPS_API_KEY;
+    assert.equal((await sugerir('colon 1234')).status, 503);
+    assert.equal(limiteDiario.usoDeHoy().autocomplete, 0);
+  });
+});
+
+// --- Plan B: sin Google, crear por nombre -----------------------------------
+
+describe('plan B sin Google: crear una frecuente por nombre', () => {
+  test('POST /ubicaciones crea la frecuente sin placeId, sin key y sin llamar a Google', async () => {
+    delete process.env.GOOGLE_MAPS_API_KEY;
+    const { status, json: r } = await crear('Escuela Normal Alejandro Carbó');
+
+    assert.equal(status, 200);
+    assert.equal(r.ubicacion.placeId, null);
+    assert.equal(r.ubicacion.latitud, null);
+    assert.equal(filas[0].esFrecuente, true);
+    assert.equal(llamadasGoogle.length, 0);
+    assert.deepEqual((await buscar('carbo')).json.ubicaciones.map((u) => u.id), [r.ubicacion.id], 'aparece en Frecuentes');
+  });
+
+  test('después se completa con Google ("Ubicarla"): PUT ubicar-desde-google', async () => {
+    const { json: creada } = await crear('Colegio Nacional de Monserrat');
+    const { status, json: r } = await ubicar(creada.ubicacion.id, { placeId: 'ChIJ_monserrat', sessionToken: TOKEN });
+    assert.equal(status, 200);
+    assert.equal(r.ubicacion.placeId, 'ChIJ_monserrat');
   });
 });
