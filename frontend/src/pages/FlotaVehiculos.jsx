@@ -8,7 +8,7 @@ import EstadoBadge from '../components/ui/EstadoBadge';
 import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
-import Cargando from '../components/ui/Cargando';
+import EstadoCarga from '../components/ui/EstadoCarga';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import SelectorBuscarOCrear from '../components/ui/SelectorBuscarOCrear';
@@ -18,6 +18,7 @@ import { formatearFechaCorta, formatearKm } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import { ListadoCard, ListadoHeader, ListadoToolbar } from '../components/Listado';
 import IconoVehiculo from '../components/IconoVehiculo';
+import { useCarga } from '../hooks/useCarga';
 import './FlotaVehiculos.css';
 
 const ICONO_ALERTA = (
@@ -58,9 +59,7 @@ function FlotaVehiculos() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const puedeGestionar = PUEDE_GESTIONAR_FLOTA.includes(usuario.perfil);
-  const [vehiculos, setVehiculos] = useState([]);
   const [tiposVehiculo, setTiposVehiculo] = useState([]);
-  const [cargando, setCargando] = useState(true);
   const [estado, setEstado] = useState('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [busqueda, setBusqueda] = useState('');
@@ -75,24 +74,24 @@ function FlotaVehiculos() {
   const [erroresForm, setErroresForm] = useState({});
   const [enviandoForm, setEnviandoForm] = useState(false);
 
-  const cargarVehiculos = useCallback(() => {
-    setCargando(true);
+  // useCarga lleva los estados de cargando y error (un error no es un listado vacío).
+  const pedirVehiculos = useCallback(() => {
     const params = {};
     if (estado) params.estado = estado;
     if (busqueda) params.busqueda = busqueda;
 
-    return api
-      .get('/vehiculos', { params })
-      .then(({ data }) => setVehiculos(data.vehiculos))
-      .finally(() => setCargando(false));
+    return api.get('/vehiculos', { params }).then(({ data }) => data.vehiculos);
   }, [estado, busqueda]);
+
+  const cargaVehiculos = useCarga(pedirVehiculos);
+  const vehiculos = cargaVehiculos.datos ?? [];
+  const cargarVehiculos = cargaVehiculos.recargar;
 
   useEffect(() => {
     setSeleccionado(null);
     setConfirmandoBaja(false);
     setMensaje('');
-    cargarVehiculos();
-  }, [cargarVehiculos]);
+  }, [pedirVehiculos]);
 
   useEffect(() => {
     api.get('/tipos-vehiculo').then(({ data }) => setTiposVehiculo(data.tiposVehiculo));
@@ -379,11 +378,12 @@ function FlotaVehiculos() {
             </form>
           )}
 
-          {cargando && <Cargando forma="tarjetas" />}
-
-          {!cargando && vehiculos.length === 0 && <div className="listado-vacio">No se encontraron vehículos</div>}
-
-          {!cargando && vehiculos.length > 0 && (
+          <EstadoCarga
+            carga={cargaVehiculos}
+            forma="tarjetas"
+            que="los vehículos"
+            vacio={vehiculos.length === 0 && <div className="listado-vacio">No se encontraron vehículos</div>}
+          >
             <div className="listado-cards">
               {ordenarPorInterno(vehiculos).map((v) => (
                 <ListadoCard
@@ -405,7 +405,7 @@ function FlotaVehiculos() {
                 />
               ))}
             </div>
-          )}
+          </EstadoCarga>
         </>
       )}
 

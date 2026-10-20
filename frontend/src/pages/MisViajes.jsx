@@ -6,7 +6,7 @@ import Layout from '../components/Layout';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
 import Button from '../components/ui/Button';
-import Cargando from '../components/ui/Cargando';
+import EstadoCarga from '../components/ui/EstadoCarga';
 import Toast from '../components/ui/Toast';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import { ListadoViajesPorDia } from '../components/TarjetaViaje';
@@ -14,6 +14,7 @@ import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { nombreVehiculo } from '../utils/viajeFormato';
+import { useCarga } from '../hooks/useCarga';
 import './Viajes.css';
 
 const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
@@ -44,8 +45,6 @@ function MisViajes() {
   // primera carga del listado.
   const viajeIdPendiente = useRef(location.state?.viajeId ?? null);
 
-  const [viajes, setViajes] = useState([]);
-  const [cargando, setCargando] = useState(true);
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const filtrosActivos = Object.values(filtros).filter(Boolean).length;
@@ -56,8 +55,8 @@ function MisViajes() {
   // compartido que usa Viajes.jsx (ver ModalOdometroViaje).
   const [pedidoOdometro, setPedidoOdometro] = useState(null);
 
-  const cargarViajes = useCallback(() => {
-    setCargando(true);
+  // useCarga lleva los estados de cargando y error (un error no es un listado vacío).
+  const pedirViajes = useCallback(() => {
     const params = {};
     if (filtros.estado) params.estado = filtros.estado;
     if (filtros.fechaDesde) params.fechaDesde = filtros.fechaDesde;
@@ -66,8 +65,6 @@ function MisViajes() {
     return api
       .get('/viajes/mis-viajes', { params })
       .then(({ data }) => {
-        setViajes(data.viajes);
-
         if (viajeIdPendiente.current !== null) {
           const pendiente = data.viajes.find((v) => v.id === viajeIdPendiente.current);
           viajeIdPendiente.current = null;
@@ -76,13 +73,13 @@ function MisViajes() {
           // vuelva a abrir la ficha.
           navigate(location.pathname, { replace: true, state: null });
         }
-      })
-      .finally(() => setCargando(false));
+        return data.viajes;
+      });
   }, [filtros, navigate, location.pathname]);
 
-  useEffect(() => {
-    cargarViajes();
-  }, [cargarViajes]);
+  const cargaViajes = useCarga(pedirViajes);
+  const viajes = cargaViajes.datos ?? [];
+  const cargarViajes = cargaViajes.recargar;
 
   useEffect(() => {
     if (!mensaje) return;
@@ -164,13 +161,14 @@ function MisViajes() {
             </form>
           )}
 
-          {cargando && <Cargando forma="viajes" />}
-
-          {!cargando && viajes.length === 0 && <div className="listado-vacio">No tenés viajes asignados</div>}
-
-          {!cargando && viajes.length > 0 && (
+          <EstadoCarga
+            carga={cargaViajes}
+            forma="viajes"
+            que="tus viajes"
+            vacio={viajes.length === 0 && <div className="listado-vacio">No tenés viajes asignados</div>}
+          >
             <ListadoViajesPorDia viajes={viajes} variante={varianteTarjeta} onSeleccionar={seleccionar} />
-          )}
+          </EstadoCarga>
         </>
       )}
 

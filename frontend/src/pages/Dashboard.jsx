@@ -7,6 +7,7 @@ import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Cargando from '../components/ui/Cargando';
+import EstadoCarga from '../components/ui/EstadoCarga';
 import Toast from '../components/ui/Toast';
 import Alert from '../components/ui/Alert';
 import EstadoBadge from '../components/ui/EstadoBadge';
@@ -19,6 +20,7 @@ import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { formatearDiaYHora, formatearHorarioViaje, nombreVehiculo } from '../utils/viajeFormato';
 import { porcentajeProgresoViaje } from '../utils/fechaCordoba';
 import { lineaAlertaDocumento, ordenarAlertas, resumenAlertas } from '../utils/documentacion';
+import { useCarga } from '../hooks/useCarga';
 import './Dashboard.css';
 
 // Los que gestionan viajes (ver el panel de viajes por confirmar).
@@ -83,7 +85,7 @@ function ViajeEnCurso({ viaje, onVerDetalle, onFinalizar }) {
   );
 }
 
-function ProximosViajes({ viajes, cargando, onVerDetalle, onComenzar }) {
+function ProximosViajes({ viajes, carga, onVerDetalle, onComenzar }) {
   const [mostrarTodos, setMostrarTodos] = useState(false);
 
   const visibles = mostrarTodos ? viajes : viajes.slice(0, MAX_VIAJES_INICIAL);
@@ -93,13 +95,12 @@ function ProximosViajes({ viajes, cargando, onVerDetalle, onComenzar }) {
     <Card className="dashboard-panel dashboard-proximos-viajes">
       <h2>Tus próximos viajes</h2>
 
-      {cargando && <Cargando forma="filas" />}
-
-      {!cargando && viajes.length === 0 && (
-        <div className="dashboard-empty">No tenés viajes programados próximamente</div>
-      )}
-
-      {!cargando && viajes.length > 0 && (
+      <EstadoCarga
+        carga={carga}
+        forma="filas"
+        que="tus viajes"
+        vacio={viajes.length === 0 && <div className="dashboard-empty">No tenés viajes programados próximamente</div>}
+      >
         <>
           <ul className="proximos-viajes-lista">
             {visibles.map((v) => (
@@ -131,7 +132,7 @@ function ProximosViajes({ viajes, cargando, onVerDetalle, onComenzar }) {
             </Button>
           )}
         </>
-      )}
+      </EstadoCarga>
     </Card>
   );
 }
@@ -140,16 +141,15 @@ function ProximosViajes({ viajes, cargando, onVerDetalle, onComenzar }) {
 // comenzar o finalizar sin salir del Dashboard.
 function ViajesDelChofer() {
   const navigate = useNavigate();
-  const [enCurso, setEnCurso] = useState([]);
-  const [programados, setProgramados] = useState([]);
-  const [cargando, setCargando] = useState(true);
   const [mensaje, setMensaje] = useState('');
 
   // { viaje, accion: 'comenzar' | 'finalizar' } | null — mismo modal
   // compartido que usa Mis viajes (ver ModalOdometroViaje).
   const [pedidoOdometro, setPedidoOdometro] = useState(null);
 
-  const cargarViajes = useCallback(
+  // useCarga lleva los estados de cargando y error: si falla, el panel lo dice
+  // con "Reintentar" en vez de "No tenés viajes programados".
+  const pedirViajes = useCallback(
     () =>
       // GET /mis-viajes solo acepta un estado por vez, así que el viaje En viaje
       // (a lo sumo uno, ver viajeService) se pide aparte: se muestra arriba como
@@ -160,19 +160,19 @@ function ViajesDelChofer() {
         api.get('/viajes/mis-viajes', { params: { estado: 'EN_VIAJE' } }),
         api.get('/viajes/mis-viajes', { params: { estado: 'PROGRAMADO' } }),
       ])
-        .then(([resEnViaje, resProgramados]) => {
-          // El backend siempre devuelve descendente (más nuevo/futuro primero);
-          // acá se da vuelta para que "lo que viene" muestre el más antiguo arriba.
-          setEnCurso(resEnViaje.data.viajes);
-          setProgramados([...resProgramados.data.viajes].reverse());
-        })
-        .finally(() => setCargando(false)),
+        // El backend siempre devuelve descendente (más nuevo/futuro primero);
+        // acá se da vuelta para que "lo que viene" muestre el más antiguo arriba.
+        .then(([resEnViaje, resProgramados]) => ({
+          enCurso: resEnViaje.data.viajes,
+          programados: [...resProgramados.data.viajes].reverse(),
+        })),
     []
   );
 
-  useEffect(() => {
-    cargarViajes();
-  }, [cargarViajes]);
+  const cargaViajes = useCarga(pedirViajes);
+  const enCurso = cargaViajes.datos?.enCurso ?? [];
+  const programados = cargaViajes.datos?.programados ?? [];
+  const cargarViajes = cargaViajes.recargar;
 
   useEffect(() => {
     if (!mensaje) return;
@@ -206,7 +206,7 @@ function ViajesDelChofer() {
 
       <ProximosViajes
         viajes={programados}
-        cargando={cargando}
+        carga={cargaViajes}
         onVerDetalle={verDetalle}
         onComenzar={(viaje) => setPedidoOdometro({ viaje, accion: 'comenzar' })}
       />

@@ -7,7 +7,7 @@ import Card from '../components/ui/Card';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
 import Button from '../components/ui/Button';
-import Cargando from '../components/ui/Cargando';
+import EstadoCarga from '../components/ui/EstadoCarga';
 import Alert from '../components/ui/Alert';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
@@ -26,6 +26,7 @@ import { avisoDuplicado, valoresParaDuplicar, viajeAValoresForm } from '../utils
 import { avisoWhatsApp } from '../utils/whatsapp';
 import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
+import { useCarga } from '../hooks/useCarga';
 import './Viajes.css';
 
 const ICONO_ALERTA = (
@@ -103,8 +104,6 @@ function Viajes() {
   // viajes). Se consume una sola vez, al terminar la primera carga del listado.
   const viajeIdPendiente = useRef(location.state?.viajeId ?? null);
 
-  const [viajes, setViajes] = useState([]);
-  const [cargando, setCargando] = useState(true);
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const filtrosActivos = Object.values(filtros).filter(Boolean).length;
@@ -153,11 +152,15 @@ function Viajes() {
         )
       );
       setOpcionesVehiculo(ordenarPorInterno(dedupePorId(data.viajes.map((v) => v.vehiculo).filter(Boolean))));
-    });
+    })
+      // Sin red, los filtros de chofer y vehículo quedan solo con "Todos"; el
+      // error ya lo muestra el listado, con "Reintentar".
+      .catch(() => {});
   }, []);
 
-  const cargarViajes = useCallback(() => {
-    setCargando(true);
+  // Pide el listado con los filtros actuales; useCarga lleva los estados de
+  // cargando y error (un error no es un listado vacío).
+  const pedirViajes = useCallback(() => {
     const params = {};
     if (filtros.estado) params.estado = filtros.estado;
     if (filtros.choferId) params.choferId = filtros.choferId;
@@ -169,8 +172,6 @@ function Viajes() {
     return api
       .get('/viajes', { params })
       .then(({ data }) => {
-        setViajes(data.viajes);
-
         if (viajeIdPendiente.current !== null) {
           const pendiente = data.viajes.find((v) => v.id === viajeIdPendiente.current);
           viajeIdPendiente.current = null;
@@ -179,13 +180,13 @@ function Viajes() {
           // vuelva a abrir la ficha.
           navigate(location.pathname, { replace: true, state: null });
         }
-      })
-      .finally(() => setCargando(false));
+        return data.viajes;
+      });
   }, [filtros, navigate, location.pathname]);
 
-  useEffect(() => {
-    cargarViajes();
-  }, [cargarViajes]);
+  const cargaViajes = useCarga(pedirViajes);
+  const viajes = cargaViajes.datos ?? [];
+  const cargarViajes = cargaViajes.recargar;
 
   // El toast ofrece avisar por WhatsApp solo si hay un link posible (chofer con
   // teléfono utilizable); con acción dura más, para dar tiempo a tocarla.
@@ -454,13 +455,14 @@ function Viajes() {
             </form>
           )}
 
-          {cargando && <Cargando forma="viajes" />}
-
-          {!cargando && viajes.length === 0 && <div className="listado-vacio">No se encontraron viajes</div>}
-
-          {!cargando && viajes.length > 0 && (
+          <EstadoCarga
+            carga={cargaViajes}
+            forma="viajes"
+            que="los viajes"
+            vacio={viajes.length === 0 && <div className="listado-vacio">No se encontraron viajes</div>}
+          >
             <ListadoViajesPorDia viajes={viajes} mostrarPendientes={puedeGestionar} onSeleccionar={seleccionar} />
-          )}
+          </EstadoCarga>
         </>
       )}
 
