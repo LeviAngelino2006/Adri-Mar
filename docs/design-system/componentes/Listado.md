@@ -12,7 +12,7 @@ Patrón único para las pantallas de listado: Viajes, Flota de vehículos, Usuar
    - Debajo de 640px la acción es compacta: solo el "+" (20px), cuadrada de 44 × 44. El texto queda oculto a la vista (mismas reglas que `.sr-only`) y los lectores de pantalla lo siguen leyendo, así buscador, Filtros y acción entran en una línea a 375px. Desde 640px el "+" toma el tamaño del texto, con `0.25em` de separación.
 3. `.listado-filtros`: el panel que abre el botón Filtros (ver `Filtros`). Cerrado por defecto, también en Flota.
 4. `.listado-cards`: una sola columna de tarjetas apiladas, cada una a todo el ancho de la fila, con gap `space-4`. Es igual en todos los tamaños; no hay tablas ni grilla. En Viajes y Mis viajes, las tarjetas van agrupadas por día (ver abajo).
-5. Estado vacío: `.listado-vacio`, centrado y en `color-text-secondary` ("No hay viajes con esos filtros.").
+5. Estado vacío: `.listado-vacio`, centrado y en `color-text-secondary` ("No hay viajes con esos filtros."). Cargando, error y vacío se arman con `EstadoCarga`: si el listado no se pudo cargar se muestra el error con "Reintentar", nunca el vacío.
 
 ## Agrupado por día (Viajes y Mis viajes)
 - Las tarjetas se agrupan por día de inicio (día de Córdoba). Cada grupo es `<section class="listado-grupo"><h2 class="listado-dia">…</h2><div class="listado-cards">…</div></section>`.

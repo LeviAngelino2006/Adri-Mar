@@ -9,6 +9,7 @@ import { aInputCordoba } from '../utils/fechaCordoba';
 import { nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import { avisosSinCandidatos } from '../utils/avisosSinCandidatos';
+import { mensajeErrorCarga } from '../utils/errorCarga';
 
 const ICONO_CONFIRMAR = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -45,6 +46,8 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
   const [choferes, setChoferes] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
   const [disponibilidad, setDisponibilidad] = useState(null);
+  // { choferes, vehiculos }: mensaje si no se pudo cargar esa lista de opciones.
+  const [errorOpciones, setErrorOpciones] = useState({});
   const [chofer, setChofer] = useState(SELECCION_VACIA);
   const [vehiculo, setVehiculo] = useState(SELECCION_VACIA);
   const [form, setForm] = useState(FORM_VACIO);
@@ -57,8 +60,18 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
     if (!viajeId) return;
     let vigente = true;
 
-    api.get('/usuarios/disponibles-chofer').then(({ data }) => vigente && setChoferes(data.usuarios));
-    api.get('/vehiculos').then(({ data }) => vigente && setVehiculos(ordenarPorInterno(data.vehiculos)));
+    // Si una lista no carga, se avisa en su campo y el modal sigue usable: los
+    // candidatos del viaje vienen con el viaje y se pueden elegir igual.
+    const avisarError = (lista, que) => (err) =>
+      vigente && setErrorOpciones((e) => ({ ...e, [lista]: mensajeErrorCarga(err, que) }));
+    api
+      .get('/usuarios/disponibles-chofer')
+      .then(({ data }) => vigente && setChoferes(data.usuarios))
+      .catch(avisarError('choferes', 'la lista de choferes'));
+    api
+      .get('/vehiculos')
+      .then(({ data }) => vigente && setVehiculos(ordenarPorInterno(data.vehiculos)))
+      .catch(avisarError('vehiculos', 'la lista de vehículos'));
     disponibilidadDeViaje(viajeId, { todos: true })
       .then(({ data }) => {
         if (vigente) setDisponibilidad({ choferes: porId(data.choferes), vehiculos: porId(data.vehiculos) });
@@ -69,6 +82,7 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
     return () => {
       vigente = false;
       setDisponibilidad(null);
+      setErrorOpciones({});
     };
   }, [viajeId]);
 
@@ -149,7 +163,7 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
             estados={disponibilidad?.choferes}
             valor={chofer}
             onChange={setChofer}
-            error={errores.choferId}
+            error={errores.choferId || errorOpciones.choferes}
           />
 
           {antesDeVehiculo && <Alert variant="info">{antesDeVehiculo}</Alert>}
@@ -162,7 +176,7 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
             estados={disponibilidad?.vehiculos}
             valor={vehiculo}
             onChange={setVehiculo}
-            error={errores.vehiculoId}
+            error={errores.vehiculoId || errorOpciones.vehiculos}
           />
 
           <FormField id="confirmar-fechaInicio" label="Fecha y hora de inicio" error={errores.fechaInicio} required>

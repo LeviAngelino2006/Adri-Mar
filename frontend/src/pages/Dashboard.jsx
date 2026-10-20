@@ -6,12 +6,12 @@ import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import Cargando from '../components/ui/Cargando';
+import EstadoCarga from '../components/ui/EstadoCarga';
 import Toast from '../components/ui/Toast';
-import Alert from '../components/ui/Alert';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import RutaViaje from '../components/RutaViaje';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
+import BotonComenzarViaje from '../components/BotonComenzarViaje';
 import PanelViajesPorConfirmar from '../components/PanelViajesPorConfirmar';
 import PanelViajesDeHoy from '../components/PanelViajesDeHoy';
 import FechaTile from '../components/FechaTile';
@@ -19,6 +19,7 @@ import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { formatearDiaYHora, formatearHorarioViaje, nombreVehiculo } from '../utils/viajeFormato';
 import { porcentajeProgresoViaje } from '../utils/fechaCordoba';
 import { lineaAlertaDocumento, ordenarAlertas, resumenAlertas } from '../utils/documentacion';
+import { useCarga } from '../hooks/useCarga';
 import './Dashboard.css';
 
 // Los que gestionan viajes (ver el panel de viajes por confirmar).
@@ -83,7 +84,7 @@ function ViajeEnCurso({ viaje, onVerDetalle, onFinalizar }) {
   );
 }
 
-function ProximosViajes({ viajes, cargando, onVerDetalle, onComenzar }) {
+function ProximosViajes({ viajes, enCurso, carga, onVerDetalle, onComenzar }) {
   const [mostrarTodos, setMostrarTodos] = useState(false);
 
   const visibles = mostrarTodos ? viajes : viajes.slice(0, MAX_VIAJES_INICIAL);
@@ -93,13 +94,12 @@ function ProximosViajes({ viajes, cargando, onVerDetalle, onComenzar }) {
     <Card className="dashboard-panel dashboard-proximos-viajes">
       <h2>Tus próximos viajes</h2>
 
-      {cargando && <Cargando forma="filas" />}
-
-      {!cargando && viajes.length === 0 && (
-        <div className="dashboard-empty">No tenés viajes programados próximamente</div>
-      )}
-
-      {!cargando && viajes.length > 0 && (
+      <EstadoCarga
+        carga={carga}
+        forma="filas"
+        que="tus viajes"
+        vacio={viajes.length === 0 && <div className="dashboard-empty">No tenés viajes programados próximamente</div>}
+      >
         <>
           <ul className="proximos-viajes-lista">
             {visibles.map((v) => (
@@ -118,9 +118,14 @@ function ProximosViajes({ viajes, cargando, onVerDetalle, onComenzar }) {
                     )}
                   </span>
                 </button>
-                <Button variant="secondary" className="proximos-viajes-accion" onClick={() => onComenzar(v)}>
-                  Comenzar viaje
-                </Button>
+                <BotonComenzarViaje
+                  viaje={v}
+                  enCurso={enCurso}
+                  variant="secondary"
+                  className="proximos-viajes-accion"
+                  onComenzar={onComenzar}
+                  onVerViajeEnCurso={onVerDetalle}
+                />
               </li>
             ))}
           </ul>
@@ -131,7 +136,7 @@ function ProximosViajes({ viajes, cargando, onVerDetalle, onComenzar }) {
             </Button>
           )}
         </>
-      )}
+      </EstadoCarga>
     </Card>
   );
 }
@@ -140,16 +145,15 @@ function ProximosViajes({ viajes, cargando, onVerDetalle, onComenzar }) {
 // comenzar o finalizar sin salir del Dashboard.
 function ViajesDelChofer() {
   const navigate = useNavigate();
-  const [enCurso, setEnCurso] = useState([]);
-  const [programados, setProgramados] = useState([]);
-  const [cargando, setCargando] = useState(true);
   const [mensaje, setMensaje] = useState('');
 
   // { viaje, accion: 'comenzar' | 'finalizar' } | null — mismo modal
   // compartido que usa Mis viajes (ver ModalOdometroViaje).
   const [pedidoOdometro, setPedidoOdometro] = useState(null);
 
-  const cargarViajes = useCallback(
+  // useCarga lleva los estados de cargando y error: si falla, el panel lo dice
+  // con "Reintentar" en vez de "No tenés viajes programados".
+  const pedirViajes = useCallback(
     () =>
       // GET /mis-viajes solo acepta un estado por vez, así que el viaje En viaje
       // (a lo sumo uno, ver viajeService) se pide aparte: se muestra arriba como
@@ -160,19 +164,19 @@ function ViajesDelChofer() {
         api.get('/viajes/mis-viajes', { params: { estado: 'EN_VIAJE' } }),
         api.get('/viajes/mis-viajes', { params: { estado: 'PROGRAMADO' } }),
       ])
-        .then(([resEnViaje, resProgramados]) => {
-          // El backend siempre devuelve descendente (más nuevo/futuro primero);
-          // acá se da vuelta para que "lo que viene" muestre el más antiguo arriba.
-          setEnCurso(resEnViaje.data.viajes);
-          setProgramados([...resProgramados.data.viajes].reverse());
-        })
-        .finally(() => setCargando(false)),
+        // El backend siempre devuelve descendente (más nuevo/futuro primero);
+        // acá se da vuelta para que "lo que viene" muestre el más antiguo arriba.
+        .then(([resEnViaje, resProgramados]) => ({
+          enCurso: resEnViaje.data.viajes,
+          programados: [...resProgramados.data.viajes].reverse(),
+        })),
     []
   );
 
-  useEffect(() => {
-    cargarViajes();
-  }, [cargarViajes]);
+  const cargaViajes = useCarga(pedirViajes);
+  const enCurso = cargaViajes.datos?.enCurso ?? [];
+  const programados = cargaViajes.datos?.programados ?? [];
+  const cargarViajes = cargaViajes.recargar;
 
   useEffect(() => {
     if (!mensaje) return;
@@ -206,7 +210,8 @@ function ViajesDelChofer() {
 
       <ProximosViajes
         viajes={programados}
-        cargando={cargando}
+        enCurso={enCurso}
+        carga={cargaViajes}
         onVerDetalle={verDetalle}
         onComenzar={(viaje) => setPedidoOdometro({ viaje, accion: 'comenzar' })}
       />
@@ -227,42 +232,14 @@ function ViajesDelChofer() {
 // o del chofer en Documentación.
 function SeccionDocumentacion() {
   const navigate = useNavigate();
-  const [alertas, setAlertas] = useState(null);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState(false);
+  // Ante un error nunca se muestra "Sin alertas": no se sabe si las hay. Se
+  // muestra el error con "Reintentar" (EstadoCarga).
+  const carga = useCarga(obtenerAlertasVencimientos);
   const [mostrarTodos, setMostrarTodos] = useState(false);
 
-  useEffect(() => {
-    obtenerAlertasVencimientos()
-      .then((res) => setAlertas(res))
-      .catch((err) => {
-        console.error('Error al cargar alertas:', err);
-        setError(true);
-      })
-      .finally(() => setCargando(false));
-  }, []);
-
-  if (cargando) {
-    return (
-      <Card className="dashboard-panel">
-        <h2>Documentación</h2>
-        <Cargando forma="filas" />
-      </Card>
-    );
-  }
-
-  // Ante un error nunca se muestra "Sin alertas": no se sabe si las hay.
-  if (error) {
-    return (
-      <Card className="dashboard-panel">
-        <h2>Documentación</h2>
-        <Alert variant="error">No se pudieron cargar las alertas.</Alert>
-      </Card>
-    );
-  }
-
-  const sinAlertas = alertas.totalAlertas === 0;
-  const documentos = ordenarAlertas(alertas.documentos);
+  const alertas = carga.cargando || carga.error ? null : carga.datos;
+  const sinAlertas = alertas?.totalAlertas === 0;
+  const documentos = alertas ? ordenarAlertas(alertas.documentos) : [];
   const visibles = mostrarTodos ? documentos : documentos.slice(0, MAX_DOCUMENTOS_INICIAL);
   const restantes = documentos.length - MAX_DOCUMENTOS_INICIAL;
 
@@ -278,17 +255,24 @@ function SeccionDocumentacion() {
     <Card className="dashboard-panel">
       <div className="dashboard-panel-header">
         <h2>Documentación</h2>
-        {!sinAlertas && <span className="dashboard-resumen">{resumenAlertas(alertas)}</span>}
+        {alertas && !sinAlertas && <span className="dashboard-resumen">{resumenAlertas(alertas)}</span>}
       </div>
 
-      {sinAlertas ? (
-        <div className="dashboard-empty">
-          <span>Sin alertas por ahora</span>
-          <span className="dashboard-empty-hint">
-            Toda la documentación registrada de vehículos y choferes está al día
-          </span>
-        </div>
-      ) : (
+      <EstadoCarga
+        carga={carga}
+        forma="filas"
+        que="las alertas de documentación"
+        vacio={
+          sinAlertas && (
+            <div className="dashboard-empty">
+              <span>Sin alertas por ahora</span>
+              <span className="dashboard-empty-hint">
+                Toda la documentación registrada de vehículos y choferes está al día
+              </span>
+            </div>
+          )
+        }
+      >
         <>
           <ul className="dashboard-lista">
             {visibles.map((doc) => {
@@ -323,7 +307,7 @@ function SeccionDocumentacion() {
             </Button>
           )}
         </>
-      )}
+      </EstadoCarga>
     </Card>
   );
 }

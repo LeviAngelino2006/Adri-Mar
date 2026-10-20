@@ -86,6 +86,15 @@ class PermisoDenegadoError extends Error {}
 // Postgres.
 class ViajeEnCursoError extends Error {}
 
+// Textos del 409 de comenzar. `carrera` es el del índice único: no se sabe
+// cuál de los dos chocó.
+const MENSAJES_VIAJE_EN_CURSO = {
+  propio: 'Ya tenés un viaje en curso. Finalizalo para comenzar otro.',
+  chofer: 'Este chofer ya tiene un viaje en curso. Tiene que finalizarlo para comenzar otro.',
+  vehiculo: 'Este vehículo ya está en otro viaje en curso.',
+  carrera: 'El vehículo o el chofer ya están en otro viaje en curso.',
+};
+
 // Adri-mar opera únicamente en Córdoba, Argentina, que no tiene horario de
 // verano (UTC-3 todo el año). Por eso el offset se puede fijar así, sin
 // necesidad de una librería de zonas horarias.
@@ -1544,13 +1553,16 @@ async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
     where: { vehiculoId: actual.vehiculoId, estadoViajeId: estadoEnViaje.id },
   });
   if (vehiculoEnViaje) {
-    throw new ViajeEnCursoError('El vehículo ya tiene otro viaje En viaje en curso');
+    throw new ViajeEnCursoError(MENSAJES_VIAJE_EN_CURSO.vehiculo);
   }
   const choferEnViaje = await prisma.viaje.findFirst({
     where: { choferId: actual.choferId, estadoViajeId: estadoEnViaje.id },
   });
   if (choferEnViaje) {
-    throw new ViajeEnCursoError('El chofer ya tiene otro viaje En viaje en curso');
+    // Lo normal es que comience el propio chofer; si es un gestor, el mensaje
+    // no puede hablarle de "tu" viaje.
+    const esElChofer = actual.choferId === usuarioSolicitante.id;
+    throw new ViajeEnCursoError(esElChofer ? MENSAJES_VIAJE_EN_CURSO.propio : MENSAJES_VIAJE_EN_CURSO.chofer);
   }
 
   try {
@@ -1591,7 +1603,7 @@ async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
     });
   } catch (err) {
     if (err.code === 'P2002') {
-      throw new ViajeEnCursoError('El vehículo o el chofer ya tienen otro viaje En viaje en curso');
+      throw new ViajeEnCursoError(MENSAJES_VIAJE_EN_CURSO.carrera);
     }
     relanzarComoValidacionDeViaje(err);
   }

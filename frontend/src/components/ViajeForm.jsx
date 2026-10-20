@@ -23,6 +23,9 @@ import {
 import { nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { errorDeSecuencia, paradasAPayload } from '../utils/paradas';
 import { ordenarPorInterno } from '../utils/vehiculos';
+import { erroresObligatoriosViaje } from '../utils/validacionViaje';
+import { useFocoEnPrimerError } from '../hooks/useFocoEnPrimerError';
+import { mensajeErrorCarga } from '../utils/errorCarga';
 
 const FORM_INICIAL = {
   clienteId: '',
@@ -50,7 +53,6 @@ const FORM_INICIAL = {
 
 const CAMPOS_OPERATIVOS = ['choferId', 'vehiculoId', 'fechaInicio', 'fechaFin', 'kilometrosEstimados'];
 const ERROR_OBLIGATORIO_PROGRAMADO = 'Obligatorio para un viaje Programado.';
-const ERROR_FECHA_INICIO = 'La fecha y hora de inicio es obligatoria';
 const DEMORA_AVISOS_MS = 400;
 const SIN_AVISOS = { choferes: {}, vehiculos: {} };
 
@@ -67,6 +69,9 @@ function avisosDe(lista) {
 // avisar antes de que el usuario intente guardar y se encuentre con un error
 // del servidor. En alta, o editando un A_CONFIRMAR, no se exigen — con una
 // excepción: la fecha de inicio es obligatoria siempre, en cualquier estado.
+// Cliente, origen, destino y fecha de inicio se validan juntos antes de enviar
+// (utils/validacionViaje), así los errores salen en una sola vuelta, y el foco
+// va al primer campo con error.
 //
 // Chofer y vehículo se cargan de una de dos maneras según el estado:
 //  - Alta o edición de un A_CONFIRMAR: listas de choferes y vehículos POSIBLES
@@ -102,10 +107,13 @@ function ViajeForm({
 }) {
   const [choferes, setChoferes] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
+  // { choferes, vehiculos }: mensaje si no se pudo cargar esa lista de opciones.
+  const [errorOpciones, setErrorOpciones] = useState({});
   const [form, setForm] = useState(valoresIniciales || FORM_INICIAL);
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
   const [avisos, setAvisos] = useState(SIN_AVISOS);
+  const [refForm, enfocarPrimerError] = useFocoEnPrimerError();
   // "Calcular km": el último resultado y el último error, cada uno con la firma
   // del recorrido con el que se pidió. Si el recorrido cambia, el resultado se
   // marca desactualizado (no se recalcula solo) y el error deja de mostrarse.
@@ -125,11 +133,19 @@ function ViajeForm({
   const requiereOperativos = estadoActual === 'PROGRAMADO';
   const usaCandidatos = !requiereOperativos;
 
+  // Si una lista no carga, se avisa en su campo y el formulario sigue usable: el
+  // resto se puede cargar, y en el alta los candidatos son opcionales.
   useEffect(() => {
-    api.get('/usuarios/disponibles-chofer').then(({ data }) => setChoferes(data.usuarios));
+    const avisarError = (lista, que) => (err) =>
+      setErrorOpciones((e) => ({ ...e, [lista]: mensajeErrorCarga(err, que) }));
+    api
+      .get('/usuarios/disponibles-chofer')
+      .then(({ data }) => setChoferes(data.usuarios))
+      .catch(avisarError('choferes', 'la lista de choferes'));
     api
       .get('/vehiculos', { params: { estado: 'OPERATIVO' } })
-      .then(({ data }) => setVehiculos(ordenarPorInterno(data.vehiculos)));
+      .then(({ data }) => setVehiculos(ordenarPorInterno(data.vehiculos)))
+      .catch(avisarError('vehiculos', 'la lista de vehículos'));
   }, []);
 
   // Avisos de disponibilidad de los candidatos elegidos, con las fechas que el
@@ -236,16 +252,13 @@ function ViajeForm({
     e.preventDefault();
     setErrores({});
 
-    const erroresLocales = {};
+    const erroresLocales = erroresObligatoriosViaje(form);
     if (requiereOperativos) {
       for (const campo of CAMPOS_OPERATIVOS) {
         if (form[campo] === '' || form[campo] === null || form[campo] === undefined) {
           erroresLocales[campo] = ERROR_OBLIGATORIO_PROGRAMADO;
         }
       }
-    }
-    if (!erroresLocales.fechaInicio && !form.fechaInicio) {
-      erroresLocales.fechaInicio = ERROR_FECHA_INICIO;
     }
 
     const { ids: idsParadas, errores: erroresFilas } = paradasAPayload(form.paradas);
@@ -258,6 +271,7 @@ function ViajeForm({
     }
     if (Object.keys(erroresLocales).length > 0) {
       setErrores(erroresLocales);
+      enfocarPrimerError();
       return;
     }
 
@@ -289,13 +303,14 @@ function ViajeForm({
       } else {
         setErrores({ general: 'No se pudo guardar el viaje' });
       }
+      enfocarPrimerError();
     } finally {
       setEnviando(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form ref={refForm} onSubmit={handleSubmit} noValidate>
       <div className="form-grid">
         <div className="form-field-ancho">
           <FormField id="clienteId" label="Cliente" error={errores.clienteId} required>
@@ -345,7 +360,7 @@ function ViajeForm({
               <FormField
                 id="choferesCandidatos"
                 label="Choferes posibles"
-                error={errores.choferesCandidatos || errores.choferId}
+                error={errores.choferesCandidatos || errores.choferId || errorOpciones.choferes}
               >
                 <SelectorMultiple
                   opciones={opcionesChoferes}
@@ -361,7 +376,7 @@ function ViajeForm({
               <FormField
                 id="vehiculosCandidatos"
                 label="Vehículos posibles"
-                error={errores.vehiculosCandidatos || errores.vehiculoId}
+                error={errores.vehiculosCandidatos || errores.vehiculoId || errorOpciones.vehiculos}
               >
                 <SelectorMultiple
                   opciones={opcionesVehiculos}
@@ -375,7 +390,7 @@ function ViajeForm({
           </>
         ) : (
           <>
-            <FormField id="choferId" label="Chofer" error={errores.choferId} required>
+            <FormField id="choferId" label="Chofer" error={errores.choferId || errorOpciones.choferes} required>
               <select name="choferId" value={form.choferId} onChange={handleChange}>
                 <option value="">Seleccionar…</option>
                 {choferes.map((c) => (
@@ -386,7 +401,7 @@ function ViajeForm({
               </select>
             </FormField>
 
-            <FormField id="vehiculoId" label="Vehículo" error={errores.vehiculoId} required>
+            <FormField id="vehiculoId" label="Vehículo" error={errores.vehiculoId || errorOpciones.vehiculos} required>
               <select name="vehiculoId" value={form.vehiculoId} onChange={handleChange}>
                 <option value="">Seleccionar…</option>
                 {vehiculos.map((v) => (

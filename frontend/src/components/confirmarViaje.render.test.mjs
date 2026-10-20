@@ -117,8 +117,7 @@ describe('el modal abierto desde el panel "Viajes por confirmar"', () => {
   test('el botón Confirmar le entrega al modal el viaje tal cual vino de la API', () => {
     const entregados = [];
     const contenido = h(ContenidoPorConfirmar, {
-      cargando: false,
-      error: false,
+      carga: { cargando: false, error: null, recargar() {} },
       hoy: [viajeSinCandidatos],
       manana: [viajeConCandidatos],
       onConfirmar: (viaje) => entregados.push(viaje),
@@ -138,8 +137,7 @@ describe('el modal abierto desde el panel "Viajes por confirmar"', () => {
   test('con candidatos muestra los radios y "Elegir otro…", no los selects', () => {
     let entregado;
     const contenido = h(ContenidoPorConfirmar, {
-      cargando: false,
-      error: false,
+      carga: { cargando: false, error: null, recargar() {} },
       hoy: [],
       manana: [viajeConCandidatos],
       onConfirmar: (viaje) => (entregado = viaje),

@@ -30,7 +30,7 @@ Los dos tipos del chofer tienen vencimiento y van en la sección "Con vencimient
 ## Acciones
 Todas `Button` secondary, en este orden:
 1. "Ver PDF", solo si el documento tiene archivo. Pide la URL firmada en el momento de tocar (dura 5 minutos).
-2. "Actualizar": carga una versión nueva que pasa a ser la vigente; la anterior queda en el historial.
+2. "Actualizar": carga una versión nueva que pasa a ser la vigente; la anterior queda en el historial. El modal llega con los datos de la vigente y "Guardar" se habilita recién cuando cambia algo (un PDF nuevo, una fecha o las observaciones), con la pista "Para guardar una versión nueva, adjuntá un PDF o cambiá una fecha o las observaciones." El backend responde 400 "No hay cambios para guardar" si llega una renovación igual a la vigente: no crea la versión ni purga el historial.
 3. "Historial", solo si hay más de una versión (se conservan la vigente y hasta dos anteriores).
 
 Un documento pendiente tiene un solo `Button` primary, "Cargar documento".

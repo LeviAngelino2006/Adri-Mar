@@ -8,7 +8,8 @@ import EstadoBadge from '../components/ui/EstadoBadge';
 import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
-import Cargando from '../components/ui/Cargando';
+import EstadoCarga from '../components/ui/EstadoCarga';
+import AvisosGuardado from '../components/ui/AvisosGuardado';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import SelectorBuscarOCrear from '../components/ui/SelectorBuscarOCrear';
@@ -18,6 +19,10 @@ import { formatearFechaCorta, formatearKm } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import { ListadoCard, ListadoHeader, ListadoToolbar } from '../components/Listado';
 import IconoVehiculo from '../components/IconoVehiculo';
+import { useCarga } from '../hooks/useCarga';
+import { avisosDeRespuesta } from '../utils/avisosRespuesta';
+import { ANIO_MINIMO, ASIENTOS_MAXIMO, ASIENTOS_MINIMO, validarVehiculo } from '../utils/validacionVehiculo';
+import { useFocoEnPrimerError } from '../hooks/useFocoEnPrimerError';
 import './FlotaVehiculos.css';
 
 const ICONO_ALERTA = (
@@ -58,15 +63,16 @@ function FlotaVehiculos() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const puedeGestionar = PUEDE_GESTIONAR_FLOTA.includes(usuario.perfil);
-  const [vehiculos, setVehiculos] = useState([]);
   const [tiposVehiculo, setTiposVehiculo] = useState([]);
-  const [cargando, setCargando] = useState(true);
   const [estado, setEstado] = useState('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [seleccionado, setSeleccionado] = useState(null);
   const [confirmandoBaja, setConfirmandoBaja] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  // Avisos del backend del último guardado (ver AvisosGuardado): quedan a la
+  // vista hasta la próxima acción, no se van con el toast.
+  const [avisosGuardado, setAvisosGuardado] = useState([]);
   const [errorBaja, setErrorBaja] = useState('');
 
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -74,25 +80,26 @@ function FlotaVehiculos() {
   const [form, setForm] = useState(FORM_INICIAL);
   const [erroresForm, setErroresForm] = useState({});
   const [enviandoForm, setEnviandoForm] = useState(false);
+  const [refForm, enfocarPrimerError] = useFocoEnPrimerError();
 
-  const cargarVehiculos = useCallback(() => {
-    setCargando(true);
+  // useCarga lleva los estados de cargando y error (un error no es un listado vacío).
+  const pedirVehiculos = useCallback(() => {
     const params = {};
     if (estado) params.estado = estado;
     if (busqueda) params.busqueda = busqueda;
 
-    return api
-      .get('/vehiculos', { params })
-      .then(({ data }) => setVehiculos(data.vehiculos))
-      .finally(() => setCargando(false));
+    return api.get('/vehiculos', { params }).then(({ data }) => data.vehiculos);
   }, [estado, busqueda]);
+
+  const cargaVehiculos = useCarga(pedirVehiculos);
+  const vehiculos = cargaVehiculos.datos ?? [];
+  const cargarVehiculos = cargaVehiculos.recargar;
 
   useEffect(() => {
     setSeleccionado(null);
     setConfirmandoBaja(false);
     setMensaje('');
-    cargarVehiculos();
-  }, [cargarVehiculos]);
+  }, [pedirVehiculos]);
 
   useEffect(() => {
     api.get('/tipos-vehiculo').then(({ data }) => setTiposVehiculo(data.tiposVehiculo));
@@ -113,6 +120,7 @@ function FlotaVehiculos() {
   }, [seleccionadoId, mostrarForm]);
 
   function seleccionar(v) {
+    setAvisosGuardado([]);
     setMostrarForm(false);
     setSeleccionado(v);
     setConfirmandoBaja(false);
@@ -140,6 +148,7 @@ function FlotaVehiculos() {
   }
 
   function abrirNuevo() {
+    setAvisosGuardado([]);
     setEditando(null);
     setForm(FORM_INICIAL);
     setErroresForm({});
@@ -148,6 +157,7 @@ function FlotaVehiculos() {
   }
 
   function abrirEditar(v) {
+    setAvisosGuardado([]);
     setEditando(v);
     setForm({
       dominio: v.dominio,
@@ -159,7 +169,6 @@ function FlotaVehiculos() {
       adquiridoUsado: v.adquiridoUsado,
       anio: v.anio,
       asientos: v.asientos,
-      kilometraje: v.kilometraje,
       tipoVehiculoId: v.tipoVehiculoId,
     });
     setErroresForm({});
@@ -199,6 +208,14 @@ function FlotaVehiculos() {
 
   async function handleSubmitForm(e) {
     e.preventDefault();
+    // Todo junto antes de enviar, así los errores salen en una sola vuelta; el
+    // backend valida igual.
+    const erroresLocales = validarVehiculo(form, { conKilometraje: !editando });
+    if (Object.keys(erroresLocales).length > 0) {
+      setErroresForm(erroresLocales);
+      enfocarPrimerError();
+      return;
+    }
     setErroresForm({});
     setEnviandoForm(true);
     const datos = {
@@ -209,15 +226,19 @@ function FlotaVehiculos() {
       tipoVehiculoId: form.tipoVehiculoId,
       anio: form.anio,
       asientos: form.asientos,
-      kilometraje: form.kilometraje,
+      // El kilometraje solo se carga en el alta (es el inicial). Después lo
+      // llevan las lecturas del odómetro y el backend lo ignora al editar.
+      ...(editando ? {} : { kilometraje: form.kilometraje }),
     };
     try {
       if (editando) {
-        await api.put(`/vehiculos/${editando.id}`, datos);
+        const { data } = await api.put(`/vehiculos/${editando.id}`, datos);
         setMensaje('Cambios guardados correctamente.');
+        setAvisosGuardado(avisosDeRespuesta(data));
       } else {
-        await api.post('/vehiculos', datos);
+        const { data } = await api.post('/vehiculos', datos);
         setMensaje('Vehículo registrado correctamente.');
+        setAvisosGuardado(avisosDeRespuesta(data));
       }
       setMostrarForm(false);
       setEditando(null);
@@ -230,6 +251,7 @@ function FlotaVehiculos() {
       } else {
         setErroresForm({ general: 'No se pudo guardar el vehículo' });
       }
+      enfocarPrimerError();
     } finally {
       setEnviandoForm(false);
     }
@@ -242,6 +264,7 @@ function FlotaVehiculos() {
       )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
+      {!mostrarForm && <AvisosGuardado avisos={avisosGuardado} />}
       {errorBaja && <Alert variant="error">{errorBaja}</Alert>}
 
       {mostrarForm && (
@@ -251,7 +274,7 @@ function FlotaVehiculos() {
           </button>
           <h1>{editando ? 'Editar vehículo' : 'Crear vehículo'}</h1>
           <Card className="form-card">
-            <form onSubmit={handleSubmitForm} noValidate>
+            <form ref={refForm} onSubmit={handleSubmitForm} noValidate>
               <div className="form-grid">
                 <FormField id="numeroInterno" label="Número de interno" required error={erroresForm.numeroInterno}>
                   <input name="numeroInterno" value={form.numeroInterno} onChange={handleFormChange} />
@@ -267,7 +290,7 @@ function FlotaVehiculos() {
                   <input name="dominio" value={form.dominio} onChange={handleFormChange} />
                 </FormField>
 
-                <FormField id="marcaId" label="Marca" required>
+                <FormField id="marcaId" label="Marca" required error={erroresForm.marcaId}>
                   <SelectorBuscarOCrear
                     endpoint="/marcas"
                     valor={form.marcaId}
@@ -303,22 +326,41 @@ function FlotaVehiculos() {
                 </FormField>
 
                 <FormField id="anio" label="Año" required error={erroresForm.anio}>
-                  <input name="anio" type="number" value={form.anio} onChange={handleFormChange} />
+                  <input name="anio" type="number" min={ANIO_MINIMO} value={form.anio} onChange={handleFormChange} />
                 </FormField>
 
                 <FormField id="asientos" label="Cantidad de asientos" required error={erroresForm.asientos}>
-                  <input name="asientos" type="number" value={form.asientos} onChange={handleFormChange} />
+                  <input
+                    name="asientos"
+                    type="number"
+                    min={ASIENTOS_MINIMO}
+                    max={ASIENTOS_MAXIMO}
+                    value={form.asientos}
+                    onChange={handleFormChange}
+                  />
                 </FormField>
 
-                <FormField
-                  id="kilometraje"
-                  label="Kilometraje actual"
-                  required
-                  hint="En kilómetros"
-                  error={erroresForm.kilometraje}
-                >
-                  <input name="kilometraje" type="number" value={form.kilometraje} onChange={handleFormChange} />
-                </FormField>
+                {editando ? (
+                  // Solo lectura: el kilometraje lo actualizan las lecturas del
+                  // odómetro (al comenzar y finalizar cada viaje), no este formulario.
+                  <div className="form-field">
+                    <span className="flota-dato-etiqueta">Kilometraje actual</span>
+                    <p className="flota-dato-solo-lectura num">{formatearKm(editando.kilometraje)} km</p>
+                    <p className="form-field-hint">
+                      Se actualiza con las lecturas del odómetro, al comenzar y finalizar cada viaje.
+                    </p>
+                  </div>
+                ) : (
+                  <FormField
+                    id="kilometraje"
+                    label="Kilometraje actual"
+                    required
+                    hint="En kilómetros"
+                    error={erroresForm.kilometraje}
+                  >
+                    <input name="kilometraje" type="number" min="0" value={form.kilometraje} onChange={handleFormChange} />
+                  </FormField>
+                )}
 
                 <div className="form-field switch-field">
                   <label htmlFor="adquiridoUsado" className="switch-field-label">
@@ -379,11 +421,12 @@ function FlotaVehiculos() {
             </form>
           )}
 
-          {cargando && <Cargando forma="tarjetas" />}
-
-          {!cargando && vehiculos.length === 0 && <div className="listado-vacio">No se encontraron vehículos</div>}
-
-          {!cargando && vehiculos.length > 0 && (
+          <EstadoCarga
+            carga={cargaVehiculos}
+            forma="tarjetas"
+            que="los vehículos"
+            vacio={vehiculos.length === 0 && <div className="listado-vacio">No se encontraron vehículos</div>}
+          >
             <div className="listado-cards">
               {ordenarPorInterno(vehiculos).map((v) => (
                 <ListadoCard
@@ -405,7 +448,7 @@ function FlotaVehiculos() {
                 />
               ))}
             </div>
-          )}
+          </EstadoCarga>
         </>
       )}
 
