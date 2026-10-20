@@ -12,7 +12,7 @@ Formulario para crear o editar un vehículo (`FlotaVehiculos.jsx`). Patrón de p
 ## Obligatorios y hints
 - Todos los campos llevan `required` en `FormField` (asterisco rojo): `vehiculoService` los exige todos.
 - Dominio: hint "Formato AB123CD o ABC123".
-- Kilometraje actual: hint "En kilómetros".
+- Kilometraje actual: hint "En kilómetros". Solo se carga en el alta (es el kilometraje inicial). Al editar se muestra como dato de solo lectura ("157.345 km") con el hint "Se actualiza con las lecturas del odómetro, al comenzar y finalizar cada viaje." y no se manda al backend, que lo ignora.
 - Los errores de validación vienen del backend y se muestran en cada campo (el hint se oculta mientras hay error). Un error general (por ejemplo, dominio repetido) va en un `Alert` error arriba de los botones.
 
 ## Botones

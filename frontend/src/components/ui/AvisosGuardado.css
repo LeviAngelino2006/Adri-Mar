@@ -1,0 +1,5 @@
+/* Varios avisos de un mismo guardado: una lista corta dentro del Alert. */
+.avisos-guardado {
+  margin: 0;
+  padding-left: var(--space-4);
+}

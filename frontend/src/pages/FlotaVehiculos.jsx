@@ -9,6 +9,7 @@ import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
 import EstadoCarga from '../components/ui/EstadoCarga';
+import AvisosGuardado from '../components/ui/AvisosGuardado';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import SelectorBuscarOCrear from '../components/ui/SelectorBuscarOCrear';
@@ -19,6 +20,7 @@ import { ordenarPorInterno } from '../utils/vehiculos';
 import { ListadoCard, ListadoHeader, ListadoToolbar } from '../components/Listado';
 import IconoVehiculo from '../components/IconoVehiculo';
 import { useCarga } from '../hooks/useCarga';
+import { avisosDeRespuesta } from '../utils/avisosRespuesta';
 import './FlotaVehiculos.css';
 
 const ICONO_ALERTA = (
@@ -66,6 +68,9 @@ function FlotaVehiculos() {
   const [seleccionado, setSeleccionado] = useState(null);
   const [confirmandoBaja, setConfirmandoBaja] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  // Avisos del backend del último guardado (ver AvisosGuardado): quedan a la
+  // vista hasta la próxima acción, no se van con el toast.
+  const [avisosGuardado, setAvisosGuardado] = useState([]);
   const [errorBaja, setErrorBaja] = useState('');
 
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -112,6 +117,7 @@ function FlotaVehiculos() {
   }, [seleccionadoId, mostrarForm]);
 
   function seleccionar(v) {
+    setAvisosGuardado([]);
     setMostrarForm(false);
     setSeleccionado(v);
     setConfirmandoBaja(false);
@@ -139,6 +145,7 @@ function FlotaVehiculos() {
   }
 
   function abrirNuevo() {
+    setAvisosGuardado([]);
     setEditando(null);
     setForm(FORM_INICIAL);
     setErroresForm({});
@@ -147,6 +154,7 @@ function FlotaVehiculos() {
   }
 
   function abrirEditar(v) {
+    setAvisosGuardado([]);
     setEditando(v);
     setForm({
       dominio: v.dominio,
@@ -158,7 +166,6 @@ function FlotaVehiculos() {
       adquiridoUsado: v.adquiridoUsado,
       anio: v.anio,
       asientos: v.asientos,
-      kilometraje: v.kilometraje,
       tipoVehiculoId: v.tipoVehiculoId,
     });
     setErroresForm({});
@@ -208,15 +215,19 @@ function FlotaVehiculos() {
       tipoVehiculoId: form.tipoVehiculoId,
       anio: form.anio,
       asientos: form.asientos,
-      kilometraje: form.kilometraje,
+      // El kilometraje solo se carga en el alta (es el inicial). Después lo
+      // llevan las lecturas del odómetro y el backend lo ignora al editar.
+      ...(editando ? {} : { kilometraje: form.kilometraje }),
     };
     try {
       if (editando) {
-        await api.put(`/vehiculos/${editando.id}`, datos);
+        const { data } = await api.put(`/vehiculos/${editando.id}`, datos);
         setMensaje('Cambios guardados correctamente.');
+        setAvisosGuardado(avisosDeRespuesta(data));
       } else {
-        await api.post('/vehiculos', datos);
+        const { data } = await api.post('/vehiculos', datos);
         setMensaje('Vehículo registrado correctamente.');
+        setAvisosGuardado(avisosDeRespuesta(data));
       }
       setMostrarForm(false);
       setEditando(null);
@@ -241,6 +252,7 @@ function FlotaVehiculos() {
       )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
+      {!mostrarForm && <AvisosGuardado avisos={avisosGuardado} />}
       {errorBaja && <Alert variant="error">{errorBaja}</Alert>}
 
       {mostrarForm && (
@@ -309,15 +321,27 @@ function FlotaVehiculos() {
                   <input name="asientos" type="number" value={form.asientos} onChange={handleFormChange} />
                 </FormField>
 
-                <FormField
-                  id="kilometraje"
-                  label="Kilometraje actual"
-                  required
-                  hint="En kilómetros"
-                  error={erroresForm.kilometraje}
-                >
-                  <input name="kilometraje" type="number" value={form.kilometraje} onChange={handleFormChange} />
-                </FormField>
+                {editando ? (
+                  // Solo lectura: el kilometraje lo actualizan las lecturas del
+                  // odómetro (al comenzar y finalizar cada viaje), no este formulario.
+                  <div className="form-field">
+                    <span className="flota-dato-etiqueta">Kilometraje actual</span>
+                    <p className="flota-dato-solo-lectura num">{formatearKm(editando.kilometraje)} km</p>
+                    <p className="form-field-hint">
+                      Se actualiza con las lecturas del odómetro, al comenzar y finalizar cada viaje.
+                    </p>
+                  </div>
+                ) : (
+                  <FormField
+                    id="kilometraje"
+                    label="Kilometraje actual"
+                    required
+                    hint="En kilómetros"
+                    error={erroresForm.kilometraje}
+                  >
+                    <input name="kilometraje" type="number" value={form.kilometraje} onChange={handleFormChange} />
+                  </FormField>
+                )}
 
                 <div className="form-field switch-field">
                   <label htmlFor="adquiridoUsado" className="switch-field-label">

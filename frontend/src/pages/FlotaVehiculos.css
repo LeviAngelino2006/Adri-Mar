@@ -1,3 +1,18 @@
+/* Kilometraje en "Editar vehículo": dato de solo lectura con la etiqueta de un
+   campo (el estilo de label) y el valor como texto, sin aspecto de input. */
+.flota-dato-etiqueta {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.flota-dato-solo-lectura {
+  margin: 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: var(--color-text);
+}
+
 /* Ficha de detalle */
 .flota-detalle {
   margin-top: var(--space-2);
