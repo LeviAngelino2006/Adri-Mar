@@ -128,7 +128,7 @@ const CASOS = [
   },
   {
     pantalla: 'MisViajes', perfil: 'CHOFER', ruta: '/mis-viajes', endpoint: '/viajes/mis-viajes',
-    vacio: 'No tenés viajes asignados', error: 'No pudimos cargar tus viajes. Revisá tu conexión.', dato: 'Mendoza',
+    vacio: 'No tenés viajes próximos.', error: 'No pudimos cargar tus viajes. Revisá tu conexión.', dato: 'Mendoza',
   },
   {
     pantalla: 'Dashboard', perfil: 'CHOFER', ruta: '/', endpoint: '/viajes/mis-viajes',
