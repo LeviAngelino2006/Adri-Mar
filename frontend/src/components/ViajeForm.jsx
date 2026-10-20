@@ -23,6 +23,8 @@ import {
 import { nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { errorDeSecuencia, paradasAPayload } from '../utils/paradas';
 import { ordenarPorInterno } from '../utils/vehiculos';
+import { erroresObligatoriosViaje } from '../utils/validacionViaje';
+import { useFocoEnPrimerError } from '../hooks/useFocoEnPrimerError';
 
 const FORM_INICIAL = {
   clienteId: '',
@@ -50,7 +52,6 @@ const FORM_INICIAL = {
 
 const CAMPOS_OPERATIVOS = ['choferId', 'vehiculoId', 'fechaInicio', 'fechaFin', 'kilometrosEstimados'];
 const ERROR_OBLIGATORIO_PROGRAMADO = 'Obligatorio para un viaje Programado.';
-const ERROR_FECHA_INICIO = 'La fecha y hora de inicio es obligatoria';
 const DEMORA_AVISOS_MS = 400;
 const SIN_AVISOS = { choferes: {}, vehiculos: {} };
 
@@ -67,6 +68,9 @@ function avisosDe(lista) {
 // avisar antes de que el usuario intente guardar y se encuentre con un error
 // del servidor. En alta, o editando un A_CONFIRMAR, no se exigen — con una
 // excepción: la fecha de inicio es obligatoria siempre, en cualquier estado.
+// Cliente, origen, destino y fecha de inicio se validan juntos antes de enviar
+// (utils/validacionViaje), así los errores salen en una sola vuelta, y el foco
+// va al primer campo con error.
 //
 // Chofer y vehículo se cargan de una de dos maneras según el estado:
 //  - Alta o edición de un A_CONFIRMAR: listas de choferes y vehículos POSIBLES
@@ -106,6 +110,7 @@ function ViajeForm({
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
   const [avisos, setAvisos] = useState(SIN_AVISOS);
+  const [refForm, enfocarPrimerError] = useFocoEnPrimerError();
   // "Calcular km": el último resultado y el último error, cada uno con la firma
   // del recorrido con el que se pidió. Si el recorrido cambia, el resultado se
   // marca desactualizado (no se recalcula solo) y el error deja de mostrarse.
@@ -236,16 +241,13 @@ function ViajeForm({
     e.preventDefault();
     setErrores({});
 
-    const erroresLocales = {};
+    const erroresLocales = erroresObligatoriosViaje(form);
     if (requiereOperativos) {
       for (const campo of CAMPOS_OPERATIVOS) {
         if (form[campo] === '' || form[campo] === null || form[campo] === undefined) {
           erroresLocales[campo] = ERROR_OBLIGATORIO_PROGRAMADO;
         }
       }
-    }
-    if (!erroresLocales.fechaInicio && !form.fechaInicio) {
-      erroresLocales.fechaInicio = ERROR_FECHA_INICIO;
     }
 
     const { ids: idsParadas, errores: erroresFilas } = paradasAPayload(form.paradas);
@@ -258,6 +260,7 @@ function ViajeForm({
     }
     if (Object.keys(erroresLocales).length > 0) {
       setErrores(erroresLocales);
+      enfocarPrimerError();
       return;
     }
 
@@ -289,13 +292,14 @@ function ViajeForm({
       } else {
         setErrores({ general: 'No se pudo guardar el viaje' });
       }
+      enfocarPrimerError();
     } finally {
       setEnviando(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form ref={refForm} onSubmit={handleSubmit} noValidate>
       <div className="form-grid">
         <div className="form-field-ancho">
           <FormField id="clienteId" label="Cliente" error={errores.clienteId} required>

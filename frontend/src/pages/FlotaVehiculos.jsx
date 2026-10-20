@@ -21,6 +21,8 @@ import { ListadoCard, ListadoHeader, ListadoToolbar } from '../components/Listad
 import IconoVehiculo from '../components/IconoVehiculo';
 import { useCarga } from '../hooks/useCarga';
 import { avisosDeRespuesta } from '../utils/avisosRespuesta';
+import { ANIO_MINIMO, ASIENTOS_MAXIMO, ASIENTOS_MINIMO, validarVehiculo } from '../utils/validacionVehiculo';
+import { useFocoEnPrimerError } from '../hooks/useFocoEnPrimerError';
 import './FlotaVehiculos.css';
 
 const ICONO_ALERTA = (
@@ -78,6 +80,7 @@ function FlotaVehiculos() {
   const [form, setForm] = useState(FORM_INICIAL);
   const [erroresForm, setErroresForm] = useState({});
   const [enviandoForm, setEnviandoForm] = useState(false);
+  const [refForm, enfocarPrimerError] = useFocoEnPrimerError();
 
   // useCarga lleva los estados de cargando y error (un error no es un listado vacío).
   const pedirVehiculos = useCallback(() => {
@@ -205,6 +208,14 @@ function FlotaVehiculos() {
 
   async function handleSubmitForm(e) {
     e.preventDefault();
+    // Todo junto antes de enviar, así los errores salen en una sola vuelta; el
+    // backend valida igual.
+    const erroresLocales = validarVehiculo(form, { conKilometraje: !editando });
+    if (Object.keys(erroresLocales).length > 0) {
+      setErroresForm(erroresLocales);
+      enfocarPrimerError();
+      return;
+    }
     setErroresForm({});
     setEnviandoForm(true);
     const datos = {
@@ -240,6 +251,7 @@ function FlotaVehiculos() {
       } else {
         setErroresForm({ general: 'No se pudo guardar el vehículo' });
       }
+      enfocarPrimerError();
     } finally {
       setEnviandoForm(false);
     }
@@ -262,7 +274,7 @@ function FlotaVehiculos() {
           </button>
           <h1>{editando ? 'Editar vehículo' : 'Crear vehículo'}</h1>
           <Card className="form-card">
-            <form onSubmit={handleSubmitForm} noValidate>
+            <form ref={refForm} onSubmit={handleSubmitForm} noValidate>
               <div className="form-grid">
                 <FormField id="numeroInterno" label="Número de interno" required error={erroresForm.numeroInterno}>
                   <input name="numeroInterno" value={form.numeroInterno} onChange={handleFormChange} />
@@ -278,7 +290,7 @@ function FlotaVehiculos() {
                   <input name="dominio" value={form.dominio} onChange={handleFormChange} />
                 </FormField>
 
-                <FormField id="marcaId" label="Marca" required>
+                <FormField id="marcaId" label="Marca" required error={erroresForm.marcaId}>
                   <SelectorBuscarOCrear
                     endpoint="/marcas"
                     valor={form.marcaId}
@@ -314,11 +326,18 @@ function FlotaVehiculos() {
                 </FormField>
 
                 <FormField id="anio" label="Año" required error={erroresForm.anio}>
-                  <input name="anio" type="number" value={form.anio} onChange={handleFormChange} />
+                  <input name="anio" type="number" min={ANIO_MINIMO} value={form.anio} onChange={handleFormChange} />
                 </FormField>
 
                 <FormField id="asientos" label="Cantidad de asientos" required error={erroresForm.asientos}>
-                  <input name="asientos" type="number" value={form.asientos} onChange={handleFormChange} />
+                  <input
+                    name="asientos"
+                    type="number"
+                    min={ASIENTOS_MINIMO}
+                    max={ASIENTOS_MAXIMO}
+                    value={form.asientos}
+                    onChange={handleFormChange}
+                  />
                 </FormField>
 
                 {editando ? (
@@ -339,7 +358,7 @@ function FlotaVehiculos() {
                     hint="En kilómetros"
                     error={erroresForm.kilometraje}
                   >
-                    <input name="kilometraje" type="number" value={form.kilometraje} onChange={handleFormChange} />
+                    <input name="kilometraje" type="number" min="0" value={form.kilometraje} onChange={handleFormChange} />
                   </FormField>
                 )}
 

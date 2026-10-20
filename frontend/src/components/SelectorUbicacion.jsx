@@ -10,6 +10,7 @@ import {
 } from '../utils/sugerenciasGoogle';
 import useSugerenciasGoogle from './useSugerenciasGoogle';
 import useTextoDeSeleccion from './ui/useTextoDeSeleccion';
+import { abrirAlEnfocar } from '../utils/focoSinAbrir';
 import './ui/SelectorBuscarOCrear.css';
 import './SelectorUbicacion.css';
 
@@ -197,7 +198,8 @@ function SelectorUbicacion({
         type="text"
         value={texto}
         onChange={handleChangeTexto}
-        onFocus={() => setAbierto(true)}
+        onFocus={abrirAlEnfocar(() => setAbierto(true))}
+        onClick={() => setAbierto(true)}
         onKeyDown={(e) => {
           if (e.key === 'Escape') cerrar();
         }}

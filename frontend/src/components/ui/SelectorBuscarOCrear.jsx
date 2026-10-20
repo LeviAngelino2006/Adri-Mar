@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import api from '../../services/api';
 import useTextoDeSeleccion from './useTextoDeSeleccion';
+import { abrirAlEnfocar } from '../../utils/focoSinAbrir';
 import './SelectorBuscarOCrear.css';
 
 const DEMORA_DEBOUNCE_MS = 300;
@@ -113,7 +114,8 @@ function SelectorBuscarOCrear({
         type="text"
         value={texto}
         onChange={handleChangeTexto}
-        onFocus={() => setAbierto(true)}
+        onFocus={abrirAlEnfocar(() => setAbierto(true))}
+        onClick={() => setAbierto(true)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         disabled={disabled}

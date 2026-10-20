@@ -12,7 +12,7 @@ Dentro de `.form-card` (720px) y `.form-grid` (dos columnas desde 640px, una col
 
 ## Campos obligatorios
 - Lo obligatorio se marca con `required` en `FormField`: asterisco rojo después del label. No se escribe "Opcional" en ningún campo ni hint.
-- Cliente, Origen, Destino y Fecha y hora de inicio son siempre obligatorios, en cualquier estado.
+- Cliente, Origen, Destino y Fecha y hora de inicio son siempre obligatorios, en cualquier estado. Se validan juntos en el front antes de enviar (`utils/validacionViaje.js`), con los mismos textos del backend, y el foco va al primer campo con error.
 - Chofer, vehículo, fecha de fin y kilómetros estimados son obligatorios solo al editar un viaje Programado. Al crear (o editar un A confirmar) son opcionales y no llevan asterisco; Cantidad de pasajeros es opcional siempre.
 - El formulario no lleva leyenda ("* Obligatorio…"): el asterisco rojo alcanza. Todo viaje nace A confirmar y se confirma aparte; esa regla no se explica en la pantalla.
 

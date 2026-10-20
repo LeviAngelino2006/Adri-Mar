@@ -57,6 +57,8 @@ before(async () => {
   api.get = async (endpoint) => {
     if (endpoint === '/vehiculos') return { data: { vehiculos: [VEHICULO] } };
     if (endpoint === '/tipos-vehiculo') return { data: { tiposVehiculo: [{ id: 1, descripcion: 'Colectivo' }] } };
+    if (endpoint === '/marcas') return { data: { marcas: [{ id: 1, nombre: 'Mercedes-Benz' }] } };
+    if (endpoint === '/marcas/1/modelos') return { data: { modelos: [{ id: 1, nombre: 'O500' }] } };
     return { data: { marcas: [], modelos: [] } };
   };
   api.put = async (endpoint, datos) => {
@@ -108,6 +110,23 @@ function escribir(input, texto) {
   });
 }
 
+// Espera a que pase el debounce de la búsqueda del selector y lleguen los resultados.
+const esperarBusqueda = () => act(() => new Promise((resolver) => setTimeout(resolver, 400)));
+
+async function elegirEnSelector(id, texto, opcion) {
+  escribir(contenedor.querySelector(`#${id}`), texto);
+  await esperarBusqueda();
+  await clic(boton(opcion));
+}
+
+function elegirTipo(valor) {
+  const select = contenedor.querySelector('select[name="tipoVehiculoId"]');
+  act(() => {
+    select.value = valor;
+    select.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+}
+
 async function abrirEdicion() {
   await clic(contenedor.querySelector('button.listado-card'));
   await clic(boton('Editar vehículo'));
@@ -152,6 +171,14 @@ describe('Crear vehículo: el kilometraje inicial sigue siendo editable', () => 
     await clic(contenedor.querySelector('.listado-accion'));
     const input = contenedor.querySelector('input[name="kilometraje"]');
     assert.ok(input, 'falta el campo de kilometraje en el alta');
+    // El resto completo y válido: el front valida todo antes de enviar.
+    escribir(contenedor.querySelector('input[name="numeroInterno"]'), '30');
+    escribir(contenedor.querySelector('input[name="dominio"]'), 'AB123CD');
+    await elegirEnSelector('marcaId', 'Merc', 'Mercedes-Benz');
+    await elegirEnSelector('modeloId', 'O5', 'O500');
+    elegirTipo('1');
+    escribir(contenedor.querySelector('input[name="anio"]'), '2020');
+    escribir(contenedor.querySelector('input[name="asientos"]'), '45');
     escribir(input, '1200');
     await clic(boton('Crear vehículo'));
     assert.equal(enviados[0].metodo, 'POST');
