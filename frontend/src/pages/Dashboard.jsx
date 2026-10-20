@@ -6,10 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import Cargando from '../components/ui/Cargando';
 import EstadoCarga from '../components/ui/EstadoCarga';
 import Toast from '../components/ui/Toast';
-import Alert from '../components/ui/Alert';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import RutaViaje from '../components/RutaViaje';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
@@ -234,42 +232,14 @@ function ViajesDelChofer() {
 // o del chofer en Documentación.
 function SeccionDocumentacion() {
   const navigate = useNavigate();
-  const [alertas, setAlertas] = useState(null);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState(false);
+  // Ante un error nunca se muestra "Sin alertas": no se sabe si las hay. Se
+  // muestra el error con "Reintentar" (EstadoCarga).
+  const carga = useCarga(obtenerAlertasVencimientos);
   const [mostrarTodos, setMostrarTodos] = useState(false);
 
-  useEffect(() => {
-    obtenerAlertasVencimientos()
-      .then((res) => setAlertas(res))
-      .catch((err) => {
-        console.error('Error al cargar alertas:', err);
-        setError(true);
-      })
-      .finally(() => setCargando(false));
-  }, []);
-
-  if (cargando) {
-    return (
-      <Card className="dashboard-panel">
-        <h2>Documentación</h2>
-        <Cargando forma="filas" />
-      </Card>
-    );
-  }
-
-  // Ante un error nunca se muestra "Sin alertas": no se sabe si las hay.
-  if (error) {
-    return (
-      <Card className="dashboard-panel">
-        <h2>Documentación</h2>
-        <Alert variant="error">No se pudieron cargar las alertas.</Alert>
-      </Card>
-    );
-  }
-
-  const sinAlertas = alertas.totalAlertas === 0;
-  const documentos = ordenarAlertas(alertas.documentos);
+  const alertas = carga.cargando || carga.error ? null : carga.datos;
+  const sinAlertas = alertas?.totalAlertas === 0;
+  const documentos = alertas ? ordenarAlertas(alertas.documentos) : [];
   const visibles = mostrarTodos ? documentos : documentos.slice(0, MAX_DOCUMENTOS_INICIAL);
   const restantes = documentos.length - MAX_DOCUMENTOS_INICIAL;
 
@@ -285,17 +255,24 @@ function SeccionDocumentacion() {
     <Card className="dashboard-panel">
       <div className="dashboard-panel-header">
         <h2>Documentación</h2>
-        {!sinAlertas && <span className="dashboard-resumen">{resumenAlertas(alertas)}</span>}
+        {alertas && !sinAlertas && <span className="dashboard-resumen">{resumenAlertas(alertas)}</span>}
       </div>
 
-      {sinAlertas ? (
-        <div className="dashboard-empty">
-          <span>Sin alertas por ahora</span>
-          <span className="dashboard-empty-hint">
-            Toda la documentación registrada de vehículos y choferes está al día
-          </span>
-        </div>
-      ) : (
+      <EstadoCarga
+        carga={carga}
+        forma="filas"
+        que="las alertas de documentación"
+        vacio={
+          sinAlertas && (
+            <div className="dashboard-empty">
+              <span>Sin alertas por ahora</span>
+              <span className="dashboard-empty-hint">
+                Toda la documentación registrada de vehículos y choferes está al día
+              </span>
+            </div>
+          )
+        }
+      >
         <>
           <ul className="dashboard-lista">
             {visibles.map((doc) => {
@@ -330,7 +307,7 @@ function SeccionDocumentacion() {
             </Button>
           )}
         </>
-      )}
+      </EstadoCarga>
     </Card>
   );
 }

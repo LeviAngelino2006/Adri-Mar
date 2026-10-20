@@ -25,6 +25,7 @@ import { errorDeSecuencia, paradasAPayload } from '../utils/paradas';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import { erroresObligatoriosViaje } from '../utils/validacionViaje';
 import { useFocoEnPrimerError } from '../hooks/useFocoEnPrimerError';
+import { mensajeErrorCarga } from '../utils/errorCarga';
 
 const FORM_INICIAL = {
   clienteId: '',
@@ -106,6 +107,8 @@ function ViajeForm({
 }) {
   const [choferes, setChoferes] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
+  // { choferes, vehiculos }: mensaje si no se pudo cargar esa lista de opciones.
+  const [errorOpciones, setErrorOpciones] = useState({});
   const [form, setForm] = useState(valoresIniciales || FORM_INICIAL);
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
@@ -130,11 +133,19 @@ function ViajeForm({
   const requiereOperativos = estadoActual === 'PROGRAMADO';
   const usaCandidatos = !requiereOperativos;
 
+  // Si una lista no carga, se avisa en su campo y el formulario sigue usable: el
+  // resto se puede cargar, y en el alta los candidatos son opcionales.
   useEffect(() => {
-    api.get('/usuarios/disponibles-chofer').then(({ data }) => setChoferes(data.usuarios));
+    const avisarError = (lista, que) => (err) =>
+      setErrorOpciones((e) => ({ ...e, [lista]: mensajeErrorCarga(err, que) }));
+    api
+      .get('/usuarios/disponibles-chofer')
+      .then(({ data }) => setChoferes(data.usuarios))
+      .catch(avisarError('choferes', 'la lista de choferes'));
     api
       .get('/vehiculos', { params: { estado: 'OPERATIVO' } })
-      .then(({ data }) => setVehiculos(ordenarPorInterno(data.vehiculos)));
+      .then(({ data }) => setVehiculos(ordenarPorInterno(data.vehiculos)))
+      .catch(avisarError('vehiculos', 'la lista de vehículos'));
   }, []);
 
   // Avisos de disponibilidad de los candidatos elegidos, con las fechas que el
@@ -349,7 +360,7 @@ function ViajeForm({
               <FormField
                 id="choferesCandidatos"
                 label="Choferes posibles"
-                error={errores.choferesCandidatos || errores.choferId}
+                error={errores.choferesCandidatos || errores.choferId || errorOpciones.choferes}
               >
                 <SelectorMultiple
                   opciones={opcionesChoferes}
@@ -365,7 +376,7 @@ function ViajeForm({
               <FormField
                 id="vehiculosCandidatos"
                 label="Vehículos posibles"
-                error={errores.vehiculosCandidatos || errores.vehiculoId}
+                error={errores.vehiculosCandidatos || errores.vehiculoId || errorOpciones.vehiculos}
               >
                 <SelectorMultiple
                   opciones={opcionesVehiculos}
@@ -379,7 +390,7 @@ function ViajeForm({
           </>
         ) : (
           <>
-            <FormField id="choferId" label="Chofer" error={errores.choferId} required>
+            <FormField id="choferId" label="Chofer" error={errores.choferId || errorOpciones.choferes} required>
               <select name="choferId" value={form.choferId} onChange={handleChange}>
                 <option value="">Seleccionar…</option>
                 {choferes.map((c) => (
@@ -390,7 +401,7 @@ function ViajeForm({
               </select>
             </FormField>
 
-            <FormField id="vehiculoId" label="Vehículo" error={errores.vehiculoId} required>
+            <FormField id="vehiculoId" label="Vehículo" error={errores.vehiculoId || errorOpciones.vehiculos} required>
               <select name="vehiculoId" value={form.vehiculoId} onChange={handleChange}>
                 <option value="">Seleccionar…</option>
                 {vehiculos.map((v) => (

@@ -24,6 +24,7 @@ Dentro de `.form-card` (720px) y `.form-grid` (dos columnas desde 640px, una col
 
 ## Choferes y vehículos posibles
 - Al crear o editar un viaje A confirmar, chofer y vehículo se cargan como listas de candidatos con `SelectorMultiple` (opcionales, 0 o más). Recién se elige uno de cada uno al confirmar (`ModalConfirmarViaje`).
+- Si no carga la lista de choferes o la de vehículos, el campo lo dice como `error` ("No pudimos cargar la lista de choferes. Revisá tu conexión.") y el resto del formulario sigue usable. Lo mismo en el modal de confirmar, donde los candidatos del viaje se pueden elegir igual.
 - Debajo de cada chip con problema se muestra el aviso de disponibilidad ("Se superpone con otro viaje programado (10:00–13:30)", "Vehículo en taller", "No habilitado para conducir", "Usuario dado de baja", "Vehículo dado de baja"). Se calcula con las fechas del formulario, con debounce, y **no bloquea el guardado**.
 - Al enviar viaja un solo juego de campos: candidatos en un A confirmar, `choferId` y `vehiculoId` en un Programado.
 

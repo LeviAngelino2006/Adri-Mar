@@ -1,5 +1,6 @@
 // Tests de los tres estados de carga de los listados (cargando, vacío y error
-// con "Reintentar"): Viajes, Flota, Mis viajes y el Dashboard del chofer. Se
+// con "Reintentar"): Viajes, Flota, Mis viajes, el Dashboard del chofer y los
+// paneles del Dashboard de gestión. Se
 // corren con `npm test` (node:test).
 //
 // El bug: un error de red se mostraba como listado vacío ("No se encontraron
@@ -63,6 +64,7 @@ function respuestaListado(endpoint) {
   const lista = (item) => (modo === 'vacio' ? [] : [item]);
   if (endpoint === '/vehiculos') return { data: { vehiculos: lista(VEHICULO) } };
   if (endpoint === '/viajes' || endpoint === '/viajes/mis-viajes') return { data: { viajes: lista(VIAJE) } };
+  if (endpoint === '/documentos/alertas') return { data: { totalAlertas: 0, vencidos: 0, porVencer: 0, documentos: [] } };
   throw new Error(`endpoint no previsto en el test: ${endpoint}`);
 }
 
@@ -197,5 +199,48 @@ describe('mensaje de error según la causa', () => {
     } finally {
       api.get = original;
     }
+  });
+});
+
+// Los tres paneles del Dashboard de gestión: antes mostraban el error, pero sin
+// "Reintentar" (había que recargar la página entera).
+describe('Dashboard de gestión: los tres paneles con el backend cortado', () => {
+  const ERRORES = [
+    'No pudimos cargar los viajes de hoy. Revisá tu conexión.',
+    'No pudimos cargar los viajes por confirmar. Revisá tu conexión.',
+    'No pudimos cargar las alertas de documentación. Revisá tu conexión.',
+  ];
+  const VACIOS = ['No hay viajes para hoy', 'Nada pendiente para hoy ni mañana', 'Sin alertas por ahora'];
+  const botonesReintentar = () => [...contenedor.querySelectorAll('button')].filter((b) => b.textContent === 'Reintentar');
+
+  test('cada panel muestra su error con "Reintentar", nunca el vacío', async () => {
+    modo = 'falla';
+    await montar('Dashboard', 'ADMINISTRADOR', '/');
+    const alertas = [...contenedor.querySelectorAll('.alert-error[role="alert"]')].map((a) => a.textContent);
+    for (const error of ERRORES) assert.ok(alertas.some((a) => a.includes(error)), `falta: ${error}`);
+    assert.equal(botonesReintentar().length, 3);
+    for (const vacio of VACIOS) assert.ok(!texto().includes(vacio), vacio);
+  });
+
+  test('"Reintentar" de cada panel vuelve a pedir solo lo suyo y, si ahora responde, lo muestra', async () => {
+    modo = 'falla';
+    await montar('Dashboard', 'ADMINISTRADOR', '/');
+    modo = 'datos';
+
+    const pedidosViajes = pedidos.filter((e) => e === '/viajes').length;
+    await act(async () => botonesReintentar()[0].click());
+    assert.equal(pedidos.filter((e) => e === '/viajes').length, pedidosViajes + 2, 'Viajes de hoy hace dos consultas');
+    assert.ok(texto().includes('Mendoza'));
+    assert.equal(botonesReintentar().length, 2);
+
+    await act(async () => botonesReintentar()[0].click());
+    assert.ok(texto().includes('Nada pendiente para hoy ni mañana'));
+
+    const pedidosAlertas = pedidos.filter((e) => e === '/documentos/alertas').length;
+    await act(async () => botonesReintentar()[0].click());
+    assert.equal(pedidos.filter((e) => e === '/documentos/alertas').length, pedidosAlertas + 1);
+    assert.ok(texto().includes('Sin alertas por ahora'));
+    assert.equal(botonesReintentar().length, 0);
+    assert.ok(!contenedor.querySelector('.alert-error'));
   });
 });

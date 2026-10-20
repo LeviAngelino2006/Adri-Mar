@@ -46,6 +46,8 @@ after(() => vite.close());
 
 // Hora de Córdoba = UTC - 3. "Ahora" = viernes 9/10/2026 12:00 en Córdoba.
 const AHORA = Date.parse('2026-10-09T15:00:00Z');
+// Lo que devuelve useCarga con los datos ya cargados.
+const CARGA_LISTA = { cargando: false, error: null, recargar() {} };
 
 const viaje = (extra = {}) => ({
   id: 1,
@@ -241,7 +243,7 @@ describe('Duplicar viaje', () => {
 describe('ContenidoViajesDeHoy', () => {
   const render = (props) =>
     renderToStaticMarkup(
-      h(ContenidoViajesDeHoy, { cargando: false, error: false, viajes: [], ahora: AHORA, onAbrir() {}, ...props })
+      h(ContenidoViajesDeHoy, { carga: CARGA_LISTA, viajes: [], ahora: AHORA, onAbrir() {}, ...props })
     );
 
   test('una fila (botón) por viaje con horas, ruta, chofer, vehículo y estado', () => {
@@ -263,8 +265,11 @@ describe('ContenidoViajesDeHoy', () => {
   });
 
   test('estados de carga, error y vacío', () => {
-    assert.match(render({ cargando: true }), /<div class="carga" role="status" aria-live="polite"><\/div>/);
-    assert.match(render({ error: true }), /No se pudieron cargar los viajes de hoy\./);
+    assert.match(render({ carga: { ...CARGA_LISTA, cargando: true } }), /<div class="carga" role="status" aria-live="polite"><\/div>/);
+    const conError = render({ carga: { ...CARGA_LISTA, error: new Error('Network Error') } });
+    assert.match(conError, /No pudimos cargar los viajes de hoy\. Revisá tu conexión\./);
+    assert.match(conError, />Reintentar</);
+    assert.ok(!conError.includes('No hay viajes para hoy'), 'un error no se muestra como vacío');
     assert.match(render({}), /class="dashboard-empty">No hay viajes para hoy</);
   });
 });
@@ -272,7 +277,7 @@ describe('ContenidoViajesDeHoy', () => {
 describe('estados vacíos del Dashboard', () => {
   test('Viajes por confirmar: solo texto, igual que Viajes de hoy', () => {
     const html = renderToStaticMarkup(
-      h(ContenidoPorConfirmar, { cargando: false, error: false, hoy: [], manana: [], onConfirmar() {} })
+      h(ContenidoPorConfirmar, { carga: CARGA_LISTA, hoy: [], manana: [], onConfirmar() {} })
     );
     assert.equal(html, '<div class="dashboard-empty">Nada pendiente para hoy ni mañana</div>');
   });
