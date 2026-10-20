@@ -10,7 +10,8 @@
 //    nombre de una frecuente sale del texto principal de la sugerencia y no
 //    del detalle. Usar el mismo sessionToken cierra la sesión.
 //  - computeRoutes con TRAFFIC_UNAWARE y hasta 9 paradas: "Compute Routes
-//    Essentials" (TRAFFIC_AWARE o más de 10 intermedios pasan a Pro).
+//    Essentials" (TRAFFIC_AWARE o más de 10 intermedios pasan a Pro). Si no hay
+//    ruta, se agrega una llamada por tramo hasta dar con el que falla.
 //
 // Términos: de lo que devuelve Google solo se guarda el placeId (lo único que
 // se puede guardar sin límite de tiempo). Las coordenadas de Places tienen un
@@ -172,9 +173,12 @@ function waypoint({ placeId, latitud, longitud }) {
 // "5430s" → 5430.
 const segundos = (duracion) => Number.parseFloat(String(duracion ?? '0').replace(/s$/, '')) || 0;
 
-// Ruta en auto por todos los puntos, en orden: UNA llamada a computeRoutes.
-// puntos: [{ placeId } | { latitud, longitud }]. Devuelve { metros, segundos }.
-async function calcularRuta(puntos, { timeoutMs } = {}) {
+const mensajeTramoSinRuta = (desde, hasta) =>
+  `No hay una ruta en auto entre «${desde}» y «${hasta}». Revisá esas ubicaciones.`;
+
+// UNA llamada a computeRoutes por los puntos, en orden. Devuelve
+// { metros, segundos }, o null si Google dice que no hay ruta en auto.
+async function pedirRuta(puntos, { timeoutMs }) {
   const [origen, ...resto] = puntos;
   const destino = resto.pop();
   const { status, datos } = await llamarGoogle(URL_RUTAS, {
@@ -194,14 +198,53 @@ async function calcularRuta(puntos, { timeoutMs } = {}) {
   });
 
   // 400/404: algún placeId que Google ya no reconoce o un punto imposible.
-  if (status === 400 || status === 404) throw new ErrorMapa(422, MENSAJES.rutaImposible);
+  if (status === 400 || status === 404) return null;
   if (status !== 200) throw errorPorStatus(status);
 
-  // Sin ruta posible Google responde 200 con un objeto vacío.
+  // Sin ruta posible, `routes` viene vacío ("If the array is empty, then it
+  // means no route could be found", referencia de computeRoutes). En JSON un
+  // array vacío se omite, así que Google responde 200 con {}; se cubren los dos.
   const ruta = datos?.routes?.[0];
-  if (!ruta) throw new ErrorMapa(422, MENSAJES.rutaImposible);
+  if (!ruta) return null;
   // Un recorrido de distancia 0 viene sin distanceMeters.
   return { metros: ruta.distanceMeters ?? 0, segundos: segundos(ruta.duration) };
+}
+
+// Solo cuando el recorrido completo no tiene ruta: lo prueba tramo por tramo
+// (origen → parada 1, parada 1 → parada 2, …, última → destino), en orden, y
+// corta en el primer tramo sin ruta, para decirle al usuario qué puntos revisar.
+// Cada tramo es otra llamada a computeRoutes (mismo field mask y SKU) y cuenta
+// para el tope diario. Si el diagnóstico no llega a una respuesta (tope
+// alcanzado, Google caído, todos los tramos con ruta), queda el mensaje genérico.
+async function errorSinRuta(puntos, { timeoutMs }) {
+  const generico = new ErrorMapa(422, MENSAJES.rutaImposible);
+  const tramos = puntos.slice(1).map((hasta, i) => [puntos[i], hasta]);
+  const errorTramo = (desde, hasta) =>
+    desde.nombre && hasta.nombre ? new ErrorMapa(422, mensajeTramoSinRuta(desde.nombre, hasta.nombre)) : generico;
+
+  // Sin paradas el único tramo es el recorrido que ya falló: no hace falta otra llamada.
+  if (tramos.length === 1) return errorTramo(...tramos[0]);
+
+  for (const [desde, hasta] of tramos) {
+    let ruta;
+    try {
+      ruta = await pedirRuta([desde, hasta], { timeoutMs });
+    } catch {
+      return generico;
+    }
+    if (!ruta) return errorTramo(desde, hasta);
+  }
+  return generico;
+}
+
+// Ruta en auto por todos los puntos, en orden: UNA llamada a computeRoutes (si
+// no hay ruta, más llamadas para encontrar el tramo que falla; ver errorSinRuta).
+// puntos: [{ nombre, placeId } | { nombre, latitud, longitud }]; el nombre solo
+// se usa en el mensaje de error. Devuelve { metros, segundos }.
+async function calcularRuta(puntos, { timeoutMs } = {}) {
+  const ruta = await pedirRuta(puntos, { timeoutMs });
+  if (ruta) return ruta;
+  throw await errorSinRuta(puntos, { timeoutMs });
 }
 
 module.exports = {

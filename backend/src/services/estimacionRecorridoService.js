@@ -23,6 +23,9 @@ const { ErrorMapa } = googleMapsService;
 //  3. Pide la ruta en auto por todos los puntos, en orden: UNA llamada a
 //     computeRoutes. Cada punto va por placeId si lo tiene (la dirección exacta
 //     elegida en Google), si no por sus coordenadas (localidades de Georef).
+//  4. Solo si no hay ruta en auto: prueba tramo por tramo y responde 422 con el
+//     primer tramo que falla ("No hay una ruta en auto entre «A» y «B»…"). Ver
+//     calcularRuta en googleMapsService.
 //
 // No se geocodifica el nombre al calcular: hacerlo fallaba de forma grosera e
 // indetectable ("Cosquin" → una calle de Córdoba capital).
@@ -100,8 +103,8 @@ async function estimarKm({ origenId, paradaIds, destinoId } = {}, { timeoutMs } 
 
   const ruta = await googleMapsService.calcularRuta(
     secuencia.map((id) => {
-      const { placeId, latitud, longitud } = ubicaciones.get(id);
-      return placeId ? { placeId } : { latitud, longitud };
+      const { nombre, placeId, latitud, longitud } = ubicaciones.get(id);
+      return placeId ? { nombre, placeId } : { nombre, latitud, longitud };
     }),
     { timeoutMs }
   );

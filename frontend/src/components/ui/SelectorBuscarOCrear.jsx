@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import api from '../../services/api';
+import useTextoDeSeleccion from './useTextoDeSeleccion';
 import './SelectorBuscarOCrear.css';
 
 const DEMORA_DEBOUNCE_MS = 300;
@@ -33,18 +34,14 @@ function SelectorBuscarOCrear({
   disabled = false,
   ...resto
 }) {
-  const [texto, setTexto] = useState(valorNombre || '');
+  // Muestra el nombre de la selección cuando cambia desde afuera, sin borrar lo
+  // que el usuario escribe encima (ver useTextoDeSeleccion).
+  const [texto, setTexto] = useTextoDeSeleccion(valor, valorNombre);
   const [resultados, setResultados] = useState([]);
   const [abierto, setAbierto] = useState(false);
   const [buscando, setBuscando] = useState(false);
   const [creando, setCreando] = useState(false);
   const contenedorRef = useRef(null);
-
-  // Si el valor seleccionado cambia desde afuera (ej. el formulario carga un
-  // viaje existente para editar), sincronizar el texto mostrado.
-  useEffect(() => {
-    setTexto(valorNombre || '');
-  }, [valor, valorNombre]);
 
   useEffect(() => {
     if (!abierto) return;

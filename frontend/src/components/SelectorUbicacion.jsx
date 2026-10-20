@@ -9,6 +9,7 @@ import {
   ofrecerCrearPorNombre,
 } from '../utils/sugerenciasGoogle';
 import useSugerenciasGoogle from './useSugerenciasGoogle';
+import useTextoDeSeleccion from './ui/useTextoDeSeleccion';
 import './ui/SelectorBuscarOCrear.css';
 import './SelectorUbicacion.css';
 
@@ -49,7 +50,9 @@ function SelectorUbicacion({
   disabled = false,
   ...resto
 }) {
-  const [texto, setTexto] = useState(valorNombre || '');
+  // Muestra el nombre de la selección cuando cambia desde afuera, sin borrar lo
+  // que el usuario escribe encima (ver useTextoDeSeleccion).
+  const [texto, setTexto] = useTextoDeSeleccion(valor, valorNombre);
   const [abierto, setAbierto] = useState(false);
   const [frecuentes, setFrecuentes] = useState([]);
   // Para qué texto es la lista de frecuentes que se está mostrando.
@@ -71,18 +74,6 @@ function SelectorUbicacion({
     !disabled &&
     debeConsultarGoogle({ texto, forzado: forzarGoogle, textoFrecuentes, buscandoFrecuentes, cantidadFrecuentes: frecuentes.length });
   const google = useSugerenciasGoogle(texto, consultarGoogle);
-
-  // Si la selección cambia desde afuera (ej. el formulario carga un viaje para
-  // editar), se muestra su nombre. Cuando el formulario la vacía porque el
-  // usuario empezó a escribir, el texto NO se toca (si no, se borraría lo que
-  // está escribiendo). Se ajusta durante el render, no en un efecto (patrón de
-  // React para estado que depende de una prop).
-  const seleccion = `${valor ?? ''}|${valorNombre ?? ''}`;
-  const [seleccionPrevia, setSeleccionPrevia] = useState(seleccion);
-  if (seleccion !== seleccionPrevia) {
-    setSeleccionPrevia(seleccion);
-    if (valor) setTexto(valorNombre || '');
-  }
 
   useEffect(() => {
     if (!abierto) return undefined;
