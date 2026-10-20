@@ -335,6 +335,23 @@ function parsearFecha(valor) {
   return new Date(texto.length === 10 ? `${texto}T12:00:00Z` : texto);
 }
 
+// Dos fechas de documento son la misma si caen el mismo día de Córdoba (se
+// cargan como día suelto: "2027-06-30" llega como 12:00Z). Dos null también.
+function mismoDia(a, b) {
+  if (!a || !b) return !a && !b;
+  return diaCordoba(new Date(a)) === diaCordoba(new Date(b));
+}
+
+// ¿Los datos de una renovación (sin archivo nuevo) son los de la vigente?
+// Las observaciones se comparan como se guardan: sin espacios de más y vacías = null.
+function mismosDatosQueLaVigente(vigente, { parsedEmision, parsedVencimiento, observaciones }) {
+  return (
+    mismoDia(vigente.fechaEmision, parsedEmision) &&
+    mismoDia(vigente.fechaVencimiento, parsedVencimiento) &&
+    (vigente.observaciones?.trim() || null) === (observaciones?.trim() || null)
+  );
+}
+
 // Borra del Storage solo los paths que ninguna fila sigue usando. Se llama
 // DESPUÉS de confirmar la transacción: un rollback no puede dejar filas
 // apuntando a archivos ya borrados.
@@ -411,6 +428,15 @@ async function registrarDocumento(titular, datos, file, usuarioId) {
   }
 
   if (Object.keys(errores).length > 0) throw new ValidacionError(errores);
+
+  // Renovación sin cambios: sin PDF nuevo y con las mismas fechas y observaciones
+  // que la versión vigente. No hay nada nuevo que guardar, así que no se crea la
+  // versión ni corre la purga: antes se guardaba una fila idéntica y, con el
+  // historial lleno (vigente + MAX_HISTORICOS), la purga borraba la versión real
+  // más vieja y, si ninguna otra la usaba, también su PDF del Storage.
+  if (docPrevio && !file && mismosDatosQueLaVigente(docPrevio, { parsedEmision, parsedVencimiento, observaciones })) {
+    throw errorHttp(400, 'No hay cambios para guardar');
+  }
 
   let archivoPath = null;
   let nombreArchivo = null;

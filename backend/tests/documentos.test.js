@@ -234,15 +234,15 @@ describe('Archivos compartidos y purga del historial', () => {
   test('con 4 versiones quedan 3 y solo se borran de Supabase los archivos que ya no usa nadie', async () => {
     const v1 = await subirPoliza({ pdf: true });
     const v2 = await subirPoliza({ pdf: true });
-    await subirPoliza({ pdf: false }); // v3 reutiliza el archivo de v2
+    await subirPoliza({ pdf: false }, { fechaVencimiento: '2027-07-31' }); // v3 reutiliza el archivo de v2
     assert.equal(documentos.length, 3);
     assert.deepEqual(borrados, []);
 
-    await subirPoliza({ pdf: false }); // v4: se purga v1, que tenía su propio archivo
+    await subirPoliza({ pdf: false }, { fechaVencimiento: '2027-08-31' }); // v4: se purga v1, que tenía su propio archivo
     assert.equal(documentos.length, 3);
     assert.deepEqual(borrados, [v1.json.documento.archivoPath]);
 
-    await subirPoliza({ pdf: false }); // v5: se purga v2, pero v3 y v4 siguen usando su archivo
+    await subirPoliza({ pdf: false }, { fechaVencimiento: '2027-09-30' }); // v5: se purga v2, pero v3 y v4 siguen usando su archivo
     assert.equal(documentos.length, 3);
     assert.deepEqual(borrados, [v1.json.documento.archivoPath]);
     assert.ok(archivos.has(v2.json.documento.archivoPath));
@@ -250,7 +250,7 @@ describe('Archivos compartidos y purga del historial', () => {
 
   test('eliminar una versión no borra el archivo mientras otra versión lo use', async () => {
     const alta = await subirPoliza({ pdf: true });
-    const renovacion = await subirPoliza({ pdf: false });
+    const renovacion = await subirPoliza({ pdf: false }, { fechaVencimiento: '2027-12-31' });
     const archivo = alta.json.documento.archivoPath;
 
     await pedir('DELETE', `/vehiculos/7/${renovacion.json.documento.id}`);
@@ -285,6 +285,79 @@ describe('Archivos compartidos y purga del historial', () => {
     // Solo se descarta el PDF recién subido; los tres anteriores siguen en el bucket.
     assert.equal(borrados.length, 1);
     assert.ok(['a', 'b', 'c'].every((n) => archivos.has(`vehiculos/7/${n}.pdf`)));
+  });
+});
+
+describe('Actualizar sin cambios (no duplica ni purga)', () => {
+  // Historial lleno: dos versiones viejas y la vigente (c), cada una con su PDF.
+  // La vigente vence el 30 jun 2027 (VENCE), sin emisión ni observaciones.
+  function historialLleno(vigente = {}) {
+    agregarDocumento({ archivoPath: 'vehiculos/7/a.pdf', creadoEn: new Date('2026-01-01T00:00:00Z') });
+    agregarDocumento({ archivoPath: 'vehiculos/7/b.pdf', creadoEn: new Date('2026-02-01T00:00:00Z') });
+    return agregarDocumento({ archivoPath: 'vehiculos/7/c.pdf', creadoEn: new Date('2026-03-01T00:00:00Z'), ...vigente });
+  }
+
+  test('sin PDF nuevo y con los mismos datos: 400 "No hay cambios para guardar", sin versión nueva ni purga', async () => {
+    historialLleno();
+    const respuesta = await subirPoliza({ pdf: false });
+
+    assert.equal(respuesta.status, 400);
+    assert.deepEqual(respuesta.json, { error: 'No hay cambios para guardar' });
+    assert.deepEqual(pathsEnDb(), ['vehiculos/7/a.pdf', 'vehiculos/7/b.pdf', 'vehiculos/7/c.pdf']);
+    assert.deepEqual(borrados, []);
+    assert.ok(['a', 'b', 'c'].every((n) => archivos.has(`vehiculos/7/${n}.pdf`)));
+  });
+
+  test('las fechas se comparan por día de Córdoba y las observaciones sin espacios de más', async () => {
+    // La vigente se guardó a las 15:00Z (12:00 de Córdoba); el form manda el día suelto.
+    historialLleno({
+      fechaEmision: new Date('2026-06-30T15:00:00Z'),
+      fechaVencimiento: new Date('2027-06-30T15:00:00Z'),
+      observaciones: 'Póliza anual',
+    });
+    const respuesta = await subirPoliza({ pdf: false }, { fechaEmision: '2026-06-30', observaciones: '  Póliza anual ' });
+
+    assert.equal(respuesta.status, 400);
+    assert.equal(respuesta.json.error, 'No hay cambios para guardar');
+    assert.equal(documentos.length, 3);
+  });
+
+  test('con un cambio (observaciones) se crea la versión nueva y se purga la más vieja, como siempre', async () => {
+    historialLleno();
+    const respuesta = await subirPoliza({ pdf: false }, { observaciones: 'Renovada con la misma aseguradora' });
+
+    assert.equal(respuesta.status, 201);
+    assert.equal(respuesta.json.documento.observaciones, 'Renovada con la misma aseguradora');
+    assert.equal(respuesta.json.documento.archivoPath, 'vehiculos/7/c.pdf');
+    assert.deepEqual(pathsEnDb().sort(), ['vehiculos/7/b.pdf', 'vehiculos/7/c.pdf', 'vehiculos/7/c.pdf']);
+    assert.deepEqual(borrados, ['vehiculos/7/a.pdf']);
+  });
+
+  test('con otra fecha de vencimiento o de emisión también es un cambio', async () => {
+    historialLleno();
+    assert.equal((await subirPoliza({ pdf: false }, { fechaVencimiento: '2028-06-30' })).status, 201);
+    assert.equal((await subirPoliza({ pdf: false }, { fechaVencimiento: '2028-06-30', fechaEmision: '2027-06-30' })).status, 201);
+    assert.equal(documentos.length, 3);
+  });
+
+  test('borrar las observaciones de la vigente es un cambio', async () => {
+    historialLleno({ observaciones: 'Provisoria' });
+    const respuesta = await subirPoliza({ pdf: false });
+    assert.equal(respuesta.status, 201);
+    assert.equal(respuesta.json.documento.observaciones, null);
+  });
+
+  test('con un PDF nuevo y los mismos datos se guarda: el archivo es el cambio', async () => {
+    historialLleno();
+    const respuesta = await subirPoliza({ pdf: true });
+    assert.equal(respuesta.status, 201);
+    assert.notEqual(respuesta.json.documento.archivoPath, 'vehiculos/7/c.pdf');
+  });
+
+  test('la primera carga de un tipo nunca es "sin cambios"', async () => {
+    const respuesta = await subirPoliza({ pdf: true });
+    assert.equal(respuesta.status, 201);
+    assert.equal(documentos.length, 1);
   });
 });
 
@@ -784,7 +857,7 @@ describe('Estado de documentación (estado de flota y de choferes)', () => {
 
   test('registrar una renovación aumenta cantidadVersiones', async () => {
     await subirPoliza({ pdf: true });
-    await subirPoliza({ pdf: false });
+    await subirPoliza({ pdf: false }, { fechaVencimiento: '2027-12-31' });
     const carpeta = (await pedir('GET', '/vehiculos/7')).json.documentos;
     assert.equal(carpeta.find((i) => i.tipo.id === POLIZA).cantidadVersiones, 2);
   });
