@@ -1,0 +1,68 @@
+/* "Comenzar viaje" deshabilitado porque hay otro viaje en curso: el botón, el
+   motivo debajo y el acceso al viaje en curso (como .avisar-whatsapp). */
+.comenzar-viaje-bloqueado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  max-width: 100%;
+}
+
+.comenzar-viaje-motivo {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+/* Enlace al viaje en curso: texto en brand-600, con área táctil de 44px. */
+.comenzar-viaje-ir {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-1);
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--brand-600);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Solo se subraya el texto: subrayada, la ruta se corta en cada parte. */
+.comenzar-viaje-ir-texto {
+  text-decoration: underline;
+}
+
+.comenzar-viaje-ir:focus-visible {
+  outline: 2px solid var(--brand-600);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .comenzar-viaje-ir:hover {
+    color: var(--brand-700);
+  }
+}
+
+.comenzar-viaje-ir:active {
+  color: var(--brand-700);
+}
+
+/* La ruta toma el color del enlace (por defecto los nombres van en color-text). */
+.comenzar-viaje-ir .ruta-viaje,
+.comenzar-viaje-ir .ruta-viaje * {
+  color: inherit;
+}
+
+/* En Tus próximos viajes, debajo de 480px la acción va a todo el ancho (como el
+   botón habilitado, ver Dashboard.css): el botón deshabilitado también. */
+@media (max-width: 479px) {
+  .comenzar-viaje-bloqueado.proximos-viajes-accion {
+    align-items: stretch;
+  }
+}

@@ -9,12 +9,14 @@ import Button from '../components/ui/Button';
 import EstadoCarga from '../components/ui/EstadoCarga';
 import Toast from '../components/ui/Toast';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
+import BotonComenzarViaje from '../components/BotonComenzarViaje';
 import { ListadoViajesPorDia } from '../components/TarjetaViaje';
 import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { nombreVehiculo } from '../utils/viajeFormato';
 import { useCarga } from '../hooks/useCarga';
+import { useViajesEnCurso } from '../hooks/useViajesEnCurso';
 import './Viajes.css';
 
 const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
@@ -80,6 +82,14 @@ function MisViajes() {
   const cargaViajes = useCarga(pedirViajes);
   const viajes = cargaViajes.datos ?? [];
   const cargarViajes = cargaViajes.recargar;
+
+  // El viaje En viaje propio, para no ofrecer "Comenzar viaje" mientras hay otro
+  // en curso (ver BotonComenzarViaje). El listado puede estar filtrado, por eso
+  // se pide aparte.
+  const viajesEnCurso = useViajesEnCurso(
+    '/viajes/mis-viajes',
+    seleccionado?.estado === 'PROGRAMADO' ? seleccionado.id : null
+  );
 
   useEffect(() => {
     if (!mensaje) return;
@@ -191,9 +201,12 @@ function MisViajes() {
 
           {seleccionado.estado === 'PROGRAMADO' && (
             <div className="viajes-detalle-actions">
-              <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
-                Comenzar viaje
-              </Button>
+              <BotonComenzarViaje
+                viaje={seleccionado}
+                enCurso={viajesEnCurso}
+                onComenzar={pedirComenzar}
+                onVerViajeEnCurso={seleccionar}
+              />
             </div>
           )}
 

@@ -15,6 +15,7 @@ import ViajeForm from '../components/ViajeForm';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import ModalConfirmarViaje from '../components/ModalConfirmarViaje';
 import AvisarPorWhatsApp from '../components/AvisarPorWhatsApp';
+import BotonComenzarViaje from '../components/BotonComenzarViaje';
 import { ListadoViajesPorDia } from '../components/TarjetaViaje';
 import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
@@ -27,6 +28,7 @@ import { avisoWhatsApp } from '../utils/whatsapp';
 import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import { useCarga } from '../hooks/useCarga';
+import { useViajesEnCurso } from '../hooks/useViajesEnCurso';
 import './Viajes.css';
 
 const ICONO_ALERTA = (
@@ -187,6 +189,13 @@ function Viajes() {
   const cargaViajes = useCarga(pedirViajes);
   const viajes = cargaViajes.datos ?? [];
   const cargarViajes = cargaViajes.recargar;
+
+  // Viajes En viaje, para no ofrecer "Comenzar viaje" si el chofer o el vehículo
+  // del viaje abierto ya están en otro (ver BotonComenzarViaje). Solo con la
+  // ficha de un Programado abierta y para quien lo puede comenzar.
+  const puedeComenzarSeleccionado =
+    seleccionado?.estado === 'PROGRAMADO' && (puedeGestionar || usuario.id === seleccionado.choferId);
+  const viajesEnCurso = useViajesEnCurso('/viajes', puedeComenzarSeleccionado ? seleccionado.id : null);
 
   // El toast ofrece avisar por WhatsApp solo si hay un link posible (chofer con
   // teléfono utilizable); con acción dura más, para dar tiempo a tocarla.
@@ -503,9 +512,12 @@ function Viajes() {
             {seleccionado.estado === 'PROGRAMADO' && (puedeOperarEsteViaje || puedeGestionar) && (
               <div className="viajes-detalle-actions">
                 {puedeOperarEsteViaje && (
-                  <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
-                    Comenzar viaje
-                  </Button>
+                  <BotonComenzarViaje
+                    viaje={seleccionado}
+                    enCurso={viajesEnCurso}
+                    onComenzar={pedirComenzar}
+                    onVerViajeEnCurso={seleccionar}
+                  />
                 )}
                 {puedeGestionar && (
                   <>

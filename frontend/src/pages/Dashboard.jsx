@@ -13,6 +13,7 @@ import Alert from '../components/ui/Alert';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import RutaViaje from '../components/RutaViaje';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
+import BotonComenzarViaje from '../components/BotonComenzarViaje';
 import PanelViajesPorConfirmar from '../components/PanelViajesPorConfirmar';
 import PanelViajesDeHoy from '../components/PanelViajesDeHoy';
 import FechaTile from '../components/FechaTile';
@@ -85,7 +86,7 @@ function ViajeEnCurso({ viaje, onVerDetalle, onFinalizar }) {
   );
 }
 
-function ProximosViajes({ viajes, carga, onVerDetalle, onComenzar }) {
+function ProximosViajes({ viajes, enCurso, carga, onVerDetalle, onComenzar }) {
   const [mostrarTodos, setMostrarTodos] = useState(false);
 
   const visibles = mostrarTodos ? viajes : viajes.slice(0, MAX_VIAJES_INICIAL);
@@ -119,9 +120,14 @@ function ProximosViajes({ viajes, carga, onVerDetalle, onComenzar }) {
                     )}
                   </span>
                 </button>
-                <Button variant="secondary" className="proximos-viajes-accion" onClick={() => onComenzar(v)}>
-                  Comenzar viaje
-                </Button>
+                <BotonComenzarViaje
+                  viaje={v}
+                  enCurso={enCurso}
+                  variant="secondary"
+                  className="proximos-viajes-accion"
+                  onComenzar={onComenzar}
+                  onVerViajeEnCurso={onVerDetalle}
+                />
               </li>
             ))}
           </ul>
@@ -206,6 +212,7 @@ function ViajesDelChofer() {
 
       <ProximosViajes
         viajes={programados}
+        enCurso={enCurso}
         carga={cargaViajes}
         onVerDetalle={verDetalle}
         onComenzar={(viaje) => setPedidoOdometro({ viaje, accion: 'comenzar' })}
