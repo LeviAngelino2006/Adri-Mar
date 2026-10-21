@@ -20,9 +20,46 @@
   border-radius: var(--radius-lg);
   padding: var(--space-6);
   box-shadow: var(--shadow-lg);
-  /* Un modal con varios campos no puede quedar más alto que la pantalla. */
+  /* Un modal con varios campos no puede quedar más alto que la pantalla:
+     encabezado y pie quedan fijos y el cuerpo scrollea por dentro. */
   max-height: 100%;
-  overflow-y: auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.confirm-modal-encabezado,
+.confirm-modal-actions {
+  flex: none;
+}
+
+/* Cuerpo: ocupa lo que queda y scrollea por dentro. El borde de abajo lleva un
+   degradé hacia color-surface mientras quede contenido por ver (.hay-mas-abajo,
+   ver useHayMasAbajo). */
+.confirm-modal-cuerpo {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--space-6);
+}
+
+.confirm-modal-cuerpo::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--space-8);
+  background: linear-gradient(to bottom, transparent, var(--color-surface));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.confirm-modal-cuerpo.hay-mas-abajo::after {
+  opacity: 1;
 }
 
 /* Para modales con opciones largas (p. ej. Confirmar viaje). */
@@ -36,10 +73,27 @@
 }
 
 .confirm-modal-description {
-  margin: 0 0 var(--space-6);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Lugar para el anillo de foco (2px + 2px de offset) de los campos de los
+     bordes, que si no el scroll lo recorta. */
+  margin: calc(-1 * var(--space-1));
+  padding: var(--space-1);
   color: var(--color-text-secondary);
   font-size: 0.9375rem;
   line-height: 1.5;
+}
+
+/* El margen de abajo del último elemento ya no se colapsa con el del cuerpo
+   (que ahora tiene padding y scroll propio): se anula, así el espacio hasta los
+   botones sigue siendo el del cuerpo (space-6), igual que antes. El segundo
+   selector es para las descripciones envueltas en un div (el odómetro). Con
+   .confirm-modal-cuerpo adelante le gana a `.confirm-modal-description
+   .form-field` (un FormField al final, como en Confirmar viaje). */
+.confirm-modal-cuerpo .confirm-modal-description > :last-child,
+.confirm-modal-cuerpo .confirm-modal-description > :last-child > :last-child {
+  margin-bottom: 0;
 }
 
 .confirm-modal-description p {
