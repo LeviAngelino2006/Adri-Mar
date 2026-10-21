@@ -93,6 +93,37 @@ describe('TarjetaViaje', () => {
   });
 });
 
+describe('RutaViaje resumen: corte prolijo en pantallas chicas', () => {
+  let RutaViaje;
+  before(async () => {
+    RutaViaje = (await vite.ssrLoadModule('/src/components/RutaViaje.jsx')).default;
+  });
+  const NBSP = String.fromCharCode(0xa0);
+  const ruta = (props) => sinEtiquetas(renderToStaticMarkup(h(RutaViaje, props)));
+  const lugar = (nombre) => ({ nombre });
+
+  test('la flecha va pegada al destino: no puede quedar al final de una línea', () => {
+    const texto = ruta({ origen: lugar('Río Tercero'), destino: lugar('Aeropuerto Internacional Ingeniero Taravella') });
+    assert.equal(texto, `Río Tercero →${NBSP}Aeropuerto Internacional Ingeniero Taravella`);
+  });
+
+  test('"· 1 parada" va pegada a la última palabra del destino: no puede quedar sola', () => {
+    const texto = ruta({
+      origen: lugar('Río Tercero'),
+      destino: lugar('Villa General Belgrano'),
+      paradas: [{ orden: 1, ubicacion: lugar('Embalse') }],
+    });
+    assert.equal(texto, `Río Tercero →${NBSP}Villa General Belgrano${NBSP}·${NBSP}1 parada`);
+  });
+
+  test('la tarjeta de viaje lleva listado-card-viaje (badge arriba de la ruta si es angosta); las demás no', async () => {
+    assert.match(renderToStaticMarkup(h(TarjetaViaje, { viaje: viaje(), onClick() {} })), /class="listado-card listado-card-viaje"/);
+    const { ListadoCard } = await vite.ssrLoadModule('/src/components/Listado.jsx');
+    const html = renderToStaticMarkup(h(ListadoCard, { titulo: '2 - AB123CD', sub: 'Mercedes-Benz O500', pie: [], onClick() {} }));
+    assert.match(html, /^<button type="button" class="listado-card">/);
+  });
+});
+
 describe('TarjetaViaje: pendiente administrativo', () => {
   const render = (props) => renderToStaticMarkup(h(TarjetaViaje, { onClick() {}, ...props }));
 

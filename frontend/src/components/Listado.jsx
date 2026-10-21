@@ -78,12 +78,17 @@ export function ListadoToolbar({ busqueda, filtros, vistas, accion, vistasAlInic
 // Tarjeta del listado: marca (ícono, Avatar o bloque de fecha), cuerpo con
 // título + estado, dato principal, detalle opcional y pie (lista de datos,
 // separados a los lados). `marcaClassName` suma una clase a la marca (la tarjeta
-// de viaje usa `fecha-tile`). Sin `onClick` es una tarjeta de solo lectura (un
-// `div`, sin hover ni foco: el historial de Mantenimiento no abre ninguna ficha).
-export function ListadoCard({ marca, marcaClassName, marcaSinFondo = false, titulo, estado, sub, detalle, pie, onClick }) {
+// de viaje usa `fecha-tile`) y `className`, a la tarjeta (`listado-card-viaje`).
+// Sin `onClick` es una tarjeta de solo lectura (un `div`, sin hover ni foco: el
+// historial de Mantenimiento no abre ninguna ficha).
+export function ListadoCard({ className, marca, marcaClassName, marcaSinFondo = false, titulo, estado, sub, detalle, pie, onClick }) {
   const Contenedor = onClick ? 'button' : 'div';
   return (
-    <Contenedor type={onClick ? 'button' : undefined} className="listado-card" onClick={onClick}>
+    <Contenedor
+      type={onClick ? 'button' : undefined}
+      className={className ? `listado-card ${className}` : 'listado-card'}
+      onClick={onClick}
+    >
       <div
         className={marcaClassName ? `listado-card-marca ${marcaClassName}` : 'listado-card-marca'}
         style={marcaSinFondo ? { background: 'none' } : undefined}

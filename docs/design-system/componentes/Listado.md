@@ -35,7 +35,7 @@ Patrón único para las pantallas de listado: Viajes, Flota de vehículos, Usuar
 Todas siguen la misma anatomía:
 - `.listado-card-marca`: cuadrado de 40px (`radius-md`, `brand-50` / `brand-600`) con un ícono de 20px, el `Avatar` de 40px en Usuarios, o el bloque de fecha (`.fecha-tile`, 48px) en los viajes. `ListadoCard` acepta `marcaClassName` para sumarle una clase a la marca.
 - `.listado-card-cuerpo`, con:
-  - `.listado-card-top`: título `.listado-card-titulo` (600) y a la derecha el `EstadoBadge` sm.
+  - `.listado-card-top`: título `.listado-card-titulo` (600) y a la derecha el `EstadoBadge` sm. En la tarjeta de viaje angosta el badge pasa arriba del título (ver `TarjetaViaje`). `ListadoCard` acepta `className` para sumarle una clase a la tarjeta.
   - `.listado-card-sub`: el dato principal en `color-text` (15px).
   - `.listado-card-detalle`: datos secundarios en `color-text-secondary` (14px), opcional.
   - `.listado-card-pie`: línea final con borde superior `color-border`, 14px, `color-text-secondary` y números tabulares.

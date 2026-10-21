@@ -296,6 +296,22 @@ button.listado-card:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+/* Tarjeta de viaje angosta (en el celular, o con poco lugar): el badge de estado
+   va arriba de la ruta en vez de al lado, así la ruta usa todo el ancho y se
+   parte menos. Depende del ancho del cuerpo de la tarjeta, no de la pantalla.
+   El orden en el DOM no cambia (ruta y después estado). */
+.listado-card-viaje .listado-card-cuerpo {
+  container: tarjeta-viaje / inline-size;
+}
+
+@container tarjeta-viaje (max-width: 359px) {
+  .listado-card-top {
+    flex-direction: column-reverse;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+}
+
 /* Viajes y Mis viajes: las tarjetas agrupadas por día de inicio. */
 .listado-grupo + .listado-grupo {
   margin-top: var(--space-6);

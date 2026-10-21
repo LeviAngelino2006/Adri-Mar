@@ -3,6 +3,7 @@ Tarjeta de un viaje en el listado de Viajes y Mis viajes. Es la tarjeta de `List
 ## Contenido
 - **Marca:** el bloque de fecha (`.fecha-tile`) con el día de inicio, en día de Córdoba, en lugar de un ícono. Marcado: `<div class="listado-card-marca fecha-tile" aria-hidden="true"><span class="fecha-tile-dia">09</span><span class="fecha-tile-mes">oct</span></div>`. El día va con dos dígitos. Todo viaje tiene fecha de inicio (es obligatoria): no hay caso "sin fecha". `ListadoCard` recibe la clase con la prop `marcaClassName`.
 - **Título (`.listado-card-titulo`):** la ruta con `RutaViaje` (paradas incluidas). A la derecha, el `EstadoBadge` sm con el tono del estado.
+  - **Tarjeta angosta:** si el cuerpo de la tarjeta mide menos de 360px (en el celular, a 390px y a 360px), el badge va arriba de la ruta, alineado a la izquierda y con `space-1` de separación, y la ruta usa todo el ancho. Con el badge al lado, la ruta quedaba en dos o tres líneas. La tarjeta lleva `listado-card-viaje` (prop `className` de `ListadoCard`) y su cuerpo es un contenedor (`container: tarjeta-viaje / inline-size`): depende del ancho de la tarjeta, no del de la pantalla. El orden en el DOM no cambia (ruta y después estado). Vale igual en Viajes y en Mis viajes.
 - **Sub (`.listado-card-sub`):** el horario y el chofer, separados por " · ": "07:30 – 10:00 · Martín Gómez".
   - El separador del horario es una raya (–) con espacios.
   - Si el fin cae otro día, el fin lleva el día: "22:00 – 11 oct 02:00".
