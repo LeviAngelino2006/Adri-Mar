@@ -131,7 +131,7 @@ function assertHabilitado() {
   assert.equal(contenedor.querySelector('.comenzar-viaje-ir'), null);
 }
 
-describe('Dashboard del chofer: Tus próximos viajes', () => {
+describe('Dashboard del chofer: Tus viajes pendientes', () => {
   test('sin viaje en curso, "Comenzar viaje" está habilitado', async () => {
     hayEnCurso = false;
     await montar('Dashboard', 'CHOFER', '/');

@@ -4,7 +4,7 @@
 // corren con `npm test` (node:test).
 //
 // El bug: un error de red se mostraba como listado vacío ("No se encontraron
-// viajes", "No tenés viajes programados próximamente"). Se montan las pantallas
+// viajes", "No tenés viajes pendientes"). Se montan las pantallas
 // reales con react-dom/client sobre jsdom (mismo método que
 // selectorBuscarOCrear.render.test.mjs); la API se reemplaza por un doble que
 // responde, devuelve una lista vacía o falla como falla axios sin red (sin
@@ -132,7 +132,7 @@ const CASOS = [
   },
   {
     pantalla: 'Dashboard', perfil: 'CHOFER', ruta: '/', endpoint: '/viajes/mis-viajes',
-    vacio: 'No tenés viajes programados próximamente', error: 'No pudimos cargar tus viajes. Revisá tu conexión.', dato: 'Mendoza',
+    vacio: 'No tenés viajes pendientes', error: 'No pudimos cargar tus viajes. Revisá tu conexión.', dato: 'Mendoza',
   },
 ];
 

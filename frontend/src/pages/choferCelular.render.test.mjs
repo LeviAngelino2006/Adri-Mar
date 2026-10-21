@@ -1,6 +1,6 @@
 // Tests de la tanda "el chofer en el celular": el orden y las vistas de Mis
-// viajes y la ficha del chofer con la acción en la barra fija. Se corren con
-// `npm test` (node:test).
+// viajes, la ficha del chofer con la acción en la barra fija y "Tus viajes
+// pendientes" del Dashboard. Se corren con `npm test` (node:test).
 //
 // Mismo método que botonComenzarViaje.render.test.mjs: se montan las pantallas
 // reales con react-dom/client sobre jsdom y la API se reemplaza por un doble (sin
@@ -235,5 +235,38 @@ describe('Mis viajes: ficha del chofer', () => {
     await montar('MisViajes', '/mis-viajes?tab=anteriores');
     await abrirFicha('Córdoba');
     assert.equal(contenedor.querySelector('.barra-accion-fija'), null);
+  });
+});
+
+describe('Dashboard del chofer: Tus viajes pendientes', () => {
+  // [[título del día, [destinos]]] del panel.
+  const gruposPanel = () =>
+    [...contenedor.querySelectorAll('.proximos-viajes-grupo')].map((grupo) => [
+      grupo.querySelector('.proximos-viajes-dia').textContent,
+      [...grupo.querySelectorAll('.proximos-viajes-ruta')].map((ruta) => [...ruta.querySelectorAll('.ruta-viaje-punto')].at(-1).textContent),
+    ]);
+
+  test('el atrasado de ayer va primero, bajo "Ayer · …", y después los próximos por día', async () => {
+    await montar('Dashboard', '/');
+    assert.ok([...contenedor.querySelectorAll('h2')].some((t) => t.textContent === 'Tus viajes pendientes'));
+    const [ayer, ...resto] = gruposPanel();
+    assert.match(ayer[0], /^Ayer · /);
+    assert.deepEqual(ayer[1], ['Santa Rosa de Calamuchita']);
+    assert.deepEqual(resto.flatMap(([, destinosDia]) => destinosDia), ['Mendoza', 'Aeropuerto Internacional Ingeniero Taravella']);
+    // Sin color ni badge para el atraso.
+    assert.equal(contenedor.querySelector('.proximos-viajes-lista .estado-badge'), null);
+  });
+
+  test('el viaje en curso sigue destacado arriba, fuera de la lista', async () => {
+    await montar('Dashboard', '/');
+    const enCurso = contenedor.querySelector('.viaje-en-curso');
+    assert.ok(enCurso.textContent.includes('Villa General Belgrano'));
+    assert.ok(!gruposPanel().some(([, destinosDia]) => destinosDia.includes('Villa General Belgrano')));
+  });
+
+  test('sin Programados, "No tenés viajes pendientes"', async () => {
+    viajesDelChofer = [EN_CURSO, FINALIZADO];
+    await montar('Dashboard', '/');
+    assert.equal(contenedor.querySelector('.dashboard-proximos-viajes .dashboard-empty')?.textContent, 'No tenés viajes pendientes');
   });
 });

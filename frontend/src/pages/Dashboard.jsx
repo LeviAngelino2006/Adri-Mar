@@ -18,6 +18,8 @@ import FechaTile from '../components/FechaTile';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { formatearDiaYHora, formatearHorarioViaje, nombreVehiculo } from '../utils/viajeFormato';
 import { porcentajeProgresoViaje } from '../utils/fechaCordoba';
+import { agruparViajesPorDia } from '../utils/viajesPorDia';
+import { ordenarPorInicio } from '../utils/misViajes';
 import { lineaAlertaDocumento, ordenarAlertas, resumenAlertas } from '../utils/documentacion';
 import { useCarga } from '../hooks/useCarga';
 import './Dashboard.css';
@@ -84,6 +86,9 @@ function ViajeEnCurso({ viaje, onVerDetalle, onFinalizar }) {
   );
 }
 
+// "Tus viajes pendientes": los Programados del chofer, también los atrasados de
+// días anteriores, agrupados por día con el mismo título del listado ("Ayer · dom
+// 18 oct", "Hoy · lun 19 oct"). Sin color ni badge para el atraso.
 function ProximosViajes({ viajes, enCurso, carga, onVerDetalle, onComenzar }) {
   const [mostrarTodos, setMostrarTodos] = useState(false);
 
@@ -92,43 +97,50 @@ function ProximosViajes({ viajes, enCurso, carga, onVerDetalle, onComenzar }) {
 
   return (
     <Card className="dashboard-panel dashboard-proximos-viajes">
-      <h2>Tus próximos viajes</h2>
+      <h2>Tus viajes pendientes</h2>
 
       <EstadoCarga
         carga={carga}
         forma="filas"
         que="tus viajes"
-        vacio={viajes.length === 0 && <div className="dashboard-empty">No tenés viajes programados próximamente</div>}
+        vacio={viajes.length === 0 && <div className="dashboard-empty">No tenés viajes pendientes</div>}
       >
         <>
-          <ul className="proximos-viajes-lista">
-            {visibles.map((v) => (
-              <li key={v.id} className="proximos-viajes-item">
-                <button type="button" className="proximos-viajes-enlace" onClick={() => onVerDetalle(v)}>
-                  <FechaTile fecha={v.fechaInicio} />
-                  <span className="proximos-viajes-info">
-                    <span className="proximos-viajes-ruta">
-                      <RutaViaje origen={v.origen} destino={v.destino} paradas={v.paradas} />
-                    </span>
-                    <span className="proximos-viajes-salida">{formatearHorarioViaje(v.fechaInicio, v.fechaFin)}</span>
-                    {v.vehiculo && (
-                      <span className="proximos-viajes-vehiculo">
-                        {v.vehiculo.numeroInterno} - <span className="patente">{v.vehiculo.dominio}</span>
-                      </span>
-                    )}
-                  </span>
-                </button>
-                <BotonComenzarViaje
-                  viaje={v}
-                  enCurso={enCurso}
-                  variant="secondary"
-                  className="proximos-viajes-accion"
-                  onComenzar={onComenzar}
-                  onVerViajeEnCurso={onVerDetalle}
-                />
-              </li>
+          <div className="proximos-viajes-grupos">
+            {agruparViajesPorDia(visibles).map((grupo) => (
+              <section key={grupo.dia ?? 'sin-fecha'} className="proximos-viajes-grupo">
+                <h3 className="proximos-viajes-dia">{grupo.titulo}</h3>
+                <ul className="proximos-viajes-lista">
+                  {grupo.viajes.map((v) => (
+                    <li key={v.id} className="proximos-viajes-item">
+                      <button type="button" className="proximos-viajes-enlace" onClick={() => onVerDetalle(v)}>
+                        <FechaTile fecha={v.fechaInicio} />
+                        <span className="proximos-viajes-info">
+                          <span className="proximos-viajes-ruta">
+                            <RutaViaje origen={v.origen} destino={v.destino} paradas={v.paradas} />
+                          </span>
+                          <span className="proximos-viajes-salida">{formatearHorarioViaje(v.fechaInicio, v.fechaFin)}</span>
+                          {v.vehiculo && (
+                            <span className="proximos-viajes-vehiculo">
+                              {v.vehiculo.numeroInterno} - <span className="patente">{v.vehiculo.dominio}</span>
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                      <BotonComenzarViaje
+                        viaje={v}
+                        enCurso={enCurso}
+                        variant="secondary"
+                        className="proximos-viajes-accion"
+                        onComenzar={onComenzar}
+                        onVerViajeEnCurso={onVerDetalle}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </div>
 
           {restantes > 0 && (
             <Button variant="secondary" onClick={() => setMostrarTodos((m) => !m)}>
@@ -141,7 +153,7 @@ function ProximosViajes({ viajes, enCurso, carga, onVerDetalle, onComenzar }) {
   );
 }
 
-// Viaje en curso + próximos viajes del chofer, con el modal de odómetro para
+// Viaje en curso + viajes pendientes del chofer, con el modal de odómetro para
 // comenzar o finalizar sin salir del Dashboard.
 function ViajesDelChofer() {
   const navigate = useNavigate();
@@ -164,11 +176,12 @@ function ViajesDelChofer() {
         api.get('/viajes/mis-viajes', { params: { estado: 'EN_VIAJE' } }),
         api.get('/viajes/mis-viajes', { params: { estado: 'PROGRAMADO' } }),
       ])
-        // El backend siempre devuelve descendente (más nuevo/futuro primero);
-        // acá se da vuelta para que "lo que viene" muestre el más antiguo arriba.
+        // El backend devuelve descendente (más nuevo/futuro primero); acá van
+        // del más antiguo al más nuevo (un atrasado queda arriba), con el mismo
+        // orden que Próximos de Mis viajes.
         .then(([resEnViaje, resProgramados]) => ({
           enCurso: resEnViaje.data.viajes,
-          programados: [...resProgramados.data.viajes].reverse(),
+          programados: ordenarPorInicio(resProgramados.data.viajes, 'asc'),
         })),
     []
   );

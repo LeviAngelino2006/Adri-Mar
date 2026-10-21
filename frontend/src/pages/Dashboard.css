@@ -10,6 +10,29 @@
   padding: 0;
 }
 
+/* Tus viajes pendientes: agrupados por día, con el mismo título de día que el
+   listado de Mis viajes (.listado-dia). */
+.proximos-viajes-grupos {
+  margin-bottom: var(--space-4);
+}
+
+.proximos-viajes-grupo + .proximos-viajes-grupo {
+  margin-top: var(--space-4);
+}
+
+.proximos-viajes-dia {
+  margin: 0 0 var(--space-1);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
+
+.proximos-viajes-grupo .proximos-viajes-lista {
+  margin-bottom: 0;
+}
+
 .proximos-viajes-item {
   display: flex;
   flex-wrap: wrap;
