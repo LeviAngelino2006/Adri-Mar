@@ -117,21 +117,21 @@ const TITULARES = {
     campo: 'choferId',
     carpetaStorage: 'choferes',
     noEncontrado: 'Chofer no encontrado',
-    // Solo se le carga documentación a un usuario ACTIVO que conduce (perfil
-    // CHOFER o habilitado para conducir). Consultar su carpeta sigue permitido
+    // Solo se le carga documentación a una persona ACTIVA que conduce (perfil
+    // CHOFER o habilitada para conducir). Consultar su carpeta sigue permitido
     // para conservar el historial.
-    validarParaRegistro: (usuario) => {
-      if (usuario.estadoUsuario?.descripcion !== 'ACTIVO') {
-        throw errorHttp(400, 'No se puede registrar documentación de un usuario inactivo.');
+    validarParaRegistro: (persona) => {
+      if (persona.activo === false) {
+        throw errorHttp(400, 'No se puede registrar documentación de una persona inactiva.');
       }
-      if (usuario.perfil?.descripcion !== 'CHOFER' && !usuario.habilitadoParaConducir) {
-        throw errorHttp(400, 'El usuario no es chofer ni está habilitado para conducir.');
+      if (persona.perfil?.descripcion !== 'CHOFER' && !persona.habilitadoParaConducir) {
+        throw errorHttp(400, 'La persona no es chofer ni está habilitada para conducir.');
       }
     },
     buscar: (id) =>
-      prisma.usuario.findUnique({
+      prisma.persona.findUnique({
         where: { id },
-        include: { perfil: true, estadoUsuario: true },
+        include: { perfil: true, usuario: { include: { estadoUsuario: true } } },
       }),
     ficha: (chofer) => ({
       chofer: {
@@ -141,9 +141,10 @@ const TITULARES = {
         dni: chofer.dni,
         email: chofer.email,
         telefono: chofer.telefono,
-        nombreUsuario: chofer.nombreUsuario,
+        nombreUsuario: chofer.usuario?.nombreUsuario ?? null,
         perfil: chofer.perfil,
-        estadoUsuario: chofer.estadoUsuario,
+        estadoUsuario: chofer.usuario?.estadoUsuario ?? (chofer.activo ? { descripcion: 'ACTIVO' } : { descripcion: 'INACTIVO' }),
+        activo: chofer.activo,
         habilitadoParaConducir: chofer.habilitadoParaConducir,
       },
     }),
@@ -559,12 +560,12 @@ const LISTADOS = {
   },
   CHOFER: {
     listar: () =>
-      prisma.usuario.findMany({
+      prisma.persona.findMany({
         where: {
-          estadoUsuario: { descripcion: 'ACTIVO' },
+          activo: true,
           OR: [{ perfil: { descripcion: 'CHOFER' } }, { habilitadoParaConducir: true }],
         },
-        include: { perfil: true, estadoUsuario: true, documentos: DOCUMENTOS_VIGENTES },
+        include: { perfil: true, usuario: { include: { estadoUsuario: true } }, documentos: DOCUMENTOS_VIGENTES },
         orderBy: [{ apellido: 'asc' }, { nombre: 'asc' }],
       }),
     serializar: (c) => ({
@@ -574,9 +575,10 @@ const LISTADOS = {
       dni: c.dni,
       email: c.email,
       telefono: c.telefono,
-      nombreUsuario: c.nombreUsuario,
+      nombreUsuario: c.usuario?.nombreUsuario ?? null,
       perfil: c.perfil,
-      estadoUsuario: c.estadoUsuario,
+      estadoUsuario: c.usuario?.estadoUsuario ?? (c.activo ? { descripcion: 'ACTIVO' } : { descripcion: 'INACTIVO' }),
+      activo: c.activo,
       habilitadoParaConducir: c.habilitadoParaConducir,
     }),
   },
@@ -617,8 +619,8 @@ const ALERTAS = {
   },
   CHOFER: {
     campo: 'choferId',
-    where: { choferId: { not: null }, chofer: { estadoUsuario: { descripcion: 'ACTIVO' } } },
-    include: { chofer: { select: { id: true, nombre: true, apellido: true, nombreUsuario: true } } },
+    where: { choferId: { not: null }, chofer: { activo: true } },
+    include: { chofer: { select: { id: true, nombre: true, apellido: true } } },
     titular: (doc) => ({ usuario: doc.chofer }),
   },
 };

@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
-import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
-import Switch from '../components/ui/Switch';
 import FormField from '../components/ui/FormField';
 import Alert from '../components/ui/Alert';
 import Cargando from '../components/ui/Cargando';
@@ -25,15 +24,9 @@ const ICONO_ALERTA = (
 );
 
 const FORM_INICIAL = {
-  nombre: '',
-  apellido: '',
-  dni: '',
-  email: '',
-  telefono: '',
+  personaId: '',
   nombreUsuario: '',
   contrasena: '',
-  perfil: '',
-  habilitadoParaConducir: false,
 };
 
 function initials(nombre, apellido) {
@@ -44,8 +37,6 @@ function perfilLabel(perfil) {
   return PERFILES.find((p) => p.value === perfil)?.label ?? perfil;
 }
 
-const NO_REGISTRADO = 'No registrado';
-
 function ordenarPorPerfil(usuarios) {
   return [...usuarios].sort(
     (a, b) => PERFILES.findIndex((p) => p.value === a.perfil) - PERFILES.findIndex((p) => p.value === b.perfil)
@@ -53,12 +44,14 @@ function ordenarPorPerfil(usuarios) {
 }
 
 function Usuarios() {
-  const { usuario: usuarioActual } = useAuth();
-  const perfilesDisponibles =
-    usuarioActual.perfil === 'ENCARGADO'
-      ? PERFILES.filter((p) => p.value !== 'ADMINISTRADOR')
-      : PERFILES;
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const idDesdeQuery = searchParams.get('id');
+  const crearConPersonaId = searchParams.get('crearConPersonaId');
+  const nombreSugerido = searchParams.get('nombre');
+
   const [usuarios, setUsuarios] = useState([]);
+  const [personasSinUsuario, setPersonasSinUsuario] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   const [seleccionado, setSeleccionado] = useState(null);
@@ -79,16 +72,44 @@ function Usuarios() {
 
     return api
       .get('/usuarios', { params })
-      .then(({ data }) => setUsuarios(data.usuarios))
+      .then(({ data }) => {
+        setUsuarios(data.usuarios);
+        if (idDesdeQuery) {
+          const match = data.usuarios.find((u) => String(u.id) === String(idDesdeQuery));
+          if (match) setSeleccionado(match);
+        }
+      })
       .finally(() => setCargando(false));
-  }, [busqueda]);
+  }, [busqueda, idDesdeQuery]);
+
+  const cargarPersonasSinUsuario = useCallback(async () => {
+    try {
+      const { data } = await api.get('/personas', { params: { sinUsuario: 'true' } });
+      setPersonasSinUsuario(data.personas || []);
+    } catch {
+      setPersonasSinUsuario([]);
+    }
+  }, []);
 
   useEffect(() => {
-    setSeleccionado(null);
-    setConfirmandoBaja(false);
-    setMensaje('');
     cargarUsuarios();
   }, [cargarUsuarios]);
+
+  useEffect(() => {
+    if (crearConPersonaId) {
+      cargarPersonasSinUsuario().then(() => {
+        setEditando(null);
+        setForm({
+          personaId: String(crearConPersonaId),
+          nombreUsuario: '',
+          contrasena: '',
+        });
+        setErrores({});
+        setSeleccionado(null);
+        setMostrarForm(true);
+      });
+    }
+  }, [crearConPersonaId, cargarPersonasSinUsuario]);
 
   useEffect(() => {
     if (!mensaje) return;
@@ -96,9 +117,6 @@ function Usuarios() {
     return () => clearTimeout(t);
   }, [mensaje]);
 
-  // La ficha y el formulario reemplazan al listado dentro de la misma ruta: sin
-  // esto conservan el scroll de la vista anterior (aparecen desplazados hacia
-  // abajo, y el listado también al cancelar o guardar desde los botones del final).
   const seleccionadoId = seleccionado?.id ?? null;
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -121,7 +139,7 @@ function Usuarios() {
     setErrorBaja('');
     try {
       await api.patch(`/usuarios/${seleccionado.id}/baja`);
-      setMensaje('Usuario dado de baja correctamente.');
+      setMensaje('Cuenta de usuario dada de baja correctamente.');
       setConfirmandoBaja(false);
       setSeleccionado(null);
       cargarUsuarios();
@@ -136,21 +154,16 @@ function Usuarios() {
     setForm(FORM_INICIAL);
     setErrores({});
     setSeleccionado(null);
+    cargarPersonasSinUsuario();
     setMostrarForm(true);
   }
 
   function abrirEditar(u) {
     setEditando(u);
     setForm({
-      nombre: u.nombre,
-      apellido: u.apellido,
-      dni: u.dni || '',
-      email: u.email || '',
-      telefono: u.telefono || '',
+      personaId: String(u.personaId || ''),
       nombreUsuario: u.nombreUsuario,
       contrasena: '',
-      perfil: u.perfil,
-      habilitadoParaConducir: u.habilitadoParaConducir,
     });
     setErrores({});
     setSeleccionado(null);
@@ -163,27 +176,8 @@ function Usuarios() {
   }
 
   function handleChange(e) {
-    const { name, value, type, checked } = e.target;
-
-    if (name === 'perfil' && !editando) {
-      setForm((f) => {
-        const eraChofer = f.perfil === 'CHOFER';
-        const esChofer = value === 'CHOFER';
-        // Chofer fuerza el switch en true; salir de Chofer lo resetea a
-        // false; entre dos perfiles no-Chofer el valor tildado a mano no se
-        // toca (ver SCRUM-148/149 y la tarea de bloqueo condicional).
-        let habilitadoParaConducir = f.habilitadoParaConducir;
-        if (esChofer) {
-          habilitadoParaConducir = true;
-        } else if (eraChofer) {
-          habilitadoParaConducir = false;
-        }
-        return { ...f, perfil: value, habilitadoParaConducir };
-      });
-      return;
-    }
-
-    setForm((f) => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
   }
 
   async function handleSubmit(e) {
@@ -192,11 +186,21 @@ function Usuarios() {
     setEnviando(true);
     try {
       if (editando) {
-        await api.put(`/usuarios/${editando.id}`, form);
-        setMensaje('Cambios guardados correctamente.');
+        const payload = {
+          nombreUsuario: form.nombreUsuario,
+        };
+        if (form.contrasena && form.contrasena.trim()) {
+          payload.contrasena = form.contrasena;
+        }
+        await api.put(`/usuarios/${editando.id}`, payload);
+        setMensaje('Credenciales actualizadas correctamente.');
       } else {
-        await api.post('/usuarios', form);
-        setMensaje('Usuario creado correctamente.');
+        await api.post('/usuarios', {
+          personaId: Number(form.personaId),
+          nombreUsuario: form.nombreUsuario,
+          contrasena: form.contrasena,
+        });
+        setMensaje('Cuenta de usuario creada correctamente.');
       }
       setMostrarForm(false);
       setEditando(null);
@@ -205,21 +209,17 @@ function Usuarios() {
       if (err.response?.status === 400 && err.response.data.errores) {
         setErrores(err.response.data.errores);
       } else {
-        setErrores({ general: editando ? 'No se pudieron guardar los cambios' : 'No se pudo registrar el usuario' });
+        setErrores({ general: editando ? 'No se pudieron guardar los cambios' : 'No se pudo crear la cuenta de usuario' });
       }
     } finally {
       setEnviando(false);
     }
   }
 
-  // El switch solo se fuerza/bloquea por perfil en el ALTA. En edición es
-  // siempre editable a mano, sin recalcularse (comportamiento sin cambios).
-  const switchBloqueado = !editando && form.perfil === 'CHOFER';
-
   return (
     <Layout>
       {!mostrarForm && !seleccionado && (
-        <ListadoHeader titulo="Usuarios" />
+        <ListadoHeader titulo="Cuentas de Usuario (Acceso al Sistema)" />
       )}
 
       {mensaje && !mostrarForm && <Toast>{mensaje}</Toast>}
@@ -230,85 +230,82 @@ function Usuarios() {
           <button type="button" className="back-link" onClick={cerrarForm}>
             ← Volver al listado
           </button>
-          <h1>{editando ? 'Editar usuario' : 'Crear usuario'}</h1>
+          <h1>{editando ? 'Modificar credenciales de acceso' : 'Crear cuenta de acceso al sistema'}</h1>
           <Card className="form-card">
             <form onSubmit={handleSubmit} noValidate>
               <div className="form-grid">
-                <FormField id="nombre" label="Nombre" required error={errores.nombre}>
-                  <input name="nombre" value={form.nombre} onChange={handleChange} />
-                </FormField>
-
-                <FormField id="apellido" label="Apellido" required error={errores.apellido}>
-                  <input name="apellido" value={form.apellido} onChange={handleChange} />
-                </FormField>
-
-                <FormField id="dni" label="DNI" required hint="7 u 8 dígitos, sin puntos" error={errores.dni}>
-                  <input name="dni" inputMode="numeric" value={form.dni} onChange={handleChange} />
-                </FormField>
-
-                <FormField id="telefono" label="Teléfono" error={errores.telefono}>
-                  <input name="telefono" type="tel" value={form.telefono} onChange={handleChange} />
-                </FormField>
-
-                <div className="form-field-ancho">
-                  <FormField id="email" label="Email" error={errores.email}>
-                    <input name="email" type="email" value={form.email} onChange={handleChange} />
-                  </FormField>
-                </div>
-
-                <FormField id="nombreUsuario" label="Nombre de usuario" required error={errores.nombreUsuario}>
-                  <input name="nombreUsuario" value={form.nombreUsuario} onChange={handleChange} />
-                </FormField>
-
                 {editando ? (
-                  // Al editar no hay contraseña: el hueco deja a Nombre de usuario
-                  // solo en su fila y Perfil sigue empezando a la izquierda.
-                  <div className="form-hueco" aria-hidden="true" />
+                  <div className="form-field-ancho">
+                    <FormField id="personaNombre" label="Persona vinculada">
+                      <input
+                        value={`${editando.nombre} ${editando.apellido} (Perfil: ${perfilLabel(editando.perfil)})`}
+                        disabled
+                        style={{ opacity: 0.8 }}
+                      />
+                    </FormField>
+                  </div>
                 ) : (
-                  <FormField
-                    id="contrasena"
-                    label="Contraseña"
-                    required
-                    hint="Al menos 8 caracteres"
-                    error={errores.contrasena}
-                  >
-                    <input name="contrasena" type="password" value={form.contrasena} onChange={handleChange} />
-                  </FormField>
+                  <div className="form-field-ancho">
+                    <FormField
+                      id="personaId"
+                      label="Seleccionar persona en la empresa"
+                      required
+                      hint={personasSinUsuario.length === 0 && !crearConPersonaId ? 'No hay personas activas sin cuenta de usuario' : 'Asigna esta cuenta a un miembro del personal'}
+                      error={errores.personaId}
+                    >
+                      <select
+                        name="personaId"
+                        value={form.personaId}
+                        onChange={handleChange}
+                      >
+                        <option value="">Seleccionar miembro de personal…</option>
+                        {crearConPersonaId && !personasSinUsuario.some((p) => String(p.id) === String(crearConPersonaId)) && (
+                          <option value={crearConPersonaId}>
+                            {nombreSugerido || `Persona #${crearConPersonaId}`}
+                          </option>
+                        )}
+                        {personasSinUsuario.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre} {p.apellido} (DNI: {p.dni ? formatearDni(p.dni) : 'S/D'} - {perfilLabel(p.perfil)})
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
+                  </div>
                 )}
 
-                <FormField id="perfil" label="Perfil" required error={errores.perfil}>
-                  <select name="perfil" value={form.perfil} onChange={handleChange}>
-                    <option value="">Seleccionar…</option>
-                    {perfilesDisponibles.map((p) => (
-                      <option key={p.value} value={p.value}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
+                <FormField id="nombreUsuario" label="Nombre de usuario" required error={errores.nombreUsuario}>
+                  <input
+                    name="nombreUsuario"
+                    value={form.nombreUsuario}
+                    onChange={handleChange}
+                    placeholder="ej. jperez"
+                    autoComplete="off"
+                  />
                 </FormField>
 
-                <div className="form-field switch-field switch-field-par">
-                  <label
-                    htmlFor="habilitadoParaConducir"
-                    className={`switch-field-label ${switchBloqueado ? 'switch-field-label-disabled' : ''}`.trim()}
-                  >
-                    <Switch
-                      id="habilitadoParaConducir"
-                      name="habilitadoParaConducir"
-                      checked={form.habilitadoParaConducir}
-                      disabled={switchBloqueado}
-                      onChange={handleChange}
-                    />
-                    Habilitado para conducir
-                  </label>
-                </div>
+                <FormField
+                  id="contrasena"
+                  label={editando ? 'Nueva contraseña (opcional)' : 'Contraseña'}
+                  required={!editando}
+                  hint={editando ? 'Dejar en blanco para no modificar' : 'Al menos 8 caracteres'}
+                  error={errores.contrasena}
+                >
+                  <input
+                    name="contrasena"
+                    type="password"
+                    value={form.contrasena}
+                    onChange={handleChange}
+                    autoComplete="new-password"
+                  />
+                </FormField>
               </div>
 
               {errores.general && <Alert variant="error">{errores.general}</Alert>}
 
               <div className="form-actions">
                 <Button type="submit" variant="primary" loading={enviando}>
-                  {enviando ? 'Guardando…' : editando ? 'Guardar cambios' : 'Crear usuario'}
+                  {enviando ? 'Guardando…' : editando ? 'Guardar cambios' : 'Crear cuenta'}
                 </Button>
                 <Button type="button" variant="secondary" onClick={cerrarForm}>
                   Cancelar
@@ -322,13 +319,13 @@ function Usuarios() {
       {!mostrarForm && !seleccionado && (
         <>
           <ListadoToolbar
-            busqueda={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Buscar por nombre o usuario' }}
-            accion={{ etiqueta: 'Crear usuario', onClick: abrirNuevo }}
+            busqueda={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Buscar por usuario, nombre o DNI' }}
+            accion={{ etiqueta: '+ Crear cuenta', onClick: abrirNuevo }}
           />
 
           {cargando && <Cargando forma="tarjetas" />}
 
-          {!cargando && usuarios.length === 0 && <div className="listado-vacio">No se encontraron usuarios</div>}
+          {!cargando && usuarios.length === 0 && <div className="listado-vacio">No se encontraron cuentas de usuario</div>}
 
           {!cargando && usuarios.length > 0 && (
             <div className="listado-cards">
@@ -343,14 +340,14 @@ function Usuarios() {
                         {initials(u.nombre, u.apellido)}
                       </span>
                     }
-                    titulo={`${u.nombre} ${u.apellido}`}
+                    titulo={`@${u.nombreUsuario}`}
                     estado={
                       <EstadoBadge tono={u.activo ? 'success' : 'neutral'} size="sm">
-                        {u.activo ? 'Activo' : 'Inactivo'}
+                        {u.activo ? 'Activa' : 'Inactiva'}
                       </EstadoBadge>
                     }
-                    sub={perfilLabel(u.perfil)}
-                    pie={[`@${u.nombreUsuario}`]}
+                    sub={`${u.nombre} ${u.apellido}`}
+                    pie={[perfilLabel(u.perfil), u.dni ? `DNI ${formatearDni(u.dni)}` : ''].filter(Boolean)}
                     onClick={() => seleccionar(u)}
                   />
                 );
@@ -367,53 +364,64 @@ function Usuarios() {
           </button>
 
           <div className="usuarios-detalle-header">
-            <h1>
-              {seleccionado.nombre} {seleccionado.apellido}
-            </h1>
+            <div>
+              <h1>@{seleccionado.nombreUsuario}</h1>
+              <p style={{ margin: '0.25rem 0 0', color: 'var(--color-text-muted)' }}>
+                Cuenta asignada a <strong>{seleccionado.nombre} {seleccionado.apellido}</strong>
+              </p>
+            </div>
             <EstadoBadge tono={seleccionado.activo ? 'success' : 'neutral'}>
-              {seleccionado.activo ? 'Activo' : 'Inactivo'}
+              {seleccionado.activo ? 'Cuenta activa' : 'Cuenta inactiva'}
             </EstadoBadge>
           </div>
 
-          <Card className="detalle-card usuarios-detalle" role="region" aria-label="Ficha del usuario">
+          <Card className="detalle-card usuarios-detalle" role="region" aria-label="Ficha de la cuenta">
             <dl className="detalle-grid">
               <div className="detalle-item">
-                <dt>DNI</dt>
-                <dd>{seleccionado.dni ? formatearDni(seleccionado.dni) : NO_REGISTRADO}</dd>
+                <dt>Nombre y apellido</dt>
+                <dd>{seleccionado.nombre} {seleccionado.apellido}</dd>
               </div>
               <div className="detalle-item">
-                <dt>Teléfono</dt>
-                <dd>{seleccionado.telefono || NO_REGISTRADO}</dd>
-              </div>
-              <div className="detalle-item detalle-item-ancho">
-                <dt>Email</dt>
-                <dd>{seleccionado.email || NO_REGISTRADO}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Nombre de usuario</dt>
-                <dd>{seleccionado.nombreUsuario}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Perfil</dt>
+                <dt>Puesto / Perfil</dt>
                 <dd>{perfilLabel(seleccionado.perfil)}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>DNI</dt>
+                <dd>{seleccionado.dni ? formatearDni(seleccionado.dni) : 'No registrado'}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Nombre de usuario (Login)</dt>
+                <dd>@{seleccionado.nombreUsuario}</dd>
               </div>
               <div className="detalle-item">
                 <dt>Habilitado para conducir</dt>
                 <dd>{seleccionado.habilitadoParaConducir ? 'Sí' : 'No'}</dd>
               </div>
               <div className="detalle-item">
-                <dt>Registrado el</dt>
+                <dt>Cuenta creada el</dt>
                 <dd>{formatearFechaCorta(seleccionado.creadoEn)}</dd>
               </div>
             </dl>
 
+            <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {seleccionado.personaId && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => navigate(`/personal?id=${seleccionado.personaId}`)}
+                >
+                  Ver ficha de personal completa →
+                </Button>
+              )}
+            </div>
+
             {seleccionado.activo && (
               <div className="detalle-acciones">
                 <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                  Editar usuario
+                  Modificar credenciales
                 </Button>
                 <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
-                  Dar de baja
+                  Desactivar acceso
                 </Button>
               </div>
             )}
@@ -425,17 +433,19 @@ function Usuarios() {
         open={confirmandoBaja}
         tone="danger"
         icon={ICONO_ALERTA}
-        title="Dar de baja el usuario"
+        title="Desactivar cuenta de usuario"
         description={
           seleccionado && (
             <>
-              Vas a dar de baja a <strong>{seleccionado.nombre} {seleccionado.apellido}</strong> (usuario{' '}
-              <strong>{seleccionado.nombreUsuario}</strong>). No va a poder iniciar sesión y esta acción no se puede
-              deshacer desde acá.
+              Vas a desactivar el acceso del usuario <strong>@{seleccionado.nombreUsuario}</strong>.
+              No podrá iniciar sesión en el sistema.
+              <p style={{ marginTop: '0.5rem', color: 'var(--color-text-muted)' }}>
+                ℹ️ La persona <strong>{seleccionado.nombre} {seleccionado.apellido}</strong> seguirá registrada en el personal de la empresa con sus datos intactos.
+              </p>
             </>
           )
         }
-        confirmLabel="Dar de baja"
+        confirmLabel="Desactivar acceso"
         onConfirm={confirmarBaja}
         onCancel={() => setConfirmandoBaja(false)}
       />

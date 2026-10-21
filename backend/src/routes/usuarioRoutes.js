@@ -12,6 +12,7 @@ router.get(
   autorizar('ADMINISTRADOR', 'ENCARGADO'),
   usuarioController.listarDisponiblesParaConducir
 );
+router.get('/:id', autenticar, autorizar('ADMINISTRADOR', 'ENCARGADO'), usuarioController.obtener);
 router.put('/:id', autenticar, autorizar('ADMINISTRADOR', 'ENCARGADO'), usuarioController.actualizar);
 router.patch(
   '/:id/baja',

@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
 const usuarioRoutes = require('./routes/usuarioRoutes');
+const personaRoutes = require('./routes/personaRoutes');
 const vehiculoRoutes = require('./routes/vehiculoRoutes');
 const tipoVehiculoRoutes = require('./routes/tipoVehiculoRoutes');
 const viajeRoutes = require('./routes/viajeRoutes');
@@ -25,6 +26,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
+app.use('/api/personas', personaRoutes);
 app.use('/api/vehiculos', vehiculoRoutes);
 app.use('/api/tipos-vehiculo', tipoVehiculoRoutes);
 app.use('/api/viajes', viajeRoutes);

@@ -48,17 +48,33 @@ async function main() {
     where: { descripcion: 'ACTIVO' },
   });
 
+  const personaAdmin = await prisma.persona.upsert({
+    where: { id: 1 },
+    update: {
+      nombre: ADMIN_NOMBRE,
+      apellido: ADMIN_APELLIDO,
+      perfilId: perfilAdministrador.id,
+      activo: true,
+    },
+    create: {
+      nombre: ADMIN_NOMBRE,
+      apellido: ADMIN_APELLIDO,
+      perfilId: perfilAdministrador.id,
+      activo: true,
+    },
+  });
+
   const contrasenaHash = await bcrypt.hash(ADMIN_PASSWORD, SALT_ROUNDS);
 
   const admin = await prisma.usuario.upsert({
     where: { nombreUsuario: ADMIN_USERNAME },
-    update: {},
+    update: {
+      personaId: personaAdmin.id,
+    },
     create: {
-      nombre: ADMIN_NOMBRE,
-      apellido: ADMIN_APELLIDO,
       nombreUsuario: ADMIN_USERNAME,
       contrasenaHash,
-      perfilId: perfilAdministrador.id,
+      personaId: personaAdmin.id,
       estadoUsuarioId: estadoActivo.id,
     },
   });

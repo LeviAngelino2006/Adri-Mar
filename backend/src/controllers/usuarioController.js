@@ -1,18 +1,17 @@
 const usuarioService = require('../services/usuarioService');
 
 async function crear(req, res) {
-  const { nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono, habilitadoParaConducir } =
-    req.body;
+  const { personaId, nombreUsuario, contrasena } = req.body;
 
   try {
     const usuario = await usuarioService.crearUsuario(
-      { nombre, apellido, nombreUsuario, contrasena, perfil, dni, email, telefono, habilitadoParaConducir },
+      { personaId, nombreUsuario, contrasena },
       { perfilSolicitante: req.usuario.perfil }
     );
     return res.status(201).json({ usuario });
   } catch (err) {
     if (err instanceof usuarioService.PermisoDenegadoError) {
-      return res.status(403).json({ error: 'No tiene permisos para asignar el perfil Administrador' });
+      return res.status(403).json({ error: 'No tiene permisos para crear usuarios con perfil Administrador' });
     }
     if (err instanceof usuarioService.ValidacionError) {
       return res.status(400).json({ errores: err.errores });
@@ -30,13 +29,25 @@ async function listar(req, res) {
   return res.json({ usuarios });
 }
 
+async function obtener(req, res) {
+  try {
+    const usuario = await usuarioService.obtenerUsuario(req.params.id);
+    return res.json({ usuario: usuarioService.serializarUsuario(usuario) });
+  } catch (err) {
+    if (err instanceof usuarioService.NoEncontradoError) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    throw err;
+  }
+}
+
 async function actualizar(req, res) {
-  const { nombre, apellido, nombreUsuario, perfil, dni, email, telefono, habilitadoParaConducir } = req.body;
+  const { nombreUsuario, contrasena, activo } = req.body;
 
   try {
     const usuario = await usuarioService.actualizarUsuario(
       req.params.id,
-      { nombre, apellido, nombreUsuario, perfil, dni, email, telefono, habilitadoParaConducir },
+      { nombreUsuario, contrasena, activo },
       { perfilSolicitante: req.usuario.perfil }
     );
     return res.json({ usuario });
@@ -46,9 +57,6 @@ async function actualizar(req, res) {
     }
     if (err instanceof usuarioService.PermisoDenegadoError) {
       return res.status(403).json({ error: 'No tiene permisos para modificar este usuario' });
-    }
-    if (err instanceof usuarioService.ChoferEnViajeError) {
-      return res.status(409).json({ error: err.message });
     }
     if (err instanceof usuarioService.ValidacionError) {
       return res.status(400).json({ errores: err.errores });
@@ -73,9 +81,6 @@ async function darDeBaja(req, res) {
     if (err instanceof usuarioService.YaInactivoError) {
       return res.status(409).json({ error: 'El usuario ya está inactivo' });
     }
-    if (err instanceof usuarioService.ChoferEnViajeError) {
-      return res.status(409).json({ error: err.message });
-    }
     throw err;
   }
 }
@@ -85,4 +90,4 @@ async function listarDisponiblesParaConducir(req, res) {
   return res.json({ usuarios });
 }
 
-module.exports = { crear, listar, actualizar, darDeBaja, listarDisponiblesParaConducir };
+module.exports = { crear, listar, obtener, actualizar, darDeBaja, listarDisponiblesParaConducir };

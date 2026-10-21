@@ -1,0 +1,298 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0">
+  <diagram name="Sprint 2 - Tablas BD" id="sprint2-tablas-bd">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="3800" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="panel-bg-2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b0bec5;strokeWidth=2;" value="" vertex="1">
+          <mxGeometry height="1060" width="2580" x="830" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-tipos-doc" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="TIPOS_DOCUMENTO" vertex="1">
+          <mxGeometry height="180" width="230" x="1220" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-tipos-doc-c" parent="g-tbl-tipos-doc" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id_tipodocumento&lt;br&gt;UK&amp;nbsp; codigo&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; descripcion&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; aplica_a&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; requiere_vencimiento&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; requiere_archivo&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; orden" vertex="1">
+          <mxGeometry height="154" width="230" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-doc-veh" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" value="DOCUMENTOS_VEHICULO" vertex="1">
+          <mxGeometry height="290" width="230" x="1220" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-doc-veh-c" parent="g-tbl-doc-veh" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id&lt;br&gt;FK&amp;nbsp; vehiculo_id&lt;br&gt;FK&amp;nbsp; tipo_documento_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; archivo_url&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; archivo_path&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; nombre_original&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; fecha_emision&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; fecha_vencimiento&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; observaciones&lt;br&gt;&lt;b style=&quot;color:#b85450;&quot;&gt;*&amp;nbsp;&amp;nbsp; es_vigente&lt;/b&gt;&lt;br&gt;FK&amp;nbsp; usuario_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; creado_en&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; actualizado_en" vertex="1">
+          <mxGeometry height="264" width="230" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-doc-chof" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="DOCUMENTOS_CHOFER" vertex="1">
+          <mxGeometry height="290" width="230" x="1220" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-doc-chof-c" parent="g-tbl-doc-chof" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id&lt;br&gt;FK&amp;nbsp; chofer_id (usuarios)&lt;br&gt;FK&amp;nbsp; tipo_documento_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; archivo_url&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; archivo_path&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; nombre_original&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; fecha_emision&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; fecha_vencimiento&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; observaciones&lt;br&gt;&lt;b style=&quot;color:#b85450;&quot;&gt;*&amp;nbsp;&amp;nbsp; es_vigente&lt;/b&gt;&lt;br&gt;FK&amp;nbsp; usuario_id (auditor)&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; creado_en&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; actualizado_en" vertex="1">
+          <mxGeometry height="264" width="230" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-usuarios" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="USUARIOS" vertex="1">
+          <mxGeometry height="240" width="250" x="1520" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-usuarios-c" parent="g-tbl-usuarios" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; nombre&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; apellido&lt;br&gt;UK&amp;nbsp; nombre_usuario&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; contrasena_hash&lt;br&gt;FK&amp;nbsp; perfil_id&lt;br&gt;UK&amp;nbsp; dni&lt;br&gt;UK&amp;nbsp; email&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; telefono&lt;br&gt;FK&amp;nbsp; estado_usuario_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; habilitado_para_conducir&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; creado_en" vertex="1">
+          <mxGeometry height="214" width="250" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-vehiculos" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="VEHICULOS" vertex="1">
+          <mxGeometry height="260" width="250" x="1520" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-vehiculos-c" parent="g-tbl-vehiculos" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id&lt;br&gt;UK&amp;nbsp; dominio&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; numero_interno&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; marca&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; modelo&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; anio&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; asientos&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; kilometraje&lt;br&gt;FK&amp;nbsp; estado_vehiculo_id&lt;br&gt;FK&amp;nbsp; tipo_vehiculo_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; fecha_baja&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; creado_en" vertex="1">
+          <mxGeometry height="234" width="250" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-odometro" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="LECTURAS_ODOMETRO" vertex="1">
+          <mxGeometry height="230" width="250" x="1520" y="680" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-odometro-c" parent="g-tbl-odometro" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id&lt;br&gt;FK&amp;nbsp; vehiculo_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; valor_km&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; fecha_hora&lt;br&gt;FK&amp;nbsp; origen_id&lt;br&gt;FK&amp;nbsp; viaje_id&lt;br&gt;FK&amp;nbsp; usuario_id&lt;br&gt;FK&amp;nbsp; lectura_corregida_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; motivo&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; creado_en" vertex="1">
+          <mxGeometry height="204" width="250" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-orig-lec" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" value="ORIGENES_LECTURA" vertex="1">
+          <mxGeometry height="80" width="250" x="1520" y="940" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-orig-lec-c" parent="g-tbl-orig-lec" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id_origenlectura&lt;br&gt;UK&amp;nbsp; descripcion" vertex="1">
+          <mxGeometry height="54" width="250" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-perfiles" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="PERFILES" vertex="1">
+          <mxGeometry height="80" width="160" x="1840" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-perfiles-c" parent="g-tbl-perfiles" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id_perfil&lt;br&gt;UK&amp;nbsp; descripcion" vertex="1">
+          <mxGeometry height="54" width="160" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-est-usr" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="ESTADO_USUARIO" vertex="1">
+          <mxGeometry height="80" width="160" x="1840" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-est-usr-c" parent="g-tbl-est-usr" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id_estadousuario&lt;br&gt;UK&amp;nbsp; descripcion" vertex="1">
+          <mxGeometry height="54" width="160" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-tipo-veh" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="TIPOS_VEHICULO" vertex="1">
+          <mxGeometry height="100" width="160" x="1840" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-tipo-veh-c" parent="g-tbl-tipo-veh" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id_tipovehiculo&lt;br&gt;UK&amp;nbsp; descripcion&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; orden" vertex="1">
+          <mxGeometry height="74" width="160" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-est-veh" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" value="ESTADO_VEHICULO" vertex="1">
+          <mxGeometry height="80" width="160" x="1840" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-est-veh-c" parent="g-tbl-est-veh" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id_estadovehiculo&lt;br&gt;UK&amp;nbsp; descripcion" vertex="1">
+          <mxGeometry height="54" width="160" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-est-viaje" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="ESTADO_VIAJE" vertex="1">
+          <mxGeometry height="80" width="160" x="1840" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-est-viaje-c" parent="g-tbl-est-viaje" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id_estadoviaje&lt;br&gt;UK&amp;nbsp; descripcion" vertex="1">
+          <mxGeometry height="54" width="160" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-viajes" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" value="VIAJES" vertex="1">
+          <mxGeometry height="510" width="310" x="2080" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-viajes-c" parent="g-tbl-viajes" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id&lt;br&gt;FK&amp;nbsp; chofer_id&lt;br&gt;FK&amp;nbsp; vehiculo_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; fecha_inicio&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; fecha_fin&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; kilometros_estimados&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; odometro_inicial&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; odometro_final&lt;br&gt;FK&amp;nbsp; estado_viaje_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; hora_inicio_real&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; hora_fin_real&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; observacion_final&lt;br&gt;FK&amp;nbsp; origen_id&lt;br&gt;FK&amp;nbsp; destino_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; precio (decimal)&lt;br&gt;FK&amp;nbsp; cliente_id&lt;br&gt;FK&amp;nbsp; estado_pago_cliente_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; fecha_pago_cliente&lt;br&gt;FK&amp;nbsp; metodo_pago_cliente_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; pago_chofer (decimal)&lt;br&gt;FK&amp;nbsp; estado_pago_chofer_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; fecha_pago_chofer&lt;br&gt;FK&amp;nbsp; metodo_pago_chofer_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; creado_en&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; actualizado_en" vertex="1">
+          <mxGeometry height="484" width="310" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-clientes" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="CLIENTES" vertex="1">
+          <mxGeometry height="120" width="220" x="2470" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-clientes-c" parent="g-tbl-clientes" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; nombre&lt;br&gt;UK&amp;nbsp; nombre_normalizado&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; creado_en" vertex="1">
+          <mxGeometry height="94" width="220" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-ubicaciones" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" value="UBICACIONES" vertex="1">
+          <mxGeometry height="120" width="220" x="2470" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-ubicaciones-c" parent="g-tbl-ubicaciones" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; nombre&lt;br&gt;UK&amp;nbsp; nombre_normalizado&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; creado_en" vertex="1">
+          <mxGeometry height="94" width="220" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-est-pago" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="ESTADO_PAGO" vertex="1">
+          <mxGeometry height="80" width="180" x="2470" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-est-pago-c" parent="g-tbl-est-pago" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id_estadopago&lt;br&gt;UK&amp;nbsp; descripcion" vertex="1">
+          <mxGeometry height="54" width="180" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-met-pago" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" value="METODO_PAGO" vertex="1">
+          <mxGeometry height="80" width="180" x="2470" y="510" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-met-pago-c" parent="g-tbl-met-pago" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id_metodopago&lt;br&gt;UK&amp;nbsp; descripcion" vertex="1">
+          <mxGeometry height="54" width="180" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-tipo-notif" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="TIPOS_NOTIFICACION" vertex="1">
+          <mxGeometry height="120" width="280" x="2780" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-tipo-notif-c" parent="g-tbl-tipo-notif" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id_tiponotificacion&lt;br&gt;UK&amp;nbsp; codigo&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; descripcion&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; prioridad_defecto&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; color_alerta" vertex="1">
+          <mxGeometry height="94" width="280" y="26" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-notif" parent="1" style="swimlane;fontStyle=1;childLayout=stackLayout;horizontal=1;startSize=26;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="NOTIFICACIONES (SCRUM-18)" vertex="1">
+          <mxGeometry height="290" width="310" x="2780" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="g-tbl-notif-c" parent="g-tbl-notif" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=6;spacingRight=6;overflow=hidden;rotatable=0;whiteSpace=wrap;html=1;fontFamily=monospace;fontSize=11;" value="PK&amp;nbsp; id&lt;br&gt;FK&amp;nbsp; tipo_notificacion_id&lt;br&gt;FK&amp;nbsp; usuario_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; titulo&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; mensaje&lt;br&gt;&lt;b style=&quot;color: rgb(184, 84, 80);&quot;&gt;*&amp;nbsp;&amp;nbsp; nivel_prioridad&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; leida&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; fecha_leida&lt;br&gt;&lt;b style=&quot;color: rgb(0, 102, 204);&quot;&gt;FK&amp;nbsp; documento_vehiculo_id&lt;/b&gt;&lt;br&gt;&lt;b style=&quot;color: rgb(46, 125, 50);&quot;&gt;FK&amp;nbsp; documento_chofer_id&lt;/b&gt;&lt;br&gt;FK&amp;nbsp; vehiculo_id&lt;br&gt;FK&amp;nbsp; viaje_id&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp; creado_en" vertex="1">
+          <mxGeometry height="264" width="310" y="26" as="geometry" />
+        </mxCell>
+
+        <!-- ===================== RELACIONES ===================== -->
+        <!-- ERmandOne = FK obligatoria (NOT NULL) | ERzeroToOne = FK opcional (NULL) -->
+
+        <mxCell id="g-edge-perfil" edge="1" parent="1" source="g-tbl-perfiles" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;" target="g-tbl-usuarios">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-est-usr" edge="1" parent="1" source="g-tbl-est-usr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;" target="g-tbl-usuarios">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-tipo-veh" edge="1" parent="1" source="g-tbl-tipo-veh" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;" target="g-tbl-vehiculos">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-est-veh" edge="1" parent="1" source="g-tbl-est-veh" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;" target="g-tbl-vehiculos">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-veh-doc" edge="1" parent="1" source="g-tbl-vehiculos" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;" target="g-tbl-doc-veh">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-usr-doc" edge="1" parent="1" source="g-tbl-usuarios" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;" target="g-tbl-doc-veh">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-tipo-doc" edge="1" parent="1" source="g-tbl-tipos-doc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;" target="g-tbl-doc-veh">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-tipo-chof" edge="1" parent="1" source="g-tbl-tipos-doc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;strokeColor=#2e7d32;" target="g-tbl-doc-chof">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1200" y="200" />
+              <mxPoint x="1200" y="700" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="g-edge-usr-chof" edge="1" parent="1" source="g-tbl-usuarios" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;strokeColor=#2e7d32;fontSize=10;labelBackgroundColor=#ffffff;" target="g-tbl-doc-chof" value="chofer_id">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1500" y="240" />
+              <mxPoint x="1500" y="720" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <!-- NUEVA: documentos_chofer.usuario_id (auditor) -> usuarios -->
+        <mxCell id="g-edge-usr-chof-auditor" edge="1" parent="1" source="g-tbl-usuarios" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;strokeColor=#2e7d32;dashed=1;exitX=0;exitY=0.667;exitDx=0;exitDy=0;entryX=1;entryY=0.379;entryDx=0;entryDy=0;fontSize=10;labelBackgroundColor=#ffffff;" target="g-tbl-doc-chof" value="usuario_id (auditor)">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1480" y="260" />
+              <mxPoint x="1480" y="760" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="g-edge-veh-odo" edge="1" parent="1" source="g-tbl-vehiculos" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;" target="g-tbl-odometro">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-orig-odo" edge="1" parent="1" source="g-tbl-orig-lec" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;" target="g-tbl-odometro">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-usr-odo" edge="1" parent="1" source="g-tbl-usuarios" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;" target="g-tbl-odometro">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1490" y="220" />
+              <mxPoint x="1490" y="795" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <!-- NUEVA: autorrelacion lecturas_odometro.lectura_corregida_id (opcional) -->
+        <mxCell id="g-edge-odo-self" edge="1" parent="1" source="g-tbl-odometro" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERzeroToMany;endFill=0;startArrow=ERzeroToOne;startFill=0;strokeColor=#9673a6;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=1;entryY=0.9;entryDx=0;entryDy=0;fontSize=10;labelBackgroundColor=#ffffff;align=left;" target="g-tbl-odometro" value="lectura_corregida_id">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1810" y="852" />
+              <mxPoint x="1810" y="887" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <!-- viajes.chofer_id es opcional -->
+        <mxCell id="g-edge-usr-viaje" edge="1" parent="1" source="g-tbl-usuarios" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERzeroToOne;startFill=0;fontSize=10;labelBackgroundColor=#ffffff;" target="g-tbl-viajes" value="chofer_id">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1800" y="150" />
+              <mxPoint x="1800" y="150" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <!-- viajes.vehiculo_id es opcional -->
+        <mxCell id="g-edge-veh-viaje" edge="1" parent="1" source="g-tbl-vehiculos" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERzeroToOne;startFill=0;" target="g-tbl-viajes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-est-viaje" edge="1" parent="1" source="g-tbl-est-viaje" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;" target="g-tbl-viajes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-cli-viaje" edge="1" parent="1" source="g-tbl-clientes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERzeroToOne;startFill=0;" target="g-tbl-viajes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- ubicaciones: dos FKs separadas (origen / destino) -->
+        <mxCell id="g-edge-ubi-viaje-origen" edge="1" parent="1" source="g-tbl-ubicaciones" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERzeroToOne;startFill=0;exitX=0;exitY=0.3;exitDx=0;exitDy=0;entryX=1;entryY=0.365;entryDx=0;entryDy=0;fontSize=10;labelBackgroundColor=#ffffff;" target="g-tbl-viajes" value="origen_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-ubi-viaje-destino" edge="1" parent="1" source="g-tbl-ubicaciones" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERzeroToOne;startFill=0;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=1;entryY=0.459;entryDx=0;entryDy=0;fontSize=10;labelBackgroundColor=#ffffff;" target="g-tbl-viajes" value="destino_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- estado_pago: dos FKs separadas (cliente / chofer) -->
+        <mxCell id="g-edge-estpago-viaje-cli" edge="1" parent="1" source="g-tbl-est-pago" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERzeroToOne;startFill=0;exitX=0;exitY=0.3;exitDx=0;exitDy=0;entryX=1;entryY=0.635;entryDx=0;entryDy=0;fontSize=10;labelBackgroundColor=#ffffff;" target="g-tbl-viajes" value="cliente">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-estpago-viaje-chof" edge="1" parent="1" source="g-tbl-est-pago" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERzeroToOne;startFill=0;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=1;entryY=0.698;entryDx=0;entryDy=0;fontSize=10;labelBackgroundColor=#ffffff;" target="g-tbl-viajes" value="chofer">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- metodo_pago: dos FKs separadas (cliente / chofer) -->
+        <mxCell id="g-edge-metpago-viaje-cli" edge="1" parent="1" source="g-tbl-met-pago" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERzeroToOne;startFill=0;exitX=0;exitY=0.3;exitDx=0;exitDy=0;entryX=1;entryY=0.851;entryDx=0;entryDy=0;fontSize=10;labelBackgroundColor=#ffffff;" target="g-tbl-viajes" value="cliente">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-metpago-viaje-chof" edge="1" parent="1" source="g-tbl-met-pago" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERzeroToOne;startFill=0;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=1;entryY=0.914;entryDx=0;entryDy=0;fontSize=10;labelBackgroundColor=#ffffff;" target="g-tbl-viajes" value="chofer">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- lecturas_odometro.viaje_id es opcional -->
+        <mxCell id="g-edge-viaje-odo" edge="1" parent="1" source="g-tbl-viajes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERzeroToOne;startFill=0;" target="g-tbl-odometro">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2080" y="740" />
+              <mxPoint x="1770" y="740" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="g-edge-tiponotif-notif" edge="1" parent="1" source="g-tbl-tipo-notif" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;strokeColor=#b85450;strokeWidth=1.5;" target="g-tbl-notif">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g-edge-usr-notif" edge="1" parent="1" source="g-tbl-usuarios" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERmandOne;startFill=0;strokeColor=#666666;" target="g-tbl-notif">
+          <mxGeometry relative="1" x="-0.0935" as="geometry">
+            <Array as="points">
+              <mxPoint x="1770" y="80" />
+              <mxPoint x="3080" y="80" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="g-edge-docveh-notif" edge="1" parent="1" source="g-tbl-doc-veh" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERzeroToOne;startFill=0;strokeColor=#0066cc;" target="g-tbl-notif">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1450" y="625" />
+              <mxPoint x="2740" y="625" />
+              <mxPoint x="2740" y="520" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="g-edge-docchof-notif" edge="1" parent="1" source="g-tbl-doc-chof" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERzeroToOne;startFill=0;strokeColor=#2e7d32;" target="g-tbl-notif">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1450" y="930" />
+              <mxPoint x="2760" y="930" />
+              <mxPoint x="2760" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <!-- NUEVA: notificaciones.vehiculo_id -> vehiculos (opcional) -->
+        <mxCell id="g-edge-veh-notif" edge="1" parent="1" source="g-tbl-vehiculos" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERzeroToOne;startFill=0;strokeColor=#666666;dashed=1;exitX=1;exitY=0.846;exitDx=0;exitDy=0;entryX=0;entryY=0.62;entryDx=0;entryDy=0;fontSize=10;labelBackgroundColor=#ffffff;" target="g-tbl-notif" value="vehiculo_id">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2040" y="600" />
+              <mxPoint x="2040" y="660" />
+              <mxPoint x="2720" y="660" />
+              <mxPoint x="2720" y="470" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <!-- NUEVA: notificaciones.viaje_id -> viajes (opcional) -->
+        <mxCell id="g-edge-viaje-notif" edge="1" parent="1" source="g-tbl-viajes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;endFill=0;startArrow=ERzeroToOne;startFill=0;strokeColor=#82b366;dashed=1;exitX=1;exitY=0.98;exitDx=0;exitDy=0;entryX=0;entryY=0.448;entryDx=0;entryDy=0;fontSize=10;labelBackgroundColor=#ffffff;" target="g-tbl-notif" value="viaje_id">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2700" y="600" />
+              <mxPoint x="2700" y="420" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

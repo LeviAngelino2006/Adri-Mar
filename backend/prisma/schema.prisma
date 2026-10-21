@@ -9,9 +9,12 @@ datasource db {
 }
 
 model Perfil {
-  id          Int       @id @default(autoincrement()) @map("id_perfil")
-  descripcion String    @unique
-  usuarios    Usuario[]
+  id             Int       @id @default(autoincrement()) @map("id_perfil")
+  descripcion    String    @unique
+  personas       Persona[]
+  // LEGACY (PR 2 - Contract): FK vieja usuarios.perfil_id. El código ya no la
+  // lee ni la escribe; el perfil vive en Persona.
+  usuariosLegacy Usuario[] @relation("UsuarioPerfilLegacy")
 
   @@map("perfiles")
 }
@@ -24,27 +27,65 @@ model EstadoUsuario {
   @@map("estado_usuario")
 }
 
-model Usuario {
-  id                     Int               @id @default(autoincrement())
+// Quién es alguien en la empresa (empleado, chofer), tenga o no cuenta en el
+// sistema. Es la dueña de los datos personales, del perfil, de la habilitación
+// para conducir y del legajo de documentación de chofer. Baja lógica con
+// `activo` + `fechaBaja`: nunca se borra, conserva su historial de viajes y
+// documentos. Dar de baja a una persona desactiva también su Usuario.
+model Persona {
+  id                     Int                    @id @default(autoincrement())
   nombre                 String
   apellido               String
-  nombreUsuario          String            @unique @map("nombre_usuario")
-  contrasenaHash         String            @map("contrasena_hash")
-  perfilId               Int               @map("perfil_id")
-  perfil                 Perfil            @relation(fields: [perfilId], references: [id])
-  dni                    String?           @unique
-  email                  String?           @unique
+  dni                    String?                @unique
+  email                  String?                @unique
   telefono               String?
-  estadoUsuarioId        Int               @map("estado_usuario_id")
-  estadoUsuario          EstadoUsuario     @relation(fields: [estadoUsuarioId], references: [id])
-  habilitadoParaConducir Boolean           @default(false) @map("habilitado_para_conducir")
-  creadoEn               DateTime          @default(now()) @map("creado_en")
+  perfilId               Int                    @map("perfil_id")
+  perfil                 Perfil                 @relation(fields: [perfilId], references: [id])
+  habilitadoParaConducir Boolean                @default(false) @map("habilitado_para_conducir")
+  activo                 Boolean                @default(true)
+  fechaBaja              DateTime?              @map("fecha_baja")
+  creadoEn               DateTime               @default(now()) @map("creado_en")
+  actualizadoEn          DateTime               @default(now()) @updatedAt @map("actualizado_en")
+  // 0..1: una persona puede no tener acceso al sistema.
+  usuario                Usuario?
   viajes                 Viaje[]
-  lecturasOdometro       LecturaOdometro[]
-  documentos             Documento[]       @relation("DocumentosDelChofer")
-  documentosRegistrados  Documento[]       @relation("DocumentosRegistradosPor")
+  documentos             Documento[]            @relation("DocumentosDelChofer")
   viajesCandidato        ViajeChoferCandidato[]
-  presupuestos           Presupuesto[]
+
+  @@map("personas")
+}
+
+// Cuenta de acceso al sistema. Pertenece siempre a una Persona (1..1) y hereda
+// los permisos del perfil de esa persona. Se queda con la AUDITORÍA (quién
+// registró una lectura, subió un documento o creó un presupuesto).
+model Usuario {
+  id                           Int                    @id @default(autoincrement())
+  nombreUsuario                String                 @unique @map("nombre_usuario")
+  contrasenaHash               String                 @map("contrasena_hash")
+  estadoUsuarioId              Int                    @map("estado_usuario_id")
+  estadoUsuario                EstadoUsuario          @relation(fields: [estadoUsuarioId], references: [id])
+  personaId                    Int                    @unique @map("persona_id")
+  persona                      Persona                @relation(fields: [personaId], references: [id])
+  creadoEn                     DateTime               @default(now()) @map("creado_en")
+  lecturasOdometro             LecturaOdometro[]
+  documentosRegistrados        Documento[]            @relation("DocumentosRegistradosPor")
+  presupuestos                 Presupuesto[]
+
+  // --- LEGACY (fase Expand) -------------------------------------------------
+  // Columnas y FKs de antes de separar Persona. Quedan nullable (o con default)
+  // para que las altas nuevas no fallen; el código ya no las lee ni las
+  // escribe. Se eliminan en el PR 2 (Contract).
+  nombreLegacy                 String?                @map("nombre")
+  apellidoLegacy               String?                @map("apellido")
+  dniLegacy                    String?                @unique @map("dni")
+  emailLegacy                  String?                @unique @map("email")
+  telefonoLegacy               String?                @map("telefono")
+  perfilIdLegacy               Int?                   @map("perfil_id")
+  perfilLegacy                 Perfil?                @relation("UsuarioPerfilLegacy", fields: [perfilIdLegacy], references: [id], onDelete: Restrict)
+  habilitadoParaConducirLegacy Boolean                @default(false) @map("habilitado_para_conducir")
+  viajesLegacy                 Viaje[]                @relation("ViajeChoferLegacy")
+  documentosChoferLegacy       Documento[]            @relation("DocumentosDelChoferLegacy")
+  viajesCandidatoLegacy        ViajeChoferCandidato[] @relation("CandidatoUsuarioLegacy")
 
   @@map("usuarios")
 }
@@ -175,13 +216,18 @@ model Viaje {
   // todavía (se completan al editar o al confirmar). Un viaje PROGRAMADO (o
   // posterior) siempre los tiene — esa garantía la sostiene viajeService, no
   // la base.
-  choferId            Int?              @map("chofer_id")
+  // El chofer es una Persona (columna chofer_persona_id). La columna vieja
+  // chofer_id (FK a usuarios) queda como LEGACY hasta el PR 2.
+  choferId            Int?              @map("chofer_persona_id")
   // onDelete: Restrict explícito — al volverse opcional, Prisma por defecto
-  // pasaría a SET NULL en el DELETE, lo que dejaría borrar un usuario/vehículo
+  // pasaría a SET NULL en el DELETE, lo que dejaría borrar una persona/vehículo
   // con viajes encima (y un viaje PROGRAMADO podría quedar sin chofer). Se
-  // preserva el comportamiento de siempre (no se puede borrar un usuario o
+  // preserva el comportamiento de siempre (no se puede borrar una persona o
   // vehículo que tiene viajes).
-  chofer              Usuario?          @relation(fields: [choferId], references: [id], onDelete: Restrict)
+  chofer              Persona?          @relation(fields: [choferId], references: [id], onDelete: Restrict)
+  // LEGACY (PR 2 - Contract): el código ya no la escribe.
+  choferUsuarioIdLegacy Int?            @map("chofer_id")
+  choferUsuarioLegacy Usuario?          @relation("ViajeChoferLegacy", fields: [choferUsuarioIdLegacy], references: [id], onDelete: Restrict)
   vehiculoId          Int?              @map("vehiculo_id")
   vehiculo            Vehiculo?         @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
   // Nullable porque los viajes históricos no tienen este dato y no hay forma
@@ -353,22 +399,23 @@ model TipoDocumento {
 }
 
 // Cada fila es una versión cargada de un documento. Pertenece a un vehículo O
-// a un chofer, nunca a los dos (CHECK documentos_un_solo_titular en la
-// migración). La versión vigente es la más reciente por titular y tipo: no se
-// guarda, se calcula. Que la categoría del tipo coincida con el titular lo
-// valida documentoService, no la base.
+// a un chofer (Persona), nunca a los dos (CHECK documentos_un_solo_titular en
+// la migración, sobre vehiculo_id y chofer_persona_id). La versión vigente es
+// la más reciente por titular y tipo: no se guarda, se calcula. Que la
+// categoría del tipo coincida con el titular lo valida documentoService, no la
+// base. `usuario` es quién lo subió (auditoría): sigue apuntando a Usuario.
 // onDelete: Restrict explícito en vehiculo y chofer: al ser opcionales, Prisma
 // pasaría a SET NULL, y dejar ambas columnas en null violaría el CHECK. Se
-// preserva el comportamiento de siempre (no se puede borrar un vehículo ni un
-// usuario que tiene documentos).
+// preserva el comportamiento de siempre (no se puede borrar un vehículo ni una
+// persona que tiene documentos).
 model Documento {
   id               Int           @id @default(autoincrement())
   tipoDocumentoId  Int           @map("tipo_documento_id")
   tipoDocumento    TipoDocumento @relation(fields: [tipoDocumentoId], references: [id])
   vehiculoId       Int?          @map("vehiculo_id")
   vehiculo         Vehiculo?     @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
-  choferId         Int?          @map("chofer_id")
-  chofer           Usuario?      @relation("DocumentosDelChofer", fields: [choferId], references: [id], onDelete: Restrict)
+  choferId         Int?          @map("chofer_persona_id")
+  chofer           Persona?      @relation("DocumentosDelChofer", fields: [choferId], references: [id], onDelete: Restrict)
   archivoPath      String?       @map("archivo_path")
   nombreArchivo    String?       @map("nombre_archivo")
   fechaEmision     DateTime?     @map("fecha_emision")
@@ -377,22 +424,30 @@ model Documento {
   usuarioId        Int           @map("usuario_id")
   usuario          Usuario       @relation("DocumentosRegistradosPor", fields: [usuarioId], references: [id])
   creadoEn         DateTime      @default(now()) @map("creado_en")
+  // LEGACY (PR 2 - Contract): chofer_id viejo (FK a usuarios). El código ya no
+  // lo escribe; las filas viejas lo conservan junto con chofer_persona_id.
+  choferUsuarioIdLegacy Int?     @map("chofer_id")
+  choferUsuarioLegacy   Usuario? @relation("DocumentosDelChoferLegacy", fields: [choferUsuarioIdLegacy], references: [id], onDelete: Restrict)
 
   @@index([vehiculoId, tipoDocumentoId, creadoEn])
   @@index([choferId, tipoDocumentoId, creadoEn])
+  @@index([choferUsuarioIdLegacy, tipoDocumentoId, creadoEn])
   @@map("documentos")
 }
 
-// Chofer posible para un viaje A_CONFIRMAR. Viaje.choferId sigue siendo "el
-// asignado" y queda en null hasta confirmar. Cascade al borrar el viaje;
-// Restrict al borrar el usuario (mismo criterio que Viaje.choferId).
+// Chofer (Persona) posible para un viaje A_CONFIRMAR. Viaje.choferId sigue
+// siendo "el asignado" y queda en null hasta confirmar. Cascade al borrar el
+// viaje; Restrict al borrar la persona (mismo criterio que Viaje.choferId).
 model ViajeChoferCandidato {
-  viajeId   Int     @map("viaje_id")
-  usuarioId Int     @map("usuario_id")
-  viaje     Viaje   @relation(fields: [viajeId], references: [id], onDelete: Cascade)
-  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  viajeId         Int      @map("viaje_id")
+  personaId       Int      @map("persona_id")
+  viaje           Viaje    @relation(fields: [viajeId], references: [id], onDelete: Cascade)
+  persona         Persona  @relation(fields: [personaId], references: [id], onDelete: Restrict)
+  // LEGACY (PR 2 - Contract): usuario_id viejo, nullable desde la fase Expand.
+  usuarioIdLegacy Int?     @map("usuario_id")
+  usuarioLegacy   Usuario? @relation("CandidatoUsuarioLegacy", fields: [usuarioIdLegacy], references: [id], onDelete: Restrict)
 
-  @@id([viajeId, usuarioId])
+  @@id([viajeId, personaId])
   @@map("viaje_chofer_candidato")
 }
 

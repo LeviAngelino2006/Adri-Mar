@@ -46,6 +46,9 @@ const prismaFalso = {
   usuario: {
     findUnique: async () => ({ id: CHOFER_ID, habilitadoParaConducir: true, estadoUsuario: { descripcion: 'ACTIVO' } }),
   },
+  persona: {
+    findUnique: async () => ({ id: CHOFER_ID, habilitadoParaConducir: true, activo: true }),
+  },
   vehiculo: {
     findUnique: async () => ({ id: VEHICULO_ID, estadoVehiculo: { descripcion: 'OPERATIVO' } }),
   },

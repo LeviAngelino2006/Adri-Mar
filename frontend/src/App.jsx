@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Usuarios from './pages/Usuarios';
+import Personal from './pages/Personal';
 import FlotaVehiculos from './pages/FlotaVehiculos';
 import Viajes from './pages/Viajes';
 import MisViajes from './pages/MisViajes';
@@ -24,6 +25,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/personal"
+            element={
+              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO']}>
+                <Personal />
               </ProtectedRoute>
             }
           />

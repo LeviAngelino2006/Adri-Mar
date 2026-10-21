@@ -80,7 +80,7 @@ async function misViajes(req, res) {
   const viajes = await viajeService.listarViajes(
     {
       estado,
-      choferId: req.usuario.id,
+      choferId: req.usuario.personaId || req.usuario.id,
       fechaDesde,
       fechaHasta,
       excluirAConfirmar: true,
