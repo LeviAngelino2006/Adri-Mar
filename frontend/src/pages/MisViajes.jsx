@@ -6,6 +6,7 @@ import Layout from '../components/Layout';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
 import Button from '../components/ui/Button';
+import BarraAccionFija from '../components/ui/BarraAccionFija';
 import EstadoCarga from '../components/ui/EstadoCarga';
 import Toast from '../components/ui/Toast';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
@@ -238,25 +239,27 @@ function MisViajes() {
             </div>
           </div>
 
-          <FichaViaje viaje={seleccionado} />
+          {/* El viaje es del propio usuario: no se repite su nombre en Chofer. */}
+          <FichaViaje viaje={seleccionado} ocultarChofer={seleccionado.choferId === usuario.id} />
 
+          {/* La acción del estado, en el celular en una barra fija al pie. */}
           {seleccionado.estado === 'PROGRAMADO' && (
-            <div className="viajes-detalle-actions">
+            <BarraAccionFija className="viajes-detalle-actions">
               <BotonComenzarViaje
                 viaje={seleccionado}
                 enCurso={viajesEnCurso}
                 onComenzar={pedirComenzar}
                 onVerViajeEnCurso={seleccionar}
               />
-            </div>
+            </BarraAccionFija>
           )}
 
           {seleccionado.estado === 'EN_VIAJE' && (
-            <div className="viajes-detalle-actions">
+            <BarraAccionFija className="viajes-detalle-actions">
               <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
                 Finalizar viaje
               </Button>
-            </div>
+            </BarraAccionFija>
           )}
         </>
       )}

@@ -1,5 +1,6 @@
 // Tests de la tanda "el chofer en el celular": el orden y las vistas de Mis
-// viajes. Se corren con `npm test` (node:test).
+// viajes y la ficha del chofer con la acción en la barra fija. Se corren con
+// `npm test` (node:test).
 //
 // Mismo método que botonComenzarViaje.render.test.mjs: se montan las pantallas
 // reales con react-dom/client sobre jsdom y la API se reemplaza por un doble (sin
@@ -182,5 +183,57 @@ describe('Mis viajes: Próximos | Anteriores', () => {
       estado.dispatchEvent(new window.Event('change', { bubbles: true }));
     });
     assert.equal(contenedor.querySelector('.listado-vacio')?.textContent, 'No hay viajes con esos filtros.');
+  });
+});
+
+// Abre la ficha del viaje con ese destino desde el listado.
+async function abrirFicha(destino) {
+  const tarjeta = [...contenedor.querySelectorAll('button.listado-card')].find((b) => b.textContent.includes(destino));
+  await act(async () => tarjeta.click());
+}
+
+const etiquetasFicha = () => [...contenedor.querySelectorAll('.detalle-grid dt')].map((dt) => dt.textContent);
+
+describe('Mis viajes: ficha del chofer', () => {
+  test('el chofer no ve el par Chofer (es él); el vehículo sí', async () => {
+    await montar('MisViajes', '/mis-viajes');
+    await abrirFicha('Mendoza');
+    assert.ok(!etiquetasFicha().includes('Chofer'), 'la ficha muestra el par Chofer');
+    assert.ok(etiquetasFicha().includes('Vehículo'));
+    assert.ok(!contenedor.querySelector('.detalle-grid').textContent.includes('Martín Gómez'));
+  });
+
+  test('"Finalizar viaje" va en la barra fija al pie', async () => {
+    await montar('MisViajes', '/mis-viajes');
+    await abrirFicha('Villa General Belgrano');
+    const barra = contenedor.querySelector('.barra-accion-fija');
+    assert.ok(barra, 'falta la barra de acción');
+    assert.equal(barra.textContent, 'Finalizar viaje');
+    // Sigue siendo la fila de acciones de la ficha en escritorio.
+    assert.ok(barra.classList.contains('viajes-detalle-actions'));
+  });
+
+  test('"Comenzar viaje" deshabilitado va en la barra con su motivo y "Ver el viaje en curso"', async () => {
+    await montar('MisViajes', '/mis-viajes');
+    await abrirFicha('Mendoza');
+    const barra = contenedor.querySelector('.barra-accion-fija');
+    const comenzar = barra.querySelector('button.btn');
+    assert.equal(comenzar.textContent, 'Comenzar viaje');
+    assert.equal(comenzar.disabled, true);
+    assert.ok(barra.contains(document.getElementById(comenzar.getAttribute('aria-describedby'))), 'el motivo no está en la barra');
+    assert.ok(barra.querySelector('.comenzar-viaje-ir').textContent.includes('Villa General Belgrano'));
+  });
+
+  test('sin ocultarChofer (la ficha de Viajes de los gestores) el par Chofer sigue', async () => {
+    const FichaViaje = (await vite.ssrLoadModule('/src/components/FichaViaje.jsx')).default;
+    await act(async () => raiz.render(h(FichaViaje, { viaje: PROXIMO_1 })));
+    assert.ok(etiquetasFicha().includes('Chofer'));
+    assert.ok(contenedor.querySelector('.detalle-grid').textContent.includes('Martín Gómez'));
+  });
+
+  test('un Finalizado no tiene barra de acción', async () => {
+    await montar('MisViajes', '/mis-viajes?tab=anteriores');
+    await abrirFicha('Córdoba');
+    assert.equal(contenedor.querySelector('.barra-accion-fija'), null);
   });
 });

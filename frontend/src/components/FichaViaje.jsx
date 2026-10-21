@@ -41,7 +41,10 @@ function Par({ izquierda, derecha }) {
 // Ficha de un viaje: una sola Card con una grilla plana de pares, en el mismo
 // orden que el formulario. Los botones de acción los arma cada página, debajo
 // de esta Card.
-function FichaViaje({ viaje }) {
+//
+// `ocultarChofer` (Mis viajes, el viaje es del propio usuario): sin el dato
+// Chofer; el vehículo queda solo en su fila.
+function FichaViaje({ viaje, ocultarChofer = false }) {
   const vehiculo = viaje.vehiculo
     ? `${nombreVehiculo(viaje.vehiculo)} (${viaje.vehiculo.marca} ${viaje.vehiculo.modelo})`
     : null;
@@ -107,8 +110,12 @@ function FichaViaje({ viaje }) {
           </>
         ) : (
           <Par
-            izquierda={{ etiqueta: 'Chofer', valor: viaje.chofer ? nombreChofer(viaje.chofer) : null }}
-            derecha={{ etiqueta: 'Vehículo', valor: vehiculo }}
+            izquierda={
+              ocultarChofer
+                ? { etiqueta: 'Vehículo', valor: vehiculo }
+                : { etiqueta: 'Chofer', valor: viaje.chofer ? nombreChofer(viaje.chofer) : null }
+            }
+            derecha={ocultarChofer ? null : { etiqueta: 'Vehículo', valor: vehiculo }}
           />
         )}
         <Par
