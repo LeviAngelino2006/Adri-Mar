@@ -29,27 +29,42 @@ Este documento sintetiza las reglas de negocio, flujos y políticas operativas d
 
 ## 2. Mantenimiento Preventivo y Taller
 
+La pantalla tiene tres pestañas: **Service** (estado de cada vehículo y registrar un service), **Arreglos** (registrar cualquier otro trabajo) e **Historial** (services y arreglos de toda la flota). Los perfiles ADMINISTRADOR, ENCARGADO y PERSONAL_TALLER la usan; el CHOFER no.
+
 ### 2.1. Frecuencia y Disparadores de Service
-- **Estado en código:** El modelo de planes y órdenes de mantenimiento se encuentra planificado para la siguiente etapa (`TODO: SCRUM-34`). En el código actual existe el registro de odómetro con origen `MANTENIMIENTO` y la validación comentada en `viajeService.js:440`.
-- **Regla operativa por kilometraje (según relevamiento de campo):**
-  - **Colectivos:** Service programado cada **20.000 km**.
-  - **Minibuses:** Service programado cada **20.000 km**.
-  - **Tráfics / Combis:** Service programado cada **15.000 km**.
-  - **Utilitarios:** Service programado cada **10.000 km**.
-- **Disparador por fecha:** `TODO: completar por el equipo` (definir si aplica criterio de tiempo límite si el kilometraje no se alcanza).
-- **Anticipación de alertas de service:** `TODO: completar por el equipo` (definir margen en kilómetros o días para emitir alerta amarilla de service próximo).
+- **Intervalo por tipo de vehículo** (tabla `plantillas_mantenimiento`, una por tipo):
+  - **Colectivos:** cada **20.000 km**.
+  - **Minibuses:** cada **20.000 km**.
+  - **Tráfics / Combis:** cada **15.000 km**.
+  - **Utilitarios:** cada **10.000 km**.
+- **Plan del vehículo** (`planes_mantenimiento`): guarda solo el km del último service. El km del próximo service (último + intervalo) y el estado **no se guardan, se calculan** en `calcularEstadoService` (`backend/src/utils/estadoService.js`), así un cambio de intervalo no deja planes desactualizados.
+- **Estados del service:**
+  - **Al día:** todavía no llegó al aviso.
+  - **Próximo:** recorrió el **95 % del intervalo** desde su último service (`porcentaje_aviso` de la plantilla). Un colectivo avisa a los 19.000 km; una Trafic, a los 14.250; un utilitario, a los 9.500.
+  - **Vencido:** recorrió el intervalo completo.
+  - **Sin plan:** el vehículo no tiene plan. Se le asigna uno indicando a qué km fue su último service (por defecto, el odómetro actual), o se crea solo al registrarle el primer service.
+- **Urgencia:** la lista se ordena por la fracción del intervalo recorrida, no por km restantes (900 km restantes son el 4,5 % de un colectivo pero el 9 % de un utilitario).
+- **Vehículos dados de baja:** no aparecen en Service ni en los selectores y no generan alertas. Su historial se conserva.
+- **Advertencia en viajes:** al planificar un viaje, si con los km estimados el vehículo pasa su service (o ya lo pasó), el formulario lo avisa. Es informativo: no bloquea.
+- **Disparador por fecha:** no aplica; el service se dispara solo por kilometraje. `TODO: completar por el equipo` si se decide sumar un tiempo límite.
 
-### 2.2. Tareas del Mantenimiento Preventivo
-- Cambio de aceite de motor y reposición de fluidos.
-- Sustitución de filtros (aceite, aire y combustible).
-- Alineación, balanceo y rotación de neumáticos.
-- Revisión general de motor, tren delantero y sistema de frenos.
+### 2.2. El Service
+- Es un **paquete fijo**: cambio de aceite; filtros de gasoil, aceite y habitáculo (aire acondicionado); alineado y balanceado; revisión general del motor. Se muestra como lista informativa: no se tilda, porque siempre se hace completo.
+- Se registra con **fecha, km del odómetro y observación**. Costo y responsable no se cargan por ahora (las columnas `costo` y `taller_mecanico` quedan en la base).
+- **Reinicia el conteo:** el km del último service pasa a ser el del service registrado. Un service viejo (con menos km que el último) se guarda en el historial pero **no** baja el conteo.
 
-### 2.3. Ficha Médica e Historial Clínico
-- Registro de fecha y kilometraje exacto de la intervención.
-- Clasificación entre mantenimiento preventivo vs. correctivo/rotura.
-- Detalle de repuestos utilizados y mano de obra de mecánicos/chapistas tercerizados.
-- `TODO: completar por el equipo` (definir estados específicos de una orden de mantenimiento: ej. Pendiente, En Taller, Finalizada).
+### 2.3. Arreglos
+- Cualquier trabajo que no es el service, de un tipo del catálogo `tipos_arreglo`: Engrase, Rotación de cubiertas (se recomienda cada 10.000 km, pero no genera alerta), Cambio de cubiertas, Frenos, Batería y electricidad, Chapa y pintura, Mecánica general y Otro.
+- "Otro" exige una descripción (`requiere_detalle`). Un tipo que se deja de usar se desactiva (`activo`), no se borra.
+- Se registra con fecha, km, descripción, quién hizo el trabajo (texto libre: mecánico, chapista o taller), repuestos y observaciones. Sin costo por ahora.
+- Los arreglos **no reinician el conteo del service ni generan alertas**.
+
+### 2.4. Reglas comunes e Historial
+- Service y arreglo se guardan en la misma tabla (`mantenimientos_realizados`): un registro es uno o el otro, nunca los dos (CHECK `mantenimientos_service_o_arreglo`).
+- La fecha es un día de Córdoba y no puede ser posterior a hoy. El vehículo no puede estar dado de baja.
+- Si el km cargado supera al odómetro del vehículo, se registra una lectura de odómetro con origen `MANTENIMIENTO` (ver §3.1), con la misma regla de "no retroceder".
+- El historial muestra toda la flota (también los dados de baja), del más reciente al más antiguo, con buscador por vehículo, filtros (tipo de registro, tipo de arreglo, tipo de vehículo, fechas), orden y paginado de a 30.
+- No hay órdenes de trabajo ni estados de una orden: se registra el trabajo ya hecho.
 
 ---
 
@@ -62,7 +77,7 @@ Toda lectura de odómetro (`LecturaOdometro`) debe asociarse a un vehículo y a 
 - `FIN_VIAJE`: Kilometraje registrado al finalizar el viaje (debe ser mayor o igual al inicial).
 - `MANUAL`: Lectura ingresada por personal de taller o administración para calibración periódica.
 - `CORRECCION`: Ajuste administrativo de una lectura previa errónea.
-- `MANTENIMIENTO`: Kilometraje registrado al completar un service en taller.
+- `MANTENIMIENTO`: Kilometraje de un service o un arreglo, cuando supera al odómetro del vehículo.
 
 ### 3.2. Regla de Consistencia y Correcciones
 - El kilometraje de un vehículo es monótono creciente (no puede retroceder en operaciones normales).

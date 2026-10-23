@@ -1,308 +1,71 @@
-.mantenimiento-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4, 16px);
-  width: 100%;
+/* Mantenimiento: la página se arma con Listado (barra, filtros y tarjetas),
+   FormField y ModalMarco. Acá solo lo propio de la pantalla. Solo tokens. */
+
+/* Formulario de Arreglos: ocupa todo el ancho del área de contenido, para que
+   su borde izquierdo quede alineado con las pestañas Service | Arreglos |
+   Historial y el derecho con el de las listas de las otras vistas. Pisa el
+   max-width: 720px de .form-card (excepción documentada en el design system). */
+.form-card.arreglos-form-card {
+  max-width: none;
 }
 
-.mantenimiento-header {
+/* Lista "Incluye:" del service, dentro de un Alert info. */
+.service-incluye-titulo {
+  font-weight: 600;
+}
+
+.service-incluye {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+}
+
+/* Historial filtrado por un vehículo: el vehículo, su estado y "Ver toda la flota". */
+.historial-vehiculo {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3, 12px);
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
-.mantenimiento-header-actions {
-  display: flex;
-  gap: var(--space-2, 8px);
+.historial-vehiculo-datos {
+  min-width: 0;
+  flex: 1 1 240px;
 }
 
-/* Barra superior de plantillas fijas */
-.plantillas-fijas-bar {
-  background-color: var(--surface-secondary, #f8fafc);
-  border: 1px solid var(--border, #e2e8f0);
-  border-radius: var(--radius-lg, 12px);
-  padding: var(--space-3, 12px) var(--space-4, 16px);
-}
-
-.plantillas-fijas-titulo {
-  font-size: var(--text-xs, 12px);
-  text-transform: uppercase;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: var(--text-muted, #64748b);
-  margin-bottom: var(--space-2, 8px);
-}
-
-.plantillas-fijas-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--space-2, 8px);
-}
-
-.plantilla-chip {
-  background-color: var(--surface, #ffffff);
-  border: 1px solid var(--border, #e2e8f0);
-  border-radius: var(--radius-md, 8px);
-  padding: var(--space-2, 8px) var(--space-3, 12px);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.plantilla-tipo {
-  font-size: var(--text-xs, 12px);
-  color: var(--text-muted, #64748b);
-  font-weight: 500;
-}
-
-.plantilla-chip strong {
-  font-size: var(--text-sm, 14px);
-  color: var(--brand-700, #1d4ed8);
-}
-
-/* Toolbar y filtros */
-.toolbar-planes,
-.toolbar-historial {
+.historial-vehiculo-top {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3, 12px);
-  background-color: var(--surface, #ffffff);
-  padding: var(--space-3, 12px);
-  border: 1px solid var(--border, #e2e8f0);
-  border-radius: var(--radius-md, 8px);
+  gap: var(--space-2);
 }
 
-.buscador-mantenimiento {
-  flex: 1;
-  min-width: 240px;
-}
-
-.buscador-mantenimiento input {
-  width: 100%;
-  height: 44px;
-  padding: 0 var(--space-3, 12px);
-  border: 1px solid var(--border, #cbd5e1);
-  border-radius: var(--radius-md, 8px);
-  font-size: var(--text-sm, 14px);
-  outline: none;
-}
-
-.buscador-mantenimiento input:focus {
-  border-color: var(--brand-600, #0535a6);
-  box-shadow: 0 0 0 2px rgba(5, 53, 166, 0.2);
-}
-
-.checkbox-filtro-alertas {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--text-sm, 14px);
+.historial-vehiculo-titulo {
   font-weight: 600;
-  cursor: pointer;
-  color: var(--text, #334155);
-  height: 44px;
 }
 
-.checkbox-filtro-alertas input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--brand-600, #0535a6);
+.historial-vehiculo-sub {
+  margin: var(--space-1) 0 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
 }
 
-.filtro-campo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* "N registros": resumen numérico en gris, sin badges. */
+.historial-resumen {
+  margin: 0 0 var(--space-3);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
-.filtro-label {
-  font-size: var(--text-sm, 14px);
-  font-weight: 600;
-  color: var(--text, #334155);
-}
-
-.filtro-campo select {
-  height: 44px;
-  padding: 0 var(--space-3, 12px);
-  border: 1px solid var(--border, #cbd5e1);
-  border-radius: var(--radius-md, 8px);
-  font-size: var(--text-sm, 14px);
-  background-color: var(--surface, #ffffff);
-}
-
-/* Stacks de tarjetas apiladas */
-.cards-mantenimiento-stack,
-.historial-stack {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3, 12px);
-}
-
-.card-mantenimiento {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3, 12px);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.card-mantenimiento-vencido {
-  border-left: 4px solid var(--state-error-solid, #ef4444);
-}
-
-.card-mantenimiento-proximo {
-  border-left: 4px solid var(--state-warning-solid, #f59e0b);
-}
-
-.card-mantenimiento-al_dia {
-  border-left: 4px solid var(--state-success-solid, #10b981);
-}
-
-.card-mantenimiento-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2, 8px);
-}
-
-.card-mantenimiento-vehiculo {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--text-base, 16px);
-}
-
-.card-mantenimiento-interno {
-  font-weight: 700;
-  color: var(--text, #0f172a);
-}
-
-.card-mantenimiento-sep {
-  color: var(--text-muted, #94a3b8);
-}
-
-.card-mantenimiento-modelo {
-  color: var(--text-muted, #475569);
-  font-size: var(--text-sm, 14px);
-}
-
-.card-mantenimiento-metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: var(--space-3, 12px);
-  padding: var(--space-2, 8px) 0;
-  border-top: 1px solid var(--border-light, #f1f5f9);
-  border-bottom: 1px solid var(--border-light, #f1f5f9);
-}
-
-.metric-box {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.metric-label {
-  font-size: var(--text-xs, 12px);
-  color: var(--text-muted, #64748b);
-  text-transform: uppercase;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-.metric-valor {
-  font-size: var(--text-sm, 14px);
-  font-weight: 600;
-  color: var(--text, #0f172a);
-}
-
-.highlight-proximo .metric-valor {
-  color: var(--brand-700, #042a85);
-  font-weight: 700;
-}
-
-.card-mantenimiento-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2, 8px);
-  justify-content: flex-end;
-}
-
-/* Tarjetas de Ficha Médica / Historial */
-.card-intervencion {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3, 12px);
-}
-
-.intervencion-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.intervencion-categoria-titulo {
-  font-size: var(--text-base, 16px);
-  color: var(--text, #0f172a);
-}
-
-.intervencion-metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: var(--space-3, 12px);
-  background-color: var(--surface-secondary, #f8fafc);
-  padding: var(--space-2, 8px) var(--space-3, 12px);
-  border-radius: var(--radius-md, 8px);
-}
-
-.intervencion-detalles {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: var(--text-sm, 14px);
-}
-
-.intervencion-detalle-row {
-  display: flex;
-  gap: 8px;
-}
-
-.detalle-tag {
-  font-weight: 600;
-  color: var(--text-muted, #64748b);
-  min-width: 90px;
-}
-
-.detalle-texto {
-  color: var(--text, #334155);
-}
-
-.intervencion-detalle-pie {
-  font-size: var(--text-xs, 12px);
-  color: var(--text-muted, #94a3b8);
-  margin-top: 4px;
-}
-
-.historial-total-count {
-  font-size: var(--text-sm, 14px);
-  font-weight: 600;
-  color: var(--text-muted, #64748b);
-}
-
-.estado-vacio-mantenimiento {
-  background-color: var(--surface, #ffffff);
-  border: 1px dashed var(--border, #cbd5e1);
-  border-radius: var(--radius-lg, 12px);
-  padding: var(--space-6, 24px);
-  text-align: center;
-  color: var(--text-muted, #64748b);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3, 12px);
+/* "Ver más", igual que el "Ver N más" del Dashboard. */
+.historial-ver-mas {
+  margin-top: calc(-1 * var(--space-3));
+  margin-bottom: var(--space-6);
 }

@@ -15,7 +15,7 @@ Este directorio centraliza la documentación técnica, funcional y de diseño de
 
 ## 2. Dominio y Reglas de Negocio
 
-- [docs/dominio.md](./dominio.md): Reglas de negocio deducidas del repositorio (vehículos, vigencias de documentos, viajes especiales, odómetro, estados y pendientes de mantenimiento).
+- [docs/dominio.md](./dominio.md): Reglas de negocio deducidas del repositorio (vehículos, vigencias de documentos, viajes especiales, odómetro, estados y mantenimiento: service, arreglos e historial).
 - [docs/INFORMACION_ADICIONAL.md](./INFORMACION_ADICIONAL.md): Relevamiento operativo integral de Adri-Mar (dimensión de la flota de 24 colectivos, frecuencias de service preventivo por tipología, legajos requeridos y análisis del historial operativo).
 
 ---
