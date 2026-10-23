@@ -75,7 +75,7 @@ beforeEach(() => {
 });
 
 function tokenDe(perfil) {
-  return generarToken({ id: 10, nombreUsuario: `test-${perfil}`, perfil, habilitadoParaConducir: true });
+  return generarToken({ id: 10, personaId: 10, nombreUsuario: `test-${perfil}`, perfil, habilitadoParaConducir: true });
 }
 
 async function leer(respuesta) {

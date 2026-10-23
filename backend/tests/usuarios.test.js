@@ -140,7 +140,7 @@ beforeEach(() => {
   );
 });
 
-const token = generarToken({ id: 999, nombreUsuario: 'admin-test', perfil: 'ADMINISTRADOR', habilitadoParaConducir: false });
+const token = generarToken({ id: 999, personaId: 999, nombreUsuario: 'admin-test', perfil: 'ADMINISTRADOR', habilitadoParaConducir: false });
 
 async function enviar(metodo, ruta, cuerpo) {
   const respuesta = await fetch(`${base}${ruta}`, {

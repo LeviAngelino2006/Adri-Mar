@@ -109,7 +109,7 @@ async function pedir(metodo, ruta, { body, perfil = 'ENCARGADO' } = {}) {
   const respuesta = await fetch(`${base}${ruta}`, {
     method: metodo,
     headers: {
-      Authorization: `Bearer ${generarToken({ id: 1, nombreUsuario: 'test', perfil })}`,
+      Authorization: `Bearer ${generarToken({ id: 1, personaId: 1, nombreUsuario: 'test', perfil })}`,
       'Content-Type': 'application/json',
     },
     body: body === undefined ? undefined : JSON.stringify(body),

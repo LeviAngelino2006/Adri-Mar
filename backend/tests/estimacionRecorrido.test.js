@@ -115,7 +115,7 @@ afterEach(() => {
 
 async function estimar(body, perfil = 'ENCARGADO') {
   const headers = { 'Content-Type': 'application/json' };
-  if (perfil) headers.Authorization = `Bearer ${generarToken({ id: 1, nombreUsuario: 'test', perfil })}`;
+  if (perfil) headers.Authorization = `Bearer ${generarToken({ id: 1, personaId: 1, nombreUsuario: 'test', perfil })}`;
   const r = await fetchReal(`${base}/viajes/estimar-km`, { method: 'POST', headers, body: JSON.stringify(body) });
   return { status: r.status, json: await r.json() };
 }

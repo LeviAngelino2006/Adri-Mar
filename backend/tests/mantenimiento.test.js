@@ -35,7 +35,7 @@ beforeEach(() => {
 // Vehículos sembrados (todos Colectivo, odómetro 1.000 km): 7 (interno 12),
 // 8 (13, En taller), 9 (14) y 10 (15, Dado de baja). Usuario 10 = el del token.
 const tokenDe = (perfil) =>
-  generarToken({ id: 10, nombreUsuario: `test-${perfil}`, perfil, habilitadoParaConducir: true });
+  generarToken({ id: 10, personaId: 10, nombreUsuario: `test-${perfil}`, perfil, habilitadoParaConducir: true });
 
 function pedir(ruta, { metodo = 'GET', body, perfil = 'ADMINISTRADOR', token } = {}) {
   const headers = {};

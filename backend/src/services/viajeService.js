@@ -59,11 +59,17 @@ const INCLUDE_RELACIONES_VIAJE = {
 // usan este helper: siguen siendo exclusivos de gestor.
 const PERFILES_GESTORES_VIAJE = ['ADMINISTRADOR', 'ENCARGADO'];
 
+// Viaje.choferId es id de PERSONA: se compara SOLO con el personaId del token.
+// El id de usuario es de otra tabla, con otra secuencia; que coincidan es
+// casualidad (y deja de pasar apenas se da de alta una persona sin cuenta).
+// autenticar ya rechaza los tokens sin personaId.
+function esElChoferDelViaje(usuarioSolicitante, viaje) {
+  return viaje.choferId != null && viaje.choferId === usuarioSolicitante.personaId;
+}
+
 function puedeOperarViaje(usuarioSolicitante, viaje) {
   return (
-    PERFILES_GESTORES_VIAJE.includes(usuarioSolicitante.perfil) ||
-    viaje.choferId === usuarioSolicitante.personaId ||
-    viaje.choferId === usuarioSolicitante.id
+    PERFILES_GESTORES_VIAJE.includes(usuarioSolicitante.perfil) || esElChoferDelViaje(usuarioSolicitante, viaje)
   );
 }
 
@@ -1548,9 +1554,9 @@ async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
   if (choferEnViaje) {
     // Lo normal es que comience el propio chofer; si es un gestor, el mensaje
     // no puede hablarle de "tu" viaje.
-    const esElChofer =
-      actual.choferId === usuarioSolicitante.personaId || actual.choferId === usuarioSolicitante.id;
-    throw new ViajeEnCursoError(esElChofer ? MENSAJES_VIAJE_EN_CURSO.propio : MENSAJES_VIAJE_EN_CURSO.chofer);
+    throw new ViajeEnCursoError(
+      esElChoferDelViaje(usuarioSolicitante, actual) ? MENSAJES_VIAJE_EN_CURSO.propio : MENSAJES_VIAJE_EN_CURSO.chofer
+    );
   }
 
   try {

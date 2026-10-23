@@ -91,7 +91,7 @@ beforeEach(() => {
 });
 
 async function comenzar({ id, perfil }) {
-  const token = generarToken({ id, nombreUsuario: `test-${id}`, perfil, habilitadoParaConducir: true });
+  const token = generarToken({ id, personaId: id, nombreUsuario: `test-${id}`, perfil, habilitadoParaConducir: true });
   const respuesta = await fetch(`${base}/viajes/1/comenzar`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },

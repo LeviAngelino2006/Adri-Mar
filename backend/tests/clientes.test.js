@@ -65,7 +65,7 @@ beforeEach(() => {
 async function buscar(busqueda, perfil = 'ADMINISTRADOR') {
   const query = busqueda === undefined ? '' : `?busqueda=${encodeURIComponent(busqueda)}`;
   const respuesta = await fetch(`${base}/clientes${query}`, {
-    headers: { Authorization: `Bearer ${generarToken({ id: 1, nombreUsuario: 'test', perfil })}` },
+    headers: { Authorization: `Bearer ${generarToken({ id: 1, personaId: 1, nombreUsuario: 'test', perfil })}` },
   });
   return { status: respuesta.status, json: await respuesta.json() };
 }

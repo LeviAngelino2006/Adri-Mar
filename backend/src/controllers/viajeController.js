@@ -71,8 +71,10 @@ async function listar(req, res) {
 }
 
 // Viajes del usuario autenticado como chofer. El choferId SIEMPRE sale del
-// JWT (req.usuario.id), nunca de la query string: un usuario no puede pedir
-// los viajes de otro cambiando un parámetro. excluirAConfirmar: true siempre
+// JWT, nunca de la query string: un usuario no puede pedir los viajes de otro
+// cambiando un parámetro. Es el personaId (Viaje.choferId es id de persona),
+// nunca el id de usuario: autenticar ya rechaza los tokens que no lo traen.
+// excluirAConfirmar: true siempre
 // — A_CONFIRMAR es una etapa de planificación que el chofer no tiene por qué
 // ver todavía, ni siquiera si pide ?estado=A_CONFIRMAR explícito.
 async function misViajes(req, res) {
@@ -80,7 +82,7 @@ async function misViajes(req, res) {
   const viajes = await viajeService.listarViajes(
     {
       estado,
-      choferId: req.usuario.personaId || req.usuario.id,
+      choferId: req.usuario.personaId,
       fechaDesde,
       fechaHasta,
       excluirAConfirmar: true,
