@@ -54,7 +54,7 @@
 ## 4. Problemas y Riesgos Detectados
 
 1. **Discrepancia de Base de Datos en la Documentación Inicial:**
-   - *Observación:* El archivo `README.md` de la raíz y `CONTEXTO_SPRINT1.md` indican MySQL con Docker. Sin embargo, la implementación real del proyecto utiliza **PostgreSQL** alojado en **Supabase** (`provider = "postgresql"` en `schema.prisma`, migraciones en PostgreSQL y storage de archivos en Supabase).
+   - *Observación:* El archivo `README.md` de la raíz y `CONTEXTO_SPRINT1.md` indican MySQL con Docker. Sin embargo, la implementación real del proyecto utiliza **PostgreSQL** alojado en **Neon** (`provider = "postgresql"` en `schema.prisma`, migraciones en PostgreSQL); **Supabase** se usa solo como storage de los PDFs.
    - *Recomendación:* Se reflejó la realidad tecnológica en `CLAUDE.md` y `docs/dominio.md`. Se sugiere que el equipo actualice la sección de Docker/MySQL en el `README.md` de la raíz para evitar confusiones en futuros on-boardings.
 2. **Warnings de Linter en Frontend (Oxlint):**
    - *Observación:* La corrida de `npm run lint` en `frontend/` arrojó 15 warnings (0 errores). Varios corresponden a llamadas síncronas a `setState` dentro de `useEffect` (en `Documentacion.jsx`, `ModalConfirmarViaje.jsx`, `ModalSubirDocumento.jsx`).
