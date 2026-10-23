@@ -1,28 +1,30 @@
 import api from './api';
 
-export function listarPlantillas() {
-  return api.get('/mantenimientos/plantillas');
+export function listarTiposArreglo() {
+  return api.get('/mantenimientos/tipos-arreglo');
 }
 
-export function listarPlanesYAlertas({ soloAlertas = false, busqueda = '' } = {}) {
-  const params = {};
-  if (soloAlertas) params.soloAlertas = 'true';
-  if (busqueda && busqueda.trim()) params.busqueda = busqueda.trim();
-  return api.get('/mantenimientos/planes', { params });
+// Estado del service de cada vehículo no dado de baja (SIN_PLAN si no tiene plan).
+export function listarEstadoService() {
+  return api.get('/mantenimientos/planes');
 }
 
 export function asignarPlan(datos) {
   return api.post('/mantenimientos/planes', datos);
 }
 
-export function registrarMantenimiento(datos) {
-  return api.post('/mantenimientos/realizados', datos);
+export function registrarService(datos) {
+  return api.post('/mantenimientos/services', datos);
 }
 
-export function obtenerHistorialVehiculo(vehiculoId, { categoria } = {}) {
-  const params = {};
-  if (categoria) params.categoria = categoria;
-  return api.get(`/mantenimientos/vehiculos/${vehiculoId}/historial`, { params });
+export function registrarArreglo(datos) {
+  return api.post('/mantenimientos/arreglos', datos);
+}
+
+// Los filtros vacíos no se mandan.
+export function listarHistorial(filtros = {}) {
+  const params = Object.fromEntries(Object.entries(filtros).filter(([, valor]) => valor !== '' && valor != null));
+  return api.get('/mantenimientos/historial', { params });
 }
 
 export function evaluarAdvertenciaViaje({ vehiculoId, kilometrosEstimados }) {
