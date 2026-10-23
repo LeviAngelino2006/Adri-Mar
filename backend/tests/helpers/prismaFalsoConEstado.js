@@ -56,6 +56,9 @@ function crearEntorno() {
     candVeh: [],
     // Filas de viaje_paradas: { viajeId, ubicacionId, orden }.
     paradas: [],
+    plantillasMantenimiento: [],
+    planesMantenimiento: [],
+    mantenimientosRealizados: [],
     // Catálogo de tipos de documento (con su categoría) y filas de `documentos`.
     tiposDocumento: [],
     documentos: [],
@@ -88,15 +91,20 @@ function crearEntorno() {
       usuario(10, 'Chofer', 'Token'),
     ]);
 
-    const vehiculo = (id, numeroInterno, dominio, estado = 'OPERATIVO') => ({
+    const vehiculo = (id, numeroInterno, dominio, estado = 'OPERATIVO', tipoVehiculoId = 1) => ({
       id,
       numeroInterno,
       dominio,
-      // Forma del include de modelo y marca (ver utils/marcaModeloVehiculo).
       modeloId: 1,
       modelo: { id: 1, nombre: 'O500', marcaId: 1, marca: { id: 1, nombre: 'Mercedes' } },
       kilometraje: 1000,
       estadoVehiculo: { descripcion: estado },
+      tipoVehiculoId,
+      tipoVehiculo: {
+        id: tipoVehiculoId,
+        descripcion: tipoVehiculoId === 1 ? 'Colectivo' : tipoVehiculoId === 2 ? 'Minibus' : tipoVehiculoId === 3 ? 'Trafic' : 'Utilitario',
+        orden: tipoVehiculoId
+      },
     });
     reemplazar(db.vehiculos, [
       vehiculo(7, '12', 'AE452KD'),
@@ -133,6 +141,14 @@ function crearEntorno() {
       tipo(7, 'ITV', 'VEHICULO', true, true),
     ]);
     reemplazar(db.documentos, []);
+    reemplazar(db.plantillasMantenimiento, [
+      { id: 1, nombre: 'Service Colectivo (Cada 20.000 km)', tipoVehiculoId: 1, intervaloKm: 20000, tipoVehiculo: { id: 1, descripcion: 'Colectivo', orden: 1 } },
+      { id: 2, nombre: 'Service Minibús (Cada 20.000 km)', tipoVehiculoId: 2, intervaloKm: 20000, tipoVehiculo: { id: 2, descripcion: 'Minibus', orden: 2 } },
+      { id: 3, nombre: 'Service Trafic (Cada 15.000 km)', tipoVehiculoId: 3, intervaloKm: 15000, tipoVehiculo: { id: 3, descripcion: 'Trafic', orden: 3 } },
+      { id: 4, nombre: 'Service Utilitario (Cada 10.000 km)', tipoVehiculoId: 4, intervaloKm: 10000, tipoVehiculo: { id: 4, descripcion: 'Utilitario', orden: 4 } },
+    ]);
+    reemplazar(db.planesMantenimiento, []);
+    reemplazar(db.mantenimientosRealizados, []);
     db.relojDocumentos = Date.parse('2026-01-01T00:00:00Z');
 
     reemplazar(db.viajes, []);
@@ -343,7 +359,86 @@ function crearEntorno() {
 
   // Los modelos de candidatos y updateMany solo existen DENTRO de la transacción
   // (tx): si alguna ruta los usara por fuera de $transaction, el test revienta.
+  function armarPlan(p, include) {
+    if (!p) return null;
+    const res = { ...p };
+    if (include?.vehiculo) {
+      const v = db.vehiculos.find((veh) => veh.id === p.vehiculoId);
+      res.vehiculo = v ? { ...v } : null;
+    }
+    if (include?.plantillaMantenimiento) {
+      const pl = db.plantillasMantenimiento.find((pla) => pla.id === p.plantillaMantenimientoId);
+      res.plantillaMantenimiento = pl ? { ...pl } : null;
+    }
+    return res;
+  }
+
+  const modeloPlantillaMantenimiento = {
+    findMany: async () => db.plantillasMantenimiento.map((p) => ({ ...p })),
+    findUnique: async ({ where }) => {
+      const p = db.plantillasMantenimiento.find(
+        (x) => (where.id && x.id === where.id) || (where.tipoVehiculoId && x.tipoVehiculoId === where.tipoVehiculoId)
+      );
+      return p ? { ...p } : null;
+    },
+  };
+
+  const modeloPlanMantenimiento = {
+    findMany: async ({ where, include }) => {
+      let filas = db.planesMantenimiento;
+      if (where?.activo !== undefined) filas = filas.filter((p) => p.activo === where.activo);
+      return filas.map((p) => armarPlan(p, include));
+    },
+    findUnique: async ({ where, include }) => {
+      const p = db.planesMantenimiento.find(
+        (x) => (where.id && x.id === where.id) || (where.vehiculoId && x.vehiculoId === where.vehiculoId)
+      );
+      return p ? armarPlan(p, include) : null;
+    },
+    create: async ({ data, include }) => {
+      const fila = { id: db.siguienteId++, umbralAlertaKm: 1000, activo: true, ...data, creadoEn: new Date(), actualizadoEn: new Date() };
+      db.planesMantenimiento.push(fila);
+      return armarPlan(fila, include);
+    },
+    update: async ({ where: { id }, data, include }) => {
+      const p = db.planesMantenimiento.find((x) => x.id === id);
+      if (p) Object.assign(p, data, { actualizadoEn: new Date() });
+      return p ? armarPlan(p, include) : null;
+    },
+  };
+
+  const modeloMantenimientoRealizado = {
+    create: async ({ data, include }) => {
+      const fila = { id: db.siguienteId++, ...data, creadoEn: new Date() };
+      db.mantenimientosRealizados.push(fila);
+      const usuario = db.usuarios.find((u) => u.id === fila.usuarioId);
+      return { ...fila, usuario: usuario ? { ...usuario } : null };
+    },
+    findMany: async ({ where, include, orderBy }) => {
+      let filas = [...db.mantenimientosRealizados];
+      if (where?.vehiculoId) filas = filas.filter((m) => m.vehiculoId === where.vehiculoId);
+      if (where?.categoria) filas = filas.filter((m) => m.categoria === where.categoria);
+      filas.sort((a, b) => b.id - a.id);
+      return filas.map((f) => ({
+        ...f,
+        usuario: db.usuarios.find((u) => u.id === f.usuarioId) || null,
+      }));
+    },
+  };
+
+  
   const modelosTx = {
+    planMantenimiento: modeloPlanMantenimiento,
+    mantenimientoRealizado: modeloMantenimientoRealizado,
+    origenLectura: { findUnique: async ({ where: { descripcion } }) => ({ id: 6, descripcion }) },
+    lecturaOdometro: { create: async ({ data }) => ({ id: db.siguienteId++, ...data }) },
+    vehiculo: {
+      update: async ({ where: { id }, data }) => {
+        const v = db.vehiculos.find((x) => x.id === id);
+        if (v) Object.assign(v, data);
+        return v ? { ...v } : null;
+      },
+    },
     documento: modeloDocumento,
     // @@unique([viajeId, orden]) como en la base: createMany falla si una fila
     // choca con otra. Por eso reordenar solo funciona si el deleteMany va ANTES.
@@ -406,6 +501,7 @@ function crearEntorno() {
     },
   };
 
+  
   const prisma = {
     cliente: { findUnique: existe([1]) },
     documento: modeloDocumento,
@@ -417,7 +513,16 @@ function crearEntorno() {
     estadoViaje: {
       findUnique: async ({ where: { descripcion } }) => ({ id: ESTADOS[descripcion], descripcion }),
     },
-    lecturaOdometro: { findFirst: async () => null },
+    lecturaOdometro: {
+      findFirst: async () => null,
+      create: async ({ data }) => ({ id: db.siguienteId++, ...data }),
+    },
+    origenLectura: {
+      findUnique: async ({ where: { descripcion } }) => ({ id: 6, descripcion }),
+    },
+    plantillaMantenimiento: modeloPlantillaMantenimiento,
+    planMantenimiento: modeloPlanMantenimiento,
+    mantenimientoRealizado: modeloMantenimientoRealizado,
     usuario: {
       findUnique: async ({ where: { id } }) => {
         if (db.alLeerUsuario) db.alLeerUsuario();
@@ -439,7 +544,16 @@ function crearEntorno() {
       },
     },
     vehiculo: {
-      findUnique: async ({ where: { id } }) => db.vehiculos.find((v) => v.id === id) ?? null,
+      findUnique: async ({ where: { id }, include }) => {
+      const v = db.vehiculos.find((x) => x.id === id);
+      if (!v) return null;
+      const res = { ...v };
+      if (include?.planMantenimiento) {
+        const p = db.planesMantenimiento.find((pl) => pl.vehiculoId === v.id);
+        res.planMantenimiento = p ? armarPlan(p, include.planMantenimiento.include) : null;
+      }
+      return res;
+    },
       findMany: async ({ where, include }) => {
         const filas = where.id?.in
           ? db.vehiculos.filter((v) => where.id.in.includes(v.id))
@@ -494,6 +608,8 @@ function crearEntorno() {
         candVeh: db.candVeh.map((c) => ({ ...c })),
         paradas: db.paradas.map((p) => ({ ...p })),
         documentos: db.documentos.map((d) => ({ ...d })),
+        planesMantenimiento: db.planesMantenimiento.map((p) => ({ ...p })),
+        mantenimientosRealizados: db.mantenimientosRealizados.map((m) => ({ ...m })),
       };
       try {
         return await fn(modelosTx);
@@ -503,6 +619,8 @@ function crearEntorno() {
         reemplazar(db.candVeh, copia.candVeh);
         reemplazar(db.paradas, copia.paradas);
         reemplazar(db.documentos, copia.documentos);
+        reemplazar(db.planesMantenimiento, copia.planesMantenimiento);
+        reemplazar(db.mantenimientosRealizados, copia.mantenimientosRealizados);
         throw err;
       }
     },

@@ -189,6 +189,32 @@ async function main() {
   }
 
   console.log(`Tipos de documento listos: ${TIPOS_DOCUMENTO.length} tipos`);
+
+  const PLANTILLAS_MANTENIMIENTO = [
+    { tipoVehiculo: 'Colectivo', intervaloKm: 20000, nombre: 'Service Colectivo (Cada 20.000 km)' },
+    { tipoVehiculo: 'Minibus', intervaloKm: 20000, nombre: 'Service Minibús (Cada 20.000 km)' },
+    { tipoVehiculo: 'Trafic', intervaloKm: 15000, nombre: 'Service Trafic (Cada 15.000 km)' },
+    { tipoVehiculo: 'Utilitario', intervaloKm: 10000, nombre: 'Service Utilitario (Cada 10.000 km)' },
+  ];
+
+  for (const p of PLANTILLAS_MANTENIMIENTO) {
+    const tipo = await prisma.tipoVehiculo.findUnique({
+      where: { descripcion: p.tipoVehiculo },
+    });
+    if (tipo) {
+      await prisma.plantillaMantenimiento.upsert({
+        where: { tipoVehiculoId: tipo.id },
+        update: { nombre: p.nombre, intervaloKm: p.intervaloKm },
+        create: {
+          nombre: p.nombre,
+          tipoVehiculoId: tipo.id,
+          intervaloKm: p.intervaloKm,
+        },
+      });
+    }
+  }
+
+  console.log(`Plantillas de mantenimiento listas: ${PLANTILLAS_MANTENIMIENTO.length} plantillas`);
 }
 
 main()

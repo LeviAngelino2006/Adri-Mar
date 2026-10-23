@@ -9,6 +9,7 @@ import EditorRecorrido from './EditorRecorrido';
 import CampoKmEstimados from './CampoKmEstimados';
 import UbicarConGoogle from './UbicarConGoogle';
 import { consultarDisponibilidad, estimarKm } from '../services/viajesApi';
+import { evaluarAdvertenciaViaje } from '../services/mantenimientoApi';
 import { ubicarDesdeGoogle } from '../services/ubicacionesApi';
 import { lugarDe } from '../utils/sugerenciasGoogle';
 import {
@@ -112,6 +113,7 @@ function ViajeForm({
   const [form, setForm] = useState(valoresIniciales || FORM_INICIAL);
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
+  const [advertenciaMantenimiento, setAdvertenciaMantenimiento] = useState(null);
   const [avisos, setAvisos] = useState(SIN_AVISOS);
   const [refForm, enfocarPrimerError] = useFocoEnPrimerError();
   // "Calcular km": el último resultado y el último error, cada uno con la firma
@@ -185,6 +187,34 @@ function ViajeForm({
 
   // Opciones de los selectores múltiples: los elegibles, más los candidatos que
   // el viaje ya tenía y no figuren en esa lista.
+
+  useEffect(() => {
+    let cancelado = false;
+    const vehiculoTarget = form.vehiculoId || (form.vehiculosCandidatos?.length === 1 ? form.vehiculosCandidatos[0] : null);
+    if (!vehiculoTarget || !form.kilometrosEstimados) {
+      setAdvertenciaMantenimiento(null);
+      return;
+    }
+
+    evaluarAdvertenciaViaje({ vehiculoId: vehiculoTarget, kilometrosEstimados: form.kilometrosEstimados })
+      .then(({ data }) => {
+        if (!cancelado) {
+          if (data?.advertencia?.tieneAdvertencia) {
+            setAdvertenciaMantenimiento(data.advertencia);
+          } else {
+            setAdvertenciaMantenimiento(null);
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelado) setAdvertenciaMantenimiento(null);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [form.vehiculoId, form.vehiculosCandidatos, form.kilometrosEstimados]);
+
   const opcionesChoferes = useMemo(() => {
     const opciones = choferes.map((c) => ({ id: c.id, etiqueta: nombreChofer(c) }));
     for (const c of candidatosActuales?.choferes ?? []) {
@@ -437,6 +467,14 @@ function ViajeForm({
           />
         )}
 
+        
+        {advertenciaMantenimiento && (
+          <div className="form-field-ancho">
+            <Alert variant="warning">
+              ⚠️ <strong>Advertencia de mantenimiento:</strong> {advertenciaMantenimiento.mensaje}
+            </Alert>
+          </div>
+        )}
         <FormField id="cantidadPasajeros" label="Cantidad de pasajeros" error={errores.cantidadPasajeros}>
           <input
             type="number"
