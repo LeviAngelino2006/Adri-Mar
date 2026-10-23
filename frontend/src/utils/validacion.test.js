@@ -83,4 +83,18 @@ describe('validarVehiculo', () => {
     assert.match(validar({ kilometraje: '10.5' }).kilometraje, /mayor o igual a 0/);
     assert.deepEqual(validar({ kilometraje: undefined }, { conKilometraje: false }), {});
   });
+
+  test('km del último service: opcional, entero y no mayor al kilometraje de alta', () => {
+    assert.deepEqual(validar({ kilometraje: '150000', kmUltimoService: '' }), {});
+    assert.deepEqual(validar({ kilometraje: '150000', kmUltimoService: '150000' }), {});
+    assert.deepEqual(validar({ kilometraje: '150000', kmUltimoService: '0' }), {});
+    assert.match(validar({ kilometraje: '150000', kmUltimoService: '150001' }).kmUltimoService, /no puede superar/);
+    for (const kmUltimoService of ['-1', '12.5', 'abc']) {
+      assert.match(validar({ kmUltimoService }).kmUltimoService, /entero mayor o igual a 0/, kmUltimoService);
+    }
+    // Con el kilometraje inválido, el error queda en Kilometraje (no compara).
+    assert.equal(validar({ kilometraje: 'x', kmUltimoService: '5' }).kmUltimoService, undefined);
+    // Al editar no se manda ni se valida.
+    assert.deepEqual(validar({ kmUltimoService: 'abc' }, { conKilometraje: false }), {});
+  });
 });
