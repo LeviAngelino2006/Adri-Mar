@@ -929,7 +929,8 @@ function crearEntorno() {
           .filter((v) => coincideFiltroEstado(v, where.estadoViaje?.descripcion))
           .filter((v) => where.choferId === undefined || v.choferId === where.choferId)
           .map(armar),
-      // La consulta de solapamiento (buscarSolapamiento).
+      // La consulta de solapamiento (buscarSolapamiento) y, sin fechas, la de
+      // "¿ya tiene otro viaje En viaje?" de comenzarViaje.
       findFirst: async ({ where }) => {
         const campo = 'choferId' in where ? 'choferId' : 'vehiculoId';
         return (
@@ -937,8 +938,8 @@ function crearEntorno() {
             (v) =>
               v[campo] === where[campo] &&
               v.estadoViajeId === where.estadoViajeId &&
-              v.fechaInicio < where.fechaInicio.lt &&
-              v.fechaFin > where.fechaFin.gt &&
+              (!where.fechaInicio || v.fechaInicio < where.fechaInicio.lt) &&
+              (!where.fechaFin || v.fechaFin > where.fechaFin.gt) &&
               (!where.id || v.id !== where.id.not)
           ) ?? null
         );

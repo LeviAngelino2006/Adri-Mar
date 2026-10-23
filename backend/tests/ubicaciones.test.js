@@ -207,7 +207,7 @@ afterEach(() => {
   delete process.env.GOOGLE_MAPS_API_KEY;
 });
 
-const auth = (perfil) => ({ Authorization: `Bearer ${generarToken({ id: 1, nombreUsuario: 'test', perfil })}` });
+const auth = (perfil) => ({ Authorization: `Bearer ${generarToken({ id: 1, personaId: 1, nombreUsuario: 'test', perfil })}` });
 
 async function pedir(metodo, ruta, { body, perfil = 'ENCARGADO' } = {}) {
   const headers = { 'Content-Type': 'application/json', ...(perfil ? auth(perfil) : {}) };

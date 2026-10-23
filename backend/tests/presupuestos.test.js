@@ -169,7 +169,7 @@ beforeEach(sembrar);
 async function pedir(metodo, ruta, { perfil = 'ENCARGADO', body } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (perfil) {
-    headers.Authorization = `Bearer ${generarToken({ id: 10, nombreUsuario: 'test', perfil })}`;
+    headers.Authorization = `Bearer ${generarToken({ id: 10, personaId: 10, nombreUsuario: 'test', perfil })}`;
   }
   const respuesta = await fetch(`${base}${ruta}`, {
     method: metodo,
@@ -518,7 +518,7 @@ describe('GET /presupuestos/assets/firma/:nombre', () => {
   });
 
   async function pedirFirma(nombre, perfil = 'ENCARGADO') {
-    const headers = perfil ? { Authorization: `Bearer ${generarToken({ id: 10, nombreUsuario: 'test', perfil })}` } : {};
+    const headers = perfil ? { Authorization: `Bearer ${generarToken({ id: 10, personaId: 10, nombreUsuario: 'test', perfil })}` } : {};
     const respuesta = await fetch(`${base}/presupuestos/assets/firma/${nombre}`, { headers });
     return { status: respuesta.status, tipo: respuesta.headers.get('content-type'), cuerpo: Buffer.from(await respuesta.arrayBuffer()) };
   }

@@ -146,7 +146,7 @@ beforeEach(() => {
 
 async function pedir(ruta, perfil) {
   const respuesta = await fetch(`${base}${ruta}`, {
-    headers: { Authorization: `Bearer ${generarToken({ id: 10, nombreUsuario: 'test', perfil, habilitadoParaConducir: true })}` },
+    headers: { Authorization: `Bearer ${generarToken({ id: 10, personaId: 10, nombreUsuario: 'test', perfil, habilitadoParaConducir: true })}` },
   });
   return { status: respuesta.status, json: await respuesta.json() };
 }
