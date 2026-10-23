@@ -1,5 +1,6 @@
 const prisma = require('./prismaClient');
 const lecturaOdometroService = require('./lecturaOdometroService');
+const mantenimientoService = require('./mantenimientoService');
 const { normalizarNombre } = require('../utils/normalizarNombre');
 const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../utils/marcaModeloVehiculo');
 
@@ -102,11 +103,17 @@ function validarKilometrajeInicial(kilometraje) {
   return kilometrajeNumero;
 }
 
+// Devuelve el tipo con su plantilla de service (null si no tiene), que se usa
+// para crear o actualizar el plan de mantenimiento del vehículo.
 async function validarTipoVehiculo(tipoVehiculoId, errores) {
-  const tipo = await prisma.tipoVehiculo.findUnique({ where: { id: tipoVehiculoId } });
+  const tipo = await prisma.tipoVehiculo.findUnique({
+    where: { id: tipoVehiculoId },
+    include: { plantilla: true },
+  });
   if (!tipo) {
     throw new ValidacionError({ ...errores, tipoVehiculoId: 'El tipo de vehículo no existe' });
   }
+  return tipo;
 }
 
 async function validarModelo(modeloId) {
@@ -149,7 +156,15 @@ function serializarVehiculo(vehiculo) {
 async function crearVehiculo(datos, { usuarioId } = {}) {
   const datosValidados = validarDatos(datos);
   const kilometrajeInicial = validarKilometrajeInicial(datos.kilometraje);
-  await validarTipoVehiculo(datosValidados.tipoVehiculoId, {});
+  // Opcional: si no llega, el último service se toma en el km de alta.
+  const erroresKm = {};
+  const kmUltimoService = mantenimientoService.validarKmUltimoServiceAlta(
+    datos.kmUltimoService,
+    kilometrajeInicial,
+    erroresKm
+  );
+  if (Object.keys(erroresKm).length > 0) throw new ValidacionError(erroresKm);
+  const tipo = await validarTipoVehiculo(datosValidados.tipoVehiculoId, {});
   await validarModelo(datosValidados.modeloId);
 
   const existente = await prisma.vehiculo.findUnique({
@@ -184,6 +199,14 @@ async function crearVehiculo(datos, { usuarioId } = {}) {
         },
         { cliente: tx }
       );
+
+      // Plan de service según la plantilla de su tipo. Si el tipo no tiene
+      // plantilla, el vehículo queda SIN_PLAN (el alta no se traba).
+      await mantenimientoService.crearPlanInicial(tx, {
+        vehiculoId: creado.id,
+        plantilla: tipo.plantilla,
+        kmUltimoService: kmUltimoService ?? kilometrajeInicial,
+      });
 
       return tx.vehiculo.findUnique({
         where: { id: creado.id },
@@ -269,8 +292,9 @@ async function actualizarVehiculo(id, datos) {
   const kilometrajeIgnorado = datos.kilometraje !== undefined;
 
   const datosValidados = validarDatos(datos);
-  await validarTipoVehiculo(datosValidados.tipoVehiculoId, {});
+  const tipo = await validarTipoVehiculo(datosValidados.tipoVehiculoId, {});
   await validarModelo(datosValidados.modeloId);
+  const cambiaTipo = datosValidados.tipoVehiculoId !== actual.tipoVehiculoId;
 
   const otroConMismoDominio = await prisma.vehiculo.findUnique({
     where: { dominio: datosValidados.dominio },
@@ -281,10 +305,24 @@ async function actualizarVehiculo(id, datos) {
 
   let vehiculo;
   try {
-    vehiculo = await prisma.vehiculo.update({
-      where: { id: actual.id },
-      data: datosValidados,
-      include: INCLUDE_VEHICULO,
+    // Junto con el plan: si cambia el tipo, el plan pasa a la plantilla del
+    // tipo nuevo (si no, seguiría avisando con el intervalo del tipo viejo).
+    vehiculo = await prisma.$transaction(async (tx) => {
+      if (cambiaTipo) {
+        const conPlan = await tx.vehiculo.findUnique({
+          where: { id: actual.id },
+          include: { planMantenimiento: true },
+        });
+        await mantenimientoService.actualizarPlanPorCambioDeTipo(tx, {
+          vehiculo: conPlan,
+          plantilla: tipo.plantilla,
+        });
+      }
+      return tx.vehiculo.update({
+        where: { id: actual.id },
+        data: datosValidados,
+        include: INCLUDE_VEHICULO,
+      });
     });
   } catch (err) {
     if (err.code === 'P2002') {
