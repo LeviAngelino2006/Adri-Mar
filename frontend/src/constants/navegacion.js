@@ -48,6 +48,12 @@ export const NAV_ITEMS = [
     visible: porPerfil('ADMINISTRADOR', 'ENCARGADO'),
   },
   {
+    label: 'Personal',
+    to: '/personal',
+    icon: 'personal',
+    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO'),
+  },
+  {
     label: 'Usuarios',
     to: '/usuarios',
     icon: 'usuarios',

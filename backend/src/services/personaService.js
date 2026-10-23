@@ -1,0 +1,342 @@
+const prisma = require('./prismaClient');
+
+// Persona = quién es alguien en la empresa (empleado/chofer), tenga o no
+// cuenta en el sistema. Dueña de los datos personales, del perfil, de la
+// habilitación para conducir y del legajo de documentación de chofer. La
+// cuenta de acceso (Usuario) se gestiona aparte, en usuarioService.
+
+const PERFILES_VALIDOS = ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER', 'CHOFER'];
+const ORDEN_PERFILES = ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER', 'CHOFER'];
+
+const DNI_REGEX = /^\d{7,8}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+class ValidacionError extends Error {
+  constructor(errores) {
+    super('Datos inválidos');
+    this.errores = errores;
+  }
+}
+
+class PermisoDenegadoError extends Error {}
+class NoEncontradoError extends Error {}
+class YaInactivaError extends Error {}
+
+// Caso borde ya decidido: una persona que es chofer de un viaje En viaje en
+// curso no se puede dar de baja ni deshabilitar para conducir hasta que ese
+// viaje finalice — sin importar su perfil. Se consulta viajes directamente acá
+// en vez de importar viajeService, para no crear una dependencia cruzada.
+class ChoferEnViajeError extends Error {}
+
+const INCLUDE_PERSONA = { perfil: true, usuario: { include: { estadoUsuario: true } } };
+
+async function esChoferDeViajeEnCurso(personaId) {
+  const viaje = await prisma.viaje.findFirst({
+    where: { choferId: personaId, estadoViaje: { descripcion: 'EN_VIAJE' } },
+  });
+  return Boolean(viaje);
+}
+
+async function obtenerPerfilPorDescripcion(descripcion) {
+  const perfil = await prisma.perfil.findUnique({ where: { descripcion } });
+  if (!perfil) {
+    throw new ValidacionError({ perfil: 'El perfil elegido no es válido' });
+  }
+  return perfil;
+}
+
+// La cuenta de acceso viaja resumida (sin hash ni nada sensible): alcanza para
+// saber si la persona tiene acceso y ofrecer "Crear acceso al sistema".
+function serializarPersona(persona) {
+  const usuario = persona.usuario ?? null;
+  return {
+    id: persona.id,
+    nombre: persona.nombre,
+    apellido: persona.apellido,
+    dni: persona.dni,
+    email: persona.email,
+    telefono: persona.telefono,
+    perfil: persona.perfil.descripcion,
+    habilitadoParaConducir: persona.habilitadoParaConducir,
+    activo: persona.activo,
+    fechaBaja: persona.fechaBaja ?? null,
+    creadoEn: persona.creadoEn,
+    usuario: usuario
+      ? {
+          id: usuario.id,
+          nombreUsuario: usuario.nombreUsuario,
+          activo: usuario.estadoUsuario?.descripcion === 'ACTIVO',
+        }
+      : null,
+  };
+}
+
+function calcularHabilitadoParaConducir(habilitadoParaConducir, perfil) {
+  if (typeof habilitadoParaConducir === 'boolean') {
+    return habilitadoParaConducir;
+  }
+  return perfil === 'CHOFER';
+}
+
+function validarDatos({ nombre, apellido, perfil, dni, email, telefono }) {
+  const errores = {};
+
+  const nombreNormalizado = (nombre || '').trim();
+  const apellidoNormalizado = (apellido || '').trim();
+  if (!nombreNormalizado) errores.nombre = 'El nombre es obligatorio';
+  if (!apellidoNormalizado) errores.apellido = 'El apellido es obligatorio';
+
+  if (!perfil) {
+    errores.perfil = 'El perfil es obligatorio';
+  } else if (!PERFILES_VALIDOS.includes(perfil)) {
+    errores.perfil = 'El perfil elegido no es válido';
+  }
+
+  const dniNormalizado = (dni || '').trim();
+  if (!dniNormalizado) {
+    errores.dni = 'El DNI es obligatorio';
+  } else if (!DNI_REGEX.test(dniNormalizado)) {
+    errores.dni = 'El DNI debe tener 7 u 8 dígitos';
+  }
+
+  // El email es opcional: si viene, se valida el formato. Vacío se guarda
+  // como null y no como "": la columna es @unique y dos "" chocarían (P2002).
+  const emailNormalizado = (email || '').trim().toLowerCase();
+  if (emailNormalizado && !EMAIL_REGEX.test(emailNormalizado)) {
+    errores.email = 'El email no tiene un formato válido';
+  }
+
+  if (Object.keys(errores).length > 0) {
+    throw new ValidacionError(errores);
+  }
+
+  return {
+    nombre: nombreNormalizado,
+    apellido: apellidoNormalizado,
+    dni: dniNormalizado,
+    email: emailNormalizado || null,
+    telefono: (telefono || '').trim() || null,
+  };
+}
+
+const MENSAJES_DUPLICADO = [
+  ['dni', { dni: 'Ese DNI ya está registrado' }],
+  ['email', { email: 'Ese email ya está registrado' }],
+];
+
+function errorDuplicado(err) {
+  // Según el motor, Prisma entrega target como array de columnas o como
+  // string con el nombre del índice, así que buscamos por coincidencia de
+  // texto en lugar de indexar target[0].
+  const target = err.meta?.target;
+  const targetStr = Array.isArray(target) ? target.join(',') : String(target || '');
+  const match = MENSAJES_DUPLICADO.find(([campo]) => targetStr.includes(campo));
+  return match ? match[1] : { general: 'Ese registro ya existe' };
+}
+
+async function obtenerPersonaConRelaciones(id) {
+  const numero = Number(id);
+  if (!Number.isInteger(numero) || numero <= 0) {
+    throw new NoEncontradoError();
+  }
+  const persona = await prisma.persona.findUnique({ where: { id: numero }, include: INCLUDE_PERSONA });
+  if (!persona) {
+    throw new NoEncontradoError();
+  }
+  return persona;
+}
+
+async function obtenerPersona(id, { perfilSolicitante } = {}) {
+  const persona = await obtenerPersonaConRelaciones(id);
+  if (perfilSolicitante === 'ENCARGADO' && persona.perfil.descripcion === 'ADMINISTRADOR') {
+    throw new PermisoDenegadoError();
+  }
+  return serializarPersona(persona);
+}
+
+async function crearPersona(
+  { nombre, apellido, perfil, dni, email, telefono, habilitadoParaConducir },
+  { perfilSolicitante } = {}
+) {
+  const datos = validarDatos({ nombre, apellido, perfil, dni, email, telefono });
+
+  if (perfilSolicitante === 'ENCARGADO' && perfil === 'ADMINISTRADOR') {
+    throw new PermisoDenegadoError();
+  }
+
+  const perfilRow = await obtenerPerfilPorDescripcion(perfil);
+
+  try {
+    const persona = await prisma.persona.create({
+      data: {
+        ...datos,
+        perfilId: perfilRow.id,
+        habilitadoParaConducir: calcularHabilitadoParaConducir(habilitadoParaConducir, perfil),
+      },
+      include: INCLUDE_PERSONA,
+    });
+    return serializarPersona(persona);
+  } catch (err) {
+    if (err.code === 'P2002') {
+      throw new ValidacionError(errorDuplicado(err));
+    }
+    throw err;
+  }
+}
+
+async function actualizarPersona(
+  id,
+  { nombre, apellido, perfil, dni, email, telefono, habilitadoParaConducir },
+  { perfilSolicitante } = {}
+) {
+  const actual = await obtenerPersonaConRelaciones(id);
+
+  if (perfilSolicitante === 'ENCARGADO') {
+    if (actual.perfil.descripcion === 'ADMINISTRADOR' || perfil === 'ADMINISTRADOR') {
+      throw new PermisoDenegadoError();
+    }
+  }
+
+  // Solo bloquea el intento de pasar habilitadoParaConducir a false. Si no
+  // viene en el payload, o viene en true, no hay nada que validar acá.
+  if (habilitadoParaConducir === false && (await esChoferDeViajeEnCurso(actual.id))) {
+    throw new ChoferEnViajeError(
+      'La persona tiene un viaje En viaje en curso como chofer. Debe finalizarse antes de deshabilitarla para conducir.'
+    );
+  }
+
+  const datos = validarDatos({ nombre, apellido, perfil, dni, email, telefono });
+  const perfilRow = await obtenerPerfilPorDescripcion(perfil);
+
+  try {
+    const persona = await prisma.persona.update({
+      where: { id: actual.id },
+      data: {
+        ...datos,
+        perfilId: perfilRow.id,
+        habilitadoParaConducir: typeof habilitadoParaConducir === 'boolean' ? habilitadoParaConducir : undefined,
+      },
+      include: INCLUDE_PERSONA,
+    });
+    return serializarPersona(persona);
+  } catch (err) {
+    if (err.code === 'P2002') {
+      throw new ValidacionError(errorDuplicado(err));
+    }
+    throw err;
+  }
+}
+
+// Baja lógica de la persona: conserva sus datos, viajes y documentos. Si tiene
+// cuenta de acceso, se desactiva en la MISMA transacción (una persona que ya
+// no está en la empresa no puede seguir entrando al sistema).
+async function darDeBajaPersona(id, { perfilSolicitante } = {}) {
+  const actual = await obtenerPersonaConRelaciones(id);
+
+  if (perfilSolicitante === 'ENCARGADO' && actual.perfil.descripcion === 'ADMINISTRADOR') {
+    throw new PermisoDenegadoError();
+  }
+  if (!actual.activo) {
+    throw new YaInactivaError();
+  }
+  if (await esChoferDeViajeEnCurso(actual.id)) {
+    throw new ChoferEnViajeError(
+      'La persona tiene un viaje En viaje en curso como chofer. Debe finalizarse antes de darla de baja.'
+    );
+  }
+
+  const estadoInactivo = await prisma.estadoUsuario.findUnique({ where: { descripcion: 'INACTIVO' } });
+  if (!estadoInactivo) {
+    throw new Error('Estado de usuario "INACTIVO" no configurado');
+  }
+
+  const persona = await prisma.$transaction(async (tx) => {
+    await tx.usuario.updateMany({
+      where: { personaId: actual.id },
+      data: { estadoUsuarioId: estadoInactivo.id },
+    });
+    return tx.persona.update({
+      where: { id: actual.id },
+      data: { activo: false, fechaBaja: new Date() },
+      include: INCLUDE_PERSONA,
+    });
+  });
+
+  return serializarPersona(persona);
+}
+
+function valorBooleano(valor) {
+  if (valor === true || valor === 'true') return true;
+  if (valor === false || valor === 'false') return false;
+  return undefined;
+}
+
+// Filtros opcionales (query string): busqueda (nombre, apellido o DNI),
+// sinUsuario=true (personas activas sin cuenta, para el alta de usuario),
+// activo=true|false y habilitadoParaConducir=true|false.
+async function listarPersonas(
+  { busqueda, sinUsuario, activo, habilitadoParaConducir } = {},
+  { perfilSolicitante } = {}
+) {
+  const where = {};
+  const texto = (busqueda || '').trim();
+
+  if (texto) {
+    where.OR = [
+      { nombre: { contains: texto, mode: 'insensitive' } },
+      { apellido: { contains: texto, mode: 'insensitive' } },
+      { dni: { contains: texto.replace(/\./g, '') } },
+    ];
+  }
+
+  if (valorBooleano(sinUsuario) === true) {
+    where.usuario = { is: null };
+    where.activo = true;
+  }
+
+  const filtroActivo = valorBooleano(activo);
+  if (filtroActivo !== undefined) where.activo = filtroActivo;
+
+  const filtroConducir = valorBooleano(habilitadoParaConducir);
+  if (filtroConducir !== undefined) where.habilitadoParaConducir = filtroConducir;
+
+  if (perfilSolicitante === 'ENCARGADO') {
+    where.perfil = { descripcion: { not: 'ADMINISTRADOR' } };
+  }
+
+  const personas = await prisma.persona.findMany({ where, include: INCLUDE_PERSONA });
+
+  return personas.map(serializarPersona).sort((a, b) => {
+    const ordenPerfil = ORDEN_PERFILES.indexOf(a.perfil) - ORDEN_PERFILES.indexOf(b.perfil);
+    if (ordenPerfil !== 0) return ordenPerfil;
+    return a.apellido.localeCompare(b.apellido) || a.nombre.localeCompare(b.nombre);
+  });
+}
+
+// Choferes asignables: personas activas y habilitadas para conducir, tengan o
+// no cuenta en el sistema.
+async function listarDisponiblesParaConducir() {
+  const personas = await prisma.persona.findMany({
+    where: { habilitadoParaConducir: true, activo: true },
+    include: INCLUDE_PERSONA,
+    orderBy: [{ nombre: 'asc' }, { apellido: 'asc' }],
+  });
+
+  return personas.map(serializarPersona);
+}
+
+module.exports = {
+  crearPersona,
+  actualizarPersona,
+  darDeBajaPersona,
+  listarPersonas,
+  obtenerPersona,
+  listarDisponiblesParaConducir,
+  serializarPersona,
+  ValidacionError,
+  PermisoDenegadoError,
+  NoEncontradoError,
+  YaInactivaError,
+  ChoferEnViajeError,
+  PERFILES_VALIDOS,
+};

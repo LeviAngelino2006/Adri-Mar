@@ -49,6 +49,7 @@ function coincideFiltroEstado(fila, filtro) {
 
 function crearEntorno() {
   const db = {
+    personas: [],
     usuarios: [],
     vehiculos: [],
     ubicaciones: [],
@@ -83,14 +84,35 @@ function crearEntorno() {
   };
 
   function sembrar() {
-    const usuario = (id, nombre, apellido, { habilitado = true, estado = 'ACTIVO', telefono = null } = {}) => ({
-      id,
-      nombre,
-      apellido,
-      telefono,
-      habilitadoParaConducir: habilitado,
-      estadoUsuario: { descripcion: estado },
-    });
+    const personasIniciales = [
+      { id: 5, nombre: 'Ana', apellido: 'Pérez', dni: '30111225', email: 'ana@adrimar.com', telefono: '03571 15-612345', perfilId: 4, habilitadoParaConducir: true, activo: true },
+      { id: 6, nombre: 'Beto', apellido: 'Gómez', dni: '30111226', email: 'beto@adrimar.com', telefono: null, perfilId: 4, habilitadoParaConducir: true, activo: true },
+      { id: 7, nombre: 'Carla', apellido: 'Ruiz', dni: '30111227', email: 'carla@adrimar.com', telefono: null, perfilId: 2, habilitadoParaConducir: false, activo: true },
+      { id: 8, nombre: 'Dani', apellido: 'Soto', dni: '30111228', email: 'dani@adrimar.com', telefono: null, perfilId: 4, habilitadoParaConducir: true, activo: false, fechaBaja: new Date('2026-01-01') },
+      { id: 10, nombre: 'Chofer', apellido: 'Token', dni: '30111230', email: 'chofer@adrimar.com', telefono: null, perfilId: 4, habilitadoParaConducir: true, activo: true },
+    ].map((p) => ({
+      ...p,
+      perfil: { id: p.perfilId, descripcion: p.perfilId === 4 ? 'CHOFER' : 'ENCARGADO', nombre: p.perfilId === 4 ? 'CHOFER' : 'ENCARGADO' },
+      fechaBaja: p.fechaBaja ?? null,
+      creadoEn: new Date('2026-01-01T00:00:00Z'),
+      actualizadoEn: new Date('2026-01-01T00:00:00Z'),
+    }));
+    reemplazar(db.personas, personasIniciales);
+
+    const usuario = (id, nombre, apellido, { habilitado = true, estado = 'ACTIVO', telefono = null } = {}) => {
+      const p = db.personas.find((pers) => pers.id === id);
+      return {
+        id,
+        personaId: id,
+        nombreUsuario: `${nombre.toLowerCase()}${id}`,
+        nombre,
+        apellido,
+        telefono,
+        habilitadoParaConducir: habilitado,
+        estadoUsuario: { id: estado === 'ACTIVO' ? 1 : 2, descripcion: estado },
+        persona: p,
+      };
+    };
     reemplazar(db.usuarios, [
       usuario(5, 'Ana', 'Pérez', { telefono: '03571 15-612345' }),
       usuario(6, 'Beto', 'Gómez'),
@@ -216,7 +238,10 @@ function crearEntorno() {
       ...resto,
     };
     db.viajes.push(fila);
-    for (const usuarioId of choferesCandidatos) db.candChofer.push({ viajeId: fila.id, usuarioId });
+    for (const candidato of choferesCandidatos) {
+      const candId = typeof candidato === 'object' ? (candidato.personaId ?? candidato.usuarioId) : candidato;
+      db.candChofer.push({ viajeId: fila.id, personaId: candId, usuarioId: candId });
+    }
     for (const vehiculoId of vehiculosCandidatos) db.candVeh.push({ viajeId: fila.id, vehiculoId });
     paradas.forEach((ubicacionId, indice) => db.paradas.push({ viajeId: fila.id, ubicacionId, orden: indice + 1 }));
     return fila;
@@ -239,7 +264,7 @@ function crearEntorno() {
       creadoEn: new Date('2026-01-01T00:00:00Z'),
       ...fila,
       estadoViaje: { descripcion: nombreEstado(fila.estadoViajeId) },
-      chofer: db.usuarios.find((u) => u.id === fila.choferId) ?? null,
+      chofer: db.personas.find((p) => p.id === fila.choferId) ?? db.usuarios.find((u) => u.id === fila.choferId) ?? null,
       vehiculo: db.vehiculos.find((v) => v.id === fila.vehiculoId) ?? null,
       origen: null,
       destino: null,
@@ -255,7 +280,17 @@ function crearEntorno() {
         .map((p) => ({ ...p, ubicacion: db.ubicaciones.find((u) => u.id === p.ubicacionId) })),
       choferesCandidatos: db.candChofer
         .filter((c) => c.viajeId === fila.id)
-        .map((c) => ({ ...c, usuario: db.usuarios.find((u) => u.id === c.usuarioId) })),
+        .map((c) => {
+          const id = c.personaId ?? c.usuarioId;
+          const persona = db.personas.find((p) => p.id === id) ?? db.usuarios.find((u) => u.id === id);
+          return {
+            ...c,
+            personaId: id,
+            usuarioId: id,
+            persona,
+            usuario: db.usuarios.find((u) => u.id === id) ?? persona,
+          };
+        }),
       vehiculosCandidatos: db.candVeh
         .filter((c) => c.viajeId === fila.id)
         .map((c) => ({ ...c, vehiculo: db.vehiculos.find((v) => v.id === c.vehiculoId) })),
@@ -284,8 +319,11 @@ function crearEntorno() {
         return Boolean(vehiculo) && vehiculo.estadoVehiculo.descripcion !== not;
       }
       if (clave === 'chofer') {
-        const chofer = db.usuarios.find((u) => u.id === fila.choferId);
-        return Boolean(chofer) && chofer.estadoUsuario.descripcion === filtro.estadoUsuario.descripcion;
+        const chofer = db.personas.find((p) => p.id === fila.choferId) ?? db.usuarios.find((u) => u.id === fila.choferId);
+        if (!chofer) return false;
+        if (filtro.activo !== undefined && chofer.activo !== filtro.activo) return false;
+        if (filtro.estadoUsuario && chofer.estadoUsuario?.descripcion !== filtro.estadoUsuario.descripcion) return false;
+        return true;
       }
       throw new Error(`filtro no soportado por el doble: documentos.${clave}`);
     });
@@ -313,7 +351,7 @@ function crearEntorno() {
       resultado.usuario = u ? { id: u.id, nombre: u.nombre, apellido: u.apellido } : null;
     }
     if (include?.vehiculo) resultado.vehiculo = db.vehiculos.find((v) => v.id === fila.vehiculoId) ?? null;
-    if (include?.chofer) resultado.chofer = db.usuarios.find((u) => u.id === fila.choferId) ?? null;
+    if (include?.chofer) resultado.chofer = db.personas.find((p) => p.id === fila.choferId) ?? db.usuarios.find((u) => u.id === fila.choferId) ?? null;
     return resultado;
   }
 
@@ -369,7 +407,7 @@ function crearEntorno() {
     },
   };
 
-  // include: { documentos: { distinct, orderBy } } de vehiculo/usuario.
+  // include: { documentos: { distinct, orderBy } } de vehiculo/usuario/persona.
   function documentosDe(campo, id, relacion) {
     return modeloDocumento.findMany({
       where: { [campo]: id },
@@ -596,7 +634,10 @@ function crearEntorno() {
       },
       createMany: async ({ data }) => {
         if (db.fallos.createManyChofer) throw new Error('falla simulada en createMany de choferes');
-        db.candChofer.push(...data);
+        for (const c of data) {
+          const id = c.personaId ?? c.usuarioId;
+          db.candChofer.push({ viajeId: c.viajeId, personaId: id, usuarioId: id });
+        }
         return {};
       },
     },
@@ -615,6 +656,125 @@ function crearEntorno() {
   };
 
   const prisma = {
+    perfil: {
+      findUnique: async ({ where }) => {
+        const desc = where.descripcion || (where.id === 1 ? 'ADMINISTRADOR' : where.id === 2 ? 'ENCARGADO' : where.id === 3 ? 'PERSONAL_TALLER' : 'CHOFER');
+        const id = where.id || (desc === 'ADMINISTRADOR' ? 1 : desc === 'ENCARGADO' ? 2 : desc === 'PERSONAL_TALLER' ? 3 : 4);
+        return { id, descripcion: desc, nombre: desc };
+      },
+      findMany: async () => [
+        { id: 1, descripcion: 'ADMINISTRADOR', nombre: 'ADMINISTRADOR' },
+        { id: 2, descripcion: 'ENCARGADO', nombre: 'ENCARGADO' },
+        { id: 3, descripcion: 'PERSONAL_TALLER', nombre: 'PERSONAL_TALLER' },
+        { id: 4, descripcion: 'CHOFER', nombre: 'CHOFER' },
+      ],
+    },
+    persona: {
+      findUnique: async ({ where, include }) => {
+        if (db.alLeerUsuario) db.alLeerUsuario();
+        const p = db.personas.find(
+          (x) =>
+            (where.id !== undefined && x.id === where.id) ||
+            (where.dni && x.dni === where.dni) ||
+            (where.email && x.email === where.email)
+        );
+        if (!p) return null;
+        const res = { ...p };
+        if (include?.usuario) {
+          res.usuario = db.usuarios.find((u) => u.personaId === p.id) ?? null;
+        }
+        if (include?.perfil) {
+          const u = db.usuarios.find((x) => x.personaId === p.id);
+          res.perfil = u?.perfil ?? p.perfil ?? { id: p.perfilId, descripcion: 'CHOFER', nombre: 'CHOFER' };
+        }
+        return res;
+      },
+      findFirst: async ({ where }) => {
+        return (
+          db.personas.find((p) => {
+            if (where.dni && p.dni !== where.dni) return false;
+            if (where.email && p.email !== where.email) return false;
+            if (where.id && p.id !== where.id) return false;
+            return true;
+          }) ?? null
+        );
+      },
+      findMany: async ({ where = {}, include } = {}) => {
+        let filtradas = [...db.personas];
+        if (where.activo !== undefined) {
+          filtradas = filtradas.filter((p) => p.activo === where.activo);
+        }
+        if (where.id?.in) {
+          filtradas = filtradas.filter((p) => where.id.in.includes(p.id));
+        }
+        if (where.habilitadoParaConducir !== undefined) {
+          filtradas = filtradas.filter((p) => p.habilitadoParaConducir === where.habilitadoParaConducir);
+        }
+        if (where.perfilId !== undefined) {
+          filtradas = filtradas.filter((p) => p.perfilId === where.perfilId);
+        }
+        if (where.OR) {
+          filtradas = filtradas.filter((p) => {
+            return where.OR.some((cond) => {
+              if (cond.habilitadoParaConducir !== undefined && p.habilitadoParaConducir === cond.habilitadoParaConducir) return true;
+              if (cond.perfil?.nombre && (p.perfil?.nombre === cond.perfil.nombre || p.perfil?.descripcion === cond.perfil.nombre)) return true;
+              if (cond.perfilId && p.perfilId === cond.perfilId) return true;
+              return false;
+            });
+          });
+        }
+        return Promise.all(
+          filtradas.map(async (p) => {
+            const res = { ...p };
+            if (include?.documentos) {
+              res.documentos = await documentosDe('choferId', p.id, include.documentos);
+            }
+            if (include?.usuario) {
+              res.usuario = db.usuarios.find((u) => u.personaId === p.id) ?? null;
+            }
+            if (include?.perfil) {
+              res.perfil = p.perfil ?? { id: p.perfilId, descripcion: 'CHOFER', nombre: 'CHOFER' };
+            }
+            return res;
+          })
+        );
+      },
+      count: async ({ where = {} } = {}) => {
+        const res = await prisma.persona.findMany({ where });
+        return res.length;
+      },
+      create: async ({ data, include }) => {
+        const id = db.siguienteId++;
+        const p = {
+          id,
+          nombre: data.nombre,
+          apellido: data.apellido,
+          dni: data.dni,
+          email: data.email ?? null,
+          telefono: data.telefono ?? null,
+          perfilId: data.perfilId,
+          perfil: { id: data.perfilId, descripcion: data.perfilId === 1 ? 'ADMINISTRADOR' : 'CHOFER', nombre: data.perfilId === 1 ? 'ADMINISTRADOR' : 'CHOFER' },
+          habilitadoParaConducir: data.habilitadoParaConducir ?? false,
+          activo: true,
+          fechaBaja: null,
+          creadoEn: new Date(),
+          actualizadoEn: new Date(),
+        };
+        db.personas.push(p);
+        const res = { ...p };
+        if (include?.perfil) res.perfil = p.perfil;
+        return res;
+      },
+      update: async ({ where: { id }, data, include }) => {
+        const p = db.personas.find((x) => x.id === id);
+        if (!p) throw new Error('Record to update not found');
+        aplicarCambios(p, data);
+        const res = { ...p };
+        if (include?.perfil) res.perfil = p.perfil;
+        if (include?.usuario) res.usuario = db.usuarios.find((u) => u.personaId === p.id) ?? null;
+        return res;
+      },
+    },
     cliente: { findUnique: existe([1]) },
     documento: modeloDocumento,
     tipoDocumento: modeloTipoDocumento,
@@ -630,23 +790,104 @@ function crearEntorno() {
     mantenimientoRealizado: modeloMantenimientoRealizado,
     tipoArreglo: modeloTipoArreglo,
     usuario: {
-      findUnique: async ({ where: { id } }) => {
+      findUnique: async ({ where, include }) => {
         if (db.alLeerUsuario) db.alLeerUsuario();
-        return db.usuarios.find((u) => u.id === id) ?? null;
+        const u = db.usuarios.find(
+          (x) =>
+            (where.id !== undefined && x.id === where.id) ||
+            (where.nombreUsuario && x.nombreUsuario === where.nombreUsuario) ||
+            (where.personaId && x.personaId === where.personaId)
+        );
+        if (!u) return null;
+        const res = { ...u };
+        if (include?.persona) {
+          const p = db.personas.find((pers) => pers.id === u.personaId);
+          res.persona = p ? { ...p, perfil: p.perfil ?? { id: p.perfilId, descripcion: 'CHOFER', nombre: 'CHOFER' } } : null;
+        }
+        if (include?.estadoUsuario) {
+          res.estadoUsuario = u.estadoUsuario ?? { id: 1, descripcion: 'ACTIVO' };
+        }
+        return res;
       },
-      findMany: async ({ where, include }) => {
+      findFirst: async ({ where }) => {
+        return db.usuarios.find((u) => {
+          if (where.personaId && u.personaId !== where.personaId) return false;
+          if (where.nombreUsuario && u.nombreUsuario !== where.nombreUsuario) return false;
+          return true;
+        }) ?? null;
+      },
+      findMany: async ({ where = {}, include } = {}) => {
         if (where.id?.in) return db.usuarios.filter((u) => where.id.in.includes(u.id));
         // Estado de documentación de choferes: perfil CHOFER o habilitado para conducir.
         if (where.OR) {
           return Promise.all(
             db.usuarios
-              .filter((u) => u.habilitadoParaConducir && u.estadoUsuario.descripcion === where.estadoUsuario.descripcion)
-              .map(async (u) => ({ ...u, documentos: await documentosDe('choferId', u.id, include.documentos) }))
+              .filter((u) => u.habilitadoParaConducir && u.estadoUsuario?.descripcion === where.estadoUsuario?.descripcion)
+              .map(async (u) => {
+                const res = { ...u };
+                if (include?.documentos) {
+                  res.documentos = await documentosDe('choferId', u.id, include.documentos);
+                }
+                if (include?.persona) {
+                  const p = db.personas.find((pers) => pers.id === u.personaId);
+                  res.persona = p ? { ...p, perfil: p.perfil ?? { id: p.perfilId, descripcion: 'CHOFER', nombre: 'CHOFER' } } : null;
+                }
+                return res;
+              })
           );
         }
-        return db.usuarios.filter(
-          (u) => u.habilitadoParaConducir === where.habilitadoParaConducir && u.estadoUsuario.descripcion === 'ACTIVO'
+        let filas = db.usuarios;
+        if (where.habilitadoParaConducir !== undefined) {
+          filas = filas.filter((u) => u.habilitadoParaConducir === where.habilitadoParaConducir);
+        }
+        if (where.estadoUsuario?.descripcion) {
+          filas = filas.filter((u) => u.estadoUsuario?.descripcion === where.estadoUsuario.descripcion);
+        }
+        return Promise.all(
+          filas.map(async (u) => {
+            const res = { ...u };
+            if (include?.persona) {
+              const p = db.personas.find((pers) => pers.id === u.personaId);
+              res.persona = p ? { ...p, perfil: p.perfil ?? { id: p.perfilId, descripcion: 'CHOFER', nombre: 'CHOFER' } } : null;
+            }
+            return res;
+          })
         );
+      },
+      create: async ({ data, include }) => {
+        const fila = {
+          id: db.siguienteId++,
+          personaId: data.personaId,
+          nombreUsuario: data.nombreUsuario,
+          contrasenaHash: data.contrasenaHash,
+          estadoUsuarioId: data.estadoUsuarioId,
+          estadoUsuario: { id: data.estadoUsuarioId, descripcion: data.estadoUsuarioId === 1 ? 'ACTIVO' : 'INACTIVO' },
+          creadoEn: new Date(),
+        };
+        db.usuarios.push(fila);
+        const res = { ...fila };
+        if (include?.persona) {
+          const p = db.personas.find((pers) => pers.id === fila.personaId);
+          res.persona = p ? { ...p, perfil: p.perfil ?? { id: p.perfilId, descripcion: 'CHOFER', nombre: 'CHOFER' } } : null;
+        }
+        if (include?.estadoUsuario) {
+          res.estadoUsuario = fila.estadoUsuario;
+        }
+        return res;
+      },
+      update: async ({ where: { id }, data, include }) => {
+        const u = db.usuarios.find((x) => x.id === id);
+        if (!u) throw new Error('Record to update not found');
+        aplicarCambios(u, data);
+        if (data.estadoUsuarioId) {
+          u.estadoUsuario = { id: data.estadoUsuarioId, descripcion: data.estadoUsuarioId === 1 ? 'ACTIVO' : 'INACTIVO' };
+        }
+        const res = { ...u };
+        if (include?.persona) {
+          const p = db.personas.find((pers) => pers.id === u.personaId);
+          res.persona = p ? { ...p, perfil: p.perfil ?? { id: p.perfilId, descripcion: 'CHOFER', nombre: 'CHOFER' } } : null;
+        }
+        return res;
       },
     },
     vehiculo: {
@@ -671,7 +912,10 @@ function crearEntorno() {
         const { choferesCandidatos, vehiculosCandidatos, paradas, ...columnas } = data;
         const fila = { id: db.siguienteId++, ...columnas };
         db.viajes.push(fila);
-        for (const { usuarioId } of choferesCandidatos?.create ?? []) db.candChofer.push({ viajeId: fila.id, usuarioId });
+        for (const c of choferesCandidatos?.create ?? []) {
+          const id = c.personaId ?? c.usuarioId;
+          db.candChofer.push({ viajeId: fila.id, personaId: id, usuarioId: id });
+        }
         for (const { vehiculoId } of vehiculosCandidatos?.create ?? []) db.candVeh.push({ viajeId: fila.id, vehiculoId });
         for (const { ubicacionId, orden } of paradas?.create ?? []) db.paradas.push({ viajeId: fila.id, ubicacionId, orden });
         return armar(fila);

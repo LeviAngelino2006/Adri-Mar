@@ -33,7 +33,7 @@ const SOLO_FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 // serializarViaje los omita para quien no es gestor: son tablas chicas y así
 // ninguna lectura puede olvidarse de incluirlos.
 const INCLUDE_RELACIONES_VIAJE = {
-  choferesCandidatos: { include: { usuario: true } },
+  choferesCandidatos: { include: { persona: true } },
   vehiculosCandidatos: { include: { vehiculo: true } },
   // Siempre ordenadas: serializarViaje las devuelve tal cual vienen.
   paradas: { include: { ubicacion: true }, orderBy: { orden: 'asc' } },
@@ -60,7 +60,11 @@ const INCLUDE_RELACIONES_VIAJE = {
 const PERFILES_GESTORES_VIAJE = ['ADMINISTRADOR', 'ENCARGADO'];
 
 function puedeOperarViaje(usuarioSolicitante, viaje) {
-  return PERFILES_GESTORES_VIAJE.includes(usuarioSolicitante.perfil) || viaje.choferId === usuarioSolicitante.id;
+  return (
+    PERFILES_GESTORES_VIAJE.includes(usuarioSolicitante.perfil) ||
+    viaje.choferId === usuarioSolicitante.personaId ||
+    viaje.choferId === usuarioSolicitante.id
+  );
 }
 
 // Los datos administrativos/financieros (precio, pagos al cliente y al chofer)
@@ -275,7 +279,9 @@ async function obtenerEstadoViajePorDescripcion(descripcion) {
 const PROBLEMA_CHOFER = { INACTIVO: 'INACTIVO', NO_HABILITADO: 'NO_HABILITADO' };
 
 function problemaDeChofer(chofer) {
-  if (chofer.estadoUsuario.descripcion !== 'ACTIVO') return PROBLEMA_CHOFER.INACTIVO;
+  if (chofer.activo === false || (chofer.estadoUsuario && chofer.estadoUsuario.descripcion !== 'ACTIVO')) {
+    return PROBLEMA_CHOFER.INACTIVO;
+  }
   if (!chofer.habilitadoParaConducir) return PROBLEMA_CHOFER.NO_HABILITADO;
   return null;
 }
@@ -288,9 +294,8 @@ function problemaDeVehiculo(vehiculo) {
 }
 
 async function validarChofer(choferId) {
-  const chofer = await prisma.usuario.findUnique({
+  const chofer = await prisma.persona.findUnique({
     where: { id: choferId },
-    include: { estadoUsuario: true },
   });
 
   if (!chofer) {
@@ -330,12 +335,12 @@ async function validarVehiculo(vehiculoId) {
 // alta/edición de un viaje A_CONFIRMAR para los campos operativos que sí
 // vengan presentes ("un vehiculoId dado tiene que ser un vehículo real", nada
 // más, todavía no importa si está disponible).
-async function validarExistenciaUsuario(id, campo) {
-  const usuario = await prisma.usuario.findUnique({ where: { id } });
-  if (!usuario) {
+async function validarExistenciaPersona(id, campo) {
+  const persona = await prisma.persona.findUnique({ where: { id } });
+  if (!persona) {
     throw new ValidacionError({ [campo]: 'El chofer elegido no existe' });
   }
-  return usuario;
+  return persona;
 }
 
 async function validarExistenciaVehiculo(id, campo) {
@@ -494,7 +499,7 @@ async function validarYArmarOperativos(campos, { obligatorios, excluirViajeId, e
   if (obligatorios) {
     await validarDisponibilidadOperativa(datos, { excluirViajeId });
   } else {
-    if (datos.choferId !== null) await validarExistenciaUsuario(datos.choferId, 'choferId');
+    if (datos.choferId !== null) await validarExistenciaPersona(datos.choferId, 'choferId');
     if (datos.vehiculoId !== null) await validarExistenciaVehiculo(datos.vehiculoId, 'vehiculoId');
   }
 
@@ -578,11 +583,14 @@ function serializarDatosAdministrativos(viaje) {
 
 function serializarCandidatos(viaje) {
   return {
-    choferesCandidatos: (viaje.choferesCandidatos ?? []).map(({ usuario }) => ({
-      id: usuario.id,
-      nombre: usuario.nombre,
-      apellido: usuario.apellido,
-    })),
+    choferesCandidatos: (viaje.choferesCandidatos ?? []).map(({ persona, usuario }) => {
+      const p = persona || usuario;
+      return {
+        id: p.id,
+        nombre: p.nombre,
+        apellido: p.apellido,
+      };
+    }),
     vehiculosCandidatos: (viaje.vehiculosCandidatos ?? []).map(({ vehiculo }) => ({
       id: vehiculo.id,
       dominio: vehiculo.dominio,
@@ -788,7 +796,7 @@ async function validarExistenciaCandidatos({ choferes, vehiculos }) {
   const errores = {};
 
   if (choferes.length > 0) {
-    const encontrados = await prisma.usuario.findMany({ where: { id: { in: choferes } }, select: { id: true } });
+    const encontrados = await prisma.persona.findMany({ where: { id: { in: choferes } }, select: { id: true } });
     if (encontrados.length !== choferes.length) errores.choferesCandidatos = 'Algún chofer elegido no existe';
   }
   if (vehiculos.length > 0) {
@@ -884,7 +892,7 @@ async function crearViaje(
       estadoViajeId: estado.id,
       // Create anidado: Prisma lo ejecuta en una sola transacción, así el
       // viaje se crea con sus candidatos o no se crea.
-      choferesCandidatos: { create: candidatos.choferes.map((usuarioId) => ({ usuarioId })) },
+      choferesCandidatos: { create: candidatos.choferes.map((personaId) => ({ personaId })) },
       vehiculosCandidatos: { create: candidatos.vehiculos.map((vehiculoId) => ({ vehiculoId })) },
       paradas: { create: paradas.ids.map((ubicacionId, indice) => ({ ubicacionId, orden: indice + 1 })) },
     },
@@ -1033,7 +1041,7 @@ async function actualizarViaje(
     await tx.viajeVehiculoCandidato.deleteMany({ where: { viajeId: actual.id } });
     if (candidatos.choferes.length > 0) {
       await tx.viajeChoferCandidato.createMany({
-        data: candidatos.choferes.map((usuarioId) => ({ viajeId: actual.id, usuarioId })),
+        data: candidatos.choferes.map((personaId) => ({ viajeId: actual.id, personaId })),
       });
     }
     if (candidatos.vehiculos.length > 0) {
@@ -1182,9 +1190,9 @@ async function calcularDisponibilidad({ fechaInicio, fechaFin, choferIds, vehicu
   const ventana = fechaFin ? { inicio: fechaInicio, fin: fechaFin } : rangoDelDiaCordoba(fechaInicio);
   const estadoProgramado = await obtenerEstadoViajePorDescripcion('PROGRAMADO');
 
-  const [usuarios, vehiculos] = await Promise.all([
+  const [personas, vehiculos] = await Promise.all([
     choferIds.length > 0
-      ? prisma.usuario.findMany({ where: { id: { in: choferIds } }, include: { estadoUsuario: true } })
+      ? prisma.persona.findMany({ where: { id: { in: choferIds } } })
       : [],
     vehiculoIds.length > 0
       ? prisma.vehiculo.findMany({ where: { id: { in: vehiculoIds } }, include: { estadoVehiculo: true } })
@@ -1213,13 +1221,13 @@ async function calcularDisponibilidad({ fechaInicio, fechaFin, choferIds, vehicu
     return { id, disponible: true, motivo: null };
   }
 
-  const usuariosPorId = new Map(usuarios.map((u) => [u.id, u]));
+  const personasPorId = new Map(personas.map((u) => [u.id, u]));
   const vehiculosPorId = new Map(vehiculos.map((v) => [v.id, v]));
 
   const [choferes, resultadoVehiculos] = await Promise.all([
     Promise.all(
       choferIds.map((id) =>
-        evaluar({ id, entidad: usuariosPorId.get(id), campo: 'choferId', motivoDeHabilitacion: motivoDeChofer })
+        evaluar({ id, entidad: personasPorId.get(id), campo: 'choferId', motivoDeHabilitacion: motivoDeChofer })
       )
     ),
     Promise.all(
@@ -1248,13 +1256,13 @@ async function disponibilidadDeViaje(id, { todos = false } = {}) {
     throw new ValidacionError({ fechaInicio: 'El viaje no tiene fecha de inicio' });
   }
 
-  let choferIds = actual.choferesCandidatos.map((c) => c.usuarioId);
+  let choferIds = actual.choferesCandidatos.map((c) => c.personaId ?? c.usuarioId);
   let vehiculoIds = actual.vehiculosCandidatos.map((c) => c.vehiculoId);
 
   if (todos) {
-    const [usuarios, vehiculos] = await Promise.all([
-      prisma.usuario.findMany({
-        where: { habilitadoParaConducir: true, estadoUsuario: { descripcion: 'ACTIVO' } },
+    const [personas, vehiculos] = await Promise.all([
+      prisma.persona.findMany({
+        where: { habilitadoParaConducir: true, activo: true },
         select: { id: true },
       }),
       prisma.vehiculo.findMany({
@@ -1262,7 +1270,7 @@ async function disponibilidadDeViaje(id, { todos = false } = {}) {
         select: { id: true },
       }),
     ]);
-    choferIds = sinRepetidos([...choferIds, ...usuarios.map((u) => u.id)]);
+    choferIds = sinRepetidos([...choferIds, ...personas.map((u) => u.id)]);
     vehiculoIds = sinRepetidos([...vehiculoIds, ...vehiculos.map((v) => v.id)]);
   }
 
@@ -1540,7 +1548,8 @@ async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
   if (choferEnViaje) {
     // Lo normal es que comience el propio chofer; si es un gestor, el mensaje
     // no puede hablarle de "tu" viaje.
-    const esElChofer = actual.choferId === usuarioSolicitante.id;
+    const esElChofer =
+      actual.choferId === usuarioSolicitante.personaId || actual.choferId === usuarioSolicitante.id;
     throw new ViajeEnCursoError(esElChofer ? MENSAJES_VIAJE_EN_CURSO.propio : MENSAJES_VIAJE_EN_CURSO.chofer);
   }
 

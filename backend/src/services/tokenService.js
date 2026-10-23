@@ -12,6 +12,7 @@ function ttlMinutosParaPerfil(perfil) {
 function generarToken(usuario) {
   const payload = {
     id: usuario.id,
+    personaId: usuario.personaId,
     nombreUsuario: usuario.nombreUsuario,
     perfil: usuario.perfil,
     habilitadoParaConducir: usuario.habilitadoParaConducir,

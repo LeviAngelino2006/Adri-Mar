@@ -83,6 +83,7 @@ const prismaFalso = {
   // ni solapamiento, así que estos dobles NO traen estadoUsuario/estadoVehiculo
   // — si alguna ruta intentara validar disponibilidad, reventaría.
   usuario: { findUnique: existe([5]), findMany: async ({ where }) => where.id.in.filter((i) => i === 5).map((id) => ({ id })) },
+  persona: { findUnique: existe([5]), findMany: async ({ where }) => where.id.in.filter((i) => i === 5).map((id) => ({ id })) },
   vehiculo: { findUnique: existe([7]), findMany: async ({ where }) => where.id.in.filter((i) => i === 7).map((id) => ({ id })) },
   ubicacion: {
     findUnique: existe([1, 2]),
@@ -294,7 +295,7 @@ describe('POST /viajes: estado inicial', () => {
     // El asignado queda en null; los que vinieron son candidatos.
     assert.equal(llamadas.create[0].choferId, null);
     assert.equal(llamadas.create[0].vehiculoId, null);
-    assert.deepEqual(llamadas.create[0].choferesCandidatos, { create: [{ usuarioId: 5 }] });
+    assert.deepEqual(llamadas.create[0].choferesCandidatos, { create: [{ personaId: 5 }] });
     assert.deepEqual(llamadas.create[0].vehiculosCandidatos, { create: [{ vehiculoId: 7 }] });
   });
 

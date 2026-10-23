@@ -7,10 +7,17 @@ class CredencialesInvalidasError extends Error {}
 async function login(nombreUsuario, contrasena) {
   const usuario = await prisma.usuario.findUnique({
     where: { nombreUsuario },
-    include: { perfil: true, estadoUsuario: true },
+    include: {
+      estadoUsuario: true,
+      persona: { include: { perfil: true } },
+    },
   });
 
   if (!usuario || usuario.estadoUsuario.descripcion !== 'ACTIVO') {
+    throw new CredencialesInvalidasError();
+  }
+
+  if (usuario.persona && !usuario.persona.activo) {
     throw new CredencialesInvalidasError();
   }
 
@@ -20,23 +27,29 @@ async function login(nombreUsuario, contrasena) {
     throw new CredencialesInvalidasError();
   }
 
-  const perfil = usuario.perfil.descripcion;
+  const perfil = usuario.persona?.perfil?.descripcion ?? usuario.perfilLegacy?.descripcion ?? '';
+  const habilitadoParaConducir =
+    usuario.persona?.habilitadoParaConducir ?? usuario.habilitadoParaConducirLegacy ?? false;
+  const personaId = usuario.personaId;
+
   const token = generarToken({
     id: usuario.id,
+    personaId,
     nombreUsuario: usuario.nombreUsuario,
     perfil,
-    habilitadoParaConducir: usuario.habilitadoParaConducir,
+    habilitadoParaConducir,
   });
 
   return {
     token,
     usuario: {
       id: usuario.id,
-      nombre: usuario.nombre,
-      apellido: usuario.apellido,
+      personaId,
+      nombre: usuario.persona?.nombre ?? usuario.nombreLegacy ?? '',
+      apellido: usuario.persona?.apellido ?? usuario.apellidoLegacy ?? '',
       nombreUsuario: usuario.nombreUsuario,
       perfil,
-      habilitadoParaConducir: usuario.habilitadoParaConducir,
+      habilitadoParaConducir,
     },
   };
 }
