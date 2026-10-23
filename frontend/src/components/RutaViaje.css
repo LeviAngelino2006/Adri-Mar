@@ -1,9 +1,7 @@
+/* Texto corrido (no flex): así el corte de línea respeta los espacios que no
+   se cortan entre la flecha y el destino, y entre el destino y las paradas. */
 .ruta-viaje {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-2);
-  min-width: 0;
+  display: inline;
 }
 
 .ruta-viaje-punto {
@@ -19,6 +17,7 @@
 }
 
 .ruta-viaje-flecha {
+  margin: 0 0.125em;
   color: var(--brand-600);
   font-weight: 700;
 }

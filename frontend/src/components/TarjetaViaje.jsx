@@ -9,7 +9,9 @@ import { agruparViajesPorDia } from '../utils/viajesPorDia';
 
 // Tarjeta de un viaje en el listado: la usan Viajes y Mis viajes. Los viajes van
 // agrupados por día, así que la marca es el bloque de fecha del día de inicio y
-// el sub lleva solo el horario.
+// el sub lleva solo el horario. En una tarjeta angosta (celular) el badge de
+// estado va arriba de la ruta, para que la ruta use todo el ancho
+// (.listado-card-viaje en Listado.css).
 //
 // variante="chofer" es la vista de Mis viajes de un chofer: el sub es solo el
 // horario, sin el chofer (es él mismo). Sin variante (Viajes, y Mis viajes de un
@@ -39,6 +41,7 @@ function TarjetaViaje({ viaje, onClick, variante, mostrarPendientes = false }) {
 
   return (
     <ListadoCard
+      className="listado-card-viaje"
       marca={<FechaTileTexto fecha={fechaInicio} />}
       marcaClassName="fecha-tile"
       titulo={<RutaViaje origen={viaje.origen} destino={viaje.destino} paradas={viaje.paradas} />}
@@ -66,8 +69,14 @@ function TarjetaViaje({ viaje, onClick, variante, mostrarPendientes = false }) {
 
 // Listado de Viajes y Mis viajes: las tarjetas agrupadas por día de inicio (día
 // de Córdoba), en el orden en que llegan ("Hoy · vie 9 oct", "mié 7 oct").
-export function ListadoViajesPorDia({ viajes, variante, mostrarPendientes, onSeleccionar }) {
-  return agruparViajesPorDia(viajes).map((grupo) => (
+//
+// `enCurso` (Próximos de Mis viajes): el viaje En viaje va primero, en su propio
+// grupo "En curso", y no se mezcla con el día en que empezó.
+export function ListadoViajesPorDia({ viajes, enCurso = [], variante, mostrarPendientes, onSeleccionar }) {
+  const grupos = agruparViajesPorDia(viajes);
+  if (enCurso.length > 0) grupos.unshift({ dia: 'en-curso', titulo: 'En curso', viajes: enCurso });
+
+  return grupos.map((grupo) => (
     <section key={grupo.dia ?? 'sin-fecha'} className="listado-grupo">
       <h2 className="listado-dia">{grupo.titulo}</h2>
       <div className="listado-cards">

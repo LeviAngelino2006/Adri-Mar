@@ -1,4 +1,4 @@
-Control para cambiar de vista dentro de la misma pantalla, con un botón por opción y una sola activa. Se usa en Documentación (Vehículos | Choferes), dentro de la barra del listado.
+Control para cambiar de vista dentro de la misma pantalla, con un botón por opción y una sola activa. Se usa en Documentación (Vehículos | Choferes) y en Mis viajes (Próximos | Anteriores, sin íconos ni cantidades), dentro de la barra del listado.
 
 ## Cuándo usarlo
 - Para alternar entre vistas hermanas de un mismo conjunto de datos, donde el cambio reemplaza el contenido de abajo y no cambia de ruta (Vehículos | Choferes).

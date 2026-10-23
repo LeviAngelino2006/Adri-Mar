@@ -59,7 +59,7 @@
   color: inherit;
 }
 
-/* En Tus próximos viajes, debajo de 480px la acción va a todo el ancho (como el
+/* En Tus viajes pendientes, debajo de 480px la acción va a todo el ancho (como el
    botón habilitado, ver Dashboard.css): el botón deshabilitado también. */
 @media (max-width: 479px) {
   .comenzar-viaje-bloqueado.proximos-viajes-accion {

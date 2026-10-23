@@ -1,7 +1,7 @@
 Los tres estados de algo que se carga (un listado o un panel): cargando, error y vacío. Un error al cargar nunca se muestra como "no hay datos". Componente de la app (`components/ui/EstadoCarga.jsx`) con el hook `useCarga` (`hooks/useCarga.js`).
 
 ## Cuándo usarlo
-- En todo listado o panel que pide datos al entrar: Viajes, Flota de vehículos, Mis viajes, "Tus próximos viajes" del Dashboard y los paneles de gestión del Dashboard (Viajes de hoy, Viajes por confirmar y Documentación).
+- En todo listado o panel que pide datos al entrar: Viajes, Flota de vehículos, Mis viajes, "Tus viajes pendientes" del Dashboard y los paneles de gestión del Dashboard (Viajes de hoy, Viajes por confirmar y Documentación).
 - Para las opciones de un `select` dentro de un formulario no: si no cargan, el mensaje (el mismo `mensajeErrorCarga`, con "la lista de choferes") va como `error` de su `FormField` y el resto del formulario sigue usable.
 - Para una acción (guardar, cancelar) no: ahí el error va en el formulario o el modal.
 

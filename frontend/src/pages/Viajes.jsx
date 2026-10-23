@@ -26,6 +26,7 @@ import DuplicarViaje from '../components/DuplicarViaje';
 import { avisoDuplicado, valoresParaDuplicar, viajeAValoresForm } from '../utils/valoresFormViaje';
 import { avisoWhatsApp } from '../utils/whatsapp';
 import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { esChoferDelViaje } from '../utils/choferDelViaje';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import { useCarga } from '../hooks/useCarga';
 import { useViajesEnCurso } from '../hooks/useViajesEnCurso';
@@ -194,7 +195,7 @@ function Viajes() {
   // del viaje abierto ya están en otro (ver BotonComenzarViaje). Solo con la
   // ficha de un Programado abierta y para quien lo puede comenzar.
   const puedeComenzarSeleccionado =
-    seleccionado?.estado === 'PROGRAMADO' && (puedeGestionar || usuario.id === seleccionado.choferId);
+    seleccionado?.estado === 'PROGRAMADO' && (puedeGestionar || esChoferDelViaje(seleccionado, usuario));
   const viajesEnCurso = useViajesEnCurso('/viajes', puedeComenzarSeleccionado ? seleccionado.id : null);
 
   // El toast ofrece avisar por WhatsApp solo si hay un link posible (chofer con
@@ -476,7 +477,8 @@ function Viajes() {
       )}
 
       {!mostrarForm && seleccionado && (() => {
-        const puedeOperarEsteViaje = puedeGestionar || usuario.id === seleccionado.choferId;
+        // El chofer del viaje es una persona: se compara con usuario.personaId.
+        const puedeOperarEsteViaje = puedeGestionar || esChoferDelViaje(seleccionado, usuario);
 
         return (
           <>

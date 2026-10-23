@@ -8,6 +8,9 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
+  /* Safe area (viewport-fit=cover), como en ConfirmModal. */
+  padding: max(var(--space-4), env(safe-area-inset-top)) max(var(--space-4), env(safe-area-inset-right))
+    max(var(--space-4), env(safe-area-inset-bottom)) max(var(--space-4), env(safe-area-inset-left));
   background-color: var(--overlay);
 }
 
@@ -198,7 +201,9 @@
    páginas va de borde a borde: ver VisorPdf.css). Los dos botones del pie se reparten el ancho. */
 @media (max-width: 639px) {
   .doc-modal-overlay:has(.doc-modal-visor) {
-    padding: 0;
+    /* Pantalla completa, pero fuera de la barra de estado y del indicador de
+       inicio (safe area; 0 sin viewport-fit=cover). */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
 
   .doc-modal-visor {

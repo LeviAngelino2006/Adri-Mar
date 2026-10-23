@@ -35,12 +35,13 @@ Datos, en este orden:
 1. Cliente (`.detalle-item-ancho .detalle-item-destacado`).
 2. Recorrido (`.detalle-item-ancho`): el `dd` lleva un `<span class="detalle-recorrido">` con `RutaViaje` completa (paradas incluidas) y `BotonVerRecorrido` al lado. Siempre se muestra; un viaje histórico sin origen o destino los dice "No registrado".
 3. Inicio | Fin ("07 oct 08:00").
-4. Chofer | Vehículo ("12 - AE452KD (Mercedes-Benz O500)"). En un A confirmar van **Choferes posibles** y **Vehículos posibles**, cada uno a ancho completo (nombres separados por coma, "Sin cargar" si la lista está vacía). Solo los ven Administrador y Encargado; para el resto quedan en "No registrado".
+4. Chofer | Vehículo ("12 - AE452KD (Mercedes-Benz O500)"). En Mis viajes, si el viaje es del propio usuario, no va el par Chofer (es él): el Vehículo queda solo en su fila, con el hueco al lado (prop `ocultarChofer` de `FichaViaje`). El chofer de un viaje es una persona: "es del propio usuario" se decide comparando `viaje.choferId` con `usuario.personaId`, nunca con `usuario.id` (`esChoferDelViaje`, `utils/choferDelViaje.js`). En un A confirmar van **Choferes posibles** y **Vehículos posibles**, cada uno a ancho completo (nombres separados por coma, "Sin cargar" si la lista está vacía). Solo los ven Administrador y Encargado; para el resto quedan en "No registrado".
 5. Kilómetros estimados | Cantidad de pasajeros.
 6. Solo si el viaje ya empezó: Hora real de inicio | Hora real de fin · Odómetro inicial | Odómetro final · Km realizados (con su hueco al lado). Un viaje En viaje muestra solo lo que ya existe, con el hueco donde falta.
 7. Observación (`.detalle-item-ancho`), solo si hay texto.
 
 - Debajo de la card, `.viajes-detalle-actions` con los `Button`, que nombran el objeto: "Confirmar viaje" (primary), "Comenzar viaje" (primary), "Finalizar viaje" (primary), "Editar viaje" (secondary) y "Cancelar viaje" (danger). Nunca "Cancelar" solo en rojo: "Cancelar" a secas es solo el botón que cierra un formulario sin guardar. En un viaje Programado, los gestores ven también **Avisar por WhatsApp** (ver `AvisarPorWhatsApp`), entre Comenzar viaje y Editar viaje.
+- En Mis viajes, la acción del estado ("Comenzar viaje" o "Finalizar viaje") va en una `BarraAccionFija`: en el celular queda fija al pie, a todo el ancho; en escritorio es la misma fila de acciones.
 - Los datos administrativos (solo Administrador y Encargado) siguen en su propio bloque debajo, agrupados en secciones tituladas (`.detalle-seccion`).
 - En la ficha de un viaje no va "Kilometraje actual del vehículo": es un dato del vehículo, cambia con cada viaje y confunde en un viaje ya finalizado. Se reemplaza por el odómetro inicial y final del viaje.
 

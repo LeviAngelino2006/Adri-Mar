@@ -1,4 +1,4 @@
-Modales para comenzar y finalizar un viaje: piden la lectura del odómetro. Usan las clases de `ConfirmModal` (`.confirm-modal`, `.confirm-modal-icon-brand`, `.confirm-modal-description`, `.confirm-modal-actions`) con un `FormField` dentro de la descripción. Los abren `ViajeEnCurso` (Finalizar viaje), `ProximosViajes` (Comenzar viaje) y la ficha en Mis viajes, siempre con el mismo modal.
+Modales para comenzar y finalizar un viaje: piden la lectura del odómetro. Usan `ConfirmModal` (`.confirm-modal`, `.confirm-modal-encabezado` con `.confirm-modal-icon-brand`, `.confirm-modal-cuerpo` > `.confirm-modal-description` y `.confirm-modal-actions`) con un `FormField` dentro de la descripción. Los abren `ViajeEnCurso` (Finalizar viaje), `ProximosViajes` (Comenzar viaje) y la ficha en Mis viajes, siempre con el mismo modal.
 
 ## Lo que contienen
 - `ConfirmModal` `tone="brand"`, título "Comenzar el viaje" / "Finalizar el viaje", botón de confirmar "Comenzar viaje" / "Finalizar viaje" ("Comenzando…" / "Finalizando…" mientras corre) y botón "Cancelar".

@@ -4,7 +4,7 @@ import RutaViaje from './RutaViaje';
 import { MOTIVOS_BLOQUEO_COMENZAR, viajeEnCursoQueBloquea } from '../utils/viajeEnCurso';
 import './BotonComenzarViaje.css';
 
-// "Comenzar viaje" de la ficha de un viaje y de Tus próximos viajes. Si el chofer
+// "Comenzar viaje" de la ficha de un viaje y de Tus viajes pendientes. Si el chofer
 // (o el vehículo) ya tiene otro viaje En viaje, el botón queda DESHABILITADO con
 // el motivo visible debajo (mismo criterio que AvisarPorWhatsApp: un tooltip no
 // se ve en el celular) y un acceso al viaje en curso. Así no se llega a cargar el

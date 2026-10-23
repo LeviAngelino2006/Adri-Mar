@@ -1,0 +1,41 @@
+/* Barra de la acción principal de una ficha (ver BarraAccionFija.jsx). En
+   escritorio no tiene estilos propios: es la fila de acciones de la ficha. */
+@media (max-width: 767px) {
+  .barra-accion-fija {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Encima del contenido y debajo de la topbar (20), el menú (25 y 30), los
+       modales (50) y el Toast (60). */
+    z-index: 15;
+    margin: 0;
+    padding: var(--space-3) max(var(--space-4), env(safe-area-inset-right))
+      calc(var(--space-3) + env(safe-area-inset-bottom)) max(var(--space-4), env(safe-area-inset-left));
+    background-color: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* La acción a todo el ancho (el Button ya mide 44px o más). */
+  .barra-accion-fija > * {
+    flex: 1 1 100%;
+  }
+
+  .barra-accion-fija > .btn {
+    width: 100%;
+  }
+
+  /* "Comenzar viaje" deshabilitado: el botón a todo el ancho, con el motivo y
+     "Ver el viaje en curso" debajo (ver BotonComenzarViaje). */
+  .barra-accion-fija .comenzar-viaje-bloqueado {
+    align-items: stretch;
+  }
+
+  .barra-accion-fija .comenzar-viaje-bloqueado > .btn {
+    width: 100%;
+  }
+
+  .barra-accion-fija .comenzar-viaje-ir {
+    align-self: flex-start;
+  }
+}

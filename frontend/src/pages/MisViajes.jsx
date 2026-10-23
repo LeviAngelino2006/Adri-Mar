@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
 import Button from '../components/ui/Button';
+import BarraAccionFija from '../components/ui/BarraAccionFija';
 import EstadoCarga from '../components/ui/EstadoCarga';
 import Toast from '../components/ui/Toast';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
@@ -15,19 +16,37 @@ import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { nombreVehiculo } from '../utils/viajeFormato';
+import { VISTAS_MIS_VIAJES, viajesDeLaVista, vistaMisViajes } from '../utils/misViajes';
+import { esChoferDelViaje } from '../utils/choferDelViaje';
 import { useCarga } from '../hooks/useCarga';
 import { useViajesEnCurso } from '../hooks/useViajesEnCurso';
 import './Viajes.css';
 
 const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
 
-const ESTADOS_FILTRO = [
-  { value: '', label: 'Todos' },
-  { value: 'PROGRAMADO', label: 'Programado' },
-  { value: 'EN_VIAJE', label: 'En viaje' },
-  { value: 'FINALIZADO', label: 'Finalizado' },
-  { value: 'CANCELADO', label: 'Cancelado' },
+// El filtro de estado ofrece solo los estados de la vista (Próximos | Anteriores).
+const ESTADOS_FILTRO = {
+  proximos: [
+    { value: '', label: 'Todos' },
+    { value: 'PROGRAMADO', label: 'Programado' },
+    { value: 'EN_VIAJE', label: 'En viaje' },
+  ],
+  anteriores: [
+    { value: '', label: 'Todos' },
+    { value: 'FINALIZADO', label: 'Finalizado' },
+    { value: 'CANCELADO', label: 'Cancelado' },
+  ],
+};
+
+const OPCIONES_VISTA = [
+  { valor: 'proximos', etiqueta: 'Próximos' },
+  { valor: 'anteriores', etiqueta: 'Anteriores' },
 ];
+
+const VACIO_SIN_FILTROS = {
+  proximos: 'No tenés viajes próximos.',
+  anteriores: 'No tenés viajes anteriores.',
+};
 
 const FILTROS_INICIALES = {
   estado: '',
@@ -46,6 +65,10 @@ function MisViajes() {
   // directo la ficha de ese viaje. Se consume una sola vez, al terminar la
   // primera carga del listado.
   const viajeIdPendiente = useRef(location.state?.viajeId ?? null);
+
+  // Próximos | Anteriores, en la URL (?tab=anteriores) como en Documentación.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const vista = vistaMisViajes(searchParams.get('tab'));
 
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
@@ -77,10 +100,14 @@ function MisViajes() {
         }
         return data.viajes;
       });
-  }, [filtros, navigate, location.pathname]);
+    // setSeleccionado es estable; va en la lista para que el React Compiler
+    // (oxlint, preserve-manual-memoization) pueda conservar el useCallback.
+  }, [filtros, navigate, location.pathname, setSeleccionado]);
 
   const cargaViajes = useCarga(pedirViajes);
   const viajes = cargaViajes.datos ?? [];
+  const { enCurso, resto } = viajesDeLaVista(viajes, vista);
+  const vistaVacia = enCurso.length === 0 && resto.length === 0;
   const cargarViajes = cargaViajes.recargar;
 
   // El viaje En viaje propio, para no ofrecer "Comenzar viaje" mientras hay otro
@@ -108,6 +135,15 @@ function MisViajes() {
   function handleFiltroChange(e) {
     const { name, value } = e.target;
     setFiltros((f) => ({ ...f, [name]: value }));
+  }
+
+  // Un estado que no es de la nueva vista (Cancelado al pasar a Próximos) se
+  // limpia: si no, la vista quedaría vacía por un filtro que ya no se ve.
+  function cambiarVista(nueva) {
+    setSearchParams(nueva === 'anteriores' ? { tab: 'anteriores' } : {});
+    if (filtros.estado && !VISTAS_MIS_VIAJES[nueva].includes(filtros.estado)) {
+      setFiltros((f) => ({ ...f, estado: '' }));
+    }
   }
 
   function seleccionar(viaje) {
@@ -147,13 +183,14 @@ function MisViajes() {
         <>
           <ListadoToolbar
             filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos: filtrosActivos }}
+            vistas={{ opciones: OPCIONES_VISTA, valor: vista, onChange: cambiarVista, ariaLabel: 'Vista de mis viajes' }}
           />
 
           {mostrarFiltros && (
             <form className="listado-filtros" onSubmit={(e) => e.preventDefault()}>
               <FormField id="estado" label="Estado">
                 <select name="estado" value={filtros.estado} onChange={handleFiltroChange}>
-                  {ESTADOS_FILTRO.map((e) => (
+                  {ESTADOS_FILTRO[vista].map((e) => (
                     <option key={e.value} value={e.value}>
                       {e.label}
                     </option>
@@ -175,9 +212,15 @@ function MisViajes() {
             carga={cargaViajes}
             forma="viajes"
             que="tus viajes"
-            vacio={viajes.length === 0 && <div className="listado-vacio">No tenés viajes asignados</div>}
+            vacio={
+              vistaVacia && (
+                <div className="listado-vacio">
+                  {filtrosActivos > 0 ? 'No hay viajes con esos filtros.' : VACIO_SIN_FILTROS[vista]}
+                </div>
+              )
+            }
           >
-            <ListadoViajesPorDia viajes={viajes} variante={varianteTarjeta} onSeleccionar={seleccionar} />
+            <ListadoViajesPorDia viajes={resto} enCurso={enCurso} variante={varianteTarjeta} onSeleccionar={seleccionar} />
           </EstadoCarga>
         </>
       )}
@@ -197,25 +240,27 @@ function MisViajes() {
             </div>
           </div>
 
-          <FichaViaje viaje={seleccionado} />
+          {/* El viaje es del propio usuario: no se repite su nombre en Chofer. */}
+          <FichaViaje viaje={seleccionado} ocultarChofer={esChoferDelViaje(seleccionado, usuario)} />
 
+          {/* La acción del estado, en el celular en una barra fija al pie. */}
           {seleccionado.estado === 'PROGRAMADO' && (
-            <div className="viajes-detalle-actions">
+            <BarraAccionFija className="viajes-detalle-actions">
               <BotonComenzarViaje
                 viaje={seleccionado}
                 enCurso={viajesEnCurso}
                 onComenzar={pedirComenzar}
                 onVerViajeEnCurso={seleccionar}
               />
-            </div>
+            </BarraAccionFija>
           )}
 
           {seleccionado.estado === 'EN_VIAJE' && (
-            <div className="viajes-detalle-actions">
+            <BarraAccionFija className="viajes-detalle-actions">
               <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
                 Finalizar viaje
               </Button>
-            </div>
+            </BarraAccionFija>
           )}
         </>
       )}

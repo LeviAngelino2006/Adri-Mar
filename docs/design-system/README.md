@@ -60,6 +60,17 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 - Sidebar de 232px con el logo (36px) arriba y la navegación con íconos de 20px.
 - Formularios: `.form-grid` pasa a dos columnas desde 640px (una columna debajo, en el mismo orden); `.form-card` limita a 720px. Los campos que van juntos se agrupan en pares (origen–destino, inicio–fin, chofer–vehículo) y el resto va a ancho completo (`.form-field-ancho`). Las secciones opcionales y largas van colapsadas (`.form-seccion`).
 
+## Safe area (iPhone)
+El viewport lleva `viewport-fit=cover` (`index.html`) para que `BarraAccionFija` pueda respetar el indicador de inicio. Eso es global: con la app instalada (el manifest es `standalone`) la página se dibuja también debajo de la barra de estado, la muesca y el indicador de inicio, así que todo lo que toca un borde suma su `env(safe-area-inset-*)`. Los fondos llegan hasta el borde y el contenido se corre:
+- `.layout`: los costados (iPhone apaisado).
+- `.layout-topbar`: arriba (`space-3` + el inset).
+- `.layout-sidebar` (menú del celular): arriba, abajo y a la izquierda. En escritorio va dentro de `.layout`, que ya suma la izquierda.
+- `.layout-content`: abajo, el mayor entre el alto de la `BarraAccionFija` y el inset de abajo (la barra ya lo incluye).
+- `Toast`: lo mismo, encima de la barra o del indicador de inicio.
+- Login (`.login-brand`): arriba.
+- Fondos de los modales (`ConfirmModal` y los de Documentación y Mantenimiento): `max(space-4, inset)` en cada lado; el visor de PDF a pantalla completa, el inset solo.
+Sin `viewport-fit=cover`, o en Android y escritorio, los insets valen 0 y nada cambia.
+
 ## Logos e íconos
 
 - Usá `assets/Logos/logo-adrimar.png` (el wordmark "Adri Mar Viajes") sobre `color-surface`, nunca sobre `brand-600`. No lo redibujes ni lo recolorees.
@@ -67,7 +78,7 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 
 ## Componentes
 
-`components/bundle.js` expone `window.AdriMar` con Button, Card, Alert, FormField, Switch, Spinner, Toast, ConfirmModal, EstadoDot, EstadoBadge y RutaViaje (React). `components/bundle.css` trae sus estilos, las reglas base y las clases de páginas y layout. Leé el README de cada componente antes de usarlo. `ControlSegmentado` (alternar vistas hermanas dentro de una pantalla), `TarjetaDocumento` (un documento en la ficha de Documentación) y `Cargando` (estado de carga de pantallas, paneles y modales) viven en la app (`frontend/src/components`) y todavía no están en el bundle.
+`components/bundle.js` expone `window.AdriMar` con Button, Card, Alert, FormField, Switch, Spinner, Toast, ConfirmModal, EstadoDot, EstadoBadge y RutaViaje (React). `components/bundle.css` trae sus estilos, las reglas base y las clases de páginas y layout. Leé el README de cada componente antes de usarlo. `ControlSegmentado` (alternar vistas hermanas dentro de una pantalla), `BarraAccionFija` (la acción principal de una ficha, fija al pie en el celular), `TarjetaDocumento` (un documento en la ficha de Documentación) y `Cargando` (estado de carga de pantallas, paneles y modales) viven en la app (`frontend/src/components`) y todavía no están en el bundle.
 
 ## Patrones de página
 

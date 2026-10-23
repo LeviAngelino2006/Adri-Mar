@@ -7,4 +7,5 @@ Confirmación breve y flotante, centrada abajo de la pantalla.
 
 ## Reglas
 - Fondo `color-inverse-bg`, texto `color-inverse-text`, radio `radius-sm`, sombra `shadow-lg`, texto `body-sm`.
+- A 24px del borde de abajo. Si hay una `BarraAccionFija` fija al pie, se muestra encima de ella (`bottom: calc(24px + var(--alto-barra-accion, 0px))`).
 - Para errores que requieren acción usar `Alert error`, no un toast.

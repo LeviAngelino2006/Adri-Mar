@@ -15,7 +15,7 @@ El caso de más de 3s es sobre todo el primer pedido después de un rato sin uso
   - `"documentacion"`: como `"tarjetas"`, con la línea de detalle (`.listado-card-detalle`) entre el sub y el pie. Para el listado de Documentación, donde casi todas las tarjetas la tienen ("Falta: VTV", "Próximo vencimiento…").
   - `"documentos"`: una `TarjetaDocumento` (nombre con badge, fechas y dos botones). Para la ficha de Documentación, con `cantidad={4}` y `encabezado` (ver "La ficha de Documentación mientras carga").
   - `"viajes"`: como `"tarjetas"`, pero dentro de un grupo (`.listado-grupo`) con título de día, y la marca es el bloque de fecha (`fecha-tile`). Para Viajes y Mis viajes.
-  - `"filas"`: las filas de los paneles del Dashboard (hora de salida y llegada, título, meta y badge). Para los paneles del Dashboard (Viajes de hoy, Viajes por confirmar, Documentación, Tus próximos viajes) y el historial de un documento.
+  - `"filas"`: las filas de los paneles del Dashboard (hora de salida y llegada, título, meta y badge). Para los paneles del Dashboard (Viajes de hoy, Viajes por confirmar, Documentación, Tus viajes pendientes) y el historial de un documento.
 - `cantidad`: cuántas tarjetas o filas dibujar. 3 por defecto; 4 en la ficha de Documentación y 2 en el historial.
 - `encabezado` (solo con `"documentos"`): `"resumen"` suma, arriba de las tarjetas, el resumen y el título de la primera sección; `"completo"` también suma el título y el subtítulo de la ficha.
 - `aislado`: dibuja su propio colectivo en lugar del esqueleto, en vez de avisarle a la pantalla. Para el historial de un documento, que está en un modal.

@@ -39,7 +39,7 @@ Un Encargado habilitado para conducir ve las tres partes, en ese orden.
 - Sin alertas: `.dashboard-empty` "Sin alertas por ahora", sin ícono, con la pista "Toda la documentación registrada de vehículos y choferes está al día". Si falla: `EstadoCarga` con "No pudimos cargar las alertas de documentación. Revisá tu conexión." y "Reintentar" (nunca "Sin alertas", porque no se sabe si las hay).
 
 ## Estados vacíos
-- Los estados vacíos del Dashboard son solo texto, sin ícono: `.dashboard-empty` con el texto en `color-text-secondary`, centrado, sin SVG. Es igual en todos los paneles: "No hay viajes para hoy", "Nada pendiente para hoy ni mañana", "No tenés viajes programados próximamente" y "Sin alertas por ahora".
+- Los estados vacíos del Dashboard son solo texto, sin ícono: `.dashboard-empty` con el texto en `color-text-secondary`, centrado, sin SVG. Es igual en todos los paneles: "No hay viajes para hoy", "Nada pendiente para hoy ni mañana", "No tenés viajes pendientes" y "Sin alertas por ahora".
 - Si hace falta una pista, va debajo en `.dashboard-empty-hint` (13px, `color-text-secondary`), como en Documentación.
 
 ## Reglas
