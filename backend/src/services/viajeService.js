@@ -7,6 +7,8 @@ const {
   errorDeSecuencia,
 } = require('../utils/recorridoViaje');
 const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../utils/marcaModeloVehiculo');
+// Fechas sin offset = hora de Córdoba (UTC-3 todo el año): ver utils/fechaCordoba.
+const { aFechaCordoba } = require('../utils/fechaCordoba');
 
 // Un punto del recorrido (origen, destino o parada) como lo ve el front: con el
 // placeId de Google y las coordenadas (null si no tiene), para que el link
@@ -94,29 +96,6 @@ const MENSAJES_VIAJE_EN_CURSO = {
   vehiculo: 'Este vehículo ya está en otro viaje en curso.',
   carrera: 'El vehículo o el chofer ya están en otro viaje en curso.',
 };
-
-// Adri-mar opera únicamente en Córdoba, Argentina, que no tiene horario de
-// verano (UTC-3 todo el año). Por eso el offset se puede fijar así, sin
-// necesidad de una librería de zonas horarias.
-const CORDOBA_UTC_OFFSET = '-03:00';
-const TIENE_OFFSET_REGEX = /(Z|[+-]\d{2}:\d{2})$/;
-
-// Interpreta un string de fecha/hora SIN offset (como el que manda un
-// <input type="datetime-local">, p. ej. "2026-12-16T23:30") como hora de
-// Córdoba, en vez de dejar que Node lo interprete según la zona horaria del
-// proceso del servidor (que puede no coincidir con Córdoba según dónde se
-// despliegue el backend). Si el valor ya trae offset explícito (u "Z"), se
-// respeta tal cual.
-function aFechaCordoba(valor) {
-  if (!valor) return null;
-
-  if (TIENE_OFFSET_REGEX.test(valor)) {
-    return new Date(valor);
-  }
-
-  const conSegundos = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(valor) ? `${valor}:00` : valor;
-  return new Date(`${conSegundos}${CORDOBA_UTC_OFFSET}`);
-}
 
 // Igual que aFechaCordoba, pero tolera recibir un Date ya parseado tal cual
 // (lo devuelve sin tocar). Hace falta en `confirmarViaje`, que combina valores

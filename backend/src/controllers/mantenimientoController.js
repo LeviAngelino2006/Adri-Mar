@@ -1,86 +1,88 @@
 const mantenimientoService = require('../services/mantenimientoService');
 
-async function listarPlantillas(req, res, next) {
+// Errores del service → respuesta HTTP, con el mismo formato que el resto de
+// la API: 400 { errores } por campo y 404 { error }.
+function responderError(err, res, next) {
+  if (err instanceof mantenimientoService.ValidacionError) {
+    return res.status(400).json({ errores: err.errores });
+  }
+  if (err instanceof mantenimientoService.NoEncontradoError) {
+    return res.status(404).json({ error: err.message });
+  }
+  return next(err);
+}
+
+async function listarTiposArreglo(req, res, next) {
   try {
-    const plantillas = await mantenimientoService.listarPlantillas();
-    return res.json({ plantillas });
+    const tiposArreglo = await mantenimientoService.listarTiposArreglo();
+    return res.json({ tiposArreglo });
   } catch (err) {
-    next(err);
+    return responderError(err, res, next);
+  }
+}
+
+async function listarEstadoService(req, res, next) {
+  try {
+    const vehiculos = await mantenimientoService.listarEstadoService();
+    return res.json({ vehiculos });
+  } catch (err) {
+    return responderError(err, res, next);
   }
 }
 
 async function asignarPlan(req, res, next) {
   try {
-    const { vehiculoId, kmUltimoService, plantillaMantenimientoId } = req.body || {};
-    const plan = await mantenimientoService.asignarPlanAVehiculo({
-      vehiculoId,
-      kmUltimoService,
-      plantillaMantenimientoId,
-    });
-    return res.status(201).json({ plan });
+    const { vehiculoId, kmUltimoService } = req.body || {};
+    const estado = await mantenimientoService.asignarPlanAVehiculo({ vehiculoId, kmUltimoService });
+    return res.status(201).json({ estado });
   } catch (err) {
-    if (err instanceof mantenimientoService.ValidacionError) {
-      return res.status(400).json({ errores: err.errores });
-    }
-    next(err);
+    return responderError(err, res, next);
   }
 }
 
-async function listarPlanesYAlertas(req, res, next) {
+async function registrarService(req, res, next) {
   try {
-    const soloAlertas = req.query.soloAlertas === 'true';
-    const busqueda = req.query.busqueda || '';
-    const planes = await mantenimientoService.listarPlanesYAlertas({ soloAlertas, busqueda });
-    return res.json({ planes });
+    const registro = await mantenimientoService.registrarService(req.body || {}, req.usuario?.id);
+    return res.status(201).json({ registro });
   } catch (err) {
-    next(err);
+    return responderError(err, res, next);
   }
 }
 
-async function registrarMantenimiento(req, res, next) {
+async function registrarArreglo(req, res, next) {
   try {
-    const mantenimiento = await mantenimientoService.registrarMantenimiento(req.body || {}, req.usuario?.id);
-    return res.status(201).json({ mantenimiento });
+    const registro = await mantenimientoService.registrarArreglo(req.body || {}, req.usuario?.id);
+    return res.status(201).json({ registro });
   } catch (err) {
-    if (err instanceof mantenimientoService.ValidacionError) {
-      return res.status(400).json({ errores: err.errores });
-    }
-    next(err);
+    return responderError(err, res, next);
   }
 }
 
-async function obtenerHistorialVehiculo(req, res, next) {
+async function listarHistorial(req, res, next) {
   try {
-    const { vehiculoId } = req.params;
-    const { categoria } = req.query;
-    const data = await mantenimientoService.obtenerHistorialVehiculo(vehiculoId, { categoria });
-    return res.json(data);
+    const historial = await mantenimientoService.listarHistorial(req.query);
+    return res.json(historial);
   } catch (err) {
-    if (err.status === 404) {
-      return res.status(404).json({ error: err.message });
-    }
-    next(err);
+    return responderError(err, res, next);
   }
 }
 
 async function evaluarAdvertenciaViaje(req, res, next) {
   try {
     const { vehiculoId, kilometrosEstimados } = req.query;
-    const advertencia = await mantenimientoService.evaluarAdvertenciaViaje({
-      vehiculoId,
-      kilometrosEstimados,
-    });
+    const advertencia = await mantenimientoService.evaluarAdvertenciaViaje({ vehiculoId, kilometrosEstimados });
     return res.json({ advertencia });
   } catch (err) {
-    next(err);
+    return responderError(err, res, next);
   }
 }
 
 module.exports = {
-  listarPlantillas,
+  listarTiposArreglo,
+  listarEstadoService,
   asignarPlan,
-  listarPlanesYAlertas,
-  registrarMantenimiento,
-  obtenerHistorialVehiculo,
+  registrarService,
+  registrarArreglo,
+  listarHistorial,
   evaluarAdvertenciaViaje,
 };

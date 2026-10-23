@@ -4,48 +4,24 @@ const { autenticar, autorizar } = require('../middlewares/auth');
 
 const router = Router();
 
-const ROLES_TALLER_Y_GESTION = ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'];
+// Mantenimiento: gestión y taller. El CHOFER no ve nada del módulo.
+router.use(autenticar, autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'));
 
-router.get(
-  '/plantillas',
-  autenticar,
-  autorizar(...ROLES_TALLER_Y_GESTION),
-  mantenimientoController.listarPlantillas
-);
+// Catálogo de tipos de arreglo activos, en orden.
+router.get('/tipos-arreglo', mantenimientoController.listarTiposArreglo);
 
-router.get(
-  '/planes',
-  autenticar,
-  autorizar(...ROLES_TALLER_Y_GESTION),
-  mantenimientoController.listarPlanesYAlertas
-);
+// Estado del service de cada vehículo no dado de baja (SIN_PLAN si no tiene).
+router.get('/planes', mantenimientoController.listarEstadoService);
+router.post('/planes', mantenimientoController.asignarPlan);
 
-router.post(
-  '/planes',
-  autenticar,
-  autorizar(...ROLES_TALLER_Y_GESTION),
-  mantenimientoController.asignarPlan
-);
+// Registro de un service (reinicia el conteo) o de un arreglo (no lo toca).
+router.post('/services', mantenimientoController.registrarService);
+router.post('/arreglos', mantenimientoController.registrarArreglo);
 
-router.post(
-  '/realizados',
-  autenticar,
-  autorizar(...ROLES_TALLER_Y_GESTION),
-  mantenimientoController.registrarMantenimiento
-);
+// Services y arreglos de toda la flota, con filtros y paginado.
+router.get('/historial', mantenimientoController.listarHistorial);
 
-router.get(
-  '/vehiculos/:vehiculoId/historial',
-  autenticar,
-  autorizar(...ROLES_TALLER_Y_GESTION),
-  mantenimientoController.obtenerHistorialVehiculo
-);
-
-router.get(
-  '/evaluar-viaje',
-  autenticar,
-  autorizar(...ROLES_TALLER_Y_GESTION),
-  mantenimientoController.evaluarAdvertenciaViaje
-);
+// ¿El viaje hace que el vehículo pase su service?
+router.get('/evaluar-viaje', mantenimientoController.evaluarAdvertenciaViaje);
 
 module.exports = router;
