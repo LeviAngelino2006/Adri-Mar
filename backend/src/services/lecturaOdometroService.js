@@ -14,7 +14,8 @@ class NoEncontradoError extends Error {
   }
 }
 
-const ORIGENES_VALIDOS_CREAR = ['ALTA_VEHICULO', 'INICIO_VIAJE', 'FIN_VIAJE', 'MANUAL'];
+// MANTENIMIENTO: el km cargado en un service o un arreglo, cuando supera al odómetro.
+const ORIGENES_VALIDOS_CREAR = ['ALTA_VEHICULO', 'INICIO_VIAJE', 'FIN_VIAJE', 'MANUAL', 'MANTENIMIENTO'];
 const ORIGENES_CON_VIAJE_OBLIGATORIO = ['INICIO_VIAJE', 'FIN_VIAJE'];
 
 async function obtenerOrigenPorDescripcion(descripcion, cliente = prisma) {
@@ -98,8 +99,8 @@ function validarDatosCrear({ vehiculoId, valorKm, origen, viajeId, usuarioId }) 
   };
 }
 
-// Usa crearLectura para ALTA_VEHICULO / INICIO_VIAJE / FIN_VIAJE / MANUAL. Las
-// correcciones van por corregirLectura, que tiene su propia validación (no se
+// Usa crearLectura para ALTA_VEHICULO / INICIO_VIAJE / FIN_VIAJE / MANUAL /
+// MANTENIMIENTO. Las correcciones van por corregirLectura, que tiene su propia validación (no se
 // permiten como un origen más acá, para no tener dos caminos de creación de
 // correcciones).
 //

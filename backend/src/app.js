@@ -14,6 +14,7 @@ const estadoPagoRoutes = require('./routes/estadoPagoRoutes');
 const metodoPagoRoutes = require('./routes/metodoPagoRoutes');
 const documentoRoutes = require('./routes/documentoRoutes');
 const presupuestoRoutes = require('./routes/presupuestoRoutes');
+const mantenimientoRoutes = require('./routes/mantenimientoRoutes');
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use('/api/estados-pago', estadoPagoRoutes);
 app.use('/api/metodos-pago', metodoPagoRoutes);
 app.use('/api/documentos', documentoRoutes);
 app.use('/api/presupuestos', presupuestoRoutes);
+app.use('/api/mantenimientos', mantenimientoRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Recurso no encontrado' });
