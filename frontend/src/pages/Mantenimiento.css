@@ -1,6 +1,14 @@
 /* Mantenimiento: la página se arma con Listado (barra, filtros y tarjetas),
    FormField y ModalMarco. Acá solo lo propio de la pantalla. Solo tokens. */
 
+/* Formulario de Arreglos: ocupa todo el ancho del área de contenido, para que
+   su borde izquierdo quede alineado con las pestañas Service | Arreglos |
+   Historial y el derecho con el de las listas de las otras vistas. Pisa el
+   max-width: 720px de .form-card (excepción documentada en el design system). */
+.form-card.arreglos-form-card {
+  max-width: none;
+}
+
 /* Lista "Incluye:" del service, dentro de un Alert info. */
 .service-incluye-titulo {
   font-weight: 600;

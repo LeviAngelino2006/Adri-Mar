@@ -116,9 +116,9 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
 
   return (
     <>
-      <ListadoToolbar vistas={vistas} />
+      <ListadoToolbar vistas={vistas} vistasAlInicio />
 
-      <Card className="form-card">
+      <Card className="form-card arreglos-form-card">
         <form ref={refForm} onSubmit={handleSubmit} noValidate>
           <div className="form-grid">
             <FormField id="arreglo-vehiculo" label="Vehículo" required error={errores.vehiculoId || errorVehiculos}>

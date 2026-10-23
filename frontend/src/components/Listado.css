@@ -19,6 +19,17 @@
   margin-left: auto;
 }
 
+/* Variante con las vistas primero (Mantenimiento): el control queda a la
+   izquierda y el buscador (o Filtros, si no hay buscador) se va a la derecha. */
+.listado-toolbar-vistas-inicio .control-segmentado {
+  margin-left: 0;
+}
+
+.listado-toolbar-vistas-inicio .control-segmentado + .listado-buscar,
+.listado-toolbar-vistas-inicio .control-segmentado + .filtros-toggle-btn {
+  margin-left: auto;
+}
+
 /* Barra de menos de 600px: el control pasa arriba, a todo el ancho, con las
    opciones en partes iguales. */
 @container listado-toolbar (max-width: 599px) {

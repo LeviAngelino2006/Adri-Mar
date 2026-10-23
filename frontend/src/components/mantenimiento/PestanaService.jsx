@@ -45,7 +45,8 @@ export function TarjetaService({ item, onClick }) {
 }
 
 // Pestaña Service: el estado del service de cada vehículo, con buscador,
-// filtros (estado y tipo de vehículo) y orden. Los datos los carga la página
+// filtros (estado y tipo de vehículo) y orden. Sin acción en la barra: el
+// service se registra tocando la tarjeta del vehículo (que ya lo trae elegido). Los datos los carga la página
 // (también los usan Arreglos y el contador de alertas); acá solo se filtran y
 // ordenan, porque son pocos vehículos.
 function PestanaService({ carga, tiposVehiculo, vistas, onRegistrar, onAsignar }) {
@@ -65,7 +66,7 @@ function PestanaService({ carga, tiposVehiculo, vistas, onRegistrar, onAsignar }
         busqueda={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Buscar por interno, dominio, marca o modelo' }}
         filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos }}
         vistas={vistas}
-        accion={{ etiqueta: 'Registrar service', onClick: () => onRegistrar(null) }}
+        vistasAlInicio
       />
 
       {mostrarFiltros && (

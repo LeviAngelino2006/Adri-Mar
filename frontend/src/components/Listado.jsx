@@ -34,9 +34,15 @@ export function ListadoHeader({ titulo }) {
 //   vistas:   las props de ControlSegmentado (Documentación: Vehículos | Choferes)
 //   accion:   { etiqueta, onClick } ("Crear vehículo"); debajo de 640px se ve
 //             solo el "+" y la etiqueta queda para los lectores de pantalla.
-export function ListadoToolbar({ busqueda, filtros, vistas, accion }) {
+//   vistasAlInicio: true pone el control de vistas primero, a la izquierda, y
+//             el buscador y Filtros a la derecha (Mantenimiento: las vistas son
+//             la navegación principal de la pantalla). Por defecto las vistas
+//             van a la derecha de todo, como en Documentación.
+export function ListadoToolbar({ busqueda, filtros, vistas, accion, vistasAlInicio = false }) {
+  const controlVistas = vistas && <ControlSegmentado {...vistas} />;
   return (
-    <div className="listado-toolbar">
+    <div className={vistasAlInicio ? 'listado-toolbar listado-toolbar-vistas-inicio' : 'listado-toolbar'}>
+      {vistasAlInicio && controlVistas}
       {busqueda && (
         <div className="listado-buscar">
           {ICONO_LUPA}
@@ -56,7 +62,7 @@ export function ListadoToolbar({ busqueda, filtros, vistas, accion }) {
           {filtros.activos > 0 && <span className="filtros-toggle-badge">{filtros.activos}</span>}
         </button>
       )}
-      {vistas && <ControlSegmentado {...vistas} />}
+      {!vistasAlInicio && controlVistas}
       {accion && (
         <Button variant="primary" className="listado-accion" aria-label={accion.etiqueta} onClick={accion.onClick}>
           <span className="listado-accion-signo" aria-hidden="true">

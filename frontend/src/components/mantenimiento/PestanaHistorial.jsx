@@ -147,6 +147,7 @@ function PestanaHistorial({ vehiculoId, onQuitarVehiculo, tiposVehiculo, vistas 
         busqueda={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Buscar vehículo por interno, dominio, marca o modelo' }}
         filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos }}
         vistas={vistas}
+        vistasAlInicio
       />
 
       {mostrarFiltros && (
