@@ -1,8 +1,9 @@
 // Doble de Prisma CON ESTADO para los tests de viajes: tablas en memoria
 // (usuarios, vehículos, ubicaciones, viajes, sus candidatos y sus paradas, tipos
-// de documento y documentos) y un $transaction con rollback real — lo que no se
-// confirma, se deshace. Lo comparten viajesCandidatos.test.js,
-// viajesParadas.test.js y documentos.test.js.
+// de documento y documentos, y mantenimiento) y un $transaction con rollback
+// real — lo que no se confirma, se deshace. Lo comparten
+// viajesCandidatos.test.js, viajesParadas.test.js, documentos.test.js y
+// mantenimiento.test.js.
 //
 // Se usa así (el reemplazo del módulo tiene que ir ANTES de cargar la app):
 //
@@ -56,6 +57,16 @@ function crearEntorno() {
     candVeh: [],
     // Filas de viaje_paradas: { viajeId, ubicacionId, orden }.
     paradas: [],
+    // Mantenimiento: plantillas (una por tipo de vehículo), planes, registros
+    // (services y arreglos), catálogo de tipos de arreglo y lecturas de
+    // odómetro (solo las que crea o lee crearLectura dentro de la transacción).
+    plantillasMantenimiento: [],
+    planesMantenimiento: [],
+    mantenimientosRealizados: [],
+    tiposArreglo: [],
+    lecturas: [],
+    // Orígenes de lectura sembrados (id → descripción).
+    origenes: { 1: 'ALTA_VEHICULO', 2: 'INICIO_VIAJE', 3: 'FIN_VIAJE', 4: 'MANUAL', 5: 'CORRECCION', 6: 'MANTENIMIENTO' },
     // Catálogo de tipos de documento (con su categoría) y filas de `documentos`.
     tiposDocumento: [],
     documentos: [],
@@ -88,15 +99,20 @@ function crearEntorno() {
       usuario(10, 'Chofer', 'Token'),
     ]);
 
-    const vehiculo = (id, numeroInterno, dominio, estado = 'OPERATIVO') => ({
+    const vehiculo = (id, numeroInterno, dominio, estado = 'OPERATIVO', tipoVehiculoId = 1) => ({
       id,
       numeroInterno,
       dominio,
-      // Forma del include de modelo y marca (ver utils/marcaModeloVehiculo).
       modeloId: 1,
       modelo: { id: 1, nombre: 'O500', marcaId: 1, marca: { id: 1, nombre: 'Mercedes' } },
       kilometraje: 1000,
       estadoVehiculo: { descripcion: estado },
+      tipoVehiculoId,
+      tipoVehiculo: {
+        id: tipoVehiculoId,
+        descripcion: tipoVehiculoId === 1 ? 'Colectivo' : tipoVehiculoId === 2 ? 'Minibus' : tipoVehiculoId === 3 ? 'Trafic' : 'Utilitario',
+        orden: tipoVehiculoId
+      },
     });
     reemplazar(db.vehiculos, [
       vehiculo(7, '12', 'AE452KD'),
@@ -133,6 +149,38 @@ function crearEntorno() {
       tipo(7, 'ITV', 'VEHICULO', true, true),
     ]);
     reemplazar(db.documentos, []);
+    const plantilla = (id, descripcion, intervaloKm) => ({
+      id,
+      nombre: `Service ${descripcion}`,
+      tipoVehiculoId: id,
+      intervaloKm,
+      porcentajeAviso: 95,
+    });
+    reemplazar(db.plantillasMantenimiento, [
+      plantilla(1, 'Colectivo', 20000),
+      plantilla(2, 'Minibus', 20000),
+      plantilla(3, 'Trafic', 15000),
+      plantilla(4, 'Utilitario', 10000),
+    ]);
+    reemplazar(db.planesMantenimiento, []);
+    reemplazar(db.mantenimientosRealizados, []);
+    const tipoArreglo = (id, nombre, { requiereDetalle = false, activo = true } = {}) => ({
+      id,
+      nombre,
+      descripcion: `Descripción de ${nombre}`,
+      requiereDetalle,
+      orden: id,
+      activo,
+    });
+    // Desordenados a propósito: el service tiene que ordenarlos por `orden`.
+    reemplazar(db.tiposArreglo, [
+      tipoArreglo(3, 'Cambio de cubiertas'),
+      tipoArreglo(1, 'Engrase'),
+      tipoArreglo(4, 'Frenos'),
+      tipoArreglo(8, 'Otro', { requiereDetalle: true }),
+      tipoArreglo(9, 'Tapicería', { activo: false }),
+    ]);
+    reemplazar(db.lecturas, []);
     db.relojDocumentos = Date.parse('2026-01-01T00:00:00Z');
 
     reemplazar(db.viajes, []);
@@ -341,9 +389,169 @@ function crearEntorno() {
       db.tiposDocumento.filter((t) => t.categoriaDocumento.descripcion === where.categoriaDocumento.descripcion).length,
   };
 
+  // --- Mantenimiento ----------------------------------------------------------
+  const plantillaDeTipo = (tipoVehiculoId) => db.plantillasMantenimiento.find((p) => p.tipoVehiculoId === tipoVehiculoId) ?? null;
+
+  function armarPlan(p) {
+    if (!p) return null;
+    const plantilla = db.plantillasMantenimiento.find((pl) => pl.id === p.plantillaMantenimientoId);
+    return { ...p, plantillaMantenimiento: plantilla ? { ...plantilla } : null };
+  }
+
+  // El vehículo con lo que pide INCLUDE_VEHICULO de mantenimientoService: la
+  // plantilla de su tipo y su plan (con su plantilla).
+  function armarVehiculoMantenimiento(v) {
+    return {
+      ...v,
+      tipoVehiculo: { ...v.tipoVehiculo, plantilla: plantillaDeTipo(v.tipoVehiculoId) },
+      planMantenimiento: armarPlan(db.planesMantenimiento.find((p) => p.vehiculoId === v.id)),
+    };
+  }
+
+  const modeloPlanMantenimiento = {
+    create: async ({ data }) => {
+      if (db.planesMantenimiento.some((p) => p.vehiculoId === data.vehiculoId)) {
+        throw new Error('Unique constraint failed on (vehiculo_id)');
+      }
+      const fila = { id: db.siguienteId++, activo: true, ...data, creadoEn: new Date(), actualizadoEn: new Date() };
+      db.planesMantenimiento.push(fila);
+      return armarPlan(fila);
+    },
+    update: async ({ where: { id }, data }) => {
+      const p = db.planesMantenimiento.find((x) => x.id === id);
+      if (!p) throw new Error('Record to update not found');
+      Object.assign(p, data, { actualizadoEn: new Date() });
+      return armarPlan(p);
+    },
+  };
+
+  const contieneSinMayusculas = (texto, filtro) => String(texto).toLowerCase().includes(filtro.contains.toLowerCase());
+
+  function coincideVehiculoMantenimiento(v, filtro) {
+    return Object.entries(filtro).every(([clave, valor]) => {
+      if (clave === 'tipoVehiculoId') return v.tipoVehiculoId === valor;
+      if (clave === 'OR') {
+        return valor.some((opcion) => {
+          if (opcion.numeroInterno) return contieneSinMayusculas(v.numeroInterno, opcion.numeroInterno);
+          if (opcion.dominio) return contieneSinMayusculas(v.dominio, opcion.dominio);
+          if (opcion.modelo?.nombre) return contieneSinMayusculas(v.modelo.nombre, opcion.modelo.nombre);
+          if (opcion.modelo?.marca) return contieneSinMayusculas(v.modelo.marca.nombre, opcion.modelo.marca.nombre);
+          throw new Error(`filtro OR no soportado por el doble: ${JSON.stringify(opcion)}`);
+        });
+      }
+      throw new Error(`filtro no soportado por el doble: mantenimientos.vehiculo.${clave}`);
+    });
+  }
+
+  // Soporta solo los filtros que arma mantenimientoService; uno desconocido revienta.
+  function coincideRegistro(fila, where = {}) {
+    return Object.entries(where).every(([clave, filtro]) => {
+      if (['vehiculoId', 'esServicePreventivo', 'tipoArregloId'].includes(clave)) return fila[clave] === filtro;
+      if (clave === 'id') return filtro.in.includes(fila.id);
+      if (clave === 'fecha') {
+        const t = fila.fecha.getTime();
+        return (!filtro.gte || t >= filtro.gte.getTime()) && (!filtro.lt || t < filtro.lt.getTime());
+      }
+      if (clave === 'vehiculo') {
+        return coincideVehiculoMantenimiento(db.vehiculos.find((v) => v.id === fila.vehiculoId), filtro);
+      }
+      throw new Error(`filtro no soportado por el doble: mantenimientos.${clave}`);
+    });
+  }
+
+  function armarRegistro(fila) {
+    const usuario = db.usuarios.find((u) => u.id === fila.usuarioId);
+    return {
+      ...fila,
+      tipoArreglo: db.tiposArreglo.find((t) => t.id === fila.tipoArregloId) ?? null,
+      usuario: usuario ? { nombre: usuario.nombre, apellido: usuario.apellido } : null,
+      vehiculo: { ...db.vehiculos.find((v) => v.id === fila.vehiculoId) },
+    };
+  }
+
+  const modeloMantenimientoRealizado = {
+    create: async ({ data }) => {
+      if (db.fallos.createMantenimiento) throw new Error('falla simulada en el create del mantenimiento');
+      // CHECK mantenimientos_service_o_arreglo de la migración.
+      if (data.esServicePreventivo === (data.tipoArregloId != null)) {
+        throw new Error('violates check constraint "mantenimientos_service_o_arreglo"');
+      }
+      const fila = {
+        id: db.siguienteId++,
+        planMantenimientoId: null,
+        tipoArregloId: null,
+        descripcion: null,
+        repuestos: null,
+        tallerMecanico: null,
+        costo: null,
+        observaciones: null,
+        ...data,
+        creadoEn: new Date(),
+      };
+      db.mantenimientosRealizados.push(fila);
+      return armarRegistro(fila);
+    },
+    count: async ({ where } = {}) => db.mantenimientosRealizados.filter((m) => coincideRegistro(m, where)).length,
+    findMany: async ({ where, orderBy = [], skip = 0, take } = {}) => {
+      const filas = db.mantenimientosRealizados.filter((m) => coincideRegistro(m, where));
+      const criterios = [].concat(orderBy).flatMap((o) => Object.entries(o));
+      filas.sort((a, b) => {
+        for (const [campo, sentido] of criterios) {
+          const x = a[campo] instanceof Date ? a[campo].getTime() : a[campo];
+          const y = b[campo] instanceof Date ? b[campo].getTime() : b[campo];
+          if (x !== y) return (x < y ? -1 : 1) * (sentido === 'desc' ? -1 : 1);
+        }
+        return 0;
+      });
+      return filas.slice(skip, take === undefined ? undefined : skip + take).map(armarRegistro);
+    },
+  };
+
+  const modeloTipoArreglo = {
+    findMany: async ({ where, orderBy }) => {
+      if (!where?.activo || orderBy?.orden !== 'asc') throw new Error('el doble espera where activo + orderBy orden asc');
+      return db.tiposArreglo
+        .filter((t) => t.activo)
+        .sort((a, b) => a.orden - b.orden)
+        .map((t) => ({ ...t }));
+    },
+    findUnique: async ({ where: { id } }) => db.tiposArreglo.find((t) => t.id === id) ?? null,
+  };
+
+  // Lo que usa crearLectura dentro de la transacción: lock de la fila del
+  // vehículo, última lectura, origen, alta de la lectura y caché de km.
+  const modelosLecturaTx = {
+    $queryRaw: async (_partes, vehiculoId) => (db.vehiculos.some((v) => v.id === vehiculoId) ? [{ id: vehiculoId }] : []),
+    lecturaOdometro: {
+      findFirst: async ({ where: { vehiculoId } }) =>
+        db.lecturas.filter((l) => l.vehiculoId === vehiculoId).sort((a, b) => b.fechaHora - a.fechaHora)[0] ?? null,
+      create: async ({ data }) => {
+        const fila = { id: db.siguienteId++, lecturaCorregidaId: null, motivo: null, creadoEn: new Date(), ...data };
+        db.lecturas.push(fila);
+        return { ...fila, origen: { id: data.origenId, descripcion: db.origenes[data.origenId] } };
+      },
+    },
+    origenLectura: {
+      findUnique: async ({ where: { descripcion } }) => {
+        const id = Number(Object.keys(db.origenes).find((k) => db.origenes[k] === descripcion));
+        return id ? { id, descripcion } : null;
+      },
+    },
+  };
+
   // Los modelos de candidatos y updateMany solo existen DENTRO de la transacción
   // (tx): si alguna ruta los usara por fuera de $transaction, el test revienta.
   const modelosTx = {
+    planMantenimiento: modeloPlanMantenimiento,
+    mantenimientoRealizado: modeloMantenimientoRealizado,
+    ...modelosLecturaTx,
+    vehiculo: {
+      update: async ({ where: { id }, data }) => {
+        const v = db.vehiculos.find((x) => x.id === id);
+        if (v) Object.assign(v, data);
+        return v ? { ...v } : null;
+      },
+    },
     documento: modeloDocumento,
     // @@unique([viajeId, orden]) como en la base: createMany falla si una fila
     // choca con otra. Por eso reordenar solo funciona si el deleteMany va ANTES.
@@ -418,6 +626,9 @@ function crearEntorno() {
       findUnique: async ({ where: { descripcion } }) => ({ id: ESTADOS[descripcion], descripcion }),
     },
     lecturaOdometro: { findFirst: async () => null },
+    planMantenimiento: modeloPlanMantenimiento,
+    mantenimientoRealizado: modeloMantenimientoRealizado,
+    tipoArreglo: modeloTipoArreglo,
     usuario: {
       findUnique: async ({ where: { id } }) => {
         if (db.alLeerUsuario) db.alLeerUsuario();
@@ -439,11 +650,16 @@ function crearEntorno() {
       },
     },
     vehiculo: {
-      findUnique: async ({ where: { id } }) => db.vehiculos.find((v) => v.id === id) ?? null,
+      findUnique: async ({ where: { id }, include }) => {
+        const v = db.vehiculos.find((x) => x.id === id);
+        if (!v) return null;
+        return include?.planMantenimiento ? armarVehiculoMantenimiento(v) : v;
+      },
       findMany: async ({ where, include }) => {
         const filas = where.id?.in
           ? db.vehiculos.filter((v) => where.id.in.includes(v.id))
           : db.vehiculos.filter((v) => v.estadoVehiculo.descripcion !== where.estadoVehiculo.descripcion.not);
+        if (include?.planMantenimiento) return filas.map(armarVehiculoMantenimiento);
         if (!include?.documentos) return filas;
         return Promise.all(
           filas.map(async (v) => ({ ...v, documentos: await documentosDe('vehiculoId', v.id, include.documentos) }))
@@ -494,6 +710,10 @@ function crearEntorno() {
         candVeh: db.candVeh.map((c) => ({ ...c })),
         paradas: db.paradas.map((p) => ({ ...p })),
         documentos: db.documentos.map((d) => ({ ...d })),
+        planesMantenimiento: db.planesMantenimiento.map((p) => ({ ...p })),
+        mantenimientosRealizados: db.mantenimientosRealizados.map((m) => ({ ...m })),
+        lecturas: db.lecturas.map((l) => ({ ...l })),
+        kmVehiculos: db.vehiculos.map((v) => [v, v.kilometraje]),
       };
       try {
         return await fn(modelosTx);
@@ -503,6 +723,10 @@ function crearEntorno() {
         reemplazar(db.candVeh, copia.candVeh);
         reemplazar(db.paradas, copia.paradas);
         reemplazar(db.documentos, copia.documentos);
+        reemplazar(db.planesMantenimiento, copia.planesMantenimiento);
+        reemplazar(db.mantenimientosRealizados, copia.mantenimientosRealizados);
+        reemplazar(db.lecturas, copia.lecturas);
+        for (const [vehiculo, km] of copia.kmVehiculos) vehiculo.kilometraje = km;
         throw err;
       }
     },

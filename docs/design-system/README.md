@@ -78,6 +78,7 @@ Las pantallas se arman con las clases de `bundle.css` y los componentes de arrib
 - Listados: `Listado` (patrón único de Viajes, Flota, Usuarios y Documentación), con las tarjetas `TarjetaViaje` y `TarjetaVehiculo`, `FichaDetalle` (ficha de un viaje, vehículo o usuario: una sola card plana con los datos en pares, en dos columnas desde 640px), `Filtros`.
 - Flota y Usuarios: `FormularioVehiculo` y `FormularioUsuario` (alta y edición, en pares, con asteriscos y hints).
 - Documentación: `Listado` con `ControlSegmentado` (Vehículos | Choferes, con ícono y cantidad) en la misma barra que el buscador y Filtros, a la derecha, y, en la ficha, una `TarjetaDocumento` por documento.
+- Mantenimiento: `Mantenimiento` (Service | Arreglos | Historial con `ControlSegmentado` en la barra; tarjetas de estado del service, formulario de arreglos e historial de toda la flota).
 - Usuarios: `Avatar`, con el color según el perfil.
 - Layout: `Navegacion` (sidebar y topbar), `Login` (panel de marca + card).
 - Carga: `Cargando` reemplaza al Spinner con "Cargando…" en pantallas y paneles; el Spinner queda para los botones.

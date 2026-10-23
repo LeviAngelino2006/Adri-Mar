@@ -45,6 +45,7 @@ model Usuario {
   documentosRegistrados  Documento[]       @relation("DocumentosRegistradosPor")
   viajesCandidato        ViajeChoferCandidato[]
   presupuestos           Presupuesto[]
+  mantenimientosRegistrados MantenimientoRealizado[]
 
   @@map("usuarios")
 }
@@ -54,6 +55,7 @@ model TipoVehiculo {
   descripcion String     @unique
   orden       Int
   vehiculos   Vehiculo[]
+  plantilla   PlantillaMantenimiento?
 
   @@map("tipos_vehiculo")
 }
@@ -93,6 +95,8 @@ model Vehiculo {
   documentos       Documento[]
   viajesCandidato  ViajeVehiculoCandidato[]
   presupuestoUnidades PresupuestoUnidad[]
+  planMantenimiento   PlanMantenimiento?
+  mantenimientosRealizados MantenimientoRealizado[]
 
   @@map("vehiculos")
 }
@@ -477,4 +481,93 @@ model PresupuestoUnidad {
   @@unique([presupuestoId, orden])
   @@unique([presupuestoId, vehiculoId])
   @@map("presupuesto_unidades")
+}
+
+model PlantillaMantenimiento {
+  id              Int                 @id @default(autoincrement()) @map("id_plantillamantenimiento")
+  nombre          String              @unique
+  tipoVehiculoId  Int                 @unique @map("tipo_vehiculo_id")
+  tipoVehiculo    TipoVehiculo        @relation(fields: [tipoVehiculoId], references: [id])
+  intervaloKm     Int                 @map("intervalo_km") // Fijo: 20000, 20000, 15000 o 10000
+  // % del intervalo en el que se avisa: 95 → un colectivo (20.000 km) avisa a
+  // los 19.000 km desde su último service; una Trafic (15.000), a los 14.250.
+  porcentajeAviso Int                 @default(95) @map("porcentaje_aviso")
+  planes          PlanMantenimiento[]
+
+  @@map("plantillas_mantenimiento")
+}
+
+// El km del próximo service y el estado (Al día / Próximo / Vencido) no se
+// guardan: se calculan con calcularEstadoService (utils/estadoService.js) a
+// partir de kmUltimoService y la plantilla. Guardarlos dejaría todos los planes
+// desactualizados si cambia el intervalo de una plantilla.
+// onDelete: Restrict: los vehículos se dan de baja de forma lógica y nunca se
+// borran; un Cascade borraría el plan si alguien borrara uno por error.
+model PlanMantenimiento {
+  id                       Int                      @id @default(autoincrement())
+  vehiculoId               Int                      @unique @map("vehiculo_id")
+  vehiculo                 Vehiculo                 @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  plantillaMantenimientoId Int                      @map("plantilla_mantenimiento_id")
+  plantillaMantenimiento   PlantillaMantenimiento   @relation(fields: [plantillaMantenimientoId], references: [id])
+  kmUltimoService          Int                      @map("km_ultimo_service")
+  activo                   Boolean                  @default(true)
+  creadoEn                 DateTime                 @default(now()) @map("creado_en")
+  actualizadoEn            DateTime                 @updatedAt @map("actualizado_en")
+  mantenimientos           MantenimientoRealizado[]
+
+  @@map("planes_mantenimiento")
+}
+
+// Catálogo de trabajos que NO son el service: se registran en la pestaña
+// Arreglos y nunca generan alertas ni reinician el conteo del service.
+// `activo` y `orden` quedan listos para un futuro ABM: un tipo que se deja de
+// usar se desactiva (no se borra), así el historial que lo referencia no se
+// rompe.
+model TipoArreglo {
+  id              Int                      @id @default(autoincrement()) @map("id_tipoarreglo")
+  nombre          String                   @unique
+  descripcion     String?
+  // true = el registro exige una descripción (ej. "Otro": sin detalle no se
+  // sabe qué se hizo). Parametrizado acá en vez de comparar con "Otro" en el
+  // código.
+  requiereDetalle Boolean                  @default(false) @map("requiere_detalle")
+  orden           Int
+  activo          Boolean                  @default(true)
+  creadoEn        DateTime                 @default(now()) @map("creado_en")
+  mantenimientos  MantenimientoRealizado[]
+
+  @@map("tipos_arreglo")
+}
+
+// Un registro es un SERVICE (es_service_preventivo = true, tipo_arreglo_id
+// null) o un ARREGLO (false, con tipo_arreglo_id). Nunca las dos cosas: lo
+// garantiza el CHECK mantenimientos_service_o_arreglo de la migración.
+// Service y arreglo comparten tabla para que el historial sea una sola
+// consulta. `costo` y `tallerMecanico` quedan en la base (nullable): hoy el
+// service no los usa y el arreglo solo usa tallerMecanico (en la API,
+// "responsable"); sumar el costo es agregar el campo al formulario y a la API.
+// onDelete: Restrict en vehículo: misma razón que en PlanMantenimiento.
+model MantenimientoRealizado {
+  id                  Int                @id @default(autoincrement())
+  vehiculoId          Int                @map("vehiculo_id")
+  vehiculo            Vehiculo           @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  planMantenimientoId Int?               @map("plan_mantenimiento_id")
+  planMantenimiento   PlanMantenimiento? @relation(fields: [planMantenimientoId], references: [id], onDelete: SetNull)
+  esServicePreventivo Boolean            @default(false) @map("es_service_preventivo")
+  tipoArregloId       Int?               @map("tipo_arreglo_id")
+  tipoArreglo         TipoArreglo?       @relation(fields: [tipoArregloId], references: [id], onDelete: Restrict)
+  fecha               DateTime
+  kilometraje         Int
+  descripcion         String?
+  repuestos           String?
+  tallerMecanico      String?            @map("taller_mecanico")
+  costo               Decimal?           @db.Decimal(12, 2)
+  observaciones       String?
+  usuarioId           Int                @map("usuario_id")
+  usuario             Usuario            @relation(fields: [usuarioId], references: [id])
+  creadoEn            DateTime           @default(now()) @map("creado_en")
+
+  @@index([vehiculoId, fecha])
+  @@index([fecha])
+  @@map("mantenimientos_realizados")
 }

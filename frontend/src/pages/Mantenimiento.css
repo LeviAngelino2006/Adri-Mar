@@ -1,0 +1,71 @@
+/* Mantenimiento: la página se arma con Listado (barra, filtros y tarjetas),
+   FormField y ModalMarco. Acá solo lo propio de la pantalla. Solo tokens. */
+
+/* Formulario de Arreglos: ocupa todo el ancho del área de contenido, para que
+   su borde izquierdo quede alineado con las pestañas Service | Arreglos |
+   Historial y el derecho con el de las listas de las otras vistas. Pisa el
+   max-width: 720px de .form-card (excepción documentada en el design system). */
+.form-card.arreglos-form-card {
+  max-width: none;
+}
+
+/* Lista "Incluye:" del service, dentro de un Alert info. */
+.service-incluye-titulo {
+  font-weight: 600;
+}
+
+.service-incluye {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+}
+
+/* Historial filtrado por un vehículo: el vehículo, su estado y "Ver toda la flota". */
+.historial-vehiculo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.historial-vehiculo-datos {
+  min-width: 0;
+  flex: 1 1 240px;
+}
+
+.historial-vehiculo-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.historial-vehiculo-titulo {
+  font-weight: 600;
+}
+
+.historial-vehiculo-sub {
+  margin: var(--space-1) 0 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+/* "N registros": resumen numérico en gris, sin badges. */
+.historial-resumen {
+  margin: 0 0 var(--space-3);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Ver más", igual que el "Ver N más" del Dashboard. */
+.historial-ver-mas {
+  margin-top: calc(-1 * var(--space-3));
+  margin-bottom: var(--space-6);
+}
