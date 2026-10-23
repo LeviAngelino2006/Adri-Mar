@@ -2,8 +2,17 @@ const vehiculoService = require('../services/vehiculoService');
 const lecturaOdometroService = require('../services/lecturaOdometroService');
 
 async function crear(req, res) {
-  const { dominio, numeroInterno, modeloId, adquiridoUsado, anio, asientos, kilometraje, tipoVehiculoId } =
-    req.body;
+  const {
+    dominio,
+    numeroInterno,
+    modeloId,
+    adquiridoUsado,
+    anio,
+    asientos,
+    kilometraje,
+    kmUltimoService,
+    tipoVehiculoId,
+  } = req.body;
 
   try {
     const vehiculo = await vehiculoService.crearVehiculo(
@@ -15,6 +24,7 @@ async function crear(req, res) {
         anio,
         asientos,
         kilometraje,
+        kmUltimoService,
         tipoVehiculoId,
       },
       { usuarioId: req.usuario.id }

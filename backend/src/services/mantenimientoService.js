@@ -322,6 +322,51 @@ async function asignarPlanAVehiculo({ vehiculoId, kmUltimoService }) {
   return serializarEstadoService(actualizado);
 }
 
+// --- Plan automático (alta y cambio de tipo del vehículo) ---------------------
+// Los llama vehiculoService DENTRO de su transacción (`tx`), así el vehículo y
+// su plan se guardan juntos o no se guarda ninguno. Reciben la plantilla del
+// tipo ya leída (o null si el tipo no tiene): sin plantilla el vehículo queda
+// SIN_PLAN y se le asigna uno cuando exista.
+
+// Km del último service opcional del formulario de alta: vacío → null (se usa
+// el km de alta). No puede superar al odómetro de alta. Devuelve el número, o
+// el error en `errores.kmUltimoService`.
+function validarKmUltimoServiceAlta(valor, kilometrajeAlta, errores) {
+  const texto = String(valor ?? '').trim();
+  if (!texto) return null;
+  const km = Number(texto);
+  if (!Number.isInteger(km) || km < 0 || km > ID_MAXIMO) {
+    errores.kmUltimoService = 'El km del último service debe ser un número entero mayor o igual a 0';
+    return null;
+  }
+  if (Number.isInteger(kilometrajeAlta) && km > kilometrajeAlta) {
+    errores.kmUltimoService = `El km del último service no puede superar al kilometraje de alta (${kilometrajeAlta} km)`;
+    return null;
+  }
+  return km;
+}
+
+async function crearPlanInicial(tx, { vehiculoId, plantilla, kmUltimoService }) {
+  if (!plantilla) return null;
+  return tx.planMantenimiento.create({
+    data: { vehiculoId, plantillaMantenimientoId: plantilla.id, kmUltimoService, activo: true },
+  });
+}
+
+// Si cambia el tipo del vehículo, su plan pasa a la plantilla del tipo nuevo
+// sin tocar el km del último service (el service hecho sigue valiendo). Si el
+// tipo nuevo no tiene plantilla, el plan se desactiva (SIN_PLAN) en vez de
+// seguir avisando con el intervalo del tipo viejo. Si no tenía plan, se le crea
+// uno desde el odómetro actual.
+async function actualizarPlanPorCambioDeTipo(tx, { vehiculo, plantilla }) {
+  const plan = vehiculo.planMantenimiento;
+  if (!plan) {
+    return crearPlanInicial(tx, { vehiculoId: vehiculo.id, plantilla, kmUltimoService: vehiculo.kilometraje });
+  }
+  const data = plantilla ? { plantillaMantenimientoId: plantilla.id, activo: true } : { activo: false };
+  return tx.planMantenimiento.update({ where: { id: plan.id }, data });
+}
+
 // --- Registro -----------------------------------------------------------------
 
 async function registrarService(datos, usuarioId) {
@@ -601,6 +646,9 @@ module.exports = {
   listarTiposArreglo,
   listarEstadoService,
   asignarPlanAVehiculo,
+  validarKmUltimoServiceAlta,
+  crearPlanInicial,
+  actualizarPlanPorCambioDeTipo,
   registrarService,
   registrarArreglo,
   listarHistorial,
