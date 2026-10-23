@@ -7,7 +7,7 @@ import Card from '../components/ui/Card';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import FormField from '../components/ui/FormField';
 import Button from '../components/ui/Button';
-import Cargando from '../components/ui/Cargando';
+import EstadoCarga from '../components/ui/EstadoCarga';
 import Alert from '../components/ui/Alert';
 import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
@@ -15,17 +15,20 @@ import ViajeForm from '../components/ViajeForm';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import ModalConfirmarViaje from '../components/ModalConfirmarViaje';
 import AvisarPorWhatsApp from '../components/AvisarPorWhatsApp';
+import BotonComenzarViaje from '../components/BotonComenzarViaje';
 import { ListadoViajesPorDia } from '../components/TarjetaViaje';
 import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { DURACION_TOAST_CON_ACCION_MS, DURACION_TOAST_MS } from '../constants/toast';
-import { aInputCordoba } from '../utils/fechaCordoba';
-import { paradasDesdeViaje } from '../utils/paradas';
+import DuplicarViaje from '../components/DuplicarViaje';
+import { avisoDuplicado, valoresParaDuplicar, viajeAValoresForm } from '../utils/valoresFormViaje';
 import { avisoWhatsApp } from '../utils/whatsapp';
 import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
+import { useCarga } from '../hooks/useCarga';
+import { useViajesEnCurso } from '../hooks/useViajesEnCurso';
 import './Viajes.css';
 
 const ICONO_ALERTA = (
@@ -53,6 +56,9 @@ const FILTROS_INICIALES = {
   vehiculoId: '',
   fechaDesde: '',
   fechaHasta: '',
+  // 'true' o '': viajes con badge "Sin precio" o "Cobro pendiente". Solo lo ven
+  // (y el backend solo lo acepta de) Administrador y Encargado.
+  administrativoPendiente: '',
 };
 
 function dedupePorId(lista) {
@@ -63,24 +69,26 @@ function dedupePorId(lista) {
   return [...vistos.values()];
 }
 
-function viajeAValoresForm(viaje) {
-  return {
-    clienteId: viaje.clienteId || '',
-    clienteNombre: viaje.cliente?.nombre || '',
-    choferId: viaje.choferId || '',
-    vehiculoId: viaje.vehiculoId || '',
-    choferesCandidatos: (viaje.choferesCandidatos ?? []).map((c) => c.id),
-    vehiculosCandidatos: (viaje.vehiculosCandidatos ?? []).map((c) => c.id),
-    origenId: viaje.origenId || '',
-    origenNombre: viaje.origen?.nombre || '',
-    destinoId: viaje.destinoId || '',
-    destinoNombre: viaje.destino?.nombre || '',
-    paradas: paradasDesdeViaje(viaje),
-    fechaInicio: aInputCordoba(viaje.fechaInicio),
-    fechaFin: aInputCordoba(viaje.fechaFin),
-    kilometrosEstimados: viaje.kilometrosEstimados ?? '',
-    cantidadPasajeros: viaje.cantidadPasajeros ?? '',
-  };
+const MARGEN_SCROLL_PX = 16;
+
+// Scroll suave hasta la tarjeta de datos administrativos de la ficha. Si su
+// encabezado (título y botón "Editar datos administrativos") ya se ve entero
+// no se mueve nada: es el caso de escritorio. Descuenta la barra superior
+// sticky del celular (en escritorio está oculta y mide 0). Con "reducir
+// movimiento" el salto es directo.
+function llevarADatosAdministrativos(tarjeta) {
+  if (!tarjeta) return;
+  const alturaBarra = document.querySelector('.layout-topbar')?.offsetHeight ?? 0;
+  const encabezado = tarjeta.firstElementChild ?? tarjeta;
+  const { top } = tarjeta.getBoundingClientRect();
+  const { bottom } = encabezado.getBoundingClientRect();
+  if (top >= alturaBarra && bottom <= window.innerHeight) return;
+
+  const reducirMovimiento = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  window.scrollTo({
+    top: window.scrollY + top - alturaBarra - MARGEN_SCROLL_PX,
+    behavior: reducirMovimiento ? 'auto' : 'smooth',
+  });
 }
 
 // Todo viaje nace A_CONFIRMAR (ver viajeService.crearViaje): el único camino a
@@ -98,8 +106,6 @@ function Viajes() {
   // viajes). Se consume una sola vez, al terminar la primera carga del listado.
   const viajeIdPendiente = useRef(location.state?.viajeId ?? null);
 
-  const [viajes, setViajes] = useState([]);
-  const [cargando, setCargando] = useState(true);
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const filtrosActivos = Object.values(filtros).filter(Boolean).length;
@@ -113,6 +119,9 @@ function Viajes() {
 
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editando, setEditando] = useState(null);
+  // "Duplicar viaje": { original, valores, aviso }. El formulario es un alta
+  // precargada con `valores`.
+  const [duplicando, setDuplicando] = useState(null);
 
   const [cancelando, setCancelando] = useState(null);
   const [errorCancelar, setErrorCancelar] = useState('');
@@ -124,6 +133,12 @@ function Viajes() {
   // Viaje A_CONFIRMAR sobre el que se abrió el modal de "Confirmar viaje", o
   // null si está cerrado.
   const [pedidoConfirmar, setPedidoConfirmar] = useState(null);
+
+  // Tarjeta de datos administrativos de la ficha abierta, y si hay que llevar
+  // la vista hasta ella. Esto último lo pide solo el alta (handleGuardarForm):
+  // abrir la ficha desde el listado o después de editar no lo hace.
+  const datosAdministrativosRef = useRef(null);
+  const irADatosAdministrativos = useRef(false);
 
   // Las opciones de los selects de chofer/vehículo salen de los viajes ya
   // programados (se cargan una sola vez, sin filtros) en vez de pedirle la
@@ -139,23 +154,26 @@ function Viajes() {
         )
       );
       setOpcionesVehiculo(ordenarPorInterno(dedupePorId(data.viajes.map((v) => v.vehiculo).filter(Boolean))));
-    });
+    })
+      // Sin red, los filtros de chofer y vehículo quedan solo con "Todos"; el
+      // error ya lo muestra el listado, con "Reintentar".
+      .catch(() => {});
   }, []);
 
-  const cargarViajes = useCallback(() => {
-    setCargando(true);
+  // Pide el listado con los filtros actuales; useCarga lleva los estados de
+  // cargando y error (un error no es un listado vacío).
+  const pedirViajes = useCallback(() => {
     const params = {};
     if (filtros.estado) params.estado = filtros.estado;
     if (filtros.choferId) params.choferId = filtros.choferId;
     if (filtros.vehiculoId) params.vehiculoId = filtros.vehiculoId;
     if (filtros.fechaDesde) params.fechaDesde = filtros.fechaDesde;
     if (filtros.fechaHasta) params.fechaHasta = filtros.fechaHasta;
+    if (filtros.administrativoPendiente) params.administrativoPendiente = filtros.administrativoPendiente;
 
     return api
       .get('/viajes', { params })
       .then(({ data }) => {
-        setViajes(data.viajes);
-
         if (viajeIdPendiente.current !== null) {
           const pendiente = data.viajes.find((v) => v.id === viajeIdPendiente.current);
           viajeIdPendiente.current = null;
@@ -164,13 +182,20 @@ function Viajes() {
           // vuelva a abrir la ficha.
           navigate(location.pathname, { replace: true, state: null });
         }
-      })
-      .finally(() => setCargando(false));
+        return data.viajes;
+      });
   }, [filtros, navigate, location.pathname]);
 
-  useEffect(() => {
-    cargarViajes();
-  }, [cargarViajes]);
+  const cargaViajes = useCarga(pedirViajes);
+  const viajes = cargaViajes.datos ?? [];
+  const cargarViajes = cargaViajes.recargar;
+
+  // Viajes En viaje, para no ofrecer "Comenzar viaje" si el chofer o el vehículo
+  // del viaje abierto ya están en otro (ver BotonComenzarViaje). Solo con la
+  // ficha de un Programado abierta y para quien lo puede comenzar.
+  const puedeComenzarSeleccionado =
+    seleccionado?.estado === 'PROGRAMADO' && (puedeGestionar || usuario.id === seleccionado.choferId);
+  const viajesEnCurso = useViajesEnCurso('/viajes', puedeComenzarSeleccionado ? seleccionado.id : null);
 
   // El toast ofrece avisar por WhatsApp solo si hay un link posible (chofer con
   // teléfono utilizable); con acción dura más, para dar tiempo a tocarla.
@@ -197,9 +222,15 @@ function Viajes() {
   // esto conservan el scroll de la vista anterior (la ficha o el formulario
   // aparecen desplazados hacia abajo, y el listado también al cancelar o
   // guardar desde los botones del final).
+  // Después de crear, en el mismo efecto (para que corra después de volver
+  // arriba) se baja hasta la tarjeta de datos administrativos.
   const seleccionadoId = seleccionado?.id ?? null;
   useEffect(() => {
     window.scrollTo(0, 0);
+    if (irADatosAdministrativos.current) {
+      irADatosAdministrativos.current = false;
+      llevarADatosAdministrativos(datosAdministrativosRef.current);
+    }
   }, [seleccionadoId, mostrarForm]);
 
   function handleFiltroChange(e) {
@@ -231,21 +262,46 @@ function Viajes() {
     setMostrarForm(true);
   }
 
-  function cerrarForm() {
-    setMostrarForm(false);
-    setEditando(null);
+  // Valores y aviso se calculan una sola vez y con el mismo "ahora": si el
+  // viaje empieza en minutos, los dos tienen que coincidir en si la fecha se
+  // copió o se vació.
+  function abrirDuplicar(viaje) {
+    const ahora = Date.now();
+    setErrorCancelar('');
+    setDuplicando({
+      original: viaje,
+      valores: valoresParaDuplicar(viaje, ahora),
+      aviso: avisoDuplicado(viaje, ahora),
+    });
+    setSeleccionado(null);
+    setMostrarForm(true);
   }
 
+  // Cancelar un duplicado vuelve a la ficha del original, de donde se abrió.
+  function cerrarForm() {
+    if (duplicando) setSeleccionado(duplicando.original);
+    setMostrarForm(false);
+    setEditando(null);
+    setDuplicando(null);
+  }
+
+  // Al crear se abre la ficha del viaje nuevo (no el listado): ahí está la
+  // tarjeta "Datos administrativos" con su botón de editar, así lo
+  // administrativo, que ya no se carga en el alta, queda a un clic. No bloquea
+  // nada: "Volver al listado" sigue como siempre. Editar vuelve al listado.
   async function handleGuardarForm(datos) {
     if (editando) {
       await api.put(`/viajes/${editando.id}`, datos);
       mostrarMensaje(MENSAJE_EDITADO);
     } else {
-      await api.post('/viajes', datos);
+      const { data } = await api.post('/viajes', datos);
       mostrarMensaje(MENSAJE_CREADO);
+      irADatosAdministrativos.current = true;
+      setSeleccionado(data.viaje);
     }
     setMostrarForm(false);
     setEditando(null);
+    setDuplicando(null);
     cargarViajes();
   }
 
@@ -324,12 +380,13 @@ function Viajes() {
       {mostrarForm && (
         <>
           <button type="button" className="back-link" onClick={cerrarForm}>
-            ← Volver al listado
+            {duplicando ? '← Volver al viaje' : '← Volver al listado'}
           </button>
-          <h1>{editando ? 'Editar viaje' : 'Crear viaje'}</h1>
+          <h1>{editando ? 'Editar viaje' : duplicando ? 'Duplicar viaje' : 'Crear viaje'}</h1>
+          {duplicando && <p className="viajes-aviso-duplicado">{duplicando.aviso}</p>}
           <Card className="form-card">
             <ViajeForm
-              valoresIniciales={editando ? viajeAValoresForm(editando) : undefined}
+              valoresIniciales={editando ? viajeAValoresForm(editando) : duplicando?.valores}
               estadoActual={editando?.estado}
               candidatosActuales={
                 editando && { choferes: editando.choferesCandidatos, vehiculos: editando.vehiculosCandidatos }
@@ -338,7 +395,6 @@ function Viajes() {
               textoBoton={editando ? 'Guardar cambios' : 'Crear viaje'}
               textoEnviando={editando ? 'Guardando…' : 'Creando…'}
               onCancelar={cerrarForm}
-              conDatosAdministrativos={puedeGestionar && !editando}
             />
           </Card>
         </>
@@ -392,16 +448,30 @@ function Viajes() {
               <FormField id="fechaHasta" label="Hasta">
                 <input type="date" name="fechaHasta" value={filtros.fechaHasta} onChange={handleFiltroChange} />
               </FormField>
+
+              {puedeGestionar && (
+                <FormField id="administrativoPendiente" label="Administrativo">
+                  <select
+                    name="administrativoPendiente"
+                    value={filtros.administrativoPendiente}
+                    onChange={handleFiltroChange}
+                  >
+                    <option value="">Todos</option>
+                    <option value="true">Administrativo pendiente</option>
+                  </select>
+                </FormField>
+              )}
             </form>
           )}
 
-          {cargando && <Cargando forma="viajes" />}
-
-          {!cargando && viajes.length === 0 && <div className="listado-vacio">No se encontraron viajes</div>}
-
-          {!cargando && viajes.length > 0 && (
-            <ListadoViajesPorDia viajes={viajes} onSeleccionar={seleccionar} />
-          )}
+          <EstadoCarga
+            carga={cargaViajes}
+            forma="viajes"
+            que="los viajes"
+            vacio={viajes.length === 0 && <div className="listado-vacio">No se encontraron viajes</div>}
+          >
+            <ListadoViajesPorDia viajes={viajes} mostrarPendientes={puedeGestionar} onSeleccionar={seleccionar} />
+          </EstadoCarga>
         </>
       )}
 
@@ -442,9 +512,12 @@ function Viajes() {
             {seleccionado.estado === 'PROGRAMADO' && (puedeOperarEsteViaje || puedeGestionar) && (
               <div className="viajes-detalle-actions">
                 {puedeOperarEsteViaje && (
-                  <Button variant="primary" onClick={() => pedirComenzar(seleccionado)}>
-                    Comenzar viaje
-                  </Button>
+                  <BotonComenzarViaje
+                    viaje={seleccionado}
+                    enCurso={viajesEnCurso}
+                    onComenzar={pedirComenzar}
+                    onVerViajeEnCurso={seleccionar}
+                  />
                 )}
                 {puedeGestionar && (
                   <>
@@ -468,8 +541,11 @@ function Viajes() {
               </div>
             )}
 
+            <DuplicarViaje viaje={seleccionado} perfil={usuario.perfil} onDuplicar={abrirDuplicar} />
+
             {puedeGestionar && (
               <DatosAdministrativosViaje
+                ref={datosAdministrativosRef}
                 key={seleccionado.id}
                 viaje={seleccionado}
                 onGuardado={manejarExitoDatosAdministrativos}

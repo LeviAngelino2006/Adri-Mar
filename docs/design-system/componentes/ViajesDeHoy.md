@@ -22,8 +22,8 @@ Panel del Dashboard de Administrador y Encargado con los viajes del día: qué s
 - Click o Enter en la fila abre la ficha del viaje en Viajes (`navigate('/viajes', { state: { viajeId } })`). No hay botones de acción.
 
 ## Estados
-- Cargando: `.loading-state` con `Spinner`.
-- Error: `Alert` error "No se pudieron cargar los viajes de hoy."
+- Cargando: `Cargando` en filas (vía `EstadoCarga`).
+- Error: `EstadoCarga` con "No pudimos cargar los viajes de hoy. Revisá tu conexión." y "Reintentar".
 - Vacío: `.dashboard-empty` con "No hay viajes para hoy".
 
 ## Reglas

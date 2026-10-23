@@ -11,3 +11,4 @@ Envuelve un control con su label, hint y mensaje de error accesibles.
 ## Reglas
 - Los controles miden mínimo 44px de alto, padding `space-2` × `space-3`, borde `color-border`, radio `radius-sm`.
 - Dentro de `.form-grid` los campos pasan a dos columnas desde 640px.
+- Validá todo junto antes de enviar, así los errores salen en una sola vuelta (el backend valida igual). Al mostrar los errores, el foco y el scroll van al primer campo con error: `useFocoEnPrimerError` (`hooks/useFocoEnPrimerError.js`) busca el primer control con `aria-invalid` en el `<form>`; si el error es general, scrollea hasta el `Alert`.

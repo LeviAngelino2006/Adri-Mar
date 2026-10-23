@@ -186,7 +186,10 @@ async function main() {
     // Valida la lista antes de tocar la base (lanza ListaInvalidaError).
     planificar(LISTA, []);
 
+    // Solo frecuentes: las particulares (casas de pasajeros) no tienen
+    // nombreNormalizado y no compiten por nombre.
     const existentes = await prisma.ubicacion.findMany({
+      where: { esFrecuente: true },
       select: { nombre: true, nombreNormalizado: true },
       orderBy: { id: 'asc' },
     });

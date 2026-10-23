@@ -16,5 +16,5 @@ No está en `bundle.js`: pide los viajes al backend. La vista previa es una repr
 - Hoy y mañana son los días de Córdoba. "Mañana" se calcula sobre la fecha calendario de Córdoba (no sumando 24 h ni con la fecha UTC), así entre las 21:00 y las 24:00 no se adelanta un día.
 - Los atrasados de días anteriores no entran, ni los de pasado mañana en adelante. Dentro de cada grupo van del más temprano al más tarde.
 - Sin viajes en ninguno de los dos días: `.dashboard-empty` con "Nada pendiente para hoy ni mañana". Los estados vacíos del Dashboard son solo texto, sin ícono.
-- Mientras carga: `Spinner` y "Cargando…". Si la consulta falla: `Alert` error "No se pudieron cargar los viajes por confirmar".
+- Los estados van con `EstadoCarga`: mientras carga, `Cargando` en filas; si la consulta falla, "No pudimos cargar los viajes por confirmar. Revisá tu conexión." con "Reintentar".
 - Debajo de 480px la fila pasa a dos columnas (48px y contenido) y el botón ocupa una línea propia a todo el ancho.

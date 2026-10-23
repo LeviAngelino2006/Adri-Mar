@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { abrirAlEnfocar } from '../../utils/focoSinAbrir';
 import './SelectorMultiple.css';
 
 // Sin tildes ni mayúsculas, para que "perez" encuentre "Pérez".
@@ -128,7 +129,7 @@ function SelectorMultiple({
           aria-activedescendant={abierto && disponibles[indiceActivo] ? `${listaId}-${disponibles[indiceActivo].id}` : undefined}
           value={texto}
           onChange={handleChangeTexto}
-          onFocus={() => setAbierto(true)}
+          onFocus={abrirAlEnfocar(() => setAbierto(true))}
           onClick={() => setAbierto(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}

@@ -1,0 +1,30 @@
+/* Campo de km con el botón "Calcular km" al lado, alineado con el input (bajado
+   lo que mide el label: 1.5em de alto de línea más el gap del FormField). */
+.campo-km {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.campo-km > .form-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.campo-km-boton {
+  flex: 0 0 auto;
+  margin-top: calc(1.5em + var(--space-1));
+}
+
+/* "Ubicarla": acción con forma de link dentro del mensaje de error del campo
+   (una ubicación del recorrido todavía no está en el mapa). */
+.campo-km-ubicar {
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--brand-600);
+  text-decoration: underline;
+  white-space: nowrap;
+}

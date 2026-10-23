@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const viajeController = require('../controllers/viajeController');
+const estimacionRecorridoController = require('../controllers/estimacionRecorridoController');
 const { autenticar, autorizar } = require('../middlewares/auth');
 
 const router = Router();
@@ -62,6 +63,15 @@ router.get(
   autenticar,
   autorizar('ADMINISTRADOR', 'ENCARGADO'),
   viajeController.disponibilidadDeViaje
+);
+// Km estimados de un recorrido con la Routes API de Google (ayuda para completar el
+// campo del formulario). Mismos perfiles que crear un viaje. No choca con /:id:
+// ese solo existe para PUT.
+router.post(
+  '/estimar-km',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  estimacionRecorridoController.estimarKm
 );
 
 module.exports = router;

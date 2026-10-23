@@ -1,5 +1,26 @@
 const prisma = require('./prismaClient');
 const lecturaOdometroService = require('./lecturaOdometroService');
+const {
+  campoAusente,
+  validarExtremosRecorrido,
+  validarFormatoParadas,
+  errorDeSecuencia,
+} = require('../utils/recorridoViaje');
+const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../utils/marcaModeloVehiculo');
+// Fechas sin offset = hora de Córdoba (UTC-3 todo el año): ver utils/fechaCordoba.
+const { aFechaCordoba } = require('../utils/fechaCordoba');
+
+// Un punto del recorrido (origen, destino o parada) como lo ve el front: con el
+// placeId de Google y las coordenadas (null si no tiene), para que el link
+// "Ver recorrido en Google Maps" y el mensaje de WhatsApp lleven al chofer a la
+// dirección exacta (utils/googleMaps.urlRecorrido del front).
+const serializarPunto = (u) => ({
+  id: u.id,
+  nombre: u.nombre,
+  placeId: u.placeId ?? null,
+  latitud: u.latitud ?? null,
+  longitud: u.longitud ?? null,
+});
 
 const ESTADO_VEHICULO_HABILITADO = 'OPERATIVO';
 const ESTADOS_VIAJE_VALIDOS = ['A_CONFIRMAR', 'PROGRAMADO', 'EN_VIAJE', 'FINALIZADO', 'CANCELADO'];
@@ -17,7 +38,8 @@ const INCLUDE_RELACIONES_VIAJE = {
   // Siempre ordenadas: serializarViaje las devuelve tal cual vienen.
   paradas: { include: { ubicacion: true }, orderBy: { orden: 'asc' } },
   chofer: true,
-  vehiculo: true,
+  // Con modelo y marca: el vehículo ya no tiene esas columnas (ver Vehiculo).
+  vehiculo: { include: INCLUDE_MODELO_Y_MARCA },
   estadoViaje: true,
   origen: true,
   destino: true,
@@ -66,28 +88,14 @@ class PermisoDenegadoError extends Error {}
 // Postgres.
 class ViajeEnCursoError extends Error {}
 
-// Adri-mar opera únicamente en Córdoba, Argentina, que no tiene horario de
-// verano (UTC-3 todo el año). Por eso el offset se puede fijar así, sin
-// necesidad de una librería de zonas horarias.
-const CORDOBA_UTC_OFFSET = '-03:00';
-const TIENE_OFFSET_REGEX = /(Z|[+-]\d{2}:\d{2})$/;
-
-// Interpreta un string de fecha/hora SIN offset (como el que manda un
-// <input type="datetime-local">, p. ej. "2026-12-16T23:30") como hora de
-// Córdoba, en vez de dejar que Node lo interprete según la zona horaria del
-// proceso del servidor (que puede no coincidir con Córdoba según dónde se
-// despliegue el backend). Si el valor ya trae offset explícito (u "Z"), se
-// respeta tal cual.
-function aFechaCordoba(valor) {
-  if (!valor) return null;
-
-  if (TIENE_OFFSET_REGEX.test(valor)) {
-    return new Date(valor);
-  }
-
-  const conSegundos = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(valor) ? `${valor}:00` : valor;
-  return new Date(`${conSegundos}${CORDOBA_UTC_OFFSET}`);
-}
+// Textos del 409 de comenzar. `carrera` es el del índice único: no se sabe
+// cuál de los dos chocó.
+const MENSAJES_VIAJE_EN_CURSO = {
+  propio: 'Ya tenés un viaje en curso. Finalizalo para comenzar otro.',
+  chofer: 'Este chofer ya tiene un viaje en curso. Tiene que finalizarlo para comenzar otro.',
+  vehiculo: 'Este vehículo ya está en otro viaje en curso.',
+  carrera: 'El vehículo o el chofer ya están en otro viaje en curso.',
+};
 
 // Igual que aFechaCordoba, pero tolera recibir un Date ya parseado tal cual
 // (lo devuelve sin tocar). Hace falta en `confirmarViaje`, que combina valores
@@ -107,10 +115,6 @@ class ValidacionError extends Error {
   }
 }
 
-function campoAusente(valor) {
-  return valor === undefined || valor === null || valor === '';
-}
-
 // clienteId/origenId/destinoId: dato "core" del viaje (quién lo pidió y
 // adónde), no operativo — siempre obligatorios, en cualquier estado, tanto al
 // crear como al editar (a diferencia de los 5 campos operativos de abajo, que
@@ -118,10 +122,9 @@ function campoAusente(valor) {
 // tarea; antes vivía (por error de alcance) como uno de los 9 campos
 // opcionales de datos-administrativos.
 //
-// origen == destino solo es un error si el viaje NO tiene paradas: con al menos
-// una parada es un ida y vuelta legítimo (Río Tercero → Córdoba → Río Tercero).
-// El caso con paradas lo cubre errorDeSecuencia (no pueden ser consecutivos
-// iguales ni origen/destino con una parada en el medio de igual nombre).
+// Origen y destino se validan con validarExtremosRecorrido (utils/recorridoViaje),
+// la misma regla que usa el cálculo de km: origen == destino solo es un error si
+// el viaje NO tiene paradas.
 function validarCamposCore({ clienteId, origenId, destinoId }, { hayParadas = false } = {}) {
   const errores = {};
 
@@ -132,29 +135,14 @@ function validarCamposCore({ clienteId, origenId, destinoId }, { hayParadas = fa
     errores.clienteId = 'El cliente elegido no es válido';
   }
 
-  const origenIdNumero = Number(origenId);
-  if (campoAusente(origenId)) {
-    errores.origenId = 'El origen es obligatorio';
-  } else if (!Number.isInteger(origenIdNumero) || origenIdNumero <= 0) {
-    errores.origenId = 'El origen elegido no es válido';
-  }
-
-  const destinoIdNumero = Number(destinoId);
-  if (campoAusente(destinoId)) {
-    errores.destinoId = 'El destino es obligatorio';
-  } else if (!Number.isInteger(destinoIdNumero) || destinoIdNumero <= 0) {
-    errores.destinoId = 'El destino elegido no es válido';
-  }
-
-  if (!errores.origenId && !errores.destinoId && !hayParadas && origenIdNumero === destinoIdNumero) {
-    errores.destinoId = 'El destino no puede ser el mismo que el origen';
-  }
+  const extremos = validarExtremosRecorrido({ origenId, destinoId }, { hayParadas });
+  Object.assign(errores, extremos.errores);
 
   if (Object.keys(errores).length > 0) {
     throw new ValidacionError(errores);
   }
 
-  return { clienteId: clienteIdNumero, origenId: origenIdNumero, destinoId: destinoIdNumero };
+  return { clienteId: clienteIdNumero, origenId: extremos.origenId, destinoId: extremos.destinoId };
 }
 
 // Los 5 campos operativos (quién maneja, qué vehículo, cuándo, cuántos km).
@@ -521,8 +509,50 @@ async function validarYArmarOperativos(campos, { obligatorios, excluirViajeId, e
 // dato. precio/pagoChofer vienen de Prisma como Decimal (objeto), se convierten
 // a number para que la API devuelva un número plano; las que no se cargaron
 // van en null, nunca se omite la clave para un Administrador/Encargado.
+// Qué le falta cargar a un viaje en lo administrativo, para el badge del
+// listado y el filtro "Administrativo pendiente". Un viaje CANCELADO nunca
+// queda pendiente. SIN_PRECIO tiene prioridad sobre COBRO_PENDIENTE: sin precio
+// no hay nada que cobrar todavía.
+//   SIN_PRECIO       precio sin cargar (cualquier estado salvo CANCELADO)
+//   COBRO_PENDIENTE  viaje FINALIZADO con precio cargado y estado de pago del
+//                    cliente distinto de PAGADO (incluido "sin definir"). Antes
+//                    de finalizar no se marca: que un viaje programado todavía
+//                    no esté cobrado es lo normal, no un olvido.
+// FILTRO_ADMINISTRATIVO_PENDIENTE es la misma regla escrita como `where` de
+// Prisma (para filtrar en la base): si cambia una, cambiar la otra. El test
+// "pendientes administrativos" de viajesPendientes.test.js chequea que
+// coincidan.
+const ESTADO_PAGO_PAGADO = 'PAGADO';
+
+function pendienteAdministrativo(viaje) {
+  const estado = viaje.estadoViaje.descripcion;
+  if (estado === 'CANCELADO') return null;
+  if (viaje.precio == null) return 'SIN_PRECIO';
+  if (estado === 'FINALIZADO' && viaje.estadoPagoCliente?.descripcion !== ESTADO_PAGO_PAGADO) {
+    return 'COBRO_PENDIENTE';
+  }
+  return null;
+}
+
+// Segunda rama del OR sin `precio: { not: null }`: si el precio es null ya
+// entra por la primera (SIN_PRECIO), así que el resultado es el mismo.
+const FILTRO_ADMINISTRATIVO_PENDIENTE = {
+  estadoViaje: { descripcion: { not: 'CANCELADO' } },
+  OR: [
+    { precio: null },
+    {
+      estadoViaje: { descripcion: 'FINALIZADO' },
+      OR: [
+        { estadoPagoClienteId: null },
+        { estadoPagoCliente: { is: { descripcion: { not: ESTADO_PAGO_PAGADO } } } },
+      ],
+    },
+  ],
+};
+
 function serializarDatosAdministrativos(viaje) {
   return {
+    pendienteAdministrativo: pendienteAdministrativo(viaje),
     precio: viaje.precio == null ? null : Number(viaje.precio),
     estadoPagoClienteId: viaje.estadoPagoClienteId,
     estadoPagoCliente: viaje.estadoPagoCliente
@@ -615,8 +645,7 @@ async function serializarViaje(viaje, usuarioSolicitante) {
           id: viaje.vehiculo.id,
           dominio: viaje.vehiculo.dominio,
           numeroInterno: viaje.vehiculo.numeroInterno,
-          marca: viaje.vehiculo.marca,
-          modelo: viaje.vehiculo.modelo,
+          ...nombresMarcaModelo(viaje.vehiculo),
           kilometraje: viaje.vehiculo.kilometraje,
         }
       : null,
@@ -624,14 +653,14 @@ async function serializarViaje(viaje, usuarioSolicitante) {
     // históricos que no los tienen (no se inventa ni se omite la clave, ver
     // tarea de Origen/Destino).
     origenId: viaje.origenId,
-    origen: viaje.origen ? { id: viaje.origen.id, nombre: viaje.origen.nombre } : null,
+    origen: viaje.origen ? serializarPunto(viaje.origen) : null,
     destinoId: viaje.destinoId,
-    destino: viaje.destino ? { id: viaje.destino.id, nombre: viaje.destino.nombre } : null,
+    destino: viaje.destino ? serializarPunto(viaje.destino) : null,
     // Paradas intermedias, ordenadas. No son un dato administrativo ni de
     // planificación interna: las ven todos los perfiles que ven el viaje.
     paradas: (viaje.paradas ?? []).map((parada) => ({
       orden: parada.orden,
-      ubicacion: { id: parada.ubicacion.id, nombre: parada.ubicacion.nombre },
+      ubicacion: serializarPunto(parada.ubicacion),
     })),
     // Cliente es un dato core del viaje, visible para todos los perfiles.
     clienteId: viaje.clienteId,
@@ -673,46 +702,8 @@ async function serializarViaje(viaje, usuarioSolicitante) {
 // puede repetirse (un ida y vuelta pasa dos veces por el mismo lugar); lo único
 // que no puede es repetirse de forma CONSECUTIVA.
 
-// Es el límite de puntos intermedios de los links de Google Maps.
-const MAX_PARADAS = 9;
-
-// Forma de la lista (todavía sin tocar la base): ausente/null → [], si viene
-// tiene que ser un arreglo de enteros positivos y no pasar el máximo.
-function validarFormatoParadas(valor) {
-  if (valor === undefined || valor === null) return { ids: [], errores: {} };
-
-  if (!Array.isArray(valor)) {
-    return { ids: [], errores: { paradas: 'Debe ser una lista de ids de ubicaciones' } };
-  }
-
-  const ids = valor.map((v) => (typeof v === 'number' || typeof v === 'string' ? Number(v) : NaN));
-  if (ids.some((n) => !Number.isInteger(n) || n <= 0)) {
-    return { ids: [], errores: { paradas: 'La lista tiene ubicaciones que no son válidas' } };
-  }
-  if (ids.length > MAX_PARADAS) {
-    return { ids: [], errores: { paradas: `Máximo ${MAX_PARADAS} paradas` } };
-  }
-
-  return { ids, errores: {} };
-}
-
-// Revisa la secuencia COMPLETA [origen, ...paradas, destino]: dos puntos
-// consecutivos no pueden ser la misma ubicación. Devuelve el mensaje del primer
-// problema o null. Con 0 paradas, origen == destino no se reporta acá: ya lo
-// cubre validarCamposCore con su mensaje de siempre, en destinoId.
-function errorDeSecuencia(origenId, paradas, destinoId) {
-  const secuencia = [origenId, ...paradas, destinoId];
-
-  for (let i = 1; i < secuencia.length; i += 1) {
-    if (secuencia[i] !== secuencia[i - 1]) continue;
-
-    const esDestino = i === secuencia.length - 1;
-    if (!esDestino) return `La parada ${i} es igual al punto anterior`;
-    if (paradas.length > 0) return `La parada ${paradas.length} es igual al destino`;
-  }
-
-  return null;
-}
+// MAX_PARADAS, validarFormatoParadas y errorDeSecuencia viven en
+// utils/recorridoViaje (los comparte el cálculo de km).
 
 // Existencia de todas las ubicaciones de la lista (un findMany, no uno por id).
 async function validarExistenciaParadas(ids) {
@@ -827,10 +818,10 @@ function erroresCandidatosAConfirmar({ choferId, vehiculoId }, candidatos) {
 // vehiculosCandidatos). clienteId/origenId/destinoId y fechaInicio son siempre
 // obligatorios.
 //
-// `datosAdministrativos` es opcional (solo lo manda el formulario de alta de
-// Administrador/Encargado): se valida con las mismas reglas que el PATCH
-// /:id/datos-administrativos y se guarda en el MISMO create, así el viaje se
-// crea con todo o no se crea, sin quedar a medias si esos datos son inválidos.
+// El alta es solo operativa: los datos administrativos (precio, pagos) se
+// cargan después, únicamente por PATCH /:id/datos-administrativos. Si un
+// cliente todavía manda `datosAdministrativos` se rechaza con 400 en vez de
+// ignorarlo, para que lo tipeado no se pierda en silencio.
 async function crearViaje(
   {
     choferId,
@@ -849,6 +840,12 @@ async function crearViaje(
   },
   usuarioSolicitante
 ) {
+  if (datosAdministrativos !== undefined) {
+    throw new ValidacionError({
+      datosAdministrativos: 'Los datos administrativos se cargan desde la ficha del viaje, no en el alta',
+    });
+  }
+
   const formatoParadas = validarFormatoParadas(paradasPayload);
   const core = await validarYArmarCore({ clienteId, origenId, destinoId }, { hayParadas: formatoParadas.ids.length > 0 });
   const paradas = validarParadasDelRecorrido(formatoParadas, core);
@@ -871,13 +868,10 @@ async function crearViaje(
   await validarExistenciaCandidatos(candidatos);
   await validarExistenciaParadas(paradas.ids);
 
-  const administrativos = await validarYArmarDatosAdministrativosOpcionales(datosAdministrativos);
-
   const estado = await obtenerEstadoViajePorDescripcion('A_CONFIRMAR');
 
   const viaje = await prisma.viaje.create({
     data: {
-      ...administrativos,
       choferId: operativos.choferId,
       vehiculoId: operativos.vehiculoId,
       fechaInicio: operativos.fechaInicio,
@@ -1377,10 +1371,10 @@ function validarFormatoIdPositivo(mensajeError) {
 }
 
 // Valida y arma los campos administrativos de un payload (parcial: un campo
-// ausente no entra en `data`; `null` explícito sí, para borrar el dato). La usan
-// actualizarDatosAdministrativos (PATCH) y crearViaje (alta con datos
-// administrativos), para que las dos rutas validen exactamente igual. Lanza
-// ValidacionError con los errores por campo; no toca la base.
+// ausente no entra en `data`; `null` explícito sí, para borrar el dato). La usa
+// actualizarDatosAdministrativos (PATCH), la única vía para cargar estos datos
+// (el alta ya no los acepta). Lanza ValidacionError con los errores por campo;
+// no toca la base.
 async function validarYArmarDatosAdministrativos(payload) {
   const data = {};
   const errores = {};
@@ -1443,17 +1437,6 @@ async function validarYArmarDatosAdministrativos(payload) {
   }
 
   return data;
-}
-
-// Variante para el alta de un viaje: `datosAdministrativos` puede no venir
-// (undefined/null: no hay nada que guardar, devuelve {}), pero si viene tiene
-// que ser un objeto.
-async function validarYArmarDatosAdministrativosOpcionales(datos) {
-  if (datos === undefined || datos === null) return {};
-  if (typeof datos !== 'object' || Array.isArray(datos)) {
-    throw new ValidacionError({ datosAdministrativos: 'Los datos administrativos no son válidos' });
-  }
-  return validarYArmarDatosAdministrativos(datos);
 }
 
 // Acción administrativa/financiera, separada por completo del ciclo de vida
@@ -1549,13 +1532,16 @@ async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
     where: { vehiculoId: actual.vehiculoId, estadoViajeId: estadoEnViaje.id },
   });
   if (vehiculoEnViaje) {
-    throw new ViajeEnCursoError('El vehículo ya tiene otro viaje En viaje en curso');
+    throw new ViajeEnCursoError(MENSAJES_VIAJE_EN_CURSO.vehiculo);
   }
   const choferEnViaje = await prisma.viaje.findFirst({
     where: { choferId: actual.choferId, estadoViajeId: estadoEnViaje.id },
   });
   if (choferEnViaje) {
-    throw new ViajeEnCursoError('El chofer ya tiene otro viaje En viaje en curso');
+    // Lo normal es que comience el propio chofer; si es un gestor, el mensaje
+    // no puede hablarle de "tu" viaje.
+    const esElChofer = actual.choferId === usuarioSolicitante.id;
+    throw new ViajeEnCursoError(esElChofer ? MENSAJES_VIAJE_EN_CURSO.propio : MENSAJES_VIAJE_EN_CURSO.chofer);
   }
 
   try {
@@ -1596,7 +1582,7 @@ async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
     });
   } catch (err) {
     if (err.code === 'P2002') {
-      throw new ViajeEnCursoError('El vehículo o el chofer ya tienen otro viaje En viaje en curso');
+      throw new ViajeEnCursoError(MENSAJES_VIAJE_EN_CURSO.carrera);
     }
     relanzarComoValidacionDeViaje(err);
   }
@@ -1749,11 +1735,32 @@ function parsearFechaHasta(valor) {
 // que da una lista vacía en vez de un error o de ignorar el filtro. El
 // listado general (GET /viajes) nunca pasa esta opción, así que ve
 // A_CONFIRMAR con total normalidad.
+//
+// `administrativoPendiente` ('true' en la query) deja solo los viajes con algún
+// pendiente administrativo (ver FILTRO_ADMINISTRATIVO_PENDIENTE). Filtrar por
+// precio/pago ya revela esos datos, así que sigue la misma regla que la
+// serialización: solo Administrador/Encargado; para el resto es un 403 (no se
+// ignora en silencio, porque devolvería un listado que no es lo que se pidió).
 async function listarViajes(
-  { estado, choferId, vehiculoId, fechaDesde, fechaHasta, excluirAConfirmar = false } = {},
+  {
+    estado,
+    choferId,
+    vehiculoId,
+    fechaDesde,
+    fechaHasta,
+    administrativoPendiente,
+    excluirAConfirmar = false,
+  } = {},
   usuarioSolicitante
 ) {
   const where = {};
+
+  if (administrativoPendiente === 'true') {
+    if (!puedeVerDatosAdministrativos(usuarioSolicitante)) {
+      throw new PermisoDenegadoError('Solo Administrador y Encargado pueden filtrar por datos administrativos');
+    }
+    where.AND = [FILTRO_ADMINISTRATIVO_PENDIENTE];
+  }
 
   const filtroEstado = {};
   if (estado && ESTADOS_VIAJE_VALIDOS.includes(estado)) {
@@ -1813,6 +1820,8 @@ module.exports = {
   comenzarViaje,
   finalizarViaje,
   puedeOperarViaje,
+  pendienteAdministrativo,
+  FILTRO_ADMINISTRATIVO_PENDIENTE,
   ValidacionError,
   NoEncontradoError,
   EstadoNoEditableError,

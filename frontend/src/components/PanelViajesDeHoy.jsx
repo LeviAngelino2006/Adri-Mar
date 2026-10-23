@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Card from './ui/Card';
-import Cargando from './ui/Cargando';
-import Alert from './ui/Alert';
+import EstadoCarga from './ui/EstadoCarga';
 import EstadoBadge from './ui/EstadoBadge';
 import RutaViaje from './RutaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { porcentajeProgresoViaje } from '../utils/fechaCordoba';
 import { formatearHoraRelativaHoy, nombreChofer } from '../utils/viajeFormato';
 import { consultasViajesDeHoy, resumenViajesDeHoy, unirViajesDeHoy } from '../utils/viajesDeHoy';
+import { useCarga } from '../hooks/useCarga';
 
 const INTERVALO_PROGRESO_MS = 60 * 1000;
 
@@ -60,24 +60,31 @@ function FilaViajeDeHoy({ viaje, ahora, onAbrir }) {
   );
 }
 
-// Lo que muestra el panel según su estado, sin lógica de carga.
-export function ContenidoViajesDeHoy({ cargando, error, viajes, ahora, onAbrir }) {
-  if (cargando) {
-    return (
-      <Cargando forma="filas" />
-    );
-  }
-
-  if (error) return <Alert variant="error">No se pudieron cargar los viajes de hoy.</Alert>;
-
-  if (viajes.length === 0) return <div className="dashboard-empty">No hay viajes para hoy</div>;
-
+// Lo que muestra el panel según su estado, sin lógica de carga. `carga` es lo
+// que devuelve useCarga: un error se muestra con "Reintentar" (EstadoCarga),
+// nunca como "No hay viajes para hoy".
+export function ContenidoViajesDeHoy({ carga, viajes, ahora, onAbrir }) {
   return (
-    <ul className="dashboard-lista">
-      {viajes.map((viaje) => (
-        <FilaViajeDeHoy key={viaje.id} viaje={viaje} ahora={ahora} onAbrir={onAbrir} />
-      ))}
-    </ul>
+    <EstadoCarga
+      carga={carga}
+      forma="filas"
+      que="los viajes de hoy"
+      vacio={viajes.length === 0 && <div className="dashboard-empty">No hay viajes para hoy</div>}
+    >
+      <ul className="dashboard-lista">
+        {viajes.map((viaje) => (
+          <FilaViajeDeHoy key={viaje.id} viaje={viaje} ahora={ahora} onAbrir={onAbrir} />
+        ))}
+      </ul>
+    </EstadoCarga>
+  );
+}
+
+// Las dos consultas del panel, unidas. Fuera del componente para que useCarga
+// reciba siempre la misma función; el día se calcula en cada pedido.
+function pedirViajesDeHoy() {
+  return Promise.all(consultasViajesDeHoy().map((params) => api.get('/viajes', { params }))).then((respuestas) =>
+    unirViajesDeHoy(...respuestas.map(({ data }) => data.viajes))
   );
 }
 
@@ -91,24 +98,9 @@ export function ContenidoViajesDeHoy({ cargando, error, viajes, ahora, onAbrir }
 // los En viaje. Se unen sin duplicados y se sacan A confirmar y Cancelados acá.
 function PanelViajesDeHoy() {
   const navigate = useNavigate();
-  const [viajes, setViajes] = useState([]);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState(false);
+  const carga = useCarga(pedirViajesDeHoy);
+  const viajes = carga.datos ?? [];
   const [ahora, setAhora] = useState(() => Date.now());
-
-  useEffect(() => {
-    let cancelado = false;
-    Promise.all(consultasViajesDeHoy().map((params) => api.get('/viajes', { params })))
-      .then((respuestas) => {
-        if (cancelado) return;
-        setViajes(unirViajesDeHoy(...respuestas.map(({ data }) => data.viajes)));
-      })
-      .catch(() => !cancelado && setError(true))
-      .finally(() => !cancelado && setCargando(false));
-    return () => {
-      cancelado = true;
-    };
-  }, []);
 
   // El avance de las barras se recalcula cada 60 segundos con las fechas ya
   // cargadas, como en ViajeEnCurso; no se consulta de nuevo la API.
@@ -127,9 +119,11 @@ function PanelViajesDeHoy() {
     <Card className="dashboard-panel" role="region" aria-label="Viajes de hoy">
       <div className="dashboard-panel-header">
         <h2>Viajes de hoy</h2>
-        {!cargando && !error && viajes.length > 0 && <span className="dashboard-resumen">{resumenViajesDeHoy(viajes)}</span>}
+        {!carga.cargando && !carga.error && viajes.length > 0 && (
+          <span className="dashboard-resumen">{resumenViajesDeHoy(viajes)}</span>
+        )}
       </div>
-      <ContenidoViajesDeHoy cargando={cargando} error={error} viajes={viajes} ahora={ahora} onAbrir={abrir} />
+      <ContenidoViajesDeHoy carga={carga} viajes={viajes} ahora={ahora} onAbrir={abrir} />
     </Card>
   );
 }

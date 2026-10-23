@@ -2,26 +2,13 @@ import { useState } from 'react';
 import api from '../services/api';
 import { aInputCordoba } from './fechaCordoba';
 
-// Valores de un formulario de datos administrativos (todo como string, así se
-// pueden enlazar directo a inputs y selects controlados).
-export const VALORES_ADMIN_VACIOS = {
-  precio: '',
-  estadoPagoClienteId: '',
-  fechaPagoCliente: '',
-  metodoPagoClienteId: '',
-  pagoChofer: '',
-  estadoPagoChoferId: '',
-  fechaPagoChofer: '',
-  metodoPagoChoferId: '',
-};
-
-export const CAMPOS_ADMINISTRATIVOS = Object.keys(VALORES_ADMIN_VACIOS);
-
 const CAMPOS_MONTO = {
   precio: 'El precio',
   pagoChofer: 'El pago al chofer',
 };
 
+// Valores del formulario de datos administrativos de la ficha (todo como string,
+// así se pueden enlazar directo a inputs y selects controlados).
 export function viajeAValores(viaje) {
   return {
     precio: viaje.precio == null ? '' : String(viaje.precio),
@@ -72,13 +59,9 @@ export function validarMontos(valores) {
   return errores;
 }
 
-export function hayDatosAdministrativos(valores) {
-  return CAMPOS_ADMINISTRATIVOS.some((campo) => valores[campo] !== '');
-}
-
 // Catálogos de estado y método de pago (los ids que espera el backend). Se
 // piden recién cuando hacen falta (`cargarCatalogos`) y solo la primera vez:
-// quien no abre la edición o la sección no los necesita.
+// quien no abre la edición no los necesita.
 export function useCatalogosPago() {
   const [estadosPago, setEstadosPago] = useState([]);
   const [metodosPago, setMetodosPago] = useState([]);

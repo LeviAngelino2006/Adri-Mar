@@ -1,0 +1,32 @@
+/* Resultado de "Calcular km", debajo del campo de kilómetros estimados: una
+   línea con el total y, al final, la atribución de Google Maps en chico. */
+.estimacion-km {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-2);
+  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.estimacion-km-total {
+  color: var(--color-text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Valor viejo: se sigue viendo pero tachado hasta que se vuelva a calcular. */
+.estimacion-km-total-viejo {
+  color: var(--color-text-secondary);
+  text-decoration: line-through;
+}
+
+.estimacion-km-desactualizado {
+  color: var(--state-warning-text);
+  font-weight: 600;
+}
+
+.estimacion-km-atribucion {
+  font-size: 0.6875rem;
+}

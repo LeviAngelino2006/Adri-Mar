@@ -34,9 +34,15 @@ export function ListadoHeader({ titulo }) {
 //   vistas:   las props de ControlSegmentado (Documentación: Vehículos | Choferes)
 //   accion:   { etiqueta, onClick } ("Crear vehículo"); debajo de 640px se ve
 //             solo el "+" y la etiqueta queda para los lectores de pantalla.
-export function ListadoToolbar({ busqueda, filtros, vistas, accion }) {
+//   vistasAlInicio: true pone el control de vistas primero, a la izquierda, y
+//             el buscador y Filtros a la derecha (Mantenimiento: las vistas son
+//             la navegación principal de la pantalla). Por defecto las vistas
+//             van a la derecha de todo, como en Documentación.
+export function ListadoToolbar({ busqueda, filtros, vistas, accion, vistasAlInicio = false }) {
+  const controlVistas = vistas && <ControlSegmentado {...vistas} />;
   return (
-    <div className="listado-toolbar">
+    <div className={vistasAlInicio ? 'listado-toolbar listado-toolbar-vistas-inicio' : 'listado-toolbar'}>
+      {vistasAlInicio && controlVistas}
       {busqueda && (
         <div className="listado-buscar">
           {ICONO_LUPA}
@@ -56,7 +62,7 @@ export function ListadoToolbar({ busqueda, filtros, vistas, accion }) {
           {filtros.activos > 0 && <span className="filtros-toggle-badge">{filtros.activos}</span>}
         </button>
       )}
-      {vistas && <ControlSegmentado {...vistas} />}
+      {!vistasAlInicio && controlVistas}
       {accion && (
         <Button variant="primary" className="listado-accion" aria-label={accion.etiqueta} onClick={accion.onClick}>
           <span className="listado-accion-signo" aria-hidden="true">
@@ -72,10 +78,12 @@ export function ListadoToolbar({ busqueda, filtros, vistas, accion }) {
 // Tarjeta del listado: marca (ícono, Avatar o bloque de fecha), cuerpo con
 // título + estado, dato principal, detalle opcional y pie (lista de datos,
 // separados a los lados). `marcaClassName` suma una clase a la marca (la tarjeta
-// de viaje usa `fecha-tile`).
+// de viaje usa `fecha-tile`). Sin `onClick` es una tarjeta de solo lectura (un
+// `div`, sin hover ni foco: el historial de Mantenimiento no abre ninguna ficha).
 export function ListadoCard({ marca, marcaClassName, marcaSinFondo = false, titulo, estado, sub, detalle, pie, onClick }) {
+  const Contenedor = onClick ? 'button' : 'div';
   return (
-    <button type="button" className="listado-card" onClick={onClick}>
+    <Contenedor type={onClick ? 'button' : undefined} className="listado-card" onClick={onClick}>
       <div
         className={marcaClassName ? `listado-card-marca ${marcaClassName}` : 'listado-card-marca'}
         style={marcaSinFondo ? { background: 'none' } : undefined}
@@ -96,6 +104,6 @@ export function ListadoCard({ marca, marcaClassName, marcaSinFondo = false, titu
           ))}
         </div>
       </div>
-    </button>
+    </Contenedor>
   );
 }

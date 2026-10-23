@@ -105,9 +105,8 @@ async function main() {
 
   console.log(`Estados de viaje listos: ${ESTADOS_VIAJE.join(', ')}`);
 
-  // MANTENIMIENTO no se usa todavía (queda previsto para el futuro módulo de
-  // mantenimiento preventivo), pero se siembra ya para no necesitar otra
-  // migración cuando llegue ese momento.
+  // MANTENIMIENTO: la lectura que crea un service o un arreglo cuando su km
+  // supera al odómetro del vehículo (mantenimientoService).
   const ORIGENES_LECTURA = [
     'ALTA_VEHICULO',
     'INICIO_VIAJE',
@@ -189,6 +188,59 @@ async function main() {
   }
 
   console.log(`Tipos de documento listos: ${TIPOS_DOCUMENTO.length} tipos`);
+
+  // porcentajeAviso: el estado pasa a "Próximo" al 95 % del intervalo
+  // (ver calcularEstadoService en src/utils/estadoService.js).
+  const PLANTILLAS_MANTENIMIENTO = [
+    { tipoVehiculo: 'Colectivo', intervaloKm: 20000, porcentajeAviso: 95, nombre: 'Service Colectivo (Cada 20.000 km)' },
+    { tipoVehiculo: 'Minibus', intervaloKm: 20000, porcentajeAviso: 95, nombre: 'Service Minibús (Cada 20.000 km)' },
+    { tipoVehiculo: 'Trafic', intervaloKm: 15000, porcentajeAviso: 95, nombre: 'Service Trafic (Cada 15.000 km)' },
+    { tipoVehiculo: 'Utilitario', intervaloKm: 10000, porcentajeAviso: 95, nombre: 'Service Utilitario (Cada 10.000 km)' },
+  ];
+
+  for (const p of PLANTILLAS_MANTENIMIENTO) {
+    const tipo = await prisma.tipoVehiculo.findUnique({
+      where: { descripcion: p.tipoVehiculo },
+    });
+    if (tipo) {
+      await prisma.plantillaMantenimiento.upsert({
+        where: { tipoVehiculoId: tipo.id },
+        update: { nombre: p.nombre, intervaloKm: p.intervaloKm, porcentajeAviso: p.porcentajeAviso },
+        create: {
+          nombre: p.nombre,
+          tipoVehiculoId: tipo.id,
+          intervaloKm: p.intervaloKm,
+          porcentajeAviso: p.porcentajeAviso,
+        },
+      });
+    }
+  }
+
+  console.log(`Plantillas de mantenimiento listas: ${PLANTILLAS_MANTENIMIENTO.length} plantillas`);
+
+  // Trabajos que no son el service: no generan alertas ni reinician el conteo.
+  // La migración 20261023180000_arreglos_y_service ya los inserta; el upsert
+  // por nombre mantiene el seed idempotente.
+  const TIPOS_ARREGLO = [
+    { nombre: 'Engrase', descripcion: 'Engrase de rodamientos y articulaciones de las ruedas', requiereDetalle: false },
+    { nombre: 'Rotación de cubiertas', descripcion: 'Rotación de neumáticos. Se recomienda cada 10.000 km, pero no genera alerta', requiereDetalle: false },
+    { nombre: 'Cambio de cubiertas', descripcion: 'Reemplazo de uno o más neumáticos', requiereDetalle: false },
+    { nombre: 'Frenos', descripcion: 'Pastillas, discos, cintas o líquido de frenos', requiereDetalle: false },
+    { nombre: 'Batería y electricidad', descripcion: 'Batería, alternador, luces y sistema eléctrico', requiereDetalle: false },
+    { nombre: 'Chapa y pintura', descripcion: 'Trabajos de chapista', requiereDetalle: false },
+    { nombre: 'Mecánica general', descripcion: 'Reparaciones de motor, caja, tren delantero, etc.', requiereDetalle: false },
+    { nombre: 'Otro', descripcion: 'Cualquier trabajo que no entra en los anteriores', requiereDetalle: true },
+  ];
+
+  for (const [indice, { nombre, ...datos }] of TIPOS_ARREGLO.entries()) {
+    await prisma.tipoArreglo.upsert({
+      where: { nombre },
+      update: { ...datos, orden: indice + 1 },
+      create: { nombre, ...datos, orden: indice + 1 },
+    });
+  }
+
+  console.log(`Tipos de arreglo listos: ${TIPOS_ARREGLO.length} tipos`);
 }
 
 main()

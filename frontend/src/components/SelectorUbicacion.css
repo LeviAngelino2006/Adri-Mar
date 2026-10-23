@@ -1,0 +1,102 @@
+/* Selector de ubicaciones: usa la lista de SelectorBuscarOCrear y le suma los
+   títulos de grupo (Frecuentes / Direcciones de Google), el check "Guardar como
+   frecuente" y la atribución de Google Maps. */
+.selector-ubicacion .selector-buscar-crear-lista {
+  max-height: 360px;
+}
+
+.selector-ubicacion-grupo {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.selector-ubicacion-grupo:not(:first-child) {
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
+.selector-buscar-crear-lista .selector-ubicacion-sugerencia {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.selector-ubicacion-principal {
+  color: var(--color-text);
+}
+
+.selector-ubicacion-secundario {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.selector-ubicacion-frecuente label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+/* Los inputs tienen estilo global de campo de texto (ancho completo, alto 44);
+   un checkbox no. */
+.selector-ubicacion-frecuente input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--brand-600);
+}
+
+.selector-buscar-crear-lista .selector-ubicacion-error {
+  color: var(--state-error-text);
+}
+
+.selector-ubicacion-atribucion {
+  padding: var(--space-1) var(--space-3) 0;
+  font-size: 0.6875rem;
+  text-align: right;
+  color: var(--color-text-secondary);
+}
+
+/* Nombre de la frecuente (después de elegir una sugerencia con "Guardar como
+   frecuente"): campo editable con Guardar/Cancelar, dentro de la lista. */
+.selector-ubicacion-nombrar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-1) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--brand-600);
+  border-radius: var(--radius-sm);
+  background-color: var(--brand-50);
+}
+
+.selector-ubicacion-nombrar label {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.selector-ubicacion-nombrar-acciones {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.selector-buscar-crear-lista .selector-ubicacion-nombrar-acciones button {
+  width: auto;
+}
+
+.selector-ubicacion-nombrar .selector-ubicacion-error {
+  font-size: 0.8125rem;
+}

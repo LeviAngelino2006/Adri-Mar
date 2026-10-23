@@ -78,9 +78,11 @@ Las pantallas se arman con las clases de `bundle.css` y los componentes de arrib
 - Listados: `Listado` (patrón único de Viajes, Flota, Usuarios y Documentación), con las tarjetas `TarjetaViaje` y `TarjetaVehiculo`, `FichaDetalle` (ficha de un viaje, vehículo o usuario: una sola card plana con los datos en pares, en dos columnas desde 640px), `Filtros`.
 - Flota y Usuarios: `FormularioVehiculo` y `FormularioUsuario` (alta y edición, en pares, con asteriscos y hints).
 - Documentación: `Listado` con `ControlSegmentado` (Vehículos | Choferes, con ícono y cantidad) en la misma barra que el buscador y Filtros, a la derecha, y, en la ficha, una `TarjetaDocumento` por documento.
+- Mantenimiento: `Mantenimiento` (Service | Arreglos | Historial con `ControlSegmentado` en la barra; tarjetas de estado del service, formulario de arreglos e historial de toda la flota).
 - Usuarios: `Avatar`, con el color según el perfil.
 - Layout: `Navegacion` (sidebar y topbar), `Login` (panel de marca + card).
 - Carga: `Cargando` reemplaza al Spinner con "Cargando…" en pantallas y paneles; el Spinner queda para los botones.
+- Cargando, error y vacío: `EstadoCarga` (con el hook `useCarga`) muestra cada uno distinto; un error al cargar va con "Reintentar" y nunca como "no hay datos".
 
 - Las pantallas de listado (Viajes, Flota de vehículos, Usuarios y Documentación) siguen el mismo patrón, `Listado`: sin título visible (el `h1` va en `.sr-only`), barra de búsqueda y filtros con la acción principal a la derecha ("Crear viaje", "Crear vehículo", "Crear usuario"; Mis viajes y Documentación no tienen), y tarjetas con la misma anatomía, apiladas una debajo de otra a todo el ancho. No hay tablas ni grilla.
 - Las fichas de detalle (viaje, vehículo y usuario) son una sola `Card` plana con una grilla de pares `dt`/`dd` en dos columnas desde 640px (nunca tres), sin títulos de sección y en el mismo orden que su formulario. Los datos vacíos dicen "No registrado".

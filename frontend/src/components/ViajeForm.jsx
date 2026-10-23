@@ -6,19 +6,28 @@ import Alert from './ui/Alert';
 import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
 import SelectorMultiple from './ui/SelectorMultiple';
 import EditorRecorrido from './EditorRecorrido';
-import SeccionDatosAdministrativos from './SeccionDatosAdministrativos';
-import { consultarDisponibilidad } from '../services/viajesApi';
+import CampoKmEstimados from './CampoKmEstimados';
+import UbicarConGoogle from './UbicarConGoogle';
+import { consultarDisponibilidad, estimarKm } from '../services/viajesApi';
+import { evaluarAdvertenciaViaje } from '../services/mantenimientoApi';
+import { ubicarDesdeGoogle } from '../services/ubicacionesApi';
+import { lugarDe } from '../utils/sugerenciasGoogle';
+import {
+  aplicarEstimacion,
+  firmaRecorrido,
+  idsDelRecorrido,
+  mensajeErrorEstimacion,
+  puedeCalcularKm,
+  quitarFaltante,
+  ubicacionesSinCoordenadas,
+} from '../utils/estimacionKm';
 import { nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { textoAdvertenciaViaje } from '../utils/mantenimiento';
 import { errorDeSecuencia, paradasAPayload } from '../utils/paradas';
 import { ordenarPorInterno } from '../utils/vehiculos';
-import {
-  CAMPOS_ADMINISTRATIVOS,
-  VALORES_ADMIN_VACIOS,
-  hayDatosAdministrativos,
-  useCatalogosPago,
-  validarMontos,
-  valoresAPayload,
-} from '../utils/datosAdministrativos';
+import { erroresObligatoriosViaje } from '../utils/validacionViaje';
+import { useFocoEnPrimerError } from '../hooks/useFocoEnPrimerError';
+import { mensajeErrorCarga } from '../utils/errorCarga';
 
 const FORM_INICIAL = {
   clienteId: '',
@@ -27,12 +36,17 @@ const FORM_INICIAL = {
   vehiculoId: '',
   choferesCandidatos: [],
   vehiculosCandidatos: [],
-  // Paradas intermedias, en orden: [{ clave, id, nombre }] (ver utils/paradas).
+  // Paradas intermedias, en orden: [{ clave, id, nombre, placeId, latitud,
+  // longitud }] (ver utils/paradas).
   paradas: [],
   origenId: '',
   origenNombre: '',
   destinoId: '',
   destinoNombre: '',
+  // Lugar en el mapa del origen y del destino ({ placeId, latitud, longitud }):
+  // solo para el link "Ver recorrido en Google Maps"; no viaja al backend.
+  origenLugar: null,
+  destinoLugar: null,
   fechaInicio: '',
   fechaFin: '',
   kilometrosEstimados: '',
@@ -41,7 +55,6 @@ const FORM_INICIAL = {
 
 const CAMPOS_OPERATIVOS = ['choferId', 'vehiculoId', 'fechaInicio', 'fechaFin', 'kilometrosEstimados'];
 const ERROR_OBLIGATORIO_PROGRAMADO = 'Obligatorio para un viaje Programado.';
-const ERROR_FECHA_INICIO = 'La fecha y hora de inicio es obligatoria';
 const DEMORA_AVISOS_MS = 400;
 const SIN_AVISOS = { choferes: {}, vehiculos: {} };
 
@@ -58,6 +71,9 @@ function avisosDe(lista) {
 // avisar antes de que el usuario intente guardar y se encuentre con un error
 // del servidor. En alta, o editando un A_CONFIRMAR, no se exigen — con una
 // excepción: la fecha de inicio es obligatoria siempre, en cualquier estado.
+// Cliente, origen, destino y fecha de inicio se validan juntos antes de enviar
+// (utils/validacionViaje), así los errores salen en una sola vuelta, y el foco
+// va al primer campo con error.
 //
 // Chofer y vehículo se cargan de una de dos maneras según el estado:
 //  - Alta o edición de un A_CONFIRMAR: listas de choferes y vehículos POSIBLES
@@ -79,11 +95,9 @@ function avisosDe(lista) {
 // las listas de elegibles (p. ej. un chofer dado de baja), así el chip no
 // desaparece en silencio.
 //
-// `conDatosAdministrativos` agrega la sección colapsada de datos
-// administrativos (solo alta y solo para Administrador/Encargado: lo decide
-// quien monta el formulario). Si la sección queda vacía, no se manda nada; si
-// tiene datos, viajan en `datosAdministrativos` dentro del mismo POST, así el
-// viaje se crea completo o no se crea.
+// Solo datos operativos: precio y pagos no se cargan acá sino después, desde la
+// ficha del viaje (DatosAdministrativosViaje), para que el alta se enfoque en
+// crear el viaje.
 function ViajeForm({
   valoresIniciales,
   estadoActual,
@@ -91,27 +105,50 @@ function ViajeForm({
   textoBoton,
   textoEnviando,
   onCancelar,
-  conDatosAdministrativos = false,
   candidatosActuales,
 }) {
   const [choferes, setChoferes] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
+  // { choferes, vehiculos }: mensaje si no se pudo cargar esa lista de opciones.
+  const [errorOpciones, setErrorOpciones] = useState({});
   const [form, setForm] = useState(valoresIniciales || FORM_INICIAL);
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
-  const [administrativos, setAdministrativos] = useState(VALORES_ADMIN_VACIOS);
-  const [seccionAbierta, setSeccionAbierta] = useState(false);
+  const [advertenciaMantenimiento, setAdvertenciaMantenimiento] = useState(null); // { clave, advertencia }
   const [avisos, setAvisos] = useState(SIN_AVISOS);
-  const { estadosPago, metodosPago, cargarCatalogos } = useCatalogosPago();
+  const [refForm, enfocarPrimerError] = useFocoEnPrimerError();
+  // "Calcular km": el último resultado y el último error, cada uno con la firma
+  // del recorrido con el que se pidió. Si el recorrido cambia, el resultado se
+  // marca desactualizado (no se recalcula solo) y el error deja de mostrarse.
+  // Guardar el viaje no depende de nada de esto.
+  const [estimacion, setEstimacion] = useState(null);
+  // { mensaje, firma, faltantes }: faltantes son las ubicaciones sin
+  // coordenadas (422), que se pueden ubicar desde el mismo error.
+  const [errorKm, setErrorKm] = useState(null);
+  const [calculandoKm, setCalculandoKm] = useState(false);
+  // Ubicación sin coordenadas que se está ubicando en el mapa ({ ubicacionId, nombre }).
+  const [ubicando, setUbicando] = useState(null);
+  const idsRecorrido = idsDelRecorrido(form);
+  const firmaActual = firmaRecorrido(idsRecorrido);
+  const puedeCalcular = puedeCalcularKm(idsRecorrido);
+  const errorKmVigente = errorKm && errorKm.firma === firmaActual ? errorKm : null;
 
   const requiereOperativos = estadoActual === 'PROGRAMADO';
   const usaCandidatos = !requiereOperativos;
 
+  // Si una lista no carga, se avisa en su campo y el formulario sigue usable: el
+  // resto se puede cargar, y en el alta los candidatos son opcionales.
   useEffect(() => {
-    api.get('/usuarios/disponibles-chofer').then(({ data }) => setChoferes(data.usuarios));
+    const avisarError = (lista, que) => (err) =>
+      setErrorOpciones((e) => ({ ...e, [lista]: mensajeErrorCarga(err, que) }));
+    api
+      .get('/usuarios/disponibles-chofer')
+      .then(({ data }) => setChoferes(data.usuarios))
+      .catch(avisarError('choferes', 'la lista de choferes'));
     api
       .get('/vehiculos', { params: { estado: 'OPERATIVO' } })
-      .then(({ data }) => setVehiculos(ordenarPorInterno(data.vehiculos)));
+      .then(({ data }) => setVehiculos(ordenarPorInterno(data.vehiculos)))
+      .catch(avisarError('vehiculos', 'la lista de vehículos'));
   }, []);
 
   // Avisos de disponibilidad de los candidatos elegidos, con las fechas que el
@@ -149,6 +186,37 @@ function ViajeForm({
     };
   }, [hayConsulta, form.fechaInicio, form.fechaFin, form.choferesCandidatos, form.vehiculosCandidatos]);
 
+  // Advertencia de mantenimiento: si con los km estimados el vehículo (el
+  // asignado, o el único candidato) pasa su service. Es informativa: no bloquea.
+  // Se guarda junto con la consulta que la pidió: si cambian el vehículo o los
+  // km, deja de mostrarse sola hasta que llega la respuesta nueva.
+  const vehiculoAdvertencia =
+    form.vehiculoId || (form.vehiculosCandidatos?.length === 1 ? form.vehiculosCandidatos[0] : null);
+  const claveAdvertencia =
+    vehiculoAdvertencia && form.kilometrosEstimados ? `${vehiculoAdvertencia}|${form.kilometrosEstimados}` : null;
+  useEffect(() => {
+    if (!claveAdvertencia) return undefined;
+    let cancelado = false;
+    evaluarAdvertenciaViaje({ vehiculoId: vehiculoAdvertencia, kilometrosEstimados: form.kilometrosEstimados })
+      .then(({ data }) => {
+        if (!cancelado) {
+          setAdvertenciaMantenimiento({
+            clave: claveAdvertencia,
+            advertencia: data?.advertencia?.tieneAdvertencia ? data.advertencia : null,
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelado) setAdvertenciaMantenimiento(null);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [claveAdvertencia, vehiculoAdvertencia, form.kilometrosEstimados]);
+  const advertenciaVigente =
+    claveAdvertencia && advertenciaMantenimiento?.clave === claveAdvertencia ? advertenciaMantenimiento.advertencia : null;
+
   // Opciones de los selectores múltiples: los elegibles, más los candidatos que
   // el viaje ya tenía y no figuren en esa lista.
   const opcionesChoferes = useMemo(() => {
@@ -172,26 +240,6 @@ function ViajeForm({
     setForm((f) => ({ ...f, [name]: value }));
   }
 
-  function handleChangeAdministrativo(e) {
-    const { name, value } = e.target;
-    setAdministrativos((a) => ({ ...a, [name]: value }));
-  }
-
-  function handleToggleSeccion(abierta) {
-    setSeccionAbierta(abierta);
-    // Los catálogos se piden la primera vez que se abre: quien no la abre no
-    // los necesita.
-    if (abierta) cargarCatalogos();
-  }
-
-  // Si hay un error adentro de la sección colapsada, se abre para que se vea.
-  function mostrarErrores(nuevos) {
-    setErrores(nuevos);
-    if (CAMPOS_ADMINISTRATIVOS.some((campo) => nuevos[campo])) {
-      handleToggleSeccion(true);
-    }
-  }
-
   function handleCambiarParadas(paradas) {
     setForm((f) => ({ ...f, paradas }));
   }
@@ -201,27 +249,50 @@ function ViajeForm({
   }
 
   function handleSeleccionarOrigen(item) {
-    setForm((f) => ({ ...f, origenId: item?.id || '', origenNombre: item?.nombre || '' }));
+    setForm((f) => ({ ...f, origenId: item?.id || '', origenNombre: item?.nombre || '', origenLugar: lugarDe(item) }));
+  }
+
+  async function handleCalcularKm() {
+    const firma = firmaActual;
+    setCalculandoKm(true);
+    setErrorKm(null);
+    try {
+      const { data } = await estimarKm(idsRecorrido);
+      setEstimacion({ resultado: data, firma });
+      setForm((f) => aplicarEstimacion(f, data));
+    } catch (err) {
+      setErrorKm({ mensaje: mensajeErrorEstimacion(err), firma, faltantes: ubicacionesSinCoordenadas(err) });
+    } finally {
+      setCalculandoKm(false);
+    }
+  }
+
+  // Ubica con Google una ubicación que faltaba (si falla, el error se ve en el
+  // modal). Cuando ya no falta ninguna, vuelve a calcular: es lo que el usuario
+  // había pedido.
+  async function handleUbicarFaltante({ placeId, sessionToken }) {
+    await ubicarDesdeGoogle(ubicando.ubicacionId, { placeId, sessionToken });
+    const restante = quitarFaltante(errorKm, ubicando.ubicacionId);
+    setUbicando(null);
+    setErrorKm(restante);
+    if (!restante) handleCalcularKm();
   }
 
   function handleSeleccionarDestino(item) {
-    setForm((f) => ({ ...f, destinoId: item?.id || '', destinoNombre: item?.nombre || '' }));
+    setForm((f) => ({ ...f, destinoId: item?.id || '', destinoNombre: item?.nombre || '', destinoLugar: lugarDe(item) }));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setErrores({});
 
-    const erroresLocales = {};
+    const erroresLocales = erroresObligatoriosViaje(form);
     if (requiereOperativos) {
       for (const campo of CAMPOS_OPERATIVOS) {
         if (form[campo] === '' || form[campo] === null || form[campo] === undefined) {
           erroresLocales[campo] = ERROR_OBLIGATORIO_PROGRAMADO;
         }
       }
-    }
-    if (!erroresLocales.fechaInicio && !form.fechaInicio) {
-      erroresLocales.fechaInicio = ERROR_FECHA_INICIO;
     }
 
     const { ids: idsParadas, errores: erroresFilas } = paradasAPayload(form.paradas);
@@ -232,18 +303,24 @@ function ViajeForm({
       const mensaje = errorDeSecuencia(form.origenId, idsParadas, form.destinoId);
       if (mensaje) erroresLocales.paradas = mensaje;
     }
-    if (conDatosAdministrativos) {
-      Object.assign(erroresLocales, validarMontos(administrativos));
-    }
     if (Object.keys(erroresLocales).length > 0) {
-      mostrarErrores(erroresLocales);
+      setErrores(erroresLocales);
+      enfocarPrimerError();
       return;
     }
 
     setEnviando(true);
     try {
-      const enviarAdministrativos = conDatosAdministrativos && hayDatosAdministrativos(administrativos);
-      const { choferId, vehiculoId, choferesCandidatos, vehiculosCandidatos, paradas: filasParadas, ...resto } = form;
+      const {
+        choferId,
+        vehiculoId,
+        choferesCandidatos,
+        vehiculosCandidatos,
+        paradas: filasParadas,
+        origenLugar: _origenLugar,
+        destinoLugar: _destinoLugar,
+        ...resto
+      } = form;
       const asignacion = usaCandidatos ? { choferesCandidatos, vehiculosCandidatos } : { choferId, vehiculoId };
       await onSubmit({
         ...resto,
@@ -251,23 +328,23 @@ function ViajeForm({
         // Solo ids, en orden: el `orden` lo asigna el backend. No hay filas vacías
         // (ya se frenó el envío arriba).
         paradas: paradasAPayload(filasParadas).ids,
-        ...(enviarAdministrativos ? { datosAdministrativos: valoresAPayload(administrativos) } : {}),
       });
     } catch (err) {
       if (err.response?.status === 400 && err.response.data.errores) {
-        mostrarErrores(err.response.data.errores);
+        setErrores(err.response.data.errores);
       } else if (err.response?.status === 409) {
         setErrores({ general: err.response.data.error });
       } else {
         setErrores({ general: 'No se pudo guardar el viaje' });
       }
+      enfocarPrimerError();
     } finally {
       setEnviando(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form ref={refForm} onSubmit={handleSubmit} noValidate>
       <div className="form-grid">
         <div className="form-field-ancho">
           <FormField id="clienteId" label="Cliente" error={errores.clienteId} required>
@@ -283,8 +360,8 @@ function ViajeForm({
 
         <div className="form-field-ancho">
           <EditorRecorrido
-            origen={{ id: form.origenId, nombre: form.origenNombre }}
-            destino={{ id: form.destinoId, nombre: form.destinoNombre }}
+            origen={{ id: form.origenId, nombre: form.origenNombre, ...form.origenLugar }}
+            destino={{ id: form.destinoId, nombre: form.destinoNombre, ...form.destinoLugar }}
             paradas={form.paradas}
             onCambiarOrigen={handleSeleccionarOrigen}
             onCambiarDestino={handleSeleccionarDestino}
@@ -317,7 +394,7 @@ function ViajeForm({
               <FormField
                 id="choferesCandidatos"
                 label="Choferes posibles"
-                error={errores.choferesCandidatos || errores.choferId}
+                error={errores.choferesCandidatos || errores.choferId || errorOpciones.choferes}
               >
                 <SelectorMultiple
                   opciones={opcionesChoferes}
@@ -333,7 +410,7 @@ function ViajeForm({
               <FormField
                 id="vehiculosCandidatos"
                 label="Vehículos posibles"
-                error={errores.vehiculosCandidatos || errores.vehiculoId}
+                error={errores.vehiculosCandidatos || errores.vehiculoId || errorOpciones.vehiculos}
               >
                 <SelectorMultiple
                   opciones={opcionesVehiculos}
@@ -347,7 +424,7 @@ function ViajeForm({
           </>
         ) : (
           <>
-            <FormField id="choferId" label="Chofer" error={errores.choferId} required>
+            <FormField id="choferId" label="Chofer" error={errores.choferId || errorOpciones.choferes} required>
               <select name="choferId" value={form.choferId} onChange={handleChange}>
                 <option value="">Seleccionar…</option>
                 {choferes.map((c) => (
@@ -358,7 +435,7 @@ function ViajeForm({
               </select>
             </FormField>
 
-            <FormField id="vehiculoId" label="Vehículo" error={errores.vehiculoId} required>
+            <FormField id="vehiculoId" label="Vehículo" error={errores.vehiculoId || errorOpciones.vehiculos} required>
               <select name="vehiculoId" value={form.vehiculoId} onChange={handleChange}>
                 <option value="">Seleccionar…</option>
                 {vehiculos.map((v) => (
@@ -371,20 +448,34 @@ function ViajeForm({
           </>
         )}
 
-        <FormField
-          id="kilometrosEstimados"
-          label="Kilómetros estimados"
-          error={errores.kilometrosEstimados}
-          required={requiereOperativos}
-        >
-          <input
-            type="number"
-            name="kilometrosEstimados"
-            value={form.kilometrosEstimados}
-            onChange={handleChange}
-          />
-        </FormField>
+        <CampoKmEstimados
+          valor={form.kilometrosEstimados}
+          onChange={handleChange}
+          requerido={requiereOperativos}
+          errorValidacion={errores.kilometrosEstimados}
+          errorCalculo={errorKmVigente}
+          onUbicar={setUbicando}
+          puedeCalcular={puedeCalcular}
+          calculando={calculandoKm}
+          onCalcular={handleCalcularKm}
+          estimacion={
+            estimacion && { resultado: estimacion.resultado, desactualizado: estimacion.firma !== firmaActual }
+          }
+        />
 
+        {ubicando && (
+          <UbicarConGoogle
+            nombre={ubicando.nombre}
+            onUbicar={handleUbicarFaltante}
+            onCancelar={() => setUbicando(null)}
+          />
+        )}
+
+        {advertenciaVigente && (
+          <div className="form-field-ancho">
+            <Alert variant="warning">{textoAdvertenciaViaje(advertenciaVigente)}</Alert>
+          </div>
+        )}
         <FormField id="cantidadPasajeros" label="Cantidad de pasajeros" error={errores.cantidadPasajeros}>
           <input
             type="number"
@@ -396,17 +487,6 @@ function ViajeForm({
           />
         </FormField>
 
-        {conDatosAdministrativos && (
-          <SeccionDatosAdministrativos
-            valores={administrativos}
-            errores={errores}
-            estadosPago={estadosPago}
-            metodosPago={metodosPago}
-            abierta={seccionAbierta}
-            onToggle={handleToggleSeccion}
-            onChange={handleChangeAdministrativo}
-          />
-        )}
       </div>
 
       {errores.general && <Alert variant="error">{errores.general}</Alert>}

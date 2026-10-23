@@ -10,6 +10,7 @@ Mensaje en línea de éxito, error, advertencia o información dentro de una vis
 - `variant` y `children` (el mensaje, una o dos frases).
 
 ## Reglas
+- Si la respuesta de un guardado trae `avisos` (`{ campo: mensaje }` o una lista), se muestran en un `Alert warning` persistente (`AvisosGuardado`) junto al toast de éxito: el toast dice que se guardó y el aviso, qué no se aplicó. Se va con la próxima acción.
 - Usa los tríos `state-*-text` / `state-*-bg` / `state-*-border`, radio `radius-sm`, padding `space-3` × `space-4`, texto `body-sm`.
 - `info` usa la escala de marca (`state-info-*` son alias de `brand-700`, `brand-50` y `brand-200`): no hay un segundo azul.
 - `warning` usa los tríos `state-warning-text` / `state-warning-bg` / `state-warning-border`, los mismos que `EstadoBadge` warning.

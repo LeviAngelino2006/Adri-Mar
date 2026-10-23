@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import Button from '../ui/Button';
 import FormField from '../ui/FormField';
 import Alert from '../ui/Alert';
@@ -6,13 +6,11 @@ import ModalMarco from './ModalMarco';
 import api from '../../services/api';
 import { etiquetaTipoDocumento } from '../../constants/tiposDocumento';
 import { diasHasta, formatearFechaCorta } from '../../utils/documentacion';
-import { fechaCordobaISO, hoyCordobaISO } from '../../utils/fechaCordoba';
+import { hoyCordobaISO } from '../../utils/fechaCordoba';
+import { aInputFecha, hayCambiosEnActualizacion } from '../../utils/cambiosDocumento';
 import { formatearNombreArchivo } from '../../utils/archivoFormato';
 
 const MAX_BYTES = 15 * 1024 * 1024;
-
-// Fecha "YYYY-MM-DD" para un <input type="date"> a partir de un instante de la API.
-const aInputFecha = (valor) => (valor ? fechaCordobaISO(valor) : '');
 
 // Aviso de lo que pasa con la versión actual al guardar una actualización.
 function avisoVersionActual(documento) {
@@ -40,6 +38,14 @@ function ModalSubirDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, docum
   const [error, setError] = useState('');
 
   const etiqueta = etiquetaTipoDocumento(tipoDocumento.descripcion);
+  const idSinCambios = useId();
+  const sinCambios =
+    esActualizacion &&
+    !hayCambiosEnActualizacion(
+      documentoActual,
+      { archivo, fechaEmision, fechaVencimiento, observaciones },
+      tipoDocumento.requiereVencimiento
+    );
 
   function handleFileChange(e) {
     const file = e.target.files?.[0];
@@ -124,7 +130,14 @@ function ModalSubirDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, docum
           <Button variant="secondary" onClick={onClose} disabled={enviando}>
             Cancelar
           </Button>
-          <Button variant="primary" type="submit" form="form-documento" loading={enviando}>
+          <Button
+            variant="primary"
+            type="submit"
+            form="form-documento"
+            loading={enviando}
+            disabled={sinCambios}
+            aria-describedby={sinCambios ? idSinCambios : undefined}
+          >
             {enviando ? 'Guardando…' : 'Guardar'}
           </Button>
         </>
@@ -132,6 +145,11 @@ function ModalSubirDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, docum
     >
       <form id="form-documento" className="doc-modal-form" onSubmit={handleSubmit} noValidate>
         {esActualizacion && <Alert variant="info">{avisoVersionActual(documentoActual)}</Alert>}
+        {sinCambios && (
+          <p id={idSinCambios} className="form-field-hint">
+            Para guardar una versión nueva, adjuntá un PDF o cambiá una fecha o las observaciones.
+          </p>
+        )}
         {error && <Alert variant="error">{error}</Alert>}
 
         {tipoDocumento.requiereArchivo && (
