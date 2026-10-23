@@ -17,6 +17,7 @@ import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { nombreVehiculo } from '../utils/viajeFormato';
 import { VISTAS_MIS_VIAJES, viajesDeLaVista, vistaMisViajes } from '../utils/misViajes';
+import { esChoferDelViaje } from '../utils/choferDelViaje';
 import { useCarga } from '../hooks/useCarga';
 import { useViajesEnCurso } from '../hooks/useViajesEnCurso';
 import './Viajes.css';
@@ -240,7 +241,7 @@ function MisViajes() {
           </div>
 
           {/* El viaje es del propio usuario: no se repite su nombre en Chofer. */}
-          <FichaViaje viaje={seleccionado} ocultarChofer={seleccionado.choferId === usuario.id} />
+          <FichaViaje viaje={seleccionado} ocultarChofer={esChoferDelViaje(seleccionado, usuario)} />
 
           {/* La acción del estado, en el celular en una barra fija al pie. */}
           {seleccionado.estado === 'PROGRAMADO' && (

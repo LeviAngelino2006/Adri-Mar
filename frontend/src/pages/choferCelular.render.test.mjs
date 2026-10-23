@@ -69,20 +69,21 @@ const CANCELADO = viaje(6, 'CANCELADO', 'Villa Carlos Paz', -3 * DIA);
 const TODOS = [PROXIMO_2, PROXIMO_1, EN_CURSO, ATRASADO, CANCELADO, FINALIZADO];
 
 let viajesDelChofer;
+let viajesDeGestion = [];
 
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
   const api = (await vite.ssrLoadModule('/src/services/api.js')).default;
   api.get = async (endpoint, config = {}) => {
-    if (endpoint === '/viajes/mis-viajes') {
-      const { estado } = config.params ?? {};
-      return { data: { viajes: estado ? viajesDelChofer.filter((v) => v.estado === estado) : viajesDelChofer } };
-    }
+    const { estado } = config.params ?? {};
+    const filtrar = (viajes) => (estado ? viajes.filter((v) => v.estado === estado) : viajes);
+    if (endpoint === '/viajes/mis-viajes') return { data: { viajes: filtrar(viajesDelChofer) } };
+    if (endpoint === '/viajes') return { data: { viajes: filtrar(viajesDeGestion) } };
     throw new Error(`endpoint no previsto en el test: ${endpoint}`);
   };
   ({ MemoryRouter, Routes, Route, useLocation } = await import('react-router-dom'));
   ({ AuthProvider } = await vite.ssrLoadModule('/src/context/AuthContext.jsx'));
-  for (const nombre of ['MisViajes', 'Dashboard']) {
+  for (const nombre of ['MisViajes', 'Dashboard', 'Viajes']) {
     paginas[nombre] = (await vite.ssrLoadModule(`/src/pages/${nombre}.jsx`)).default;
   }
 });
@@ -102,7 +103,10 @@ afterEach(() => {
   localStorage.clear();
 });
 
-const CHOFER = { id: 5, nombre: 'Martín', apellido: 'Gómez', perfil: 'CHOFER', habilitadoParaConducir: true };
+// El chofer de un viaje es una PERSONA (viaje.choferId = id de la persona) y la
+// sesión trae usuario.personaId. Martín es el usuario 7 con la persona 5: los ids
+// son distintos a propósito, para que una comparación con usuario.id falle.
+const CHOFER = { id: 7, personaId: 5, nombre: 'Martín', apellido: 'Gómez', perfil: 'CHOFER', habilitadoParaConducir: true };
 
 // Guarda la ubicación actual del router, para ver el ?tab= de la URL.
 function EspiaUbicacion({ alCambiar }) {
@@ -114,9 +118,9 @@ const guardarUbicacion = (ubicacion) => {
   router.ubicacion = ubicacion;
 };
 
-async function montar(nombre, ruta) {
+async function montar(nombre, ruta, usuario = CHOFER) {
   localStorage.setItem('adrimar_token', 'token-de-prueba');
-  localStorage.setItem('adrimar_usuario', JSON.stringify(CHOFER));
+  localStorage.setItem('adrimar_usuario', JSON.stringify(usuario));
   const Pagina = paginas[nombre];
   await act(async () => {
     raiz.render(
@@ -268,5 +272,38 @@ describe('Dashboard del chofer: Tus viajes pendientes', () => {
     viajesDelChofer = [EN_CURSO, FINALIZADO];
     await montar('Dashboard', '/');
     assert.equal(contenedor.querySelector('.dashboard-proximos-viajes .dashboard-empty')?.textContent, 'No tenés viajes pendientes');
+  });
+});
+
+describe('El chofer del viaje se compara con usuario.personaId, no con usuario.id', () => {
+  test('Mis viajes: con usuario 7 y persona 5, el viaje de la persona 5 no muestra el par Chofer', async () => {
+    await montar('MisViajes', '/mis-viajes');
+    await abrirFicha('Mendoza');
+    assert.equal(PROXIMO_1.choferId, CHOFER.personaId);
+    assert.notEqual(CHOFER.id, CHOFER.personaId);
+    assert.ok(!etiquetasFicha().includes('Chofer'));
+  });
+
+  // Personal de Taller que conduce: ve Viajes sin ser gestor y solo puede
+  // comenzar sus propios viajes. Usuario 9, persona 30.
+  const TALLER = { id: 9, personaId: 30, nombre: 'Raúl', apellido: 'Quiroga', perfil: 'PERSONAL_TALLER', habilitadoParaConducir: true };
+  const PROPIO = { ...viaje(40, 'PROGRAMADO', 'Alta Gracia', 3 * DIA), chofer: { id: 30, nombre: 'Raúl', apellido: 'Quiroga' }, choferId: 30 };
+  // choferId 9 coincide con el usuario.id de Raúl, pero es otra persona.
+  const AJENO = { ...viaje(41, 'PROGRAMADO', 'Embalse', 4 * DIA), chofer: { id: 9, nombre: 'Jorge', apellido: 'López' }, choferId: 9 };
+
+  test('Viajes: Personal de Taller puede comenzar el viaje de su persona', async () => {
+    viajesDeGestion = [PROPIO, AJENO];
+    await montar('Viajes', '/viajes', TALLER);
+    await abrirFicha('Alta Gracia');
+    const comenzar = boton('Comenzar viaje');
+    assert.ok(comenzar, 'falta "Comenzar viaje" en su propio viaje');
+    assert.equal(comenzar.disabled, false);
+  });
+
+  test('Viajes: no puede comenzar el de otra persona aunque el choferId sea igual a su usuario.id', async () => {
+    viajesDeGestion = [PROPIO, AJENO];
+    await montar('Viajes', '/viajes', TALLER);
+    await abrirFicha('Embalse');
+    assert.equal(boton('Comenzar viaje'), undefined);
   });
 });
