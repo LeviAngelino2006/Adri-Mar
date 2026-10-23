@@ -37,12 +37,13 @@ La pantalla tiene tres pestañas: **Service** (estado de cada vehículo y regist
   - **Minibuses:** cada **20.000 km**.
   - **Tráfics / Combis:** cada **15.000 km**.
   - **Utilitarios:** cada **10.000 km**.
+- **Asignación del plan:** el alta de un vehículo le crea el plan con la plantilla de su tipo. El formulario de alta tiene un campo opcional "Km del último service" (útil para los adquiridos usados); si queda vacío, se toma el kilometraje de alta. Si se edita el tipo del vehículo, el plan pasa a la plantilla del tipo nuevo y conserva el km del último service; si el tipo nuevo no tiene plantilla, el plan se desactiva (Sin plan). Los vehículos cargados antes de este cambio recibieron su plan con la migración `20261023200000_asignar_planes_mantenimiento`, tomando el odómetro como último service.
 - **Plan del vehículo** (`planes_mantenimiento`): guarda solo el km del último service. El km del próximo service (último + intervalo) y el estado **no se guardan, se calculan** en `calcularEstadoService` (`backend/src/utils/estadoService.js`), así un cambio de intervalo no deja planes desactualizados.
 - **Estados del service:**
   - **Al día:** todavía no llegó al aviso.
   - **Próximo:** recorrió el **95 % del intervalo** desde su último service (`porcentaje_aviso` de la plantilla). Un colectivo avisa a los 19.000 km; una Trafic, a los 14.250; un utilitario, a los 9.500.
   - **Vencido:** recorrió el intervalo completo.
-  - **Sin plan:** el vehículo no tiene plan. Se le asigna uno indicando a qué km fue su último service (por defecto, el odómetro actual), o se crea solo al registrarle el primer service.
+  - **Sin plan:** el vehículo no tiene plan activo (solo pasa si su tipo no tiene plantilla). Se le asigna uno indicando a qué km fue su último service (por defecto, el odómetro actual), o se crea solo al registrarle el primer service.
 - **Urgencia:** la lista se ordena por la fracción del intervalo recorrida, no por km restantes (900 km restantes son el 4,5 % de un colectivo pero el 9 % de un utilitario).
 - **Vehículos dados de baja:** no aparecen en Service ni en los selectores y no generan alertas. Su historial se conserva.
 - **Advertencia en viajes:** al planificar un viaje, si con los km estimados el vehículo pasa su service (o ya lo pasó), el formulario lo avisa. Es informativo: no bloquea.

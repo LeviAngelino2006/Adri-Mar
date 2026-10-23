@@ -183,6 +183,30 @@ describe('Crear vehículo: el kilometraje inicial sigue siendo editable', () => 
     await clic(boton('Crear vehículo'));
     assert.equal(enviados[0].metodo, 'POST');
     assert.equal(enviados[0].datos.kilometraje, '1200');
+    // Sin cargar el último service va vacío: el backend usa el km de alta.
+    assert.equal(enviados[0].datos.kmUltimoService, '');
+  });
+
+  test('el alta manda el km del último service si se carga', async () => {
+    await clic(contenedor.querySelector('.listado-accion'));
+    escribir(contenedor.querySelector('input[name="numeroInterno"]'), '30');
+    escribir(contenedor.querySelector('input[name="dominio"]'), 'AB123CD');
+    await elegirEnSelector('marcaId', 'Merc', 'Mercedes-Benz');
+    await elegirEnSelector('modeloId', 'O5', 'O500');
+    elegirTipo('1');
+    escribir(contenedor.querySelector('input[name="anio"]'), '2020');
+    escribir(contenedor.querySelector('input[name="asientos"]'), '45');
+    escribir(contenedor.querySelector('input[name="kilometraje"]'), '150000');
+    escribir(contenedor.querySelector('input[name="kmUltimoService"]'), '142000');
+    await clic(boton('Crear vehículo'));
+    assert.equal(enviados[0].datos.kmUltimoService, '142000');
+  });
+
+  test('al editar no aparece el km del último service ni se manda', async () => {
+    await abrirEdicion();
+    assert.equal(contenedor.querySelector('input[name="kmUltimoService"]'), null);
+    await clic(boton('Guardar cambios'));
+    assert.ok(!('kmUltimoService' in enviados[0].datos));
   });
 });
 

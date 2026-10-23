@@ -54,6 +54,9 @@ const FORM_INICIAL = {
   anio: '',
   asientos: '',
   kilometraje: '',
+  // Opcional, solo en el alta: si queda vacío, el backend toma el kilometraje
+  // de alta como último service al crear el plan de mantenimiento.
+  kmUltimoService: '',
   tipoVehiculoId: '',
 };
 
@@ -228,7 +231,8 @@ function FlotaVehiculos() {
       asientos: form.asientos,
       // El kilometraje solo se carga en el alta (es el inicial). Después lo
       // llevan las lecturas del odómetro y el backend lo ignora al editar.
-      ...(editando ? {} : { kilometraje: form.kilometraje }),
+      // Lo mismo el km del último service: arma el plan de mantenimiento del alta.
+      ...(editando ? {} : { kilometraje: form.kilometraje, kmUltimoService: form.kmUltimoService }),
     };
     try {
       if (editando) {
@@ -351,15 +355,32 @@ function FlotaVehiculos() {
                     </p>
                   </div>
                 ) : (
-                  <FormField
-                    id="kilometraje"
-                    label="Kilometraje actual"
-                    required
-                    hint="En kilómetros"
-                    error={erroresForm.kilometraje}
-                  >
-                    <input name="kilometraje" type="number" min="0" value={form.kilometraje} onChange={handleFormChange} />
-                  </FormField>
+                  <>
+                    <FormField
+                      id="kilometraje"
+                      label="Kilometraje actual"
+                      required
+                      hint="En kilómetros"
+                      error={erroresForm.kilometraje}
+                    >
+                      <input name="kilometraje" type="number" min="0" value={form.kilometraje} onChange={handleFormChange} />
+                    </FormField>
+
+                    <FormField
+                      id="kmUltimoService"
+                      label="Km del último service"
+                      hint="Opcional. Si lo dejás vacío, se toma el kilometraje actual."
+                      error={erroresForm.kmUltimoService}
+                    >
+                      <input
+                        name="kmUltimoService"
+                        type="number"
+                        min="0"
+                        value={form.kmUltimoService}
+                        onChange={handleFormChange}
+                      />
+                    </FormField>
+                  </>
                 )}
 
                 <div className="form-field switch-field">

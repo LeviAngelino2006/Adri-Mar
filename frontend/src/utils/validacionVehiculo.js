@@ -66,6 +66,15 @@ export function validarVehiculo(form, { conKilometraje, anioActual = new Date().
     } else if (!esEntero(form.kilometraje)) {
       errores.kilometraje = 'El kilometraje debe ser un número mayor o igual a 0';
     }
+
+    // Opcional: vacío = el último service se toma en el kilometraje de alta.
+    if (!vacio(form.kmUltimoService)) {
+      if (!esEntero(form.kmUltimoService)) {
+        errores.kmUltimoService = 'El km del último service debe ser un número entero mayor o igual a 0';
+      } else if (!errores.kilometraje && Number(form.kmUltimoService) > Number(form.kilometraje)) {
+        errores.kmUltimoService = `El km del último service no puede superar al kilometraje de alta (${form.kilometraje} km)`;
+      }
+    }
   }
 
   return errores;
