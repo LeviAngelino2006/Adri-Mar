@@ -11,23 +11,23 @@
   margin-bottom: var(--space-4);
 }
 
-/* Control segmentado (Documentación): a la derecha de todo. Se ubica según el
-   ancho de la barra, no el de la pantalla: con la sidebar abierta (768–900px)
-   la barra es angosta aunque la pantalla no lo sea. El :where() deja esta regla
-   sin especificidad extra, para que el @container de abajo la pueda pisar. */
+/* Control segmentado (Viajes, Mis viajes, Documentación y Mantenimiento): a la
+   derecha de todo, en todas las pantallas. Se ubica según el ancho de la barra,
+   no el de la pantalla: con la sidebar abierta (768–900px) la barra es angosta
+   aunque la pantalla no lo sea. El :where() deja esta regla sin especificidad
+   extra, para que el @container de abajo la pueda pisar. */
 :where(.listado-toolbar) .control-segmentado {
   margin-left: auto;
 }
 
-/* Variante con las vistas primero (Mantenimiento): el control queda a la
-   izquierda y el buscador (o Filtros, si no hay buscador) se va a la derecha. */
-.listado-toolbar-vistas-inicio .control-segmentado {
-  margin-left: 0;
-}
-
-.listado-toolbar-vistas-inicio .control-segmentado + .listado-buscar,
-.listado-toolbar-vistas-inicio .control-segmentado + .filtros-toggle-btn {
-  margin-left: auto;
+/* Con vistas y acción (Viajes), las dos van juntas a la derecha: la acción
+   pegada al control, sin repartirse el espacio libre con él. Solo con el control
+   en la misma línea; debajo de 600px el control sube y la acción vuelve a
+   alinearse sola a la derecha. */
+@container listado-toolbar (min-width: 600px) {
+  .listado-toolbar .control-segmentado + .listado-accion {
+    margin-left: 0;
+  }
 }
 
 /* Barra de menos de 600px: el control pasa arriba, a todo el ancho, con las

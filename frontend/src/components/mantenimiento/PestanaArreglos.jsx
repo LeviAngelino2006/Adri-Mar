@@ -116,7 +116,7 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
 
   return (
     <>
-      <ListadoToolbar vistas={vistas} vistasAlInicio />
+      <ListadoToolbar vistas={vistas} />
 
       <Card className="form-card arreglos-form-card">
         <form ref={refForm} onSubmit={handleSubmit} noValidate>

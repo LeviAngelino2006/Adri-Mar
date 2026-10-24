@@ -22,13 +22,14 @@ const h = React.createElement;
 
 let vite;
 let TarjetaService;
+let PestanaService;
 let TarjetaRegistro;
 let ModalRegistrarService;
 let PestanaArreglos;
 
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
-  ({ TarjetaService } = await vite.ssrLoadModule('/src/components/mantenimiento/PestanaService.jsx'));
+  ({ TarjetaService, default: PestanaService } = await vite.ssrLoadModule('/src/components/mantenimiento/PestanaService.jsx'));
   ({ TarjetaRegistro } = await vite.ssrLoadModule('/src/components/mantenimiento/PestanaHistorial.jsx'));
   ModalRegistrarService = (await vite.ssrLoadModule('/src/components/mantenimiento/ModalRegistrarService.jsx')).default;
   PestanaArreglos = (await vite.ssrLoadModule('/src/components/mantenimiento/PestanaArreglos.jsx')).default;
@@ -77,6 +78,29 @@ describe('TarjetaService', () => {
     const html = texto(renderToStaticMarkup(h(TarjetaService, { item: sinPlan, onClick: () => {} })));
     assert.match(html, /Sin plan/);
     assert.match(html, /Odómetro: 339\.200 km/);
+  });
+});
+
+describe('PestanaService', () => {
+  test('la barra va como en Documentación: buscador y Filtros, y a la derecha Service | Arreglos | Historial', () => {
+    const vistas = {
+      opciones: [
+        { valor: 'service', etiqueta: 'Service' },
+        { valor: 'arreglos', etiqueta: 'Arreglos' },
+        { valor: 'historial', etiqueta: 'Historial' },
+      ],
+      valor: 'service',
+      onChange() {},
+      ariaLabel: 'Vista de mantenimiento',
+    };
+    const carga = { cargando: false, error: null, datos: [itemProximo], recargar() {} };
+    const html = renderToStaticMarkup(
+      h(PestanaService, { carga, tiposVehiculo: [], vistas, onRegistrar() {}, onAsignar() {} })
+    );
+    const barra = html.slice(html.indexOf('class="listado-toolbar"'), html.indexOf('class="listado-cards"'));
+    const orden = ['listado-buscar', 'filtros-toggle-btn', 'control-segmentado'].map((clase) => barra.indexOf(`class="${clase}`));
+    assert.ok(orden.every((posicion) => posicion > 0));
+    assert.deepEqual([...orden].sort((a, b) => a - b), orden);
   });
 });
 

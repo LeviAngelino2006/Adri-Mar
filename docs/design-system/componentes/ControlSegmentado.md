@@ -1,4 +1,4 @@
-Control para cambiar de vista dentro de la misma pantalla, con un botón por opción y una sola activa. Se usa en Documentación (Vehículos | Choferes) y en Mis viajes (Próximos | Anteriores, sin íconos ni cantidades), dentro de la barra del listado.
+Control para cambiar de vista dentro de la misma pantalla, con un botón por opción y una sola activa. Se usa en Documentación (Vehículos | Choferes), en Viajes y Mis viajes (Próximos | Anteriores, sin íconos ni cantidades) y en Mantenimiento (Service | Arreglos | Historial), dentro de la barra del listado y siempre a la derecha.
 
 ## Cuándo usarlo
 - Para alternar entre vistas hermanas de un mismo conjunto de datos, donde el cambio reemplaza el contenido de abajo y no cambia de ruta (Vehículos | Choferes).
@@ -23,7 +23,7 @@ Control para cambiar de vista dentro de la misma pantalla, con un botón por opc
 - Hover (solo inactivas): texto `color-text` y fondo `color-bg`, dentro de `@media (hover: hover)`; el mismo estilo en `:active`, fuera de la media query. Foco: outline 2px `brand-600`, offset 2px.
 
 ## En la barra del listado
-- Escritorio: va a la derecha de todo (`margin-left: auto`), después del buscador y de Filtros. Es también el orden en el DOM.
+- Escritorio: va a la derecha de todo (`margin-left: auto`), después del buscador y de Filtros, en todas las pantallas (también en Mantenimiento). Es también el orden en el DOM. Si la barra tiene acción (Viajes), la acción va después del control, pegada a él.
 - Depende del ancho de la barra, no del de la pantalla: `.listado-toolbar` es un contenedor (`container: listado-toolbar / inline-size`) y las reglas van en `Listado.css` con `@container`.
 - Barra de menos de 600px: el control pasa arriba (`order: -1`), a todo el ancho y con las opciones en partes iguales. El buscador y Filtros quedan en la línea de abajo. Pasa en mobile y también en escritorio angosto, con la sidebar abierta (por ejemplo, a 800px).
 - Barra de menos de 400px: además se ocultan las cantidades.
