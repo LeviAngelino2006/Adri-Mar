@@ -28,34 +28,33 @@ async function obtenerEstadoUsuarioPorDescripcion(descripcion) {
   return estado;
 }
 
+// personaId es obligatorio en Usuario: la persona siempre viene.
 function serializarUsuario(usuario) {
   const p = usuario.persona;
   return {
     id: usuario.id,
     nombreUsuario: usuario.nombreUsuario,
     personaId: usuario.personaId,
-    nombre: p?.nombre ?? usuario.nombreLegacy ?? '',
-    apellido: p?.apellido ?? usuario.apellidoLegacy ?? '',
-    dni: p?.dni ?? usuario.dniLegacy ?? null,
-    email: p?.email ?? usuario.emailLegacy ?? null,
-    telefono: p?.telefono ?? usuario.telefonoLegacy ?? null,
-    perfil: p?.perfil?.descripcion ?? usuario.perfilLegacy?.descripcion ?? '',
-    habilitadoParaConducir: p?.habilitadoParaConducir ?? usuario.habilitadoParaConducirLegacy ?? false,
+    nombre: p.nombre,
+    apellido: p.apellido,
+    dni: p.dni,
+    email: p.email,
+    telefono: p.telefono,
+    perfil: p.perfil.descripcion,
+    habilitadoParaConducir: p.habilitadoParaConducir,
     activo: usuario.estadoUsuario?.descripcion === 'ACTIVO',
     creadoEn: usuario.creadoEn,
-    persona: p
-      ? {
-          id: p.id,
-          nombre: p.nombre,
-          apellido: p.apellido,
-          dni: p.dni,
-          email: p.email,
-          telefono: p.telefono,
-          perfil: p.perfil?.descripcion,
-          habilitadoParaConducir: p.habilitadoParaConducir,
-          activo: p.activo,
-        }
-      : null,
+    persona: {
+      id: p.id,
+      nombre: p.nombre,
+      apellido: p.apellido,
+      dni: p.dni,
+      email: p.email,
+      telefono: p.telefono,
+      perfil: p.perfil.descripcion,
+      habilitadoParaConducir: p.habilitadoParaConducir,
+      activo: p.activo,
+    },
   };
 }
 
