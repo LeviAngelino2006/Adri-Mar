@@ -51,13 +51,13 @@ La pantalla tiene tres pestañas: **Service** (estado de cada vehículo y regist
 
 ### 2.2. El Service
 - Es un **paquete fijo**: cambio de aceite; filtros de gasoil, aceite y habitáculo (aire acondicionado); alineado y balanceado; revisión general del motor. Se muestra como lista informativa: no se tilda, porque siempre se hace completo.
-- Se registra con **fecha, km del odómetro y observación**. Costo y responsable no se cargan por ahora (las columnas `costo` y `taller_mecanico` quedan en la base).
+- Se registra con **fecha, km del odómetro y observación**. Costo y responsable no se cargan por ahora (la columna `costo` queda en la base).
 - **Reinicia el conteo:** el km del último service pasa a ser el del service registrado. Un service viejo (con menos km que el último) se guarda en el historial pero **no** baja el conteo.
 
 ### 2.3. Arreglos
 - Cualquier trabajo que no es el service, de **uno o más** tipos del catálogo `tipos_arreglo`: Engrase, Rotación de cubiertas (se recomienda cada 10.000 km, pero no genera alerta), Cambio de cubiertas, Frenos, Batería y electricidad, Chapa y pintura, Mecánica general y Otro. Los tipos de cada arreglo se guardan en la tabla intermedia `mantenimiento_tipos_arreglo` (por ejemplo, "Engrase + Cambio de cubiertas" es un solo registro).
 - "Otro" se puede combinar con los demás tipos y, si está marcado, exige indicar qué trabajo se hizo ("¿Qué trabajo?", hasta 60 caracteres, `requiere_detalle`). Se guarda en `mantenimiento_tipos_arreglo.detalle` y el historial lo muestra en lugar de "Otro" ("Engrase + Cambio de espejo"). La descripción del arreglo es opcional. Los arreglos con "Otro" cargados antes no tienen detalle y siguen mostrando "Otro". Un tipo que se deja de usar se desactiva (`activo`), no se borra.
-- Se registra con fecha, km, descripción, quién hizo el trabajo (texto libre: mecánico, chapista o taller), repuestos y observaciones. Sin costo por ahora.
+- Se registra con fecha, km, descripción, responsable (mecánico, chapista o taller; opcional), que se elige del catálogo `responsables_mantenimiento` con el patrón "buscar o crear" (como origen y destino de los viajes: se sugieren los existentes mientras se escribe y, si no está, se crea para la próxima; se deduplica por nombre normalizado), repuestos y observaciones. Sin costo por ahora.
 - Los arreglos **no reinician el conteo del service ni generan alertas**.
 
 ### 2.4. Reglas comunes e Historial

@@ -133,7 +133,7 @@ export function esKmAnterior(km, odometro) {
 
 export function validarRegistroMantenimiento(
   form,
-  { hoy, esArreglo = false, tiposArreglo = [], maxTexto, maxResponsable, maxDetalleTipo, kmMinimo }
+  { hoy, esArreglo = false, tiposArreglo = [], maxTexto, maxDetalleTipo, kmMinimo }
 ) {
   const errores = {};
   if (!form.vehiculoId) errores.vehiculoId = 'Elegí el vehículo';
@@ -152,7 +152,6 @@ export function validarRegistroMantenimiento(
   for (const campo of textos) {
     if (largo(form[campo]) > maxTexto) errores[campo] = `Hasta ${maxTexto} caracteres`;
   }
-  if (esArreglo && largo(form.responsable) > maxResponsable) errores.responsable = `Hasta ${maxResponsable} caracteres`;
   for (const tipo of esArreglo ? tiposArreglo.filter((t) => t.requiereDetalle) : []) {
     const detalle = String(form.detallesTipos?.[tipo.id] ?? '').trim();
     if (!detalle) errores.detallesTipos = `Contá qué trabajo se hizo (obligatorio para "${tipo.nombre}")`;

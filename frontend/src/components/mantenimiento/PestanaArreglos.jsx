@@ -4,12 +4,13 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import FormField from '../ui/FormField';
 import GrupoCasillas from '../ui/GrupoCasillas';
+import SelectorBuscarOCrear from '../ui/SelectorBuscarOCrear';
 import Switch from '../ui/Switch';
 import { ListadoToolbar } from '../Listado';
 import { useCarga } from '../../hooks/useCarga';
 import { useFocoEnPrimerError } from '../../hooks/useFocoEnPrimerError';
 import { listarTiposArreglo, registrarArreglo } from '../../services/mantenimientoApi';
-import { DEMORA_KM_MS, MAX_DETALLE_TIPO, MAX_RESPONSABLE, MAX_TEXTO_MANTENIMIENTO } from '../../constants/mantenimiento';
+import { DEMORA_KM_MS, MAX_DETALLE_TIPO, MAX_TEXTO_MANTENIMIENTO } from '../../constants/mantenimiento';
 import { mensajeErrorCarga } from '../../utils/errorCarga';
 import { hoyCordobaISO } from '../../utils/fechaCordoba';
 import { formatearKm } from '../../utils/viajeFormato';
@@ -26,7 +27,10 @@ const formVacio = () => ({
   // Trabajo hecho antes que se carga ahora: deja poner menos km que el odómetro.
   esAnterior: false,
   descripcion: '',
-  responsable: '',
+  // Catálogo "buscar o crear" (SelectorBuscarOCrear): el id va al backend y el
+  // nombre es para mostrar.
+  responsableId: '',
+  responsableNombre: '',
   repuestos: '',
   observaciones: '',
 });
@@ -51,6 +55,9 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
   const [errores, setErrores] = useState({});
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
+  // Al limpiar se vuelve a montar el selector de responsable: si no, el texto
+  // del input quedaría (useTextoDeSeleccion no lo borra cuando el valor se vacía).
+  const [reinicios, setReinicios] = useState(0);
   const [refForm, enfocarPrimerError] = useFocoEnPrimerError();
 
   const hoy = hoyCordobaISO();
@@ -114,8 +121,14 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
     );
   }
 
+  function elegirResponsable(item) {
+    setForm((actual) => ({ ...actual, responsableId: item ? String(item.id) : '', responsableNombre: item?.nombre ?? '' }));
+    setErrores((actuales) => ({ ...actuales, responsableId: undefined }));
+  }
+
   function limpiar() {
     setForm(formVacio());
+    setReinicios((n) => n + 1);
     setErrores({});
     setError('');
   }
@@ -130,7 +143,6 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
       esArreglo: true,
       tiposArreglo: tiposElegidos,
       maxTexto: MAX_TEXTO_MANTENIMIENTO,
-      maxResponsable: MAX_RESPONSABLE,
       maxDetalleTipo: MAX_DETALLE_TIPO,
       kmMinimo: vehiculo?.kilometraje,
     });
@@ -155,7 +167,7 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
         kilometraje: Number(form.kilometraje),
         esAnterior: esAnterior || undefined,
         descripcion: texto('descripcion'),
-        responsable: texto('responsable'),
+        responsableId: form.responsableId ? Number(form.responsableId) : undefined,
         repuestos: texto('repuestos'),
         observaciones: texto('observaciones'),
       });
@@ -239,22 +251,24 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
 
             <FormField
               id="arreglo-responsable"
-              label="Quién hizo el trabajo"
-              hint="Mecánico, chapista o taller"
-              error={errores.responsable}
+              label="Responsable"
+              hint=""
+              error={errores.responsableId}
             >
-              <input
-                type="text"
-                maxLength={MAX_RESPONSABLE}
-                value={form.responsable}
-                onChange={(e) => cambiar('responsable', e.target.value)}
+              <SelectorBuscarOCrear
+                key={reinicios}
+                endpoint="/mantenimientos/responsables"
+                valor={form.responsableId}
+                valorNombre={form.responsableNombre}
+                onSeleccionar={elegirResponsable}
+                placeholder="Buscar o crear responsable…"
               />
             </FormField>
 
             <div className="form-field-ancho">
               <GrupoCasillas
                 id="arreglo-tipos"
-                legend="Tipos de trabajo"
+                legend="Trabajos realizados"
                 required
                 opciones={opcionesTipos}
                 valor={form.tiposArregloIds}

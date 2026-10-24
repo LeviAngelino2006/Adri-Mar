@@ -77,7 +77,7 @@ function sembrarRegistro({ vehiculoId = 7, tiposArregloIds = [], detalles = {}, 
     kilometraje,
     descripcion: null,
     repuestos: null,
-    tallerMecanico: null,
+    responsableId: null,
     costo: null,
     observaciones: null,
     usuarioId: 5,
@@ -245,7 +245,7 @@ describe('POST /services', () => {
     assert.equal(guardado.esServicePreventivo, true);
     assert.equal(guardado.planMantenimientoId, planDe(7).id);
     assert.equal(guardado.costo, null);
-    assert.equal(guardado.tallerMecanico, null);
+    assert.equal(guardado.responsableId, null);
   });
 
   test('un service con menos km que el último no baja el conteo (B3)', async () => {
@@ -299,13 +299,13 @@ describe('POST /services', () => {
       tipoArregloId: 3,
       tiposArregloIds: [3],
       costo: 1000,
-      tallerMecanico: 'X',
+      responsableId: 1,
     });
     assert.equal(status, 400);
     assert.ok(body.errores.tipoArregloId);
     assert.ok(body.errores.tiposArregloIds);
     assert.ok(body.errores.costo);
-    assert.ok(body.errores.tallerMecanico);
+    assert.ok(body.errores.responsableId);
     assert.equal(db.mantenimientosRealizados.length, 0);
   });
 
@@ -342,14 +342,14 @@ describe('POST /arreglos', () => {
     sembrarPlan(7, 500);
     const { status, body } = await arreglo({
       tiposArregloIds: [3],
-      responsable: '  Gomería Río Tercero ',
+      responsableId: 1,
       repuestos: '2 cubiertas 295/80',
     });
     assert.equal(status, 201);
     assert.equal(body.registro.tipo, 'ARREGLO');
     assert.deepEqual(body.registro.tiposArreglo, [{ id: 3, nombre: 'Cambio de cubiertas', detalle: null }]);
     assert.equal(body.registro.responsable, 'Gomería Río Tercero');
-    assert.equal(db.mantenimientosRealizados.at(-1).tallerMecanico, 'Gomería Río Tercero');
+    assert.equal(db.mantenimientosRealizados.at(-1).responsableId, 1);
     assert.equal(db.mantenimientosRealizados.at(-1).planMantenimientoId, null);
     assert.equal(planDe(7).kmUltimoService, 500);
   });
@@ -359,6 +359,21 @@ describe('POST /arreglos', () => {
     assert.equal(status, 201);
     assert.equal(body.registro.responsable, null);
     assert.equal(planDe(7), undefined);
+  });
+
+  test('un responsable que no está en el catálogo → 400', async () => {
+    for (const responsableId of [99, 'abc', 0]) {
+      const { status, body } = await arreglo({ tiposArregloIds: [1], responsableId });
+      assert.equal(status, 400);
+      assert.equal(body.errores.responsableId, 'El responsable no existe');
+    }
+    assert.equal(db.mantenimientosRealizados.length, 0);
+  });
+
+  test('el responsable como texto (API vieja) → 400 que pide responsableId', async () => {
+    const { status, body } = await arreglo({ tiposArregloIds: [1], responsable: 'Gomería' });
+    assert.equal(status, 400);
+    assert.match(body.errores.responsable, /responsableId/);
   });
 
   test('guarda varios tipos en un solo registro, en el orden del catálogo', async () => {
@@ -539,7 +554,7 @@ describe('GET /historial', () => {
     cambiarTipo(9, 3, 'Trafic');
     vehiculo(9).numeroInterno = '2';
     sembrarRegistro({ vehiculoId: 7, fecha: '2026-01-10', kilometraje: 10000, observaciones: 'Service enero' });
-    sembrarRegistro({ vehiculoId: 7, tiposArregloIds: [1, 3], fecha: '2026-02-15', kilometraje: 15000, tallerMecanico: 'Gomería' });
+    sembrarRegistro({ vehiculoId: 7, tiposArregloIds: [1, 3], fecha: '2026-02-15', kilometraje: 15000, responsableId: 1 });
     sembrarRegistro({ vehiculoId: 9, tiposArregloIds: [4], fecha: '2026-03-20', kilometraje: 5000 });
     sembrarRegistro({ vehiculoId: 10, fecha: '2026-04-01', kilometraje: 80000 }); // dado de baja: su historial se ve
     sembrarRegistro({ vehiculoId: 9, fecha: '2026-05-05', kilometraje: 8000 });
@@ -558,7 +573,7 @@ describe('GET /historial', () => {
       ['2026-05-05', '2026-04-01', '2026-03-20', '2026-02-15', '2026-01-10']
     );
     const arreglo = body.items.find((i) => i.tipo === 'ARREGLO' && i.responsable);
-    assert.equal(arreglo.responsable, 'Gomería');
+    assert.equal(arreglo.responsable, 'Gomería Río Tercero');
     assert.equal(arreglo.vehiculo.marca, 'Mercedes');
     assert.equal(arreglo.vehiculo.modelo, 'O500');
     assert.equal(arreglo.usuario, 'Ana Pérez');

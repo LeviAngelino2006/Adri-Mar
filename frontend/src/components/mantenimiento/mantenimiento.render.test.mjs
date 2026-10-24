@@ -206,7 +206,10 @@ describe('PestanaArreglos', () => {
     assert.match(html, /<fieldset[^>]*id="arreglo-tipos"/);
     assert.match(html, /<legend[^>]*>Tipos de trabajo/);
     assert.doesNotMatch(html, /Elegí el tipo de trabajo/);
-    assert.match(html, /Quién hizo el trabajo/);
+    // Responsable: catálogo "buscar o crear", no texto libre.
+    assert.match(html, /<label for="arreglo-responsable">Responsable/);
+    assert.match(html, /class="selector-buscar-crear"[^]*id="arreglo-responsable"[^>]*placeholder="Buscar o crear responsable…"/);
+    assert.doesNotMatch(html, /Quién hizo el trabajo/);
     assert.match(html, /Mecánico, chapista o taller/);
     assert.match(html, /Registrar arreglo/);
     assert.doesNotMatch(html, /[Cc]osto/);

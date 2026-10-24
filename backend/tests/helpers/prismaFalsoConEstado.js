@@ -67,6 +67,8 @@ function crearEntorno() {
     // Tabla intermedia registro ↔ tipo de arreglo ({ mantenimientoId, tipoArregloId }).
     mantenimientosTiposArreglo: [],
     tiposArreglo: [],
+    // Catálogo de responsables de arreglos ({ id, nombre }).
+    responsables: [],
     lecturas: [],
     // Orígenes de lectura sembrados (id → descripción).
     origenes: { 1: 'ALTA_VEHICULO', 2: 'INICIO_VIAJE', 3: 'FIN_VIAJE', 4: 'MANUAL', 5: 'CORRECCION', 6: 'MANTENIMIENTO' },
@@ -204,6 +206,10 @@ function crearEntorno() {
       tipoArreglo(4, 'Frenos'),
       tipoArreglo(8, 'Otro', { requiereDetalle: true }),
       tipoArreglo(9, 'Tapicería', { activo: false }),
+    ]);
+    reemplazar(db.responsables, [
+      { id: 1, nombre: 'Gomería Río Tercero' },
+      { id: 2, nombre: 'Taller Gómez' },
     ]);
     reemplazar(db.lecturas, []);
     db.relojDocumentos = Date.parse('2026-01-01T00:00:00Z');
@@ -518,6 +524,7 @@ function crearEntorno() {
       // Como el select real: nombre y apellido viven en Persona (Usuario ya no los tiene).
       usuario: usuario ? { persona: { nombre: usuario.persona.nombre, apellido: usuario.persona.apellido } } : null,
       vehiculo: { ...db.vehiculos.find((v) => v.id === fila.vehiculoId) },
+      responsable: db.responsables.find((r) => r.id === fila.responsableId) ?? null,
     };
   }
 
@@ -540,7 +547,7 @@ function crearEntorno() {
         planMantenimientoId: null,
         descripcion: null,
         repuestos: null,
-        tallerMecanico: null,
+        responsableId: null,
         costo: null,
         observaciones: null,
         ...columnas,
@@ -814,6 +821,9 @@ function crearEntorno() {
     planMantenimiento: modeloPlanMantenimiento,
     mantenimientoRealizado: modeloMantenimientoRealizado,
     tipoArreglo: modeloTipoArreglo,
+    responsableMantenimiento: {
+      findUnique: async ({ where: { id } }) => db.responsables.find((r) => r.id === id) ?? null,
+    },
     usuario: {
       findUnique: async ({ where, include }) => {
         if (db.alLeerUsuario) db.alLeerUsuario();

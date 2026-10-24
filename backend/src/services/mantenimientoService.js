@@ -16,7 +16,6 @@ const { aDiaCordoba, diaCordobaISO, SOLO_DIA_REGEX } = require('../utils/fechaCo
 
 const ID_MAXIMO = 2147483647; // INTEGER de Postgres
 const MAX_TEXTO = 500;
-const MAX_RESPONSABLE = 120;
 const MAX_DETALLE_TIPO = 60; // "¿Qué trabajo?" de "Otro": va en el badge del historial
 const POR_PAGINA_DEFECTO = 30;
 const POR_PAGINA_MAXIMO = 100;
@@ -32,7 +31,7 @@ const ORDENES_HISTORIAL = {
 };
 
 // Campos que el service no acepta: viene siempre como el paquete completo y,
-// por ahora, sin costo ni responsable (las columnas quedan en la base). Se
+// por ahora, sin costo (la columna queda en la base) ni responsable. Se
 // rechazan en vez de ignorarse, así queda explícito.
 const CAMPOS_AJENOS_SERVICE = {
   tipoArregloId: 'El service no lleva tipo de arreglo: para otro trabajo, registrá un arreglo',
@@ -41,6 +40,7 @@ const CAMPOS_AJENOS_SERVICE = {
   costo: 'El service no lleva costo',
   tallerMecanico: 'El service no lleva responsable',
   responsable: 'El service no lleva responsable',
+  responsableId: 'El service no lleva responsable',
   esAnterior: 'El service no lleva esa marca: uno con menos km se registra igual',
 };
 
@@ -48,7 +48,10 @@ const CAMPOS_AJENOS_ARREGLO = {
   categoria: 'El arreglo no lleva categoría: indicá el tipo de trabajo',
   tipoArregloId: 'Ahora se mandan varios tipos en "tiposArregloIds"',
   costo: 'El arreglo no lleva costo',
-  tallerMecanico: 'Indicá quién hizo el trabajo en "responsable"',
+  // El responsable es del catálogo: se manda su id (el texto se crea con
+  // POST /mantenimientos/responsables).
+  tallerMecanico: 'Indicá quién hizo el trabajo en "responsableId"',
+  responsable: 'Indicá quién hizo el trabajo en "responsableId"',
 };
 
 class ValidacionError extends Error {
@@ -77,6 +80,7 @@ const INCLUDE_REGISTRO = {
   // Nombre y apellido están en Persona desde la separación usuario/persona.
   usuario: { select: { persona: { select: { nombre: true, apellido: true } } } },
   vehiculo: { include: { tipoVehiculo: true, ...INCLUDE_MODELO_Y_MARCA } },
+  responsable: { select: { id: true, nombre: true } },
 };
 
 // --- Serialización ------------------------------------------------------------
@@ -158,7 +162,7 @@ function serializarRegistro(registro) {
     descripcion: registro.descripcion ?? null,
     observaciones: registro.observaciones ?? null,
     repuestos: registro.repuestos ?? null,
-    responsable: registro.tallerMecanico ?? null,
+    responsable: registro.responsable?.nombre ?? null,
     vehiculo: {
       id: v.id,
       numeroInterno: v.numeroInterno,
@@ -496,6 +500,18 @@ function validarDetallesTipos(valor, tipos, errores) {
   return detalles;
 }
 
+// Responsable opcional: si viene, tiene que ser un id del catálogo.
+async function validarResponsable(valor, errores) {
+  if (valor === undefined || valor === null || valor === '') return null;
+  const id = parsearId(valor);
+  const responsable = id ? await prisma.responsableMantenimiento.findUnique({ where: { id } }) : null;
+  if (!responsable) {
+    errores.responsableId = 'El responsable no existe';
+    return null;
+  }
+  return responsable;
+}
+
 // A diferencia del service, el km de un arreglo no puede ir por debajo del
 // odómetro, salvo que se lo marque como anterior (`esAnterior`, un trabajo
 // hecho antes que se carga ahora); y uno anterior tiene que tener menos km.
@@ -520,7 +536,7 @@ async function registrarArreglo(datos, usuarioId) {
   const descripcion = validarTexto(datos.descripcion, 'descripcion', 'La descripción', MAX_TEXTO, errores);
   const repuestos = validarTexto(datos.repuestos, 'repuestos', 'Los repuestos', MAX_TEXTO, errores);
   const observaciones = validarTexto(datos.observaciones, 'observaciones', 'La observación', MAX_TEXTO, errores);
-  const responsable = validarTexto(datos.responsable, 'responsable', 'Quién hizo el trabajo', MAX_RESPONSABLE, errores);
+  const responsable = await validarResponsable(datos.responsableId, errores);
   const vehiculo = await buscarVehiculoActivo(datos.vehiculoId, errores);
   validarKmArreglo(datos.esAnterior, kilometraje, vehiculo, errores);
 
@@ -541,7 +557,7 @@ async function registrarArreglo(datos, usuarioId) {
         descripcion,
         repuestos,
         observaciones,
-        tallerMecanico: responsable,
+        responsableId: responsable?.id ?? null,
         usuarioId: Number(usuarioId),
       },
       include: INCLUDE_REGISTRO,

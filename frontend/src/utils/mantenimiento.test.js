@@ -178,7 +178,7 @@ describe('textos del historial', () => {
 });
 
 describe('validarRegistroMantenimiento', () => {
-  const opciones = { hoy: '2026-10-23', maxTexto: 500, maxResponsable: 120, maxDetalleTipo: 60 };
+  const opciones = { hoy: '2026-10-23', maxTexto: 500, maxDetalleTipo: 60 };
   const valido = { vehiculoId: '7', fecha: '2026-10-23', kilometraje: '57345', observaciones: '' };
 
   test('un service completo no tiene errores', () => {
@@ -213,15 +213,14 @@ describe('validarRegistroMantenimiento', () => {
     assert.equal(esKmAnterior('5', undefined), false);
   });
 
-  test('arreglo: tipo obligatorio, detalle si el tipo lo pide y topes de largo', () => {
-    const arreglo = { ...valido, tiposArregloIds: [], descripcion: '', responsable: 'x'.repeat(121), repuestos: '' };
+  test('arreglo: tipo obligatorio y detalle si el tipo lo pide', () => {
+    const arreglo = { ...valido, tiposArregloIds: [], descripcion: '', responsableId: '', repuestos: '' };
     const sinTipo = validarRegistroMantenimiento(arreglo, { ...opciones, esArreglo: true });
-    assert.equal(sinTipo.tiposArregloIds, 'Elegí al menos un tipo de trabajo');
-    assert.ok(sinTipo.responsable);
+    assert.deepEqual(sinTipo, { tiposArregloIds: 'Elegí al menos un tipo de trabajo' });
 
     const otro = { id: 8, nombre: 'Otro', requiereDetalle: true };
     const sinDetalle = validarRegistroMantenimiento(
-      { ...arreglo, tiposArregloIds: [8], detallesTipos: {}, responsable: '' },
+      { ...arreglo, tiposArregloIds: [8], detallesTipos: {} },
       { ...opciones, esArreglo: true, tiposArreglo: [otro] }
     );
     // La descripción vacía ya no es un error: lo que falta es el "¿Qué trabajo?".
@@ -230,7 +229,7 @@ describe('validarRegistroMantenimiento', () => {
   });
 
   test('arreglo: "Otro" pide su detalle (no vacío, hasta 60); sin "Otro" no', () => {
-    const base = { ...valido, descripcion: '', responsable: '', repuestos: '' };
+    const base = { ...valido, descripcion: '', responsableId: '', repuestos: '' };
     const engrase = { id: 1, nombre: 'Engrase', requiereDetalle: false };
     const otro = { id: 8, nombre: 'Otro', requiereDetalle: true };
     const conOtro = (detallesTipos) =>
