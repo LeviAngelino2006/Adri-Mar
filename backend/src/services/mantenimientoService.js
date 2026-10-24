@@ -1,6 +1,7 @@
 const prisma = require('./prismaClient');
 const lecturaOdometroService = require('./lecturaOdometroService');
 const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../utils/marcaModeloVehiculo');
+const { SELECT_USUARIO_CON_NOMBRE, nombreDeUsuario } = require('../utils/usuarioConPersona');
 const { calcularEstadoService } = require('../utils/estadoService');
 const { aDiaCordoba, diaCordobaISO, SOLO_DIA_REGEX } = require('../utils/fechaCordoba');
 
@@ -68,7 +69,7 @@ const INCLUDE_VEHICULO = {
 
 const INCLUDE_REGISTRO = {
   tipoArreglo: true,
-  usuario: { select: { nombre: true, apellido: true } },
+  usuario: SELECT_USUARIO_CON_NOMBRE,
   vehiculo: { include: { tipoVehiculo: true, ...INCLUDE_MODELO_Y_MARCA } },
 };
 
@@ -138,6 +139,7 @@ function serializarEstadoService(vehiculo) {
 function serializarRegistro(registro) {
   const v = registro.vehiculo;
   const { marca, modelo } = nombresMarcaModelo(v);
+  const usuario = nombreDeUsuario(registro.usuario);
   return {
     id: registro.id,
     tipo: registro.esServicePreventivo ? 'SERVICE' : 'ARREGLO',
@@ -156,7 +158,7 @@ function serializarRegistro(registro) {
       modelo,
       tipoVehiculo: v.tipoVehiculo?.descripcion ?? null,
     },
-    usuario: registro.usuario ? `${registro.usuario.nombre} ${registro.usuario.apellido}` : null,
+    usuario: usuario ? `${usuario.nombre} ${usuario.apellido}` : null,
     creadoEn: registro.creadoEn,
   };
 }
