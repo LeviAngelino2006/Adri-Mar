@@ -1,4 +1,4 @@
-Pantalla de inicio. Muestra lo que cada perfil tiene que mirar hoy: el chofer, sus viajes; Administrador y Encargado, la operación del día, lo que falta confirmar y la documentación por vencer. Patrón de página (`Dashboard.jsx`).
+Pantalla de inicio. Muestra lo que cada perfil tiene que mirar hoy: el chofer, sus viajes; Administrador y Encargado, la operación del día, lo que falta confirmar, lo que quedó sin cerrar de días anteriores y la documentación por vencer. Patrón de página (`Dashboard.jsx`).
 
 ## Encabezado
 - `h1` "Hola, {nombre}": solo el nombre, sin apellido.
@@ -6,13 +6,13 @@ Pantalla de inicio. Muestra lo que cada perfil tiene que mirar hoy: el chofer, s
 
 ## Orden de secciones
 1. **Lo del chofer** (si `usuario.habilitadoParaConducir`): `ViajeEnCurso` (uno por viaje En viaje) y `ProximosViajes`.
-2. **Viajes de hoy** (Administrador y Encargado), a todo el ancho: ver `ViajesDeHoy`.
-3. **`<div class="dashboard-columnas">`** (Administrador y Encargado): a la izquierda `PanelViajesPorConfirmar` y a la derecha Documentación. Una columna en mobile y dos iguales desde 1024px, con gap `space-6` y alineadas arriba.
+2. **Viajes de hoy** (Administrador y Encargado), a todo el ancho y solo con lo de hoy: ver `ViajesDeHoy`.
+3. **`<div class="dashboard-columnas">`** (Administrador y Encargado): a la izquierda `PanelViajesPorConfirmar` y a la derecha `<div class="dashboard-columna">` con **Sin cerrar** (solo si hay alguno, ver `ViajesDeHoy`) y, debajo, Documentación, apilados con gap `space-6`. Una columna en mobile (Viajes por confirmar, Sin cerrar, Documentación) y dos iguales desde 1024px, con gap `space-6` y alineadas arriba.
 
 Un Encargado habilitado para conducir ve las tres partes, en ese orden.
 
 ## Paneles
-- Cada panel es una `Card` con `.dashboard-panel` (margen inferior `space-6`; dentro de `.dashboard-columnas`, sin margen).
+- Cada panel es una `Card` con `.dashboard-panel` (margen inferior `space-6`; dentro de `.dashboard-columnas` o de `.dashboard-columna`, sin margen).
 - `.dashboard-panel-header`: el `h2` (17px) a la izquierda y, a la derecha, `.dashboard-resumen` (14px, `color-text-secondary`, números tabulares) con los números del panel en texto gris. Alineados por la línea de base y con wrap.
 - Pocos colores: fuera de los `EstadoBadge`, los resúmenes van en texto gris.
 
@@ -22,7 +22,7 @@ Un Encargado habilitado para conducir ve las tres partes, en ese orden.
   - `.hora-col`: hora en 600, 15px, números tabulares; debajo, en `<small>` (12px, `color-text-secondary`), la segunda hora.
   - `.dashboard-fila-info`: `.dashboard-fila-titulo` (15px, `color-text`) y `.dashboard-fila-meta` (14px, `color-text-secondary`).
   - A la derecha, el `EstadoBadge` sm.
-- `.dashboard-fila.sin-hora`: sin la columna de hora (`contenido | auto`), para Documentación.
+- `.dashboard-fila.sin-hora`: sin la columna de hora (`contenido | auto`), para Documentación y Sin cerrar.
 - Hover (solo con mouse, dentro de `@media (hover: hover)`) y `:active` en `brand-50`. Foco: outline 2px `brand-600`, offset 2px.
 - Subtítulos de grupo dentro de un panel: `<h3 class="dashboard-grupo-dia">` (13px, 600, mayúsculas, `color-text-secondary`).
 - Debajo de 480px: la fila pasa a `48px | contenido` y el badge baja a la segunda columna, alineado a la izquierda; en `.sin-hora`, a una sola columna.

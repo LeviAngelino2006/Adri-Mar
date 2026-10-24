@@ -28,6 +28,15 @@ export const VISTAS_VIAJES = {
 // La vista del listado de Viajes donde está un viaje con ese estado.
 export const vistaDelEstado = (estado) => (VISTAS_VIAJES.anteriores.includes(estado) ? 'anteriores' : 'proximos');
 
+// Los argumentos de navigate() para abrir la ficha de un viaje desde otra
+// pantalla (los paneles del Dashboard): el listado de Viajes en la vista de su
+// estado (un Finalizado, en Anteriores, para que la ficha lo encuentre) y el id
+// en el state. Uso: navigate(...destinoFichaViaje(viaje)).
+export function destinoFichaViaje(viaje) {
+  const search = new URLSearchParams(parametrosDeVista(vistaDelEstado(viaje.estado))).toString();
+  return [{ pathname: '/viajes', search }, { state: { viajeId: viaje.id } }];
+}
+
 // Opciones del filtro de estado: "Todos" y los estados de la vista.
 export const opcionesDeEstado = (estados) => [
   { value: '', label: 'Todos' },

@@ -86,7 +86,7 @@ Sin `viewport-fit=cover`, o en Android y escritorio, los insets valen 0 y nada c
 Las pantallas se arman con las clases de `bundle.css` y los componentes de arriba, no con componentes propios. Cada patrón tiene su README con la estructura y las clases exactas:
 
 - Viajes: `TarjetaViaje` (listado, agrupado por día y con el bloque de fecha), `FormularioViaje` (programar y editar), `ViajeEnCurso` y `ProximosViajes` (Dashboard del chofer) y `ModalOdometro` (comenzar y finalizar).
-- Dashboard: `Dashboard` (encabezado, orden de secciones, paneles y filas `.dashboard-fila`), con `ViajesDeHoy` a todo el ancho y, debajo, `PanelViajesPorConfirmar` y Documentación en dos columnas desde 1024px.
+- Dashboard: `Dashboard` (encabezado, orden de secciones, paneles y filas `.dashboard-fila`), con `ViajesDeHoy` (solo lo de hoy) a todo el ancho y, debajo, dos columnas desde 1024px: `PanelViajesPorConfirmar` a la izquierda y, a la derecha, el panel Sin cerrar (solo si hay alguno, ver `ViajesDeHoy`) y Documentación.
 - Listados: `Listado` (patrón único de Viajes, Mis viajes, Flota, Mantenimiento, Documentación, Presupuestos, Personal y Usuarios), con las tarjetas `TarjetaViaje` y `TarjetaVehiculo`, `FichaDetalle` (ficha de un viaje, vehículo o usuario: una sola card plana con los datos en pares, en dos columnas desde 640px), `Filtros`.
 - Flota y Usuarios: `FormularioVehiculo` y `FormularioUsuario` (alta y edición, en pares, con asteriscos y hints).
 - Documentación: `Listado` con `ControlSegmentado` (Vehículos | Choferes, con ícono y cantidad) en la misma barra que el buscador y Filtros, a la derecha, y, en la ficha, una `TarjetaDocumento` por documento.

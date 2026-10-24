@@ -29,6 +29,7 @@ let DuplicarViaje;
 let valoresParaDuplicar;
 let ContenidoViajesDeHoy;
 let ContenidoPorConfirmar;
+let ContenidoSinCerrar;
 
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
@@ -40,6 +41,7 @@ before(async () => {
   ({ valoresParaDuplicar } = await vite.ssrLoadModule('/src/utils/valoresFormViaje.js'));
   ({ ContenidoViajesDeHoy } = await vite.ssrLoadModule('/src/components/PanelViajesDeHoy.jsx'));
   ({ ContenidoPorConfirmar } = await vite.ssrLoadModule('/src/components/PanelViajesPorConfirmar.jsx'));
+  ({ ContenidoSinCerrar } = await vite.ssrLoadModule('/src/components/PanelViajesSinCerrar.jsx'));
 });
 
 after(() => vite.close());
@@ -331,38 +333,11 @@ describe('ContenidoViajesDeHoy', () => {
     assert.match(html, /class="viajes-hoy-barra-fill" style="width:70%"/);
   });
 
-  // Los títulos (h3 y h4) del panel, en orden.
-  const titulos = (html) => [...html.matchAll(/<h[34][^>]*>([^<]*)<\/h[34]>/g)].map(([, texto]) => texto);
-
-  test('con sin cerrar: arriba "Sin cerrar" por día y después "Hoy", con las horas del día del grupo', () => {
-    const html = render({
-      viajes: [
-        viaje({ id: 7, fechaInicio: '2026-10-07T13:00:00Z', fechaFin: '2026-10-07T16:00:00Z', sinCerrar: true }),
-        viaje({ id: 8, estado: 'EN_VIAJE', fechaInicio: '2026-10-09T01:00:00Z', fechaFin: '2026-10-09T04:00:00Z', sinCerrar: true }),
-        viaje({ id: 9, sinCerrar: false }),
-      ],
-    });
-    assert.deepEqual(titulos(html), ['Sin cerrar', 'mié 7 oct', 'Ayer · jue 8 oct', 'Hoy · vie 9 oct']);
-    // Bajo "Ayer" la salida va sola (el día ya lo dice el título) y la llegada de
-    // hoy dice "hoy"; en la lista de hoy, las dos solas.
-    assert.match(html, /<span class="hora-col">22:00<small>hoy 01:00<\/small><\/span>/);
-    assert.match(html, /<span class="hora-col">07:30<small>10:00<\/small><\/span>/);
-    // Sin color ni badge para el atraso: solo el badge de estado de cada fila.
-    assert.equal(html.match(/<button type="button" class="dashboard-fila">/g).length, 3);
-    assert.equal(html.match(/estado-badge /g).length, 3);
-    assert.ok(!html.includes('dashboard-empty'));
-  });
-
-  test('con sin cerrar y nada para hoy: "No hay viajes para hoy" debajo de "Hoy"', () => {
-    const html = render({ viajes: [viaje({ sinCerrar: true, fechaInicio: '2026-10-08T10:30:00Z' })] });
-    assert.deepEqual(titulos(html), ['Sin cerrar', 'Ayer · jue 8 oct', 'Hoy · vie 9 oct']);
-    assert.match(html, /aria-label="Hoy"><h3 class="dashboard-grupo-dia">Hoy · vie 9 oct<\/h3><div class="dashboard-empty">No hay viajes para hoy<\/div>/);
-  });
-
-  test('sin sin cerrar, el panel es la lista de siempre, sin títulos de grupo', () => {
-    const html = render({ viajes: [viaje({ sinCerrar: false }), viaje({ id: 2 })] });
-    assert.deepEqual(titulos(html), []);
+  test('solo la lista de hoy: sin grupos ni títulos (los sin cerrar tienen su propio panel)', () => {
+    const html = render({ viajes: [viaje(), viaje({ id: 2 })] });
     assert.match(html, /^<ul class="dashboard-lista">/);
+    assert.doesNotMatch(html, /<h[34]/);
+    assert.doesNotMatch(html, /Sin cerrar/);
   });
 
   test('estados de carga, error y vacío', () => {
@@ -372,6 +347,52 @@ describe('ContenidoViajesDeHoy', () => {
     assert.match(conError, />Reintentar</);
     assert.ok(!conError.includes('No hay viajes para hoy'), 'un error no se muestra como vacío');
     assert.match(render({}), /class="dashboard-empty">No hay viajes para hoy</);
+  });
+});
+
+describe('ContenidoSinCerrar', () => {
+  const render = (props) =>
+    renderToStaticMarkup(
+      h(ContenidoSinCerrar, { carga: CARGA_LISTA, viajes: [], ahora: AHORA, onAbrir() {}, onVerTodos() {}, ...props })
+    );
+  // De días anteriores al vie 9 oct, del más viejo al más nuevo, como los deja viajesSinCerrar.
+  const sinCerrar = (cantidad) =>
+    Array.from({ length: cantidad }, (_, i) =>
+      viaje({ id: i + 1, fechaInicio: `2026-10-0${i + 1}T11:00:00Z`, destino: { nombre: `Destino ${i + 1}` }, sinCerrar: true })
+    );
+  const filas = (html) => html.match(/<button type="button" class="dashboard-fila sin-hora">/g) ?? [];
+
+  test('cada fila: ruta, fecha y estado; sin color ni badge para el atraso', () => {
+    const html = render({ viajes: [viaje({ id: 7, fechaInicio: '2026-10-08T11:00:00Z', sinCerrar: true })] });
+    assert.equal(filas(html).length, 1);
+    assert.match(html, /class="ruta-viaje/);
+    assert.match(html, /<span class="dashboard-fila-meta">Ayer · jue 8 oct · 08:00<\/span>/);
+    // Un solo badge, el del estado.
+    assert.equal(html.match(/estado-badge /g).length, 1);
+    assert.match(html, /Programado/);
+    assert.doesNotMatch(html, /Ver todos/);
+  });
+
+  test('con 5, las 5 y sin "Ver todos"', () => {
+    const html = render({ viajes: sinCerrar(5) });
+    assert.equal(filas(html).length, 5);
+    assert.doesNotMatch(html, /Ver todos/);
+  });
+
+  test('con más de 5, solo las 5 más viejas y "Ver todos"', () => {
+    const html = render({ viajes: sinCerrar(7) });
+    assert.equal(filas(html).length, 5);
+    assert.match(html, /Destino 1</);
+    assert.match(html, /Destino 5</);
+    assert.doesNotMatch(html, /Destino 6</);
+    assert.match(html, /<button type="button" class="btn btn-secondary dashboard-ver-mas"><span>Ver todos<\/span><\/button>/);
+  });
+
+  test('cargando y error con el patrón compartido (Reintentar)', () => {
+    assert.match(render({ carga: { ...CARGA_LISTA, cargando: true } }), /<div class="carga" role="status" aria-live="polite"><\/div>/);
+    const conError = render({ carga: { ...CARGA_LISTA, error: new Error('Network Error') } });
+    assert.match(conError, /No pudimos cargar los viajes sin cerrar\. Revisá tu conexión\./);
+    assert.match(conError, />Reintentar</);
   });
 });
 

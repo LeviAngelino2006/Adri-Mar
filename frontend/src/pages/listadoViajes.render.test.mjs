@@ -1,7 +1,7 @@
 // Tests de la tanda "encontrar viajes": el listado de Viajes con Próximos |
 // Anteriores, el buscador por cliente o lugar, el cliente en la tarjeta, el
-// filtro "Cobro", "Limpiar filtros", los estados vacíos y "Sin cerrar" en el
-// Dashboard de gestión. Se corren con `npm test`
+// filtro "Cobro", "Limpiar filtros", los estados vacíos y, en el Dashboard de
+// gestión, "Viajes de hoy" (solo lo de hoy) y el panel "Sin cerrar". Se corren con `npm test`
 // (node:test).
 //
 // Mismo método que choferCelular.render.test.mjs: se monta la pantalla real con
@@ -445,7 +445,7 @@ describe('Limpiar filtros y estados vacíos', () => {
   });
 });
 
-describe('Dashboard de gestión: "Sin cerrar" en Viajes de hoy', () => {
+describe('Dashboard de gestión: "Viajes de hoy" y el panel "Sin cerrar"', () => {
   // Responde como el backend: con vista=proximos, los abiertos marcados con
   // sinCerrar; sin vista, los de hoy sin la marca.
   const quitarMarca = (v) => {
@@ -455,50 +455,105 @@ describe('Dashboard de gestión: "Sin cerrar" en Viajes de hoy', () => {
   };
   const A_CONFIRMAR_HOY = viaje(8, 'A_CONFIRMAR', 'Embalse', 2 * HORA, { sinCerrar: false, chofer: null, choferId: null });
   const FINALIZADO_HOY = viaje(9, 'FINALIZADO', 'Villa Carlos Paz', -6 * HORA);
-  function comoElBackend(params) {
-    const abiertos = [PROGRAMADO_AYER, EN_VIAJE_DESDE_AYER, EN_VIAJE_HOY, PROGRAMADO_HOY, A_CONFIRMAR_HOY];
+  // Uno viejo SIN la marca: el front no tiene que tratarlo como sin cerrar.
+  const VIEJO_SIN_MARCA = viaje(10, 'PROGRAMADO', 'Almafuerte', -3 * DIA, { sinCerrar: false });
+  function comoElBackend(params, sinCerrar = [PROGRAMADO_AYER, EN_VIAJE_DESDE_AYER]) {
+    const abiertos = [...sinCerrar, EN_VIAJE_HOY, PROGRAMADO_HOY, A_CONFIRMAR_HOY];
+    if (params.estado === 'A_CONFIRMAR') return [];
     if (params.vista === 'proximos' && params.estado === 'EN_VIAJE') return abiertos.filter((v) => v.estado === 'EN_VIAJE');
-    if (params.vista === 'proximos' && params.fechaHasta) return abiertos;
-    if (params.fechaDesde && params.fechaHasta && !params.vista) {
+    if (params.vista === 'proximos') return [...abiertos, VIEJO_SIN_MARCA];
+    if (params.fechaDesde && params.fechaHasta) {
       return [EN_VIAJE_HOY, PROGRAMADO_HOY, A_CONFIRMAR_HOY, FINALIZADO_HOY].map(quitarMarca);
     }
     return [];
   }
+  // N sin cerrar de días anteriores, del más viejo al más nuevo.
+  const variosSinCerrar = (cantidad) =>
+    Array.from({ length: cantidad }, (_, i) =>
+      viaje(100 + i, 'PROGRAMADO', `Destino ${i + 1}`, -(cantidad + 1 - i) * DIA, { sinCerrar: true })
+    );
 
-  const panel = () => contenedor.querySelector('[aria-label="Viajes de hoy"]');
+  const panelHoy = () => contenedor.querySelector('[aria-label="Viajes de hoy"]');
+  const panelSinCerrar = () => contenedor.querySelector('[role="region"][aria-label="Sin cerrar"]');
   const destinosEn = (seccion) =>
     [...seccion.querySelectorAll('.dashboard-fila')].map((fila) => [...fila.querySelectorAll('.ruta-viaje-punto')].at(-1).textContent);
 
-  test('los sin cerrar van arriba, por día; el En viaje de ayer aparece una sola vez', async () => {
+  test('"Viajes de hoy" muestra solo lo de hoy: sin el grupo "Sin cerrar" ni el En viaje de ayer', async () => {
     responderViajes = comoElBackend;
     await montar('Dashboard', '/');
-
-    const sinCerrar = panel().querySelector('[aria-label="Sin cerrar"]');
-    assert.equal(sinCerrar.querySelector('h3').textContent, 'Sin cerrar');
-    assert.match(sinCerrar.querySelector('h4').textContent, /^Ayer · /);
-    assert.deepEqual(destinosEn(sinCerrar), ['Santa Rosa de Calamuchita', 'Villa General Belgrano']);
-
-    const hoy = panel().querySelector('[aria-label="Hoy"]');
-    assert.match(hoy.querySelector('h3').textContent, /^Hoy · /);
-    assert.deepEqual(new Set(destinosEn(hoy)), new Set(['Villa Carlos Paz', 'Alta Gracia', 'Córdoba']));
-
-    assert.equal(destinosEn(panel()).filter((d) => d === 'Villa General Belgrano').length, 1);
-    // El resumen cuenta solo los de hoy.
-    assert.equal(panel().querySelector('.dashboard-resumen').textContent, '3 viajes · 1 en viaje · 1 finalizado');
+    assert.equal(panelHoy().querySelector('[aria-label="Sin cerrar"]'), null);
+    assert.equal(panelHoy().querySelector('h3, h4'), null);
+    assert.deepEqual(destinosEn(panelHoy()), ['Villa Carlos Paz', 'Alta Gracia', 'Córdoba']);
+    assert.equal(panelHoy().querySelector('.dashboard-resumen').textContent, '3 viajes · 1 en viaje · 1 finalizado');
   });
 
-  test('pide vista=proximos al backend (la regla de sin cerrar es una sola)', async () => {
+  test('panel "Sin cerrar" en la columna derecha, junto a Documentación, con la cantidad y del más viejo al más nuevo', async () => {
     responderViajes = comoElBackend;
     await montar('Dashboard', '/');
-    const conVista = pedidos.filter((p) => p.endpoint === '/viajes' && p.params.vista === 'proximos');
-    assert.equal(conVista.length, 2);
+    const panel = panelSinCerrar();
+    assert.ok(panel, 'aparece el panel');
+    assert.equal(panel.querySelector('h2').textContent, 'Sin cerrar');
+    assert.equal(panel.querySelector('.dashboard-resumen').textContent, '2 viajes');
+    // Misma columna que Documentación, arriba de ella; Viajes por confirmar va en la otra.
+    const columna = panel.parentElement;
+    assert.ok(columna.classList.contains('dashboard-columna'));
+    assert.deepEqual([...columna.querySelectorAll('h2')].map((t) => t.textContent), ['Sin cerrar', 'Documentación']);
+    assert.ok(columna.parentElement.classList.contains('dashboard-columnas'));
+    // El En viaje de ayer aparece una sola vez en el Dashboard, acá.
+    assert.deepEqual(destinosEn(panel), ['Santa Rosa de Calamuchita', 'Villa General Belgrano']);
+    // Sin color ni badge para el atraso: un solo badge por fila, el del estado.
+    for (const fila of panel.querySelectorAll('.dashboard-fila')) assert.equal(fila.querySelectorAll('.estado-badge').length, 1);
+    assert.equal(boton('Ver todos'), undefined);
   });
 
-  test('sin viajes sin cerrar, no aparece el grupo ni el título de hoy', async () => {
-    responderViajes = (params) => comoElBackend(params).filter((v) => !v.sinCerrar);
+  test('toma la marca del backend (vista=proximos): un viaje viejo sin la marca no aparece', async () => {
+    responderViajes = comoElBackend;
     await montar('Dashboard', '/');
-    assert.equal(panel().querySelector('[aria-label="Sin cerrar"]'), null);
-    assert.equal(panel().querySelector('h3'), null);
-    assert.equal(destinosEn(panel()).length, 3);
+    const pedido = pedidos.find((p) => p.endpoint === '/viajes' && p.params.vista === 'proximos' && !p.params.estado);
+    assert.ok(pedido, 'pide vista=proximos');
+    assert.ok(!destinosEn(panelSinCerrar()).includes('Almafuerte'));
+  });
+
+  test('sin viajes sin cerrar, el panel no aparece', async () => {
+    responderViajes = (params) => comoElBackend(params, []);
+    await montar('Dashboard', '/');
+    assert.equal(panelSinCerrar(), null);
+    assert.deepEqual([...contenedor.querySelectorAll('.dashboard-columna h2')].map((t) => t.textContent), ['Documentación']);
+  });
+
+  test('con más de 5: las 5 más viejas, el total en el encabezado y "Ver todos" lleva a Viajes (Próximos)', async () => {
+    responderViajes = (params) => comoElBackend(params, variosSinCerrar(7));
+    await montar('Dashboard', '/');
+    assert.equal(panelSinCerrar().querySelector('.dashboard-resumen').textContent, '7 viajes');
+    assert.deepEqual(destinosEn(panelSinCerrar()), ['Destino 1', 'Destino 2', 'Destino 3', 'Destino 4', 'Destino 5']);
+
+    await act(async () => boton('Ver todos').click());
+    assert.equal(router.ubicacion.pathname, '/viajes');
+    assert.equal(router.ubicacion.search, '');
+  });
+
+  test('cada fila abre la ficha del viaje', async () => {
+    responderViajes = comoElBackend;
+    await montar('Dashboard', '/');
+    await act(async () => panelSinCerrar().querySelector('.dashboard-fila').click());
+    assert.equal(router.ubicacion.pathname, '/viajes');
+    assert.equal(router.ubicacion.search, '');
+    assert.deepEqual(router.ubicacion.state, { viajeId: PROGRAMADO_AYER.id });
+  });
+
+  test('si no se pudo cargar: el error con "Reintentar" en el panel, nunca el panel vacío', async () => {
+    let falla = true;
+    responderViajes = (params) => {
+      if (falla && params.vista === 'proximos' && !params.estado) throw new Error('Network Error');
+      return comoElBackend(params);
+    };
+    await montar('Dashboard', '/');
+    const panel = panelSinCerrar();
+    assert.match(panel.textContent, /No pudimos cargar los viajes sin cerrar\. Revisá tu conexión\./);
+    assert.equal(panel.querySelector('.dashboard-resumen'), null);
+
+    falla = false;
+    await act(async () => [...panel.querySelectorAll('button')].find((b) => b.textContent === 'Reintentar').click());
+    assert.deepEqual(destinosEn(panelSinCerrar()), ['Santa Rosa de Calamuchita', 'Villa General Belgrano']);
   });
 });

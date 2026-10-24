@@ -14,6 +14,7 @@ import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import BotonComenzarViaje from '../components/BotonComenzarViaje';
 import PanelViajesPorConfirmar from '../components/PanelViajesPorConfirmar';
 import PanelViajesDeHoy from '../components/PanelViajesDeHoy';
+import PanelViajesSinCerrar from '../components/PanelViajesSinCerrar';
 import FechaTile from '../components/FechaTile';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { formatearDiaYHora, formatearHorarioViaje, nombreVehiculo } from '../utils/viajeFormato';
@@ -341,7 +342,11 @@ function Dashboard() {
           <PanelViajesDeHoy />
           <div className="dashboard-columnas">
             <PanelViajesPorConfirmar />
-            <SeccionDocumentacion />
+            {/* Columna derecha: Sin cerrar (solo si hay alguno) y Documentación. */}
+            <div className="dashboard-columna">
+              <PanelViajesSinCerrar />
+              <SeccionDocumentacion />
+            </div>
           </div>
         </>
       )}

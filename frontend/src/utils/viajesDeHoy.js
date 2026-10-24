@@ -1,8 +1,6 @@
 // Viajes del panel "Viajes de hoy" del Dashboard (Administrador y Encargado):
-// los de hoy y, arriba, los "sin cerrar" (de días anteriores que siguen abiertos).
-// Qué es "sin cerrar" lo decide el backend (GET /viajes?vista=proximos marca cada
-// viaje con `sinCerrar`): acá no se recalcula, para que el listado de Viajes y el
-// Dashboard digan siempre lo mismo.
+// solo los de hoy. Los de días anteriores que siguen abiertos ("sin cerrar") van
+// en su propio panel (ver viajesSinCerrar.js), no acá.
 //
 // Los imports llevan la extensión .js para que los tests (node --test) los
 // resuelvan igual que Vite.
@@ -12,45 +10,30 @@ import { hoyCordobaISO } from './fechaCordoba.js';
 const EXCLUIDOS = ['A_CONFIRMAR', 'CANCELADO'];
 
 // Lo que se le pide al backend (GET /viajes acepta un solo estado, por eso son
-// tres consultas):
-//  1. Los abiertos hasta hoy con vista=proximos: los sin cerrar, ya marcados, y
-//     los de hoy que siguen abiertos.
-//  2. Todos los En viaje, también con vista=proximos (marcados): uno que se
-//     comenzó antes de su día no tiene que perderse.
-//  3. Los que empiezan hoy, en cualquier estado, por los Finalizados de hoy. El
-//     backend interpreta una fecha suelta como el día entero de Córdoba, de 00:00
-//     a 23:59:59.999.
+// dos consultas):
+//  1. Los que empiezan hoy, en cualquier estado (también los Finalizados de hoy).
+//     El backend interpreta una fecha suelta como el día entero de Córdoba, de
+//     00:00 a 23:59:59.999.
+//  2. Todos los En viaje, con vista=proximos: uno que se comenzó antes de su día
+//     no tiene que perderse, y la vista marca con `sinCerrar` al que empezó un
+//     día anterior, que no es de hoy (está en el panel Sin cerrar).
 export function consultasViajesDeHoy(ahora = Date.now()) {
   const hoy = hoyCordobaISO(ahora);
-  return [
-    { vista: 'proximos', fechaHasta: hoy },
-    { vista: 'proximos', estado: 'EN_VIAJE' },
-    { fechaDesde: hoy, fechaHasta: hoy },
-  ];
+  return [{ fechaDesde: hoy, fechaHasta: hoy }, { vista: 'proximos', estado: 'EN_VIAJE' }];
 }
 
-// Une las respuestas sin duplicados (queda la primera vez que aparece cada
-// viaje: las consultas con vista van primero, así queda la copia con
-// `sinCerrar`), saca de los de hoy los A confirmar y los Cancelados y ordena por
-// salida, del más temprano al más tarde. Un A confirmar sin cerrar sí queda: es
-// un viaje atrasado que nadie resolvió.
+// Une las respuestas sin duplicados (si alguna copia de un viaje viene marcada
+// `sinCerrar`, queda esa), saca los A confirmar, los Cancelados y los sin cerrar
+// (lo decide el backend: acá no se recalcula) y ordena por salida, del más
+// temprano al más tarde.
 export function unirViajesDeHoy(...listas) {
   const porId = new Map();
   for (const viaje of listas.flat()) {
-    if (!porId.has(viaje.id)) porId.set(viaje.id, viaje);
+    if (!porId.has(viaje.id) || viaje.sinCerrar) porId.set(viaje.id, viaje);
   }
   return [...porId.values()]
-    .filter((viaje) => viaje.sinCerrar || !EXCLUIDOS.includes(viaje.estado))
+    .filter((viaje) => !viaje.sinCerrar && !EXCLUIDOS.includes(viaje.estado))
     .sort((a, b) => new Date(a.fechaInicio) - new Date(b.fechaInicio));
-}
-
-// { sinCerrar, deHoy } de la lista ya unida, en el mismo orden. Un En viaje que
-// empezó ayer está solo en `sinCerrar`.
-export function separarSinCerrar(viajes) {
-  return {
-    sinCerrar: viajes.filter((viaje) => viaje.sinCerrar),
-    deHoy: viajes.filter((viaje) => !viaje.sinCerrar),
-  };
 }
 
 const plural = (n, singular, pluralTexto) => `${n} ${n === 1 ? singular : pluralTexto}`;
