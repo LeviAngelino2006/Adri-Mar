@@ -29,7 +29,7 @@ export function ListadoHeader({ titulo }) {
 // Buscador (con lupa), botón "Filtros" con el contador de filtros activos y,
 // a la derecha de todo, la acción principal o el control de vistas. Cada
 // pantalla pasa solo lo que usa:
-//   busqueda: { valor, onChange(texto), placeholder }
+//   busqueda: { valor, onChange(texto), placeholder, maxLength? }
 //   filtros:  { abierto, onToggle(), activos }
 //   vistas:   las props de ControlSegmentado (Documentación: Vehículos | Choferes)
 //   accion:   { etiqueta, onClick } ("Crear vehículo"); debajo de 640px se ve
@@ -52,6 +52,7 @@ export function ListadoToolbar({ busqueda, filtros, vistas, accion, vistasAlInic
             onChange={(e) => busqueda.onChange(e.target.value)}
             placeholder={busqueda.placeholder}
             aria-label={busqueda.placeholder}
+            maxLength={busqueda.maxLength}
           />
         </div>
       )}

@@ -78,6 +78,11 @@ function dedupePorId(lista) {
 
 const MARGEN_SCROLL_PX = 16;
 
+// La búsqueda se pide al dejar de escribir, no en cada tecla. El máximo es el
+// mismo que valida el backend (viajeService, MAX_LONGITUD_BUSQUEDA).
+const DEMORA_BUSQUEDA_MS = 300;
+const MAX_LONGITUD_BUSQUEDA = 100;
+
 // Scroll suave hasta la tarjeta de datos administrativos de la ficha. Si su
 // encabezado (título y botón "Editar datos administrativos") ya se ve entero
 // no se mueve nada: es el caso de escritorio. Descuenta la barra superior
@@ -119,6 +124,9 @@ function Viajes() {
   const vista = vistaDeLaUrl(searchParams.get('tab'));
 
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
+  // Búsqueda por cliente o lugar: lo que se escribe y lo que ya se pidió.
+  const [busqueda, setBusqueda] = useState('');
+  const [busquedaAplicada, setBusquedaAplicada] = useState('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const filtrosActivos = Object.values(filtros).filter(Boolean).length;
   const [opcionesChofer, setOpcionesChofer] = useState([]);
@@ -172,10 +180,17 @@ function Viajes() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => setBusquedaAplicada(busqueda.trim()), DEMORA_BUSQUEDA_MS);
+    return () => clearTimeout(t);
+  }, [busqueda]);
+
   // Pide el listado con los filtros actuales; useCarga lleva los estados de
-  // cargando y error (un error no es un listado vacío).
+  // cargando y error (un error no es un listado vacío) y descarta la respuesta
+  // de un pedido viejo (mientras se escribe en el buscador, por ejemplo).
   const pedirViajes = useCallback(() => {
     const params = { vista };
+    if (busquedaAplicada) params.q = busquedaAplicada;
     if (filtros.estado) params.estado = filtros.estado;
     if (filtros.choferId) params.choferId = filtros.choferId;
     if (filtros.vehiculoId) params.vehiculoId = filtros.vehiculoId;
@@ -196,7 +211,7 @@ function Viajes() {
         }
         return data.viajes;
       });
-  }, [filtros, vista, navigate, location.pathname, location.search]);
+  }, [filtros, vista, busquedaAplicada, navigate, location.pathname, location.search]);
 
   const cargaViajes = useCarga(pedirViajes);
   const viajes = cargaViajes.datos ?? [];
@@ -423,6 +438,12 @@ function Viajes() {
       {!mostrarForm && !seleccionado && (
         <>
           <ListadoToolbar
+            busqueda={{
+              valor: busqueda,
+              onChange: setBusqueda,
+              placeholder: 'Buscar por cliente o lugar',
+              maxLength: MAX_LONGITUD_BUSQUEDA,
+            }}
             filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos: filtrosActivos }}
             vistas={{ opciones: OPCIONES_VISTA, valor: vista, onChange: cambiarVista, ariaLabel: 'Vista de viajes' }}
             accion={puedeGestionar ? { etiqueta: 'Crear viaje', onClick: abrirNuevo } : undefined}

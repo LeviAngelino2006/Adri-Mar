@@ -9,6 +9,7 @@ const {
 const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../utils/marcaModeloVehiculo');
 // Fechas sin offset = hora de Córdoba (UTC-3 todo el año): ver utils/fechaCordoba.
 const { aFechaCordoba } = require('../utils/fechaCordoba');
+const { normalizarNombre } = require('../utils/normalizarNombre');
 
 // Un punto del recorrido (origen, destino o parada) como lo ve el front: con el
 // placeId de Google y las coordenadas (null si no tiene), para que el link
@@ -1800,6 +1801,55 @@ function ordenarProximos(viajes, inicioDeHoy) {
   ];
 }
 
+// --- Búsqueda del listado (GET /viajes?q=...) ----------------------------------
+//
+// Por nombre del cliente, del origen, del destino o de una parada, sin distinguir
+// mayúsculas ni tildes ("cordoba" encuentra "Córdoba"). Para eso se busca en
+// nombreNormalizado (minúsculas y sin acentos, ver utils/normalizarNombre), que
+// ya tienen todos los clientes y las ubicaciones frecuentes, con el texto pasado
+// por la misma función: sin unaccent ni migraciones. Las ubicaciones
+// particulares (direcciones de Google) no tienen nombreNormalizado: para ellas se
+// busca en el nombre con mode: 'insensitive', que no distingue mayúsculas pero sí
+// tildes.
+const MAX_LONGITUD_BUSQUEDA = 100;
+
+// null si no hay búsqueda (no vino, o vacía o solo espacios); si no, el texto sin
+// espacios en los extremos. Más largo que el máximo, o algo que no es un texto
+// (?q=a&q=b), es un 400.
+function validarBusqueda(q) {
+  if (q === undefined || q === null) return null;
+  if (typeof q !== 'string') {
+    throw new ValidacionError({ q: 'La búsqueda debe ser un texto' });
+  }
+  const texto = q.trim();
+  if (texto === '') return null;
+  if ([...texto].length > MAX_LONGITUD_BUSQUEDA) {
+    throw new ValidacionError({ q: `La búsqueda no puede superar los ${MAX_LONGITUD_BUSQUEDA} caracteres` });
+  }
+  return texto;
+}
+
+// Prisma arma `contains` como un LIKE '%…%' de Postgres y no escapa los
+// comodines: sin esto, "%" o "_" encontrarían cualquier viaje. Se escapan con la
+// barra invertida, el carácter de escape por defecto de LIKE.
+const escaparComodines = (texto) => texto.replace(/[\\%_]/g, '\\$&');
+
+function filtroBusqueda(texto) {
+  const normalizado = escaparComodines(normalizarNombre(texto));
+  const literal = escaparComodines(texto);
+  const enUbicacion = {
+    OR: [{ nombreNormalizado: { contains: normalizado } }, { nombre: { contains: literal, mode: 'insensitive' } }],
+  };
+  return {
+    OR: [
+      { cliente: { is: { nombreNormalizado: { contains: normalizado } } } },
+      { origen: { is: enUbicacion } },
+      { destino: { is: enUbicacion } },
+      { paradas: { some: { ubicacion: enUbicacion } } },
+    ],
+  };
+}
+
 // `administrativoPendiente` ('true' en la query) deja solo los viajes con algún
 // pendiente administrativo (ver FILTRO_ADMINISTRATIVO_PENDIENTE). Filtrar por
 // precio/pago ya revela esos datos, así que sigue la misma regla que la
@@ -1811,6 +1861,8 @@ function ordenarProximos(viajes, inicioDeHoy) {
 // de la vista da una lista vacía). En Próximos cada viaje trae además
 // `sinCerrar`. Sin `vista`, todo sigue como antes: todos los estados, del más
 // futuro al más viejo y sin `sinCerrar` (lo usan el Dashboard y otras pantallas).
+//
+// `q` busca por cliente o lugar (ver filtroBusqueda), también dentro de la vista.
 async function listarViajes(
   {
     estado,
@@ -1820,18 +1872,27 @@ async function listarViajes(
     fechaHasta,
     administrativoPendiente,
     vista,
+    q,
     excluirAConfirmar = false,
   } = {},
   usuarioSolicitante
 ) {
   const vistaValida = validarVista(vista);
+  const busqueda = validarBusqueda(q);
   const where = {};
+  const condiciones = [];
 
   if (administrativoPendiente === 'true') {
     if (!puedeVerDatosAdministrativos(usuarioSolicitante)) {
       throw new PermisoDenegadoError('Solo Administrador y Encargado pueden filtrar por datos administrativos');
     }
-    where.AND = [FILTRO_ADMINISTRATIVO_PENDIENTE];
+    condiciones.push(FILTRO_ADMINISTRATIVO_PENDIENTE);
+  }
+  if (busqueda) {
+    condiciones.push(filtroBusqueda(busqueda));
+  }
+  if (condiciones.length > 0) {
+    where.AND = condiciones;
   }
 
   const filtroEstado = {};

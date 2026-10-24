@@ -2,10 +2,25 @@
 // dobles de los tests del listado de viajes (viajesPendientes.test.js y
 // viajesListado.test.js). Cubre solo lo que usan esos filtros: igualdad (también
 // con null), `equals`, `not`, `in`, `lt`/`gte`/`lte`, `contains` (con
-// `mode: 'insensitive'`), `is`, `some`, `OR`, `AND` y relaciones anidadas. Si un
+// `mode: 'insensitive'`, y con los comodines de LIKE como en Postgres), `is`,
+// `some`, `OR`, `AND` y relaciones anidadas. Si un
 // filtro empieza a usar otra cosa, falla en vez de dar un resultado inventado.
 
 const OPERADORES = new Set(['equals', 'not', 'in', 'lt', 'gte', 'lte', 'contains', 'mode']);
+
+// `contains` como lo ejecuta Postgres: LIKE '%valor%', donde "%" es cualquier
+// texto, "_" cualquier carácter y la barra invertida escapa al siguiente.
+function contieneComoLike(texto, patron, insensible) {
+  let regex = '';
+  for (let i = 0; i < patron.length; i++) {
+    const c = patron[i];
+    if (c === '\\' && i + 1 < patron.length) regex += patron[++i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    else if (c === '%') regex += '.*';
+    else if (c === '_') regex += '.';
+    else regex += c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+  return new RegExp(regex, insensible ? 'is' : 's').test(texto);
+}
 
 function cumpleOperadores(valor, condicion, clave) {
   return Object.entries(condicion).every(([operador, esperado]) => {
@@ -22,12 +37,8 @@ function cumpleOperadores(valor, condicion, clave) {
         return valor != null && valor >= esperado;
       case 'lte':
         return valor != null && valor <= esperado;
-      case 'contains': {
-        if (valor == null) return false;
-        const insensible = condicion.mode === 'insensitive';
-        const texto = insensible ? String(valor).toLowerCase() : String(valor);
-        return texto.includes(insensible ? esperado.toLowerCase() : esperado);
-      }
+      case 'contains':
+        return valor != null && contieneComoLike(String(valor), esperado, condicion.mode === 'insensitive');
       case 'mode':
         if (esperado !== 'insensitive' || !('contains' in condicion)) throw new Error(`mode no soportado en ${clave}`);
         return true;

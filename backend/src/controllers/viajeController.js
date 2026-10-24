@@ -54,11 +54,11 @@ async function crear(req, res) {
 }
 
 async function listar(req, res) {
-  const { estado, choferId, vehiculoId, fechaDesde, fechaHasta, administrativoPendiente, vista } = req.query;
+  const { estado, choferId, vehiculoId, fechaDesde, fechaHasta, administrativoPendiente, vista, q } = req.query;
 
   try {
     const viajes = await viajeService.listarViajes(
-      { estado, choferId, vehiculoId, fechaDesde, fechaHasta, administrativoPendiente, vista },
+      { estado, choferId, vehiculoId, fechaDesde, fechaHasta, administrativoPendiente, vista, q },
       req.usuario
     );
     return res.json({ viajes });

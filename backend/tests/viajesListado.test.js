@@ -1,6 +1,7 @@
 // Tests del listado de viajes de gestión (GET /viajes): las vistas Próximos y
-// Anteriores (corte por día de Córdoba, orden y el grupo "sin cerrar") y que sin
-// `vista` el endpoint siga exactamente igual que antes.
+// Anteriores (corte por día de Córdoba, orden y el grupo "sin cerrar"), que sin
+// `vista` el endpoint siga exactamente igual que antes y la búsqueda `q` por
+// cliente o lugar.
 //
 // App real de Express con JWT real y un doble de Prisma en memoria que aplica el
 // `where` y el `orderBy` que recibe (helpers/whereEnMemoria): no tocan la base ni
@@ -23,6 +24,8 @@ const AHORA = new Date('2026-10-24T15:00:00Z');
 const cba = (dia, hora) => new Date(`${dia}T${hora}:00-03:00`);
 
 const lugar = (id, nombre, nombreNormalizado) => ({ id, nombre, nombreNormalizado, placeId: null, latitud: null, longitud: null });
+const cliente = (id, nombre, nombreNormalizado) => ({ id, nombre, nombreNormalizado });
+const parada = (orden, ubicacion) => ({ orden, ubicacion });
 
 function viaje(id, estado, fechaInicio, extra = {}) {
   return {
@@ -74,12 +77,31 @@ const VIAJES = {
   // Hoy a las 00:30 de Córdoba: en UTC todavía es el 24 (03:30); es de hoy.
   programadoHoyTemprano: viaje(4, 'PROGRAMADO', cba('2026-10-24', '00:30'), { choferId: 8 }),
   enViajeHoy: viaje(5, 'EN_VIAJE', cba('2026-10-24', '07:00')),
-  programadoHoyTarde: viaje(6, 'PROGRAMADO', cba('2026-10-24', '18:00')),
-  aConfirmarSemanaQueViene: viaje(7, 'A_CONFIRMAR', cba('2026-10-30', '10:00')),
-  programadoSemanaQueViene: viaje(8, 'PROGRAMADO', cba('2026-10-29', '06:00')),
+  programadoHoyTarde: viaje(6, 'PROGRAMADO', cba('2026-10-24', '18:00'), {
+    clienteId: 1,
+    cliente: cliente(1, 'Colegio Nacional de Monserrat', 'colegio nacional de monserrat'),
+  }),
+  aConfirmarSemanaQueViene: viaje(7, 'A_CONFIRMAR', cba('2026-10-30', '10:00'), {
+    clienteId: 3,
+    cliente: cliente(3, 'Viajes 100% Serranos', 'viajes 100% serranos'),
+  }),
+  programadoSemanaQueViene: viaje(8, 'PROGRAMADO', cba('2026-10-29', '06:00'), {
+    origenId: 3,
+    origen: lugar(3, 'Villa María', 'villa maria'),
+    destinoId: 4,
+    destino: lugar(4, 'Mendoza', 'mendoza'),
+    paradas: [parada(1, lugar(5, 'San Luis', 'san luis')), parada(2, lugar(6, 'Mercedes', 'mercedes'))],
+  }),
   aConfirmarSinFecha: viaje(9, 'A_CONFIRMAR', null),
-  finalizadoHoy: viaje(10, 'FINALIZADO', cba('2026-10-24', '05:00')),
-  finalizadoSemanaPasada: viaje(11, 'FINALIZADO', cba('2026-10-15', '09:00')),
+  finalizadoHoy: viaje(10, 'FINALIZADO', cba('2026-10-24', '05:00'), {
+    clienteId: 2,
+    cliente: cliente(2, 'Turismo Peñón SRL', 'turismo penon srl'),
+  }),
+  // Destino particular (una dirección de Google): sin nombreNormalizado.
+  finalizadoSemanaPasada: viaje(11, 'FINALIZADO', cba('2026-10-15', '09:00'), {
+    destinoId: 7,
+    destino: lugar(7, 'Av. Colón 1234, Córdoba', null),
+  }),
   canceladoHaceDosSemanas: viaje(12, 'CANCELADO', cba('2026-10-08', '09:00')),
   // Cancelado antes de tener fecha (era A confirmar).
   canceladoSinFecha: viaje(13, 'CANCELADO', null),
@@ -293,5 +315,106 @@ describe('GET /viajes con una vista inválida', () => {
     const { status } = await pedir('/viajes/mis-viajes?vista=todos', 'CHOFER');
     assert.equal(status, 200);
     assert.ok(!('in' in (llamadasFindMany[0].where.estadoViaje?.descripcion ?? {})));
+  });
+});
+
+describe('GET /viajes?q=: búsqueda por cliente o lugar', () => {
+  const buscar = (q, extra = '') => pedir(`/viajes?q=${encodeURIComponent(q)}${extra}`);
+
+  test('por cliente, sin distinguir mayúsculas', async () => {
+    for (const q of ['monserrat', 'MONSERRAT', 'Colegio Nacional']) {
+      const { status, json } = await buscar(q);
+      assert.equal(status, 200, q);
+      assert.deepEqual(idsDe(json), ids('programadoHoyTarde'), q);
+    }
+  });
+
+  test('por origen, destino o parada', async () => {
+    assert.deepEqual(idsDe((await buscar('Villa María')).json), ids('programadoSemanaQueViene'));
+    assert.deepEqual(idsDe((await buscar('mendoza')).json), ids('programadoSemanaQueViene'));
+    assert.deepEqual(idsDe((await buscar('San Luis')).json), ids('programadoSemanaQueViene'));
+    assert.deepEqual(idsDe((await buscar('mercedes')).json), ids('programadoSemanaQueViene'));
+  });
+
+  test('sin distinguir tildes en clientes y ubicaciones frecuentes, para los dos lados', async () => {
+    assert.deepEqual(idsDe((await buscar('VILLA MARIA')).json), ids('programadoSemanaQueViene'));
+    assert.deepEqual(idsDe((await buscar('peñon')).json), ids('finalizadoHoy'));
+    assert.deepEqual(idsDe((await buscar('penón')).json), ids('finalizadoHoy'));
+    // "rio tercero" encuentra "Río Tercero", el origen de todos menos uno.
+    assert.equal((await buscar('rio tercero')).json.viajes.length, Object.keys(VIAJES).length - 1);
+  });
+
+  test('una dirección particular (sin nombre normalizado) no distingue mayúsculas, pero sí tildes', async () => {
+    assert.deepEqual(idsDe((await buscar('COLÓN 1234')).json), ids('finalizadoSemanaPasada'));
+    assert.deepEqual(idsDe((await buscar('colon 1234')).json), []);
+  });
+
+  test('arma el filtro con la API de Prisma: el texto recortado y el normalizado, en un AND', async () => {
+    await buscar('  Río  ');
+    const { AND } = llamadasFindMany[0].where;
+    assert.equal(AND.length, 1);
+    const enUbicacion = { OR: [{ nombreNormalizado: { contains: 'rio' } }, { nombre: { contains: 'Río', mode: 'insensitive' } }] };
+    assert.deepEqual(AND[0], {
+      OR: [
+        { cliente: { is: { nombreNormalizado: { contains: 'rio' } } } },
+        { origen: { is: enUbicacion } },
+        { destino: { is: enUbicacion } },
+        { paradas: { some: { ubicacion: enUbicacion } } },
+      ],
+    });
+  });
+
+  test('"%" y "_" se buscan literales, no como comodines de LIKE', async () => {
+    assert.deepEqual(idsDe((await buscar('%')).json), ids('aConfirmarSemanaQueViene'));
+    assert.deepEqual(idsDe((await buscar('100% serr')).json), ids('aConfirmarSemanaQueViene'));
+    assert.deepEqual(idsDe((await buscar('_')).json), []);
+    assert.deepEqual(idsDe((await buscar('r_o tercero')).json), []);
+
+    llamadasFindMany.length = 0;
+    // El texto a_b%c\d llega a la base como a\_b\%c\\d.
+    await buscar('a_b%c\\d');
+    const [{ OR }] = llamadasFindMany[0].where.AND;
+    assert.deepEqual(OR[0], { cliente: { is: { nombreNormalizado: { contains: 'a\\_b\\%c\\\\d' } } } });
+  });
+
+  for (const q of ['', '   ']) {
+    test(`q=${JSON.stringify(q)} es lo mismo que no buscar`, async () => {
+      const { status, json } = await buscar(q);
+      assert.equal(status, 200);
+      assert.deepEqual(llamadasFindMany[0].where, {});
+      assert.equal(json.viajes.length, Object.keys(VIAJES).length);
+    });
+  }
+
+  test('se combina con la vista y con el filtro de cobro', async () => {
+    assert.deepEqual(
+      idsDe((await buscar('córdoba', '&vista=anteriores')).json),
+      ids('finalizadoHoy', 'finalizadoSemanaPasada', 'canceladoHaceDosSemanas', 'canceladoSinFecha')
+    );
+    assert.deepEqual(idsDe((await buscar('colón', '&vista=proximos')).json), []);
+
+    llamadasFindMany.length = 0;
+    await buscar('mendoza', '&administrativoPendiente=true');
+    assert.equal(llamadasFindMany[0].where.AND.length, 2);
+  });
+
+  test('hasta 100 caracteres se busca; con más, 400 con el error en q y sin consultar la base', async () => {
+    assert.equal((await buscar('a'.repeat(100))).status, 200);
+
+    llamadasFindMany.length = 0;
+    const { status, json } = await buscar('a'.repeat(101));
+    assert.equal(status, 400);
+    assert.match(json.errores.q, /100 caracteres/);
+    assert.equal(llamadasFindMany.length, 0);
+  });
+
+  test('los espacios de los extremos no cuentan para el largo', async () => {
+    assert.equal((await buscar(` ${'a'.repeat(100)} `)).status, 200);
+  });
+
+  test('?q=a&q=b (no es un texto): 400', async () => {
+    const { status, json } = await pedir('/viajes?q=a&q=b');
+    assert.equal(status, 400);
+    assert.ok(json.errores.q);
   });
 });

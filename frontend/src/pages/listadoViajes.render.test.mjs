@@ -1,5 +1,6 @@
 // Tests de la tanda "encontrar viajes": el listado de Viajes con Próximos |
-// Anteriores. Se corren con `npm test` (node:test).
+// Anteriores y el buscador por cliente o lugar. Se corren con `npm test`
+// (node:test).
 //
 // Mismo método que choferCelular.render.test.mjs: se monta la pantalla real con
 // react-dom/client sobre jsdom y la API se reemplaza por un doble (sin red) que
@@ -75,6 +76,12 @@ const ANTERIORES = [FINALIZADO, CANCELADO];
 
 let respuestas;
 const pedidos = [];
+// Demora de la respuesta según la búsqueda (ms), para ver que una respuesta vieja
+// no pisa a una nueva.
+let demoraPorBusqueda = {};
+const esperar = (ms) => new Promise((resolver) => setTimeout(resolver, ms));
+// La búsqueda del doble: el texto en el cliente o en el destino, sin mayúsculas.
+const coincide = (v, q) => [v.cliente?.nombre, v.destino.nombre].some((n) => n?.toLowerCase().includes(q.toLowerCase()));
 
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
@@ -86,6 +93,8 @@ before(async () => {
     if (endpoint !== '/viajes') throw new Error(`endpoint no previsto en el test: ${endpoint}`);
     let lista = params.vista ? respuestas[params.vista] : [...respuestas.proximos, ...respuestas.anteriores];
     if (params.estado) lista = lista.filter((v) => v.estado === params.estado);
+    if (params.q) lista = lista.filter((v) => coincide(v, params.q));
+    if (demoraPorBusqueda[params.q]) await esperar(demoraPorBusqueda[params.q]);
     return { data: { viajes: lista } };
   };
   ({ MemoryRouter, Routes, Route, useLocation } = await import('react-router-dom'));
@@ -99,6 +108,7 @@ after(() => vite.close());
 
 beforeEach(() => {
   respuestas = { proximos: PROXIMOS, anteriores: ANTERIORES };
+  demoraPorBusqueda = {};
   pedidos.length = 0;
   contenedor = document.createElement('div');
   document.body.appendChild(contenedor);
@@ -158,6 +168,19 @@ async function elegir(nombre, valor) {
     select.dispatchEvent(new window.Event('change', { bubbles: true }));
   });
 }
+
+const buscador = () => contenedor.querySelector('input[aria-label="Buscar por cliente o lugar"]');
+
+// Escribe en el buscador como lo haría el usuario (React escucha el evento input).
+async function escribir(texto) {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(buscador(), texto);
+    buscador().dispatchEvent(new window.Event('input', { bubbles: true }));
+  });
+}
+
+// Deja pasar el debounce del buscador (300 ms) y lo que tarde la respuesta.
+const dejarPasar = (ms = 350) => act(() => esperar(ms));
 
 const abrirFiltros = () => act(async () => contenedor.querySelector('.filtros-toggle-btn').click());
 
@@ -242,5 +265,59 @@ describe('Dashboard de gestión: abrir un viaje en el listado', () => {
     await act(async () => fila('Córdoba').click());
     assert.equal(router.ubicacion.search, '');
     assert.deepEqual(router.ubicacion.state, { viajeId: PROGRAMADO_HOY.id });
+  });
+});
+
+describe('Viajes: buscador por cliente o lugar', () => {
+  test('siempre visible en la barra, fuera del panel de filtros, con el máximo del backend', async () => {
+    await montar('Viajes', '/viajes');
+    const campo = buscador();
+    assert.ok(campo);
+    assert.equal(campo.getAttribute('placeholder'), 'Buscar por cliente o lugar');
+    assert.equal(campo.maxLength, 100);
+    assert.equal(campo.closest('.listado-filtros'), null);
+    assert.ok(campo.closest('.listado-toolbar'));
+  });
+
+  test('pide con q al dejar de escribir (no en cada tecla), recortado y dentro de la vista', async () => {
+    await montar('Viajes', '/viajes');
+    const antes = pedidosDelListado().length;
+    await escribir('Ali');
+    await escribir('Alta Gr');
+    await escribir(' Alta Gracia ');
+    assert.equal(pedidosDelListado().length, antes, 'no pide mientras se escribe');
+
+    await dejarPasar();
+    assert.equal(pedidosDelListado().length, antes + 1);
+    assert.deepEqual(ultimoPedido(), { vista: 'proximos', q: 'Alta Gracia' });
+    assert.deepEqual(destinos(), ['Alta Gracia']);
+  });
+
+  test('borrar la búsqueda (o dejar solo espacios) vuelve a pedir sin q', async () => {
+    await montar('Viajes', '/viajes');
+    await escribir('Mendoza');
+    await dejarPasar();
+    assert.deepEqual(destinos(), ['Mendoza']);
+
+    await escribir('   ');
+    await dejarPasar();
+    assert.deepEqual(ultimoPedido(), { vista: 'proximos' });
+    assert.equal(destinos().length, PROXIMOS.length);
+  });
+
+  test('una respuesta vieja que llega tarde no pisa a la nueva', async () => {
+    demoraPorBusqueda = { Col: 900 };
+    await montar('Viajes', '/viajes');
+    await escribir('Col');
+    await dejarPasar();
+    // "Col" sigue esperando su respuesta; ahora se busca "Córdoba", que responde enseguida.
+    await escribir('Córdoba');
+    await dejarPasar();
+    assert.deepEqual(destinos(), ['Córdoba']);
+
+    // Llega la respuesta de "Col" (todos los del Colegio): se descarta.
+    await dejarPasar(700);
+    assert.deepEqual(destinos(), ['Córdoba']);
+    assert.equal(buscador().value, 'Córdoba');
   });
 });
