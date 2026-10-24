@@ -17,11 +17,14 @@ import { agruparViajesPorDia } from '../utils/viajesPorDia';
 // horario, sin el chofer (es él mismo). Sin variante (Viajes, y Mis viajes de un
 // gestor) el sub suma el chofer: "07:30 – 10:00 · Martín Gómez".
 //
+// `mostrarCliente` (solo el listado de Viajes) agrega el cliente en gris debajo de
+// la ruta; Mis viajes no lo muestra. Sin cliente cargado no se agrega nada.
+//
 // `mostrarPendientes` (solo el listado de Viajes, para Administrador/Encargado)
 // agrega en el detalle el badge "Sin precio" o "Cobro pendiente". El valor lo
 // manda el backend solo a esos perfiles: para el resto la clave no existe y no
 // se muestra nada aunque la prop venga en true.
-function TarjetaViaje({ viaje, onClick, variante, mostrarPendientes = false }) {
+function TarjetaViaje({ viaje, onClick, variante, mostrarCliente = false, mostrarPendientes = false }) {
   const { chofer, vehiculo, fechaInicio, fechaFin, kilometrosEstimados } = viaje;
   const vistaChofer = variante === 'chofer';
 
@@ -45,6 +48,7 @@ function TarjetaViaje({ viaje, onClick, variante, mostrarPendientes = false }) {
       marca={<FechaTileTexto fecha={fechaInicio} />}
       marcaClassName="fecha-tile"
       titulo={<RutaViaje origen={viaje.origen} destino={viaje.destino} paradas={viaje.paradas} />}
+      bajada={mostrarCliente ? viaje.cliente?.nombre : undefined}
       estado={
         <EstadoBadge tono={ESTADOS_VIAJE[viaje.estado].tono} size="sm">
           {ESTADOS_VIAJE[viaje.estado].label}
@@ -75,7 +79,15 @@ function TarjetaViaje({ viaje, onClick, variante, mostrarPendientes = false }) {
 // `sinCerrar` (Próximos de Viajes): los viajes de días anteriores que siguen
 // abiertos, en un grupo "Sin cerrar" arriba de todo (el día lo da el bloque de
 // fecha de cada tarjeta). Sin color ni badge para el atraso.
-export function ListadoViajesPorDia({ viajes, enCurso = [], sinCerrar = [], variante, mostrarPendientes, onSeleccionar }) {
+export function ListadoViajesPorDia({
+  viajes,
+  enCurso = [],
+  sinCerrar = [],
+  variante,
+  mostrarCliente,
+  mostrarPendientes,
+  onSeleccionar,
+}) {
   const grupos = agruparViajesPorDia(viajes);
   if (enCurso.length > 0) grupos.unshift({ dia: 'en-curso', titulo: 'En curso', viajes: enCurso });
   if (sinCerrar.length > 0) grupos.unshift({ dia: 'sin-cerrar', titulo: 'Sin cerrar', viajes: sinCerrar });
@@ -89,6 +101,7 @@ export function ListadoViajesPorDia({ viajes, enCurso = [], sinCerrar = [], vari
             key={v.id}
             viaje={v}
             variante={variante}
+            mostrarCliente={mostrarCliente}
             mostrarPendientes={mostrarPendientes}
             onClick={() => onSeleccionar(v)}
           />

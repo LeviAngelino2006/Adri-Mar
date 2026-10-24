@@ -124,6 +124,42 @@ describe('RutaViaje resumen: corte prolijo en pantallas chicas', () => {
   });
 });
 
+describe('TarjetaViaje: cliente', () => {
+  const render = (props) => renderToStaticMarkup(h(TarjetaViaje, { onClick() {}, ...props }));
+  const CLIENTE = { id: 3, nombre: 'Colegio Nacional de Monserrat' };
+
+  test('con mostrarCliente, el cliente va en gris debajo de la ruta (antes del horario), sin badge', () => {
+    const html = render({ viaje: viaje({ cliente: CLIENTE }), mostrarCliente: true });
+    assert.match(
+      html,
+      /<\/div><div class="listado-card-bajada">Colegio Nacional de Monserrat<\/div><div class="listado-card-sub">/
+    );
+    assert.equal(html.match(/estado-badge /g).length, 1, 'solo el badge de estado');
+  });
+
+  test('sin mostrarCliente (Mis viajes) no se muestra aunque el dato venga', () => {
+    const html = render({ viaje: viaje({ cliente: CLIENTE }) });
+    assert.ok(!html.includes('listado-card-bajada'));
+    assert.ok(!html.includes('Monserrat'));
+  });
+
+  test('un viaje sin cliente no agrega la línea', () => {
+    assert.ok(!render({ viaje: viaje({ cliente: null }), mostrarCliente: true }).includes('listado-card-bajada'));
+  });
+
+  test('ListadoViajesPorDia pasa mostrarCliente a cada tarjeta, también a las de En curso y Sin cerrar', () => {
+    const props = {
+      viajes: [viaje({ id: 1, cliente: CLIENTE })],
+      enCurso: [viaje({ id: 2, estado: 'EN_VIAJE', cliente: { id: 4, nombre: 'Turismo Sierras SRL' } })],
+      sinCerrar: [viaje({ id: 3, cliente: { id: 5, nombre: 'Club Atlético Talleres' } })],
+      onSeleccionar() {},
+    };
+    const con = sinEtiquetas(renderToStaticMarkup(h(ListadoViajesPorDia, { ...props, mostrarCliente: true })));
+    assert.match(con, /Club Atlético Talleres[\s\S]*Turismo Sierras SRL[\s\S]*Colegio Nacional de Monserrat/);
+    assert.ok(!renderToStaticMarkup(h(ListadoViajesPorDia, props)).includes('listado-card-bajada'));
+  });
+});
+
 describe('TarjetaViaje: pendiente administrativo', () => {
   const render = (props) => renderToStaticMarkup(h(TarjetaViaje, { onClick() {}, ...props }));
 

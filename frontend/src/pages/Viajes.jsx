@@ -516,6 +516,7 @@ function Viajes() {
               viajes={resto}
               enCurso={enCurso}
               sinCerrar={sinCerrar}
+              mostrarCliente
               mostrarPendientes={puedeGestionar}
               onSeleccionar={seleccionar}
             />

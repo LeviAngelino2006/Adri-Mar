@@ -49,13 +49,14 @@ Todas siguen la misma anatomía:
 - `.listado-card-marca`: cuadrado de 40px (`radius-md`, `brand-50` / `brand-600`) con un ícono de 20px, el `Avatar` de 40px en Usuarios, o el bloque de fecha (`.fecha-tile`, 48px) en los viajes. `ListadoCard` acepta `marcaClassName` para sumarle una clase a la marca.
 - `.listado-card-cuerpo`, con:
   - `.listado-card-top`: título `.listado-card-titulo` (600) y a la derecha el `EstadoBadge` sm. En la tarjeta de viaje angosta el badge pasa arriba del título (ver `TarjetaViaje`). `ListadoCard` acepta `className` para sumarle una clase a la tarjeta.
+  - `.listado-card-bajada`: opcional, debajo del título, en `color-text-secondary` (14px), sin badge ni color (prop `bajada` de `ListadoCard`).
   - `.listado-card-sub`: el dato principal en `color-text` (15px).
   - `.listado-card-detalle`: datos secundarios en `color-text-secondary` (14px), opcional.
   - `.listado-card-pie`: línea final con borde superior `color-border`, 14px, `color-text-secondary` y números tabulares.
 
 Contenido de cada pantalla:
-- **Viaje**: bloque de fecha con el día de inicio; título la ruta (`RutaViaje`); badge de estado; sub el horario y el chofer ("07:30 – 10:00 · Martín Gómez"; "Chofer pendiente" si falta); sin detalle; pie el vehículo ("12 - AE452KD · Mercedes-Benz O500") a la izquierda y "110 km estimados" a la derecha. Ver `TarjetaViaje`.
-  - **Mis viajes** (el chofer ve sus propios viajes): el sub es solo el horario; el resto igual. Los gestores ven siempre el chofer.
+- **Viaje**: bloque de fecha con el día de inicio; título la ruta (`RutaViaje`); badge de estado; en el listado de Viajes, la bajada con el nombre del cliente (prop `mostrarCliente` de `TarjetaViaje`; sin cliente cargado, no hay línea); sub el horario y el chofer ("07:30 – 10:00 · Martín Gómez"; "Chofer pendiente" si falta); sin detalle; pie el vehículo ("12 - AE452KD · Mercedes-Benz O500") a la izquierda y "110 km estimados" a la derecha. Ver `TarjetaViaje`.
+  - **Mis viajes** (el chofer ve sus propios viajes): el sub es solo el horario y no lleva el cliente; el resto igual. Los gestores ven siempre el chofer.
 - **Vehículo**: ícono de colectivo o combi; título "2 - AB123CD" (solo el dominio con `.patente`); badge Operativo / En taller / Dado de baja; sub marca y modelo; pie "Colectivo" a la izquierda y "57.345 km" a la derecha.
 - **Documentación de un vehículo**: ícono de colectivo o combi; título "2 - AB123CD" (dominio con `.patente`); badge del estado de la documentación (Vencida error, Por vencer warning, Incompleta neutral, Al día success); sub marca y modelo; detalle la línea del problema más urgente; pie "7 de 8 documentos cargados" a la izquierda y el tipo de vehículo a la derecha. Orden por número de interno.
 - **Documentación de un chofer**: `Avatar` de 40px con el color del perfil; título nombre y apellido; mismo badge, detalle y pie "N de M documentos cargados" (sin DNI); sub el perfil ("Chofer"; "Encargado · habilitado para conducir"). Orden por apellido.

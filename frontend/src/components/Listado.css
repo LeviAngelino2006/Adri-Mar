@@ -289,9 +289,14 @@ button.listado-card:focus-visible {
   font-size: 0.9375rem;
 }
 
+.listado-card-bajada,
 .listado-card-detalle {
   color: var(--color-text-secondary);
   font-size: 0.875rem;
+}
+
+.listado-card-bajada {
+  overflow-wrap: anywhere;
 }
 
 .listado-card-pie {

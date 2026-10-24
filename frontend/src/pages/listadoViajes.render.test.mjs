@@ -1,5 +1,5 @@
 // Tests de la tanda "encontrar viajes": el listado de Viajes con Próximos |
-// Anteriores y el buscador por cliente o lugar. Se corren con `npm test`
+// Anteriores, el buscador por cliente o lugar y el cliente en la tarjeta. Se corren con `npm test`
 // (node:test).
 //
 // Mismo método que choferCelular.render.test.mjs: se monta la pantalla real con
@@ -89,6 +89,7 @@ before(async () => {
   api.get = async (endpoint, config = {}) => {
     const params = config.params ?? {};
     pedidos.push({ endpoint, params });
+    if (endpoint === '/viajes/mis-viajes') return { data: { viajes: PROXIMOS } };
     if (endpoint === '/documentos/alertas') return { data: { totalAlertas: 0, vencidos: 0, porVencer: 0, documentos: [] } };
     if (endpoint !== '/viajes') throw new Error(`endpoint no previsto en el test: ${endpoint}`);
     let lista = params.vista ? respuestas[params.vista] : [...respuestas.proximos, ...respuestas.anteriores];
@@ -99,7 +100,7 @@ before(async () => {
   };
   ({ MemoryRouter, Routes, Route, useLocation } = await import('react-router-dom'));
   ({ AuthProvider } = await vite.ssrLoadModule('/src/context/AuthContext.jsx'));
-  for (const nombre of ['Viajes', 'Dashboard']) {
+  for (const nombre of ['Viajes', 'MisViajes', 'Dashboard']) {
     paginas[nombre] = (await vite.ssrLoadModule(`/src/pages/${nombre}.jsx`)).default;
   }
 });
@@ -319,5 +320,21 @@ describe('Viajes: buscador por cliente o lugar', () => {
     await dejarPasar(700);
     assert.deepEqual(destinos(), ['Córdoba']);
     assert.equal(buscador().value, 'Córdoba');
+  });
+});
+
+describe('Cliente en la tarjeta: solo en el listado de gestión', () => {
+  const bajadas = () => [...contenedor.querySelectorAll('.listado-card-bajada')].map((b) => b.textContent);
+
+  test('Viajes muestra el cliente en cada tarjeta', async () => {
+    await montar('Viajes', '/viajes');
+    assert.equal(bajadas().length, PROXIMOS.length);
+    assert.ok(bajadas().every((texto) => texto === 'Colegio San José'));
+  });
+
+  test('Mis viajes (también para un gestor) no lo muestra', async () => {
+    await montar('MisViajes', '/mis-viajes');
+    assert.ok(contenedor.querySelectorAll('.listado-card').length > 0);
+    assert.deepEqual(bajadas(), []);
   });
 });
