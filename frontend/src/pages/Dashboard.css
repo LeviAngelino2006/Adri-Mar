@@ -212,8 +212,9 @@
 }
 
 /* Paneles del Dashboard de Administrador y Encargado: Viajes de hoy a todo el
-   ancho y, debajo, Viajes por confirmar y Documentación en dos columnas desde
-   1024px. Comparten la lista de filas clickeables (.dashboard-fila). */
+   ancho y, debajo, dos columnas desde 1024px: a la izquierda Viajes por
+   confirmar y a la derecha Sin cerrar (si hay) y Documentación. Comparten la
+   lista de filas clickeables (.dashboard-fila). */
 .dashboard-panel {
   margin-bottom: var(--space-6);
 }
@@ -248,6 +249,19 @@
   margin-bottom: 0;
 }
 
+/* Columna derecha: sus paneles apilados, con la misma separación que las
+   columnas. */
+.dashboard-columna {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.dashboard-columna > .card {
+  margin-bottom: 0;
+}
+
 @media (min-width: 1024px) {
   .dashboard-columnas {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -263,19 +277,6 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-secondary);
-}
-
-/* Viajes de hoy: el día de cada grupo de "Sin cerrar" ("Ayer · vie 23 oct"),
-   debajo del subtítulo del grupo, en gris y sin mayúsculas. */
-.viajes-hoy-dia {
-  margin: var(--space-2) 0 var(--space-1);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-}
-
-.viajes-hoy-sin-cerrar {
-  margin-bottom: var(--space-4);
 }
 
 .dashboard-lista {

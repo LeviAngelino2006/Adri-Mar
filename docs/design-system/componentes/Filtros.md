@@ -1,4 +1,4 @@
-Botón "Filtros" con el contador de filtros activos y el panel desplegable de filtros. Va en la barra de herramientas de `Listado`, junto al buscador, en Viajes, Flota y Mis viajes. Patrón de página.
+Botón "Filtros" con el contador de filtros activos y el panel desplegable de filtros. Va en la barra de herramientas de `Listado`, junto al buscador, en Viajes, Mis viajes, Flota, Mantenimiento (Service e Historial) y Documentación. Patrón de página.
 
 ## Lo que provee quien lo usa
 - `.listado-toolbar` (antes `.viajes-listado-toolbar`) con `<button class="filtros-toggle-btn" aria-expanded>`: el ícono de filtro, "Filtros" y, si hay filtros activos, `.filtros-toggle-badge` con la cantidad.

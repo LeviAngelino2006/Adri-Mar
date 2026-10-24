@@ -46,12 +46,13 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 ## Interacción y accesibilidad
 
 - Todo control interactivo mide al menos 44px de alto (botones, inputs, ítems de navegación), también el link "← Volver al listado" (`.back-link`).
-- Foco visible: outline 2px `brand-600` con offset 2px. No lo quites.
+- Foco visible: outline 2px `brand-600` con offset 2px. No lo quites. Los campos de formulario (`input`, `select` y `textarea`, salvo checkbox y radio) llevan el mismo anillo por dentro, con offset -2px: así un contenedor con scroll (el cuerpo de un modal) no lo recorta y todos los campos se ven iguales en cualquier pantalla. Es una regla global de `index.css`: no le pongas otro foco a un campo.
 - Deshabilitado: opacidad 0.6 y cursor not-allowed.
 - El hover solo aplica con mouse: todo estilo `:hover` va dentro de `@media (hover: hover)`. En pantallas táctiles el hover queda pegado en lo que estaba bajo el dedo al cambiar de pantalla (un botón o tarjeta aparece resaltado sin que nadie lo toque). Para que el toque tenga respuesta, cada regla de hover tiene un `:active` con el mismo estilo, fuera de la media query. `:focus-visible` y `:disabled` no cambian.
 - Al abrir una ficha o un formulario que reemplaza al listado dentro de la misma ruta (Viajes, Mis viajes, Flota de vehículos, Usuarios y Documentación) y al volver al listado, la página vuelve arriba (`window.scrollTo(0, 0)`). Al cambiar de ruta también (`ScrollAlTope`). El router no reinicia el scroll solo.
 - Transiciones cortas (0.15–0.2s) y desactivadas con `prefers-reduced-motion`.
 - Los campos de formulario van dentro de `FormField`, que conecta label, hint y error con `aria-*`.
+- En un `select`, la primera opción es `OpcionVacia`: en los obligatorios, un placeholder "Elegí…" que no se puede elegir; en los opcionales, "Sin definir", que sí (ver `FormField`).
 - Lo obligatorio se marca con un asterisco rojo (`required` en `FormField`). Nunca escribas "Opcional" en un hint: lo que no lleva asterisco es opcional.
 
 ## Layout
@@ -85,17 +86,17 @@ Sin `viewport-fit=cover`, o en Android y escritorio, los insets valen 0 y nada c
 Las pantallas se arman con las clases de `bundle.css` y los componentes de arriba, no con componentes propios. Cada patrón tiene su README con la estructura y las clases exactas:
 
 - Viajes: `TarjetaViaje` (listado, agrupado por día y con el bloque de fecha), `FormularioViaje` (programar y editar), `ViajeEnCurso` y `ProximosViajes` (Dashboard del chofer) y `ModalOdometro` (comenzar y finalizar).
-- Dashboard: `Dashboard` (encabezado, orden de secciones, paneles y filas `.dashboard-fila`), con `ViajesDeHoy` a todo el ancho y, debajo, `PanelViajesPorConfirmar` y Documentación en dos columnas desde 1024px.
-- Listados: `Listado` (patrón único de Viajes, Flota, Usuarios y Documentación), con las tarjetas `TarjetaViaje` y `TarjetaVehiculo`, `FichaDetalle` (ficha de un viaje, vehículo o usuario: una sola card plana con los datos en pares, en dos columnas desde 640px), `Filtros`.
+- Dashboard: `Dashboard` (encabezado, orden de secciones, paneles y filas `.dashboard-fila`), con `ViajesDeHoy` (solo lo de hoy) a todo el ancho y, debajo, dos columnas desde 1024px: `PanelViajesPorConfirmar` a la izquierda y, a la derecha, el panel Sin cerrar (solo si hay alguno, ver `ViajesDeHoy`) y Documentación.
+- Listados: `Listado` (patrón único de Viajes, Mis viajes, Flota, Mantenimiento, Documentación, Presupuestos, Personal y Usuarios), con las tarjetas `TarjetaViaje` y `TarjetaVehiculo`, `FichaDetalle` (ficha de un viaje, vehículo o usuario: una sola card plana con los datos en pares, en dos columnas desde 640px), `Filtros`.
 - Flota y Usuarios: `FormularioVehiculo` y `FormularioUsuario` (alta y edición, en pares, con asteriscos y hints).
 - Documentación: `Listado` con `ControlSegmentado` (Vehículos | Choferes, con ícono y cantidad) en la misma barra que el buscador y Filtros, a la derecha, y, en la ficha, una `TarjetaDocumento` por documento.
-- Mantenimiento: `Mantenimiento` (Service | Arreglos | Historial con `ControlSegmentado` en la barra; tarjetas de estado del service, formulario de arreglos e historial de toda la flota).
+- Mantenimiento: `Mantenimiento` (Service | Arreglos | Historial con `ControlSegmentado` a la derecha de la barra, como en Documentación; tarjetas de estado del service, formulario de arreglos e historial de toda la flota).
 - Usuarios: `Avatar`, con el color según el perfil.
 - Layout: `Navegacion` (sidebar y topbar), `Login` (panel de marca + card).
 - Carga: `Cargando` reemplaza al Spinner con "Cargando…" en pantallas y paneles; el Spinner queda para los botones.
 - Cargando, error y vacío: `EstadoCarga` (con el hook `useCarga`) muestra cada uno distinto; un error al cargar va con "Reintentar" y nunca como "no hay datos".
 
-- Las pantallas de listado (Viajes, Flota de vehículos, Usuarios y Documentación) siguen el mismo patrón, `Listado`: sin título visible (el `h1` va en `.sr-only`), barra de búsqueda y filtros con la acción principal a la derecha ("Crear viaje", "Crear vehículo", "Crear usuario"; Mis viajes y Documentación no tienen), y tarjetas con la misma anatomía, apiladas una debajo de otra a todo el ancho. No hay tablas ni grilla.
+- Las pantallas de listado (Viajes, Mis viajes, Flota de vehículos, Mantenimiento, Documentación, Presupuestos, Personal y Usuarios) siguen el mismo patrón, `Listado`: sin título visible (el `h1` va en `.sr-only`), la misma barra en todas (buscador y Filtros a la izquierda; a la derecha de todo, el control de vistas y la acción principal, "Crear viaje", "Crear vehículo"…; Mis viajes, Mantenimiento y Documentación no tienen acción), y tarjetas con la misma anatomía, apiladas una debajo de otra a todo el ancho. No hay tablas ni grilla.
 - Las fichas de detalle (viaje, vehículo y usuario) son una sola `Card` plana con una grilla de pares `dt`/`dd` en dos columnas desde 640px (nunca tres), sin títulos de sección y en el mismo orden que su formulario. Los datos vacíos dicen "No registrado".
 - El `h1` es visible en el Dashboard ("Hola, {nombre}"), las fichas y los formularios. En los listados va en `.sr-only` y la acción principal pasa a la barra.
 - Los estados vacíos van centrados, en `color-text-secondary`.

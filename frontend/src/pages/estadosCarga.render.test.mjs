@@ -202,12 +202,14 @@ describe('mensaje de error según la causa', () => {
   });
 });
 
-// Los tres paneles del Dashboard de gestión: antes mostraban el error, pero sin
-// "Reintentar" (había que recargar la página entera).
-describe('Dashboard de gestión: los tres paneles con el backend cortado', () => {
+// Los cuatro paneles del Dashboard de gestión: antes mostraban el error, pero
+// sin "Reintentar" (había que recargar la página entera). "Sin cerrar" solo
+// aparece si hay alguno, pero ante un error se ve igual: no se sabe si los hay.
+describe('Dashboard de gestión: los cuatro paneles con el backend cortado', () => {
   const ERRORES = [
     'No pudimos cargar los viajes de hoy. Revisá tu conexión.',
     'No pudimos cargar los viajes por confirmar. Revisá tu conexión.',
+    'No pudimos cargar los viajes sin cerrar. Revisá tu conexión.',
     'No pudimos cargar las alertas de documentación. Revisá tu conexión.',
   ];
   const VACIOS = ['No hay viajes para hoy', 'Nada pendiente para hoy ni mañana', 'Sin alertas por ahora'];
@@ -218,7 +220,7 @@ describe('Dashboard de gestión: los tres paneles con el backend cortado', () =>
     await montar('Dashboard', 'ADMINISTRADOR', '/');
     const alertas = [...contenedor.querySelectorAll('.alert-error[role="alert"]')].map((a) => a.textContent);
     for (const error of ERRORES) assert.ok(alertas.some((a) => a.includes(error)), `falta: ${error}`);
-    assert.equal(botonesReintentar().length, 3);
+    assert.equal(botonesReintentar().length, 4);
     for (const vacio of VACIOS) assert.ok(!texto().includes(vacio), vacio);
   });
 
@@ -229,12 +231,19 @@ describe('Dashboard de gestión: los tres paneles con el backend cortado', () =>
 
     const pedidosViajes = pedidos.filter((e) => e === '/viajes').length;
     await act(async () => botonesReintentar()[0].click());
-    assert.equal(pedidos.filter((e) => e === '/viajes').length, pedidosViajes + 3, 'Viajes de hoy hace tres consultas');
+    assert.equal(pedidos.filter((e) => e === '/viajes').length, pedidosViajes + 2, 'Viajes de hoy hace dos consultas');
     assert.ok(texto().includes('Mendoza'));
-    assert.equal(botonesReintentar().length, 2);
+    assert.equal(botonesReintentar().length, 3);
 
     await act(async () => botonesReintentar()[0].click());
     assert.ok(texto().includes('Nada pendiente para hoy ni mañana'));
+
+    // Sin cerrar: ahora responde sin ninguno marcado, así que el panel se va.
+    const pedidosSinCerrar = pedidos.filter((e) => e === '/viajes').length;
+    await act(async () => botonesReintentar()[0].click());
+    assert.equal(pedidos.filter((e) => e === '/viajes').length, pedidosSinCerrar + 1);
+    assert.equal(contenedor.querySelector('[role="region"][aria-label="Sin cerrar"]'), null);
+    assert.equal(botonesReintentar().length, 1);
 
     const pedidosAlertas = pedidos.filter((e) => e === '/documentos/alertas').length;
     await act(async () => botonesReintentar()[0].click());

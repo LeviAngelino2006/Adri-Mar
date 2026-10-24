@@ -26,23 +26,19 @@ export function ListadoHeader({ titulo }) {
   return <h1 className="sr-only">{titulo}</h1>;
 }
 
-// Buscador (con lupa), botón "Filtros" con el contador de filtros activos y,
-// a la derecha de todo, la acción principal o el control de vistas. Cada
-// pantalla pasa solo lo que usa:
+// Barra única de todos los listados: a la izquierda el buscador (con lupa) y el
+// botón "Filtros" con el contador de filtros activos; a la derecha de todo, el
+// control de vistas y, al final, la acción principal. Cada pantalla pasa solo lo
+// que usa; el orden y la posición son siempre los mismos:
 //   busqueda: { valor, onChange(texto), placeholder, maxLength? }
 //   filtros:  { abierto, onToggle(), activos }
-//   vistas:   las props de ControlSegmentado (Documentación: Vehículos | Choferes)
+//   vistas:   las props de ControlSegmentado (Documentación: Vehículos | Choferes;
+//             Mantenimiento: Service | Arreglos | Historial)
 //   accion:   { etiqueta, onClick } ("Crear vehículo"); debajo de 640px se ve
 //             solo el "+" y la etiqueta queda para los lectores de pantalla.
-//   vistasAlInicio: true pone el control de vistas primero, a la izquierda, y
-//             el buscador y Filtros a la derecha (Mantenimiento: las vistas son
-//             la navegación principal de la pantalla). Por defecto las vistas
-//             van a la derecha de todo, como en Documentación.
-export function ListadoToolbar({ busqueda, filtros, vistas, accion, vistasAlInicio = false }) {
-  const controlVistas = vistas && <ControlSegmentado {...vistas} />;
+export function ListadoToolbar({ busqueda, filtros, vistas, accion }) {
   return (
-    <div className={vistasAlInicio ? 'listado-toolbar listado-toolbar-vistas-inicio' : 'listado-toolbar'}>
-      {vistasAlInicio && controlVistas}
+    <div className="listado-toolbar">
       {busqueda && (
         <div className="listado-buscar">
           {ICONO_LUPA}
@@ -63,7 +59,7 @@ export function ListadoToolbar({ busqueda, filtros, vistas, accion, vistasAlInic
           {filtros.activos > 0 && <span className="filtros-toggle-badge">{filtros.activos}</span>}
         </button>
       )}
-      {!vistasAlInicio && controlVistas}
+      {vistas && <ControlSegmentado {...vistas} />}
       {accion && (
         <Button variant="primary" className="listado-accion" aria-label={accion.etiqueta} onClick={accion.onClick}>
           <span className="listado-accion-signo" aria-hidden="true">

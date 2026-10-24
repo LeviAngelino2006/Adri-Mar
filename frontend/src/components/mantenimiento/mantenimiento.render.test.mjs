@@ -22,13 +22,14 @@ const h = React.createElement;
 
 let vite;
 let TarjetaService;
+let PestanaService;
 let TarjetaRegistro;
 let ModalRegistrarService;
 let PestanaArreglos;
 
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
-  ({ TarjetaService } = await vite.ssrLoadModule('/src/components/mantenimiento/PestanaService.jsx'));
+  ({ TarjetaService, default: PestanaService } = await vite.ssrLoadModule('/src/components/mantenimiento/PestanaService.jsx'));
   ({ TarjetaRegistro } = await vite.ssrLoadModule('/src/components/mantenimiento/PestanaHistorial.jsx'));
   ModalRegistrarService = (await vite.ssrLoadModule('/src/components/mantenimiento/ModalRegistrarService.jsx')).default;
   PestanaArreglos = (await vite.ssrLoadModule('/src/components/mantenimiento/PestanaArreglos.jsx')).default;
@@ -80,6 +81,29 @@ describe('TarjetaService', () => {
   });
 });
 
+describe('PestanaService', () => {
+  test('la barra va como en Documentación: buscador y Filtros, y a la derecha Service | Arreglos | Historial', () => {
+    const vistas = {
+      opciones: [
+        { valor: 'service', etiqueta: 'Service' },
+        { valor: 'arreglos', etiqueta: 'Arreglos' },
+        { valor: 'historial', etiqueta: 'Historial' },
+      ],
+      valor: 'service',
+      onChange() {},
+      ariaLabel: 'Vista de mantenimiento',
+    };
+    const carga = { cargando: false, error: null, datos: [itemProximo], recargar() {} };
+    const html = renderToStaticMarkup(
+      h(PestanaService, { carga, tiposVehiculo: [], vistas, onRegistrar() {}, onAsignar() {} })
+    );
+    const barra = html.slice(html.indexOf('class="listado-toolbar"'), html.indexOf('class="listado-cards"'));
+    const orden = ['listado-buscar', 'filtros-toggle-btn', 'control-segmentado'].map((clase) => barra.indexOf(`class="${clase}`));
+    assert.ok(orden.every((posicion) => posicion > 0));
+    assert.deepEqual([...orden].sort((a, b) => a - b), orden);
+  });
+});
+
 describe('TarjetaRegistro (historial)', () => {
   const base = {
     id: 1,
@@ -116,7 +140,7 @@ describe('TarjetaRegistro (historial)', () => {
 });
 
 describe('ModalRegistrarService', () => {
-  test('con el vehículo elegido: fecha, km con el odómetro actual, observación y la lista "Incluye"', () => {
+  test('con el vehículo elegido: fecha, km con el odómetro actual y observación, con "Incluye…" de ayuda', () => {
     const html = renderToStaticMarkup(
       h(ModalRegistrarService, { vehiculos: [itemProximo], vehiculo: itemProximo, onClose: () => {}, onSuccess: () => {} })
     );
@@ -124,9 +148,15 @@ describe('ModalRegistrarService', () => {
     assert.doesNotMatch(html, /id="service-vehiculo"/);
     assert.match(html, /id="service-fecha"/);
     assert.match(html, /Odómetro actual: 339\.200 km/);
-    assert.match(html, /Incluye:/);
-    assert.match(html, /Cambio de aceite/);
-    assert.match(html, /Revisión general del motor/);
+    // "Incluye" es el hint de la observación (texto gris de ayuda, enlazado al
+    // textarea), en una oración: no una caja celeste con viñetas.
+    assert.match(
+      html,
+      /<p id="service-observaciones-hint" class="form-field-hint">Incluye cambio de aceite, filtros de gasoil, aceite y habitáculo \(aire acondicionado\), alineado y balanceado y revisión general del motor\.<\/p>/
+    );
+    assert.match(html, /<textarea[^>]*aria-describedby="service-observaciones-hint"/);
+    assert.doesNotMatch(html, /class="alert alert-info/);
+    assert.doesNotMatch(html, /<ul/);
     // El service no tiene costo ni responsable, ni casillas para tildar.
     assert.doesNotMatch(html, /type="checkbox"/);
     assert.doesNotMatch(html, /[Cc]osto/);
@@ -159,6 +189,11 @@ describe('PestanaArreglos', () => {
     assert.match(html, /Quién hizo el trabajo/);
     assert.match(html, /Mecánico, chapista o taller/);
     assert.match(html, /Registrar arreglo/);
+    // Vehículo y Tipo de trabajo son obligatorios: "Elegí…" (o "Cargando…") se ve,
+    // pero no se puede elegir (no es una opción más de la lista). Con los tipos
+    // cargados, ver arreglosSelect.render.test.mjs.
+    assert.match(html, /<option value="" disabled="" hidden="" selected="">Elegí el vehículo<\/option>/);
+    assert.match(html, /<option value="" disabled="" hidden="" selected="">Cargando…<\/option>/);
     assert.doesNotMatch(html, /[Cc]osto/);
   });
 });
