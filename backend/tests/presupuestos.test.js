@@ -53,7 +53,7 @@ function sembrar() {
     { id: 2, numeroInterno: '7', dominio: 'AC456EF', asientos: 45, tipoVehiculoId: 1, estadoVehiculoId: 2 },
     { id: 3, numeroInterno: '3', dominio: 'AA000AA', asientos: 19, tipoVehiculoId: 2, estadoVehiculoId: 3 },
   ];
-  db.usuarios = [{ id: 10, persona: { nombre: 'Ana', apellido: 'Gestora' } }];
+  db.usuarios = [{ id: 10, personaId: 10, persona: { id: 10, nombre: 'Ana', apellido: 'Gestora' } }];
   db.presupuestos = [];
   db.unidades = [];
   db.siguienteId = 1;
@@ -77,8 +77,8 @@ function conRelaciones(p, include = {}) {
   if (include.origen) fila.origen = conNombre(porId(db.ubicaciones, p.origenId));
   if (include.destino) fila.destino = conNombre(porId(db.ubicaciones, p.destinoId));
   if (include.creadoPor) {
-    // Usuario ya no tiene nombre ni apellido (quedaron como *Legacy): Prisma real
-    // falla si se los pide, así que el doble también.
+    // Usuario no tiene nombre ni apellido (viven en Persona): Prisma real falla
+    // si se los pide, así que el doble también.
     const select = include.creadoPor.select ?? {};
     assert.ok(!select.nombre && !select.apellido, 'el nombre del usuario va en persona { select: { nombre, apellido } }');
     const u = porId(db.usuarios, p.creadoPorId);
