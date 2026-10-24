@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import Button from './ui/Button';
 import FormField from './ui/FormField';
+import OpcionVacia from './ui/OpcionVacia';
 import Alert from './ui/Alert';
 import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
 import SelectorMultiple from './ui/SelectorMultiple';
@@ -426,7 +427,7 @@ function ViajeForm({
           <>
             <FormField id="choferId" label="Chofer" error={errores.choferId || errorOpciones.choferes} required>
               <select name="choferId" value={form.choferId} onChange={handleChange}>
-                <option value="">Seleccionar…</option>
+                <OpcionVacia obligatorio>Elegí el chofer</OpcionVacia>
                 {choferes.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nombre} {c.apellido}
@@ -437,7 +438,7 @@ function ViajeForm({
 
             <FormField id="vehiculoId" label="Vehículo" error={errores.vehiculoId || errorOpciones.vehiculos} required>
               <select name="vehiculoId" value={form.vehiculoId} onChange={handleChange}>
-                <option value="">Seleccionar…</option>
+                <OpcionVacia obligatorio>Elegí el vehículo</OpcionVacia>
                 {vehiculos.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.numeroInterno} - {v.dominio}

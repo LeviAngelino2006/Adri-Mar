@@ -52,6 +52,7 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 - Al abrir una ficha o un formulario que reemplaza al listado dentro de la misma ruta (Viajes, Mis viajes, Flota de vehículos, Usuarios y Documentación) y al volver al listado, la página vuelve arriba (`window.scrollTo(0, 0)`). Al cambiar de ruta también (`ScrollAlTope`). El router no reinicia el scroll solo.
 - Transiciones cortas (0.15–0.2s) y desactivadas con `prefers-reduced-motion`.
 - Los campos de formulario van dentro de `FormField`, que conecta label, hint y error con `aria-*`.
+- En un `select`, la primera opción es `OpcionVacia`: en los obligatorios, un placeholder "Elegí…" que no se puede elegir; en los opcionales, "Sin definir", que sí (ver `FormField`).
 - Lo obligatorio se marca con un asterisco rojo (`required` en `FormField`). Nunca escribas "Opcional" en un hint: lo que no lleva asterisco es opcional.
 
 ## Layout

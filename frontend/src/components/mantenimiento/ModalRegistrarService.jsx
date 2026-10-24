@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 import FormField from '../ui/FormField';
+import OpcionVacia from '../ui/OpcionVacia';
 import ModalMarco from '../documentacion/ModalMarco';
 import { useFocoEnPrimerError } from '../../hooks/useFocoEnPrimerError';
 import { registrarService } from '../../services/mantenimientoApi';
@@ -100,7 +101,7 @@ function ModalRegistrarService({ vehiculos, vehiculo: elegido = null, onClose, o
         {!elegido && (
           <FormField id="service-vehiculo" label="Vehículo" required error={errores.vehiculoId}>
             <select value={form.vehiculoId} onChange={(e) => cambiar('vehiculoId', e.target.value)}>
-              <option value="">Elegí el vehículo</option>
+              <OpcionVacia obligatorio>Elegí el vehículo</OpcionVacia>
               {vehiculos.map((item) => (
                 <option key={item.vehiculo.id} value={item.vehiculo.id}>
                   {etiquetaVehiculo(item.vehiculo)}

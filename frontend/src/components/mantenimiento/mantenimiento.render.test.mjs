@@ -189,6 +189,11 @@ describe('PestanaArreglos', () => {
     assert.match(html, /Quién hizo el trabajo/);
     assert.match(html, /Mecánico, chapista o taller/);
     assert.match(html, /Registrar arreglo/);
+    // Vehículo y Tipo de trabajo son obligatorios: "Elegí…" (o "Cargando…") se ve,
+    // pero no se puede elegir (no es una opción más de la lista). Con los tipos
+    // cargados, ver arreglosSelect.render.test.mjs.
+    assert.match(html, /<option value="" disabled="" hidden="" selected="">Elegí el vehículo<\/option>/);
+    assert.match(html, /<option value="" disabled="" hidden="" selected="">Cargando…<\/option>/);
     assert.doesNotMatch(html, /[Cc]osto/);
   });
 });

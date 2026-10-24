@@ -7,6 +7,7 @@ import Card from '../components/ui/Card';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
+import OpcionVacia from '../components/ui/OpcionVacia';
 import Alert from '../components/ui/Alert';
 import EstadoCarga from '../components/ui/EstadoCarga';
 import AvisosGuardado from '../components/ui/AvisosGuardado';
@@ -320,7 +321,7 @@ function FlotaVehiculos() {
 
                 <FormField id="tipoVehiculoId" label="Tipo de vehículo" required error={erroresForm.tipoVehiculoId}>
                   <select name="tipoVehiculoId" value={form.tipoVehiculoId} onChange={handleFormChange}>
-                    <option value="">Seleccionar…</option>
+                    <OpcionVacia obligatorio>Elegí el tipo de vehículo</OpcionVacia>
                     {tiposVehiculo.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.descripcion}

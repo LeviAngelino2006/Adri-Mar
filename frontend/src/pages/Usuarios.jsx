@@ -5,6 +5,7 @@ import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
+import OpcionVacia from '../components/ui/OpcionVacia';
 import Alert from '../components/ui/Alert';
 import Cargando from '../components/ui/Cargando';
 import Toast from '../components/ui/Toast';
@@ -258,7 +259,7 @@ function Usuarios() {
                         value={form.personaId}
                         onChange={handleChange}
                       >
-                        <option value="">Seleccionar miembro de personal…</option>
+                        <OpcionVacia obligatorio>Elegí la persona</OpcionVacia>
                         {crearConPersonaId && !personasSinUsuario.some((p) => String(p.id) === String(crearConPersonaId)) && (
                           <option value={crearConPersonaId}>
                             {nombreSugerido || `Persona #${crearConPersonaId}`}

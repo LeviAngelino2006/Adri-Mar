@@ -3,6 +3,7 @@ import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import FormField from '../ui/FormField';
+import OpcionVacia from '../ui/OpcionVacia';
 import { ListadoToolbar } from '../Listado';
 import { useCarga } from '../../hooks/useCarga';
 import { useFocoEnPrimerError } from '../../hooks/useFocoEnPrimerError';
@@ -127,7 +128,9 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
                 onChange={(e) => cambiar('vehiculoId', e.target.value)}
                 disabled={cargaVehiculos.cargando && vehiculos.length === 0}
               >
-                <option value="">{cargaVehiculos.cargando && vehiculos.length === 0 ? 'Cargando…' : 'Elegí el vehículo'}</option>
+                <OpcionVacia obligatorio>
+                  {cargaVehiculos.cargando && vehiculos.length === 0 ? 'Cargando…' : 'Elegí el vehículo'}
+                </OpcionVacia>
                 {vehiculos.map((v) => (
                   <option key={v.id} value={v.id}>
                     {etiquetaVehiculo(v)}
@@ -148,7 +151,9 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
                 onChange={(e) => cambiar('tipoArregloId', e.target.value)}
                 disabled={cargaTipos.cargando && tipos.length === 0}
               >
-                <option value="">{cargaTipos.cargando && tipos.length === 0 ? 'Cargando…' : 'Elegí el tipo de trabajo'}</option>
+                <OpcionVacia obligatorio>
+                  {cargaTipos.cargando && tipos.length === 0 ? 'Cargando…' : 'Elegí el tipo de trabajo'}
+                </OpcionVacia>
                 {tipos.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.nombre}
