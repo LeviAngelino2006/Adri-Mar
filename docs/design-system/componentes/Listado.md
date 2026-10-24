@@ -18,7 +18,7 @@ Patrón único para las pantallas de listado: Viajes, Mis viajes, Flota de vehí
    - El control de vistas lleva `margin-left: auto`. Si además hay acción (Viajes), van juntos: la acción queda pegada al control (separada por el gap de la barra), sin repartirse con él el espacio libre.
    - Cuando la barra mide menos de 600px, el control de vistas pasa arriba, a todo el ancho y con las opciones en partes iguales; buscador, Filtros y acción quedan en la línea de abajo, con la acción a la derecha. Debajo de 400px oculta las cantidades. Es una container query sobre `.listado-toolbar`, no una media query: depende del ancho de la barra, no del de la pantalla (con la sidebar abierta, a 800px, la barra ya es angosta).
    - Mantenimiento no tiene acción en la barra: el service se registra tocando la tarjeta del vehículo, y el arreglo, con el formulario de su vista (ver `Mantenimiento`). Antes su control iba a la izquierda (prop `vistasAlInicio`); ya no existe: va a la derecha, como en Documentación.
-   - Acción principal: último elemento de la barra, a la derecha de todo (prop `accion: { etiqueta, onClick }` de `ListadoToolbar`). Solo para los perfiles que pueden crear. Etiquetas: "Crear viaje", "Crear vehículo", "Crear presupuesto", "Registrar personal" y "Crear cuenta". Mis viajes, Mantenimiento y Documentación no tienen acción. Marcado:
+   - Acción principal: último elemento de la barra, a la derecha de todo (prop `accion: { etiqueta, onClick }` de `ListadoToolbar`). Solo para los perfiles que pueden crear. Etiquetas: "Crear viaje", "Crear vehículo", "Crear presupuesto", "Registrar personal" y "Crear cuenta": solo el texto, sin "+", porque el "+" lo pone `ListadoToolbar` (un test falla si una etiqueta empieza con "+"). Mis viajes, Mantenimiento y Documentación no tienen acción. Marcado:
      ```html
      <button class="btn btn-primary listado-accion" aria-label="Crear vehículo">
        <span><span class="listado-accion-signo" aria-hidden="true">+</span><span class="listado-accion-texto">Crear vehículo</span></span>
@@ -79,6 +79,7 @@ Contenido de cada pantalla:
   - Línea de detalle: Vencida "ITV venció el 02 oct"; Por vencer "Comprobante de pago de seguro vence el 13 oct"; Incompleta "Falta: X" o "Faltan 3: A, B y C"; Al día "Próximo vencimiento: Póliza de seguro, 22 dic" (sin línea si ningún documento vence). El año se escribe solo cuando no es el año en curso.
   - Estado vacío: "No hay vehículos con ese estado." / "No hay choferes con ese estado.".
   - En la barra, a la derecha de Filtros, va un `ControlSegmentado` (Vehículos | Choferes) con ícono y la cantidad total de cada vista (sin búsqueda ni filtro); las dos listas se cargan en paralelo al entrar. La vista y la ficha abierta se guardan en la URL (`?tab=choferes`, `?vehiculoId=`, `?choferId=`).
+- **Persona** (Personal): avatar con las iniciales y el color del perfil; título nombre y apellido; arriba a la derecha, si está habilitada para conducir, "Chofer" en texto gris de dato secundario (14px, `color-text-secondary`, sin fondo, borde ni emoji: el color queda para el estado) y el badge Activo (success) o Baja (neutral); sub el perfil; pie "DNI 30.123.456" y "@usuario" (o "Sin acceso al sistema").
 - **Usuario**: `Avatar` de 40px; título el nombre; badge Activo (success) o Inactivo (neutral); sub el perfil; pie "@usuario".
 
 ## Reglas

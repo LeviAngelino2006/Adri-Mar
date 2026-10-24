@@ -8,6 +8,7 @@
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -72,5 +73,29 @@ describe('ListadoToolbar', () => {
     const html = renderToStaticMarkup(h(ListadoToolbar, { busqueda: BUSQUEDA, filtros: FILTROS, vistas: VISTAS, vistasAlInicio: true }));
     assert.deepEqual(piezas(html), ['buscar', 'filtros', 'vistas']);
     assert.doesNotMatch(html, /vistas-inicio/);
+  });
+});
+
+// Los .jsx de src, menos los tests.
+function archivosJsx(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entrada) => {
+    const ruta = path.join(dir, entrada.name);
+    if (entrada.isDirectory()) return archivosJsx(ruta);
+    return entrada.name.endsWith('.jsx') ? [ruta] : [];
+  });
+}
+
+describe('acción principal ("+ Crear X")', () => {
+  test('lleva un solo "+": el ícono lo pone ListadoToolbar y la etiqueta es solo el texto', () => {
+    const html = renderToStaticMarkup(h(ListadoToolbar, { accion: { etiqueta: 'Crear cuenta', onClick() {} } }));
+    assert.match(html, /<span class="listado-accion-signo" aria-hidden="true">\+<\/span><span class="listado-accion-texto">Crear cuenta<\/span>/);
+    assert.equal((html.match(/\+/g) ?? []).length, 1);
+  });
+
+  test('ninguna pantalla le pasa una etiqueta que empiece con "+" (Usuarios decía "+ Crear cuenta")', () => {
+    const conSigno = archivosJsx(path.join(RAIZ, 'src')).filter((archivo) =>
+      /accion=\{\{\s*etiqueta:\s*['"`]\s*\+/.test(fs.readFileSync(archivo, 'utf8'))
+    );
+    assert.deepEqual(conSigno.map((archivo) => path.relative(RAIZ, archivo)), []);
   });
 });

@@ -321,7 +321,7 @@ function Usuarios() {
         <>
           <ListadoToolbar
             busqueda={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Buscar por usuario, nombre o DNI' }}
-            accion={{ etiqueta: '+ Crear cuenta', onClick: abrirNuevo }}
+            accion={{ etiqueta: 'Crear cuenta', onClick: abrirNuevo }}
           />
 
           {cargando && <Cargando forma="tarjetas" />}

@@ -328,8 +328,8 @@ function Personal() {
                     estado={
                       <div className="personal-badges">
                         {p.habilitadoParaConducir && (
-                          <span className="personal-badge-conduce" title="Habilitado para conducir">
-                            🚗 Chofer
+                          <span className="personal-conduce" title="Habilitado para conducir">
+                            Chofer
                           </span>
                         )}
                         <EstadoBadge tono={p.activo ? 'success' : 'neutral'} size="sm">
