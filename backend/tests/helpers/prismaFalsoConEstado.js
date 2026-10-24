@@ -341,15 +341,27 @@ function crearEntorno() {
     });
   }
 
+  // Quién registró un documento o un mantenimiento, como lo devuelve Prisma con
+  // SELECT_USUARIO_CON_NOMBRE: el nombre sale de la persona. Usuario ya no tiene
+  // nombre ni apellido (quedaron como *Legacy): pedirlos ahí hace fallar a
+  // Prisma real, así que el doble también se niega.
+  function usuarioConPersona(usuarioId, consulta) {
+    const select = consulta?.select ?? {};
+    if (select.nombre || select.apellido) {
+      throw new Error('Usuario no tiene nombre ni apellido: van en persona { select: { nombre, apellido } }');
+    }
+    const u = db.usuarios.find((x) => x.id === usuarioId);
+    if (!u) return null;
+    const p = db.personas.find((pers) => pers.id === u.personaId);
+    return { id: u.id, persona: { nombre: p.nombre, apellido: p.apellido } };
+  }
+
   function armarDocumento(fila, include) {
     const resultado = { ...fila };
     if (include?.tipoDocumento) {
       resultado.tipoDocumento = db.tiposDocumento.find((t) => t.id === fila.tipoDocumentoId);
     }
-    if (include?.usuario) {
-      const u = db.usuarios.find((x) => x.id === fila.usuarioId);
-      resultado.usuario = u ? { id: u.id, nombre: u.nombre, apellido: u.apellido } : null;
-    }
+    if (include?.usuario) resultado.usuario = usuarioConPersona(fila.usuarioId, include.usuario);
     if (include?.vehiculo) resultado.vehiculo = db.vehiculos.find((v) => v.id === fila.vehiculoId) ?? null;
     if (include?.chofer) resultado.chofer = db.personas.find((p) => p.id === fila.choferId) ?? db.usuarios.find((u) => u.id === fila.choferId) ?? null;
     return resultado;
@@ -497,18 +509,17 @@ function crearEntorno() {
     });
   }
 
-  function armarRegistro(fila) {
-    const usuario = db.usuarios.find((u) => u.id === fila.usuarioId);
+  function armarRegistro(fila, include) {
     return {
       ...fila,
       tipoArreglo: db.tiposArreglo.find((t) => t.id === fila.tipoArregloId) ?? null,
-      usuario: usuario ? { nombre: usuario.nombre, apellido: usuario.apellido } : null,
+      usuario: usuarioConPersona(fila.usuarioId, include?.usuario),
       vehiculo: { ...db.vehiculos.find((v) => v.id === fila.vehiculoId) },
     };
   }
 
   const modeloMantenimientoRealizado = {
-    create: async ({ data }) => {
+    create: async ({ data, include }) => {
       if (db.fallos.createMantenimiento) throw new Error('falla simulada en el create del mantenimiento');
       // CHECK mantenimientos_service_o_arreglo de la migración.
       if (data.esServicePreventivo === (data.tipoArregloId != null)) {
@@ -527,10 +538,10 @@ function crearEntorno() {
         creadoEn: new Date(),
       };
       db.mantenimientosRealizados.push(fila);
-      return armarRegistro(fila);
+      return armarRegistro(fila, include);
     },
     count: async ({ where } = {}) => db.mantenimientosRealizados.filter((m) => coincideRegistro(m, where)).length,
-    findMany: async ({ where, orderBy = [], skip = 0, take } = {}) => {
+    findMany: async ({ where, orderBy = [], skip = 0, take, include } = {}) => {
       const filas = db.mantenimientosRealizados.filter((m) => coincideRegistro(m, where));
       const criterios = [].concat(orderBy).flatMap((o) => Object.entries(o));
       filas.sort((a, b) => {
@@ -541,7 +552,7 @@ function crearEntorno() {
         }
         return 0;
       });
-      return filas.slice(skip, take === undefined ? undefined : skip + take).map(armarRegistro);
+      return filas.slice(skip, take === undefined ? undefined : skip + take).map((fila) => armarRegistro(fila, include));
     },
   };
 
