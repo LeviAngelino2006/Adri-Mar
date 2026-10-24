@@ -1,8 +1,8 @@
 // Desde la separación de personas y usuarios, el nombre y el apellido viven en
-// Persona: Usuario solo guarda la cuenta (nombreUsuario, contraseña, estado) y
-// columnas *Legacy que el código no lee ni escribe. Las respuestas de la API
-// siguen exponiendo al usuario que registró algo como { id, nombre, apellido }
-// (lo que devolvían cuando eran columnas de Usuario), así el front no cambia.
+// Persona: Usuario solo guarda la cuenta (nombreUsuario, contraseña, estado).
+// Las respuestas de la API siguen exponiendo al usuario que registró algo como
+// { id, nombre, apellido } (lo que devolvían cuando eran columnas de Usuario),
+// así el front no cambia.
 // Lo usan documentoService, presupuestoService y mantenimientoService: vive en
 // utils para no importar un service desde otro.
 

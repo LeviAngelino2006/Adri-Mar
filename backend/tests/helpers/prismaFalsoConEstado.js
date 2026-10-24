@@ -99,27 +99,19 @@ function crearEntorno() {
     }));
     reemplazar(db.personas, personasIniciales);
 
-    const usuario = (id, nombre, apellido, { habilitado = true, estado = 'ACTIVO', telefono = null } = {}) => {
+    // Usuario con la forma del schema: solo la cuenta. Nombre, teléfono,
+    // perfil y habilitación para conducir viven en la persona de arriba.
+    const usuario = (id, { estado = 'ACTIVO' } = {}) => {
       const p = db.personas.find((pers) => pers.id === id);
       return {
         id,
         personaId: id,
-        nombreUsuario: `${nombre.toLowerCase()}${id}`,
-        nombre,
-        apellido,
-        telefono,
-        habilitadoParaConducir: habilitado,
+        nombreUsuario: `${p.nombre.toLowerCase()}${id}`,
         estadoUsuario: { id: estado === 'ACTIVO' ? 1 : 2, descripcion: estado },
         persona: p,
       };
     };
-    reemplazar(db.usuarios, [
-      usuario(5, 'Ana', 'Pérez', { telefono: '03571 15-612345' }),
-      usuario(6, 'Beto', 'Gómez'),
-      usuario(7, 'Carla', 'Ruiz', { habilitado: false }),
-      usuario(8, 'Dani', 'Soto', { estado: 'INACTIVO' }),
-      usuario(10, 'Chofer', 'Token'),
-    ]);
+    reemplazar(db.usuarios, [usuario(5), usuario(6), usuario(7), usuario(8, { estado: 'INACTIVO' }), usuario(10)]);
 
     const vehiculo = (id, numeroInterno, dominio, estado = 'OPERATIVO', tipoVehiculoId = 1) => ({
       id,
@@ -239,8 +231,8 @@ function crearEntorno() {
     };
     db.viajes.push(fila);
     for (const candidato of choferesCandidatos) {
-      const candId = typeof candidato === 'object' ? (candidato.personaId ?? candidato.usuarioId) : candidato;
-      db.candChofer.push({ viajeId: fila.id, personaId: candId, usuarioId: candId });
+      const personaId = typeof candidato === 'object' ? candidato.personaId : candidato;
+      db.candChofer.push({ viajeId: fila.id, personaId });
     }
     for (const vehiculoId of vehiculosCandidatos) db.candVeh.push({ viajeId: fila.id, vehiculoId });
     paradas.forEach((ubicacionId, indice) => db.paradas.push({ viajeId: fila.id, ubicacionId, orden: indice + 1 }));
@@ -264,7 +256,7 @@ function crearEntorno() {
       creadoEn: new Date('2026-01-01T00:00:00Z'),
       ...fila,
       estadoViaje: { descripcion: nombreEstado(fila.estadoViajeId) },
-      chofer: db.personas.find((p) => p.id === fila.choferId) ?? db.usuarios.find((u) => u.id === fila.choferId) ?? null,
+      chofer: db.personas.find((p) => p.id === fila.choferId) ?? null,
       vehiculo: db.vehiculos.find((v) => v.id === fila.vehiculoId) ?? null,
       origen: null,
       destino: null,
@@ -280,17 +272,7 @@ function crearEntorno() {
         .map((p) => ({ ...p, ubicacion: db.ubicaciones.find((u) => u.id === p.ubicacionId) })),
       choferesCandidatos: db.candChofer
         .filter((c) => c.viajeId === fila.id)
-        .map((c) => {
-          const id = c.personaId ?? c.usuarioId;
-          const persona = db.personas.find((p) => p.id === id) ?? db.usuarios.find((u) => u.id === id);
-          return {
-            ...c,
-            personaId: id,
-            usuarioId: id,
-            persona,
-            usuario: db.usuarios.find((u) => u.id === id) ?? persona,
-          };
-        }),
+        .map((c) => ({ ...c, persona: db.personas.find((p) => p.id === c.personaId) })),
       vehiculosCandidatos: db.candVeh
         .filter((c) => c.viajeId === fila.id)
         .map((c) => ({ ...c, vehiculo: db.vehiculos.find((v) => v.id === c.vehiculoId) })),
@@ -319,10 +301,11 @@ function crearEntorno() {
         return Boolean(vehiculo) && vehiculo.estadoVehiculo.descripcion !== not;
       }
       if (clave === 'chofer') {
-        const chofer = db.personas.find((p) => p.id === fila.choferId) ?? db.usuarios.find((u) => u.id === fila.choferId);
+        const chofer = db.personas.find((p) => p.id === fila.choferId);
         if (!chofer) return false;
+        const desconocidos = Object.keys(filtro).filter((k) => k !== 'activo');
+        if (desconocidos.length) throw new Error(`filtro no soportado por el doble: documentos.chofer.${desconocidos.join(', ')}`);
         if (filtro.activo !== undefined && chofer.activo !== filtro.activo) return false;
-        if (filtro.estadoUsuario && chofer.estadoUsuario?.descripcion !== filtro.estadoUsuario.descripcion) return false;
         return true;
       }
       throw new Error(`filtro no soportado por el doble: documentos.${clave}`);
@@ -342,9 +325,9 @@ function crearEntorno() {
   }
 
   // Quién registró un documento o un mantenimiento, como lo devuelve Prisma con
-  // SELECT_USUARIO_CON_NOMBRE: el nombre sale de la persona. Usuario ya no tiene
-  // nombre ni apellido (quedaron como *Legacy): pedirlos ahí hace fallar a
-  // Prisma real, así que el doble también se niega.
+  // SELECT_USUARIO_CON_NOMBRE: el nombre sale de la persona. Usuario no tiene
+  // nombre ni apellido: pedirlos ahí hace fallar a Prisma real, así que el doble
+  // también se niega.
   function usuarioConPersona(usuarioId, consulta) {
     const select = consulta?.select ?? {};
     if (select.nombre || select.apellido) {
@@ -363,7 +346,7 @@ function crearEntorno() {
     }
     if (include?.usuario) resultado.usuario = usuarioConPersona(fila.usuarioId, include.usuario);
     if (include?.vehiculo) resultado.vehiculo = db.vehiculos.find((v) => v.id === fila.vehiculoId) ?? null;
-    if (include?.chofer) resultado.chofer = db.personas.find((p) => p.id === fila.choferId) ?? db.usuarios.find((u) => u.id === fila.choferId) ?? null;
+    if (include?.chofer) resultado.chofer = db.personas.find((p) => p.id === fila.choferId) ?? null;
     return resultado;
   }
 
@@ -645,10 +628,7 @@ function crearEntorno() {
       },
       createMany: async ({ data }) => {
         if (db.fallos.createManyChofer) throw new Error('falla simulada en createMany de choferes');
-        for (const c of data) {
-          const id = c.personaId ?? c.usuarioId;
-          db.candChofer.push({ viajeId: c.viajeId, personaId: id, usuarioId: id });
-        }
+        for (const { viajeId, personaId } of data) db.candChofer.push({ viajeId, personaId });
         return {};
       },
     },
@@ -827,30 +807,14 @@ function crearEntorno() {
           return true;
         }) ?? null;
       },
+      // Usuario no tiene habilitación para conducir ni documentos de chofer
+      // (viven en Persona): el doble filtra solo por columnas de la cuenta y
+      // revienta con cualquier otro filtro, como Prisma real.
       findMany: async ({ where = {}, include } = {}) => {
-        if (where.id?.in) return db.usuarios.filter((u) => where.id.in.includes(u.id));
-        // Estado de documentación de choferes: perfil CHOFER o habilitado para conducir.
-        if (where.OR) {
-          return Promise.all(
-            db.usuarios
-              .filter((u) => u.habilitadoParaConducir && u.estadoUsuario?.descripcion === where.estadoUsuario?.descripcion)
-              .map(async (u) => {
-                const res = { ...u };
-                if (include?.documentos) {
-                  res.documentos = await documentosDe('choferId', u.id, include.documentos);
-                }
-                if (include?.persona) {
-                  const p = db.personas.find((pers) => pers.id === u.personaId);
-                  res.persona = p ? { ...p, perfil: p.perfil ?? { id: p.perfilId, descripcion: 'CHOFER', nombre: 'CHOFER' } } : null;
-                }
-                return res;
-              })
-          );
-        }
+        const desconocidos = Object.keys(where).filter((k) => !['id', 'estadoUsuario'].includes(k));
+        if (desconocidos.length) throw new Error(`filtro no soportado por el doble: usuarios.${desconocidos.join(', ')}`);
         let filas = db.usuarios;
-        if (where.habilitadoParaConducir !== undefined) {
-          filas = filas.filter((u) => u.habilitadoParaConducir === where.habilitadoParaConducir);
-        }
+        if (where.id?.in) filas = filas.filter((u) => where.id.in.includes(u.id));
         if (where.estadoUsuario?.descripcion) {
           filas = filas.filter((u) => u.estadoUsuario?.descripcion === where.estadoUsuario.descripcion);
         }
@@ -923,10 +887,7 @@ function crearEntorno() {
         const { choferesCandidatos, vehiculosCandidatos, paradas, ...columnas } = data;
         const fila = { id: db.siguienteId++, ...columnas };
         db.viajes.push(fila);
-        for (const c of choferesCandidatos?.create ?? []) {
-          const id = c.personaId ?? c.usuarioId;
-          db.candChofer.push({ viajeId: fila.id, personaId: id, usuarioId: id });
-        }
+        for (const { personaId } of choferesCandidatos?.create ?? []) db.candChofer.push({ viajeId: fila.id, personaId });
         for (const { vehiculoId } of vehiculosCandidatos?.create ?? []) db.candVeh.push({ viajeId: fila.id, vehiculoId });
         for (const { ubicacionId, orden } of paradas?.create ?? []) db.paradas.push({ viajeId: fila.id, ubicacionId, orden });
         return armar(fila);

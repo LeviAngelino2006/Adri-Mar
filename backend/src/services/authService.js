@@ -17,7 +17,7 @@ async function login(nombreUsuario, contrasena) {
     throw new CredencialesInvalidasError();
   }
 
-  if (usuario.persona && !usuario.persona.activo) {
+  if (!usuario.persona.activo) {
     throw new CredencialesInvalidasError();
   }
 
@@ -27,9 +27,9 @@ async function login(nombreUsuario, contrasena) {
     throw new CredencialesInvalidasError();
   }
 
-  const perfil = usuario.persona?.perfil?.descripcion ?? usuario.perfilLegacy?.descripcion ?? '';
-  const habilitadoParaConducir =
-    usuario.persona?.habilitadoParaConducir ?? usuario.habilitadoParaConducirLegacy ?? false;
+  // personaId es obligatorio en Usuario: la persona siempre viene.
+  const perfil = usuario.persona.perfil.descripcion;
+  const habilitadoParaConducir = usuario.persona.habilitadoParaConducir;
   const personaId = usuario.personaId;
 
   const token = generarToken({
@@ -45,8 +45,8 @@ async function login(nombreUsuario, contrasena) {
     usuario: {
       id: usuario.id,
       personaId,
-      nombre: usuario.persona?.nombre ?? usuario.nombreLegacy ?? '',
-      apellido: usuario.persona?.apellido ?? usuario.apellidoLegacy ?? '',
+      nombre: usuario.persona.nombre,
+      apellido: usuario.persona.apellido,
       nombreUsuario: usuario.nombreUsuario,
       perfil,
       habilitadoParaConducir,

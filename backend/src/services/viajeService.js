@@ -590,14 +590,11 @@ function serializarDatosAdministrativos(viaje) {
 
 function serializarCandidatos(viaje) {
   return {
-    choferesCandidatos: (viaje.choferesCandidatos ?? []).map(({ persona, usuario }) => {
-      const p = persona || usuario;
-      return {
-        id: p.id,
-        nombre: p.nombre,
-        apellido: p.apellido,
-      };
-    }),
+    choferesCandidatos: (viaje.choferesCandidatos ?? []).map(({ persona }) => ({
+      id: persona.id,
+      nombre: persona.nombre,
+      apellido: persona.apellido,
+    })),
     vehiculosCandidatos: (viaje.vehiculosCandidatos ?? []).map(({ vehiculo }) => ({
       id: vehiculo.id,
       dominio: vehiculo.dominio,
@@ -1263,7 +1260,7 @@ async function disponibilidadDeViaje(id, { todos = false } = {}) {
     throw new ValidacionError({ fechaInicio: 'El viaje no tiene fecha de inicio' });
   }
 
-  let choferIds = actual.choferesCandidatos.map((c) => c.personaId ?? c.usuarioId);
+  let choferIds = actual.choferesCandidatos.map((c) => c.personaId);
   let vehiculoIds = actual.vehiculosCandidatos.map((c) => c.vehiculoId);
 
   if (todos) {
