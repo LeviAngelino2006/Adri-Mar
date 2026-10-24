@@ -1751,11 +1751,66 @@ function parsearFechaHasta(valor) {
 // listado general (GET /viajes) nunca pasa esta opción, así que ve
 // A_CONFIRMAR con total normalidad.
 //
+// --- Vistas del listado (GET /viajes?vista=...) -------------------------------
+//
+// Mismo corte que Mis viajes (frontend/src/utils/misViajes.js): por estado.
+// - proximos: los que siguen abiertos (A confirmar, Programado, En viaje), sea
+//   cual sea su fecha. Van primero los "sin cerrar" (de días anteriores a hoy en
+//   Córdoba), después los En viaje que no son sin cerrar y después el resto, del
+//   más próximo al más lejano; los que no tienen fecha (A confirmar), al final.
+// - anteriores: Finalizados y Cancelados, el más reciente primero.
+// Un viaje de un día anterior que sigue abierto es "sin cerrar": es la única
+// definición, la usan el listado y el Dashboard de gestión (que la lee del campo
+// `sinCerrar` de la respuesta, no la recalcula).
+const VISTAS_LISTADO = {
+  proximos: ['A_CONFIRMAR', 'PROGRAMADO', 'EN_VIAJE'],
+  anteriores: ['FINALIZADO', 'CANCELADO'],
+};
+
+const ORDEN_VISTA = {
+  proximos: [{ fechaInicio: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
+  anteriores: [{ fechaInicio: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
+};
+
+// undefined (no vino) o el nombre de una vista; cualquier otro valor es un 400:
+// ignorarlo devolvería el listado completo, que no es lo que se pidió.
+function validarVista(vista) {
+  if (vista === undefined) return undefined;
+  if (typeof vista === 'string' && Object.hasOwn(VISTAS_LISTADO, vista)) return vista;
+  throw new ValidacionError({ vista: "La vista tiene que ser 'proximos' o 'anteriores'" });
+}
+
+const esSinCerrar = (viaje, inicioDeHoy) => viaje.fechaInicio != null && viaje.fechaInicio < inicioDeHoy;
+
+// Orden de Próximos sobre la lista que ya viene por fecha ascendente: los sin
+// cerrar ya quedan primero (son los más viejos); solo hay que adelantar los En
+// viaje al resto. Devuelve [{ viaje, sinCerrar }].
+function ordenarProximos(viajes, inicioDeHoy) {
+  const sinCerrar = [];
+  const enViaje = [];
+  const resto = [];
+  for (const viaje of viajes) {
+    if (esSinCerrar(viaje, inicioDeHoy)) sinCerrar.push(viaje);
+    else if (viaje.estadoViaje.descripcion === 'EN_VIAJE') enViaje.push(viaje);
+    else resto.push(viaje);
+  }
+  return [
+    ...sinCerrar.map((viaje) => ({ viaje, sinCerrar: true })),
+    ...[...enViaje, ...resto].map((viaje) => ({ viaje, sinCerrar: false })),
+  ];
+}
+
 // `administrativoPendiente` ('true' en la query) deja solo los viajes con algún
 // pendiente administrativo (ver FILTRO_ADMINISTRATIVO_PENDIENTE). Filtrar por
 // precio/pago ya revela esos datos, así que sigue la misma regla que la
 // serialización: solo Administrador/Encargado; para el resto es un 403 (no se
 // ignora en silencio, porque devolvería un listado que no es lo que se pidió).
+//
+// `vista` ('proximos' | 'anteriores', ver VISTAS_LISTADO) corta y ordena el
+// listado; los demás filtros se aplican dentro de la vista (un estado que no es
+// de la vista da una lista vacía). En Próximos cada viaje trae además
+// `sinCerrar`. Sin `vista`, todo sigue como antes: todos los estados, del más
+// futuro al más viejo y sin `sinCerrar` (lo usan el Dashboard y otras pantallas).
 async function listarViajes(
   {
     estado,
@@ -1764,10 +1819,12 @@ async function listarViajes(
     fechaDesde,
     fechaHasta,
     administrativoPendiente,
+    vista,
     excluirAConfirmar = false,
   } = {},
   usuarioSolicitante
 ) {
+  const vistaValida = validarVista(vista);
   const where = {};
 
   if (administrativoPendiente === 'true') {
@@ -1783,6 +1840,9 @@ async function listarViajes(
   }
   if (excluirAConfirmar) {
     filtroEstado.not = 'A_CONFIRMAR';
+  }
+  if (vistaValida) {
+    filtroEstado.in = VISTAS_LISTADO[vistaValida];
   }
   if (Object.keys(filtroEstado).length > 0) {
     where.estadoViaje = { descripcion: filtroEstado };
@@ -1815,10 +1875,22 @@ async function listarViajes(
     // del listado en vez de reventar la query o aparecer primero/mezclados
     // (Postgres por defecto pone los NULL primero en DESC, que sería peor:
     // los viajes sin programar todavía tapando los reales arriba de todo).
-    orderBy: { fechaInicio: { sort: 'desc', nulls: 'last' } },
+    // Con vista, el id desempata para que el orden no cambie entre pedidos.
+    orderBy: vistaValida ? ORDEN_VISTA[vistaValida] : { fechaInicio: { sort: 'desc', nulls: 'last' } },
   });
 
-  return Promise.all(viajes.map((viaje) => serializarViaje(viaje, usuarioSolicitante)));
+  if (vistaValida !== 'proximos') {
+    return Promise.all(viajes.map((viaje) => serializarViaje(viaje, usuarioSolicitante)));
+  }
+
+  // "Hoy" es el día de Córdoba: su inicio es las 00:00 de Córdoba.
+  const { inicio: inicioDeHoy } = rangoDelDiaCordoba(new Date());
+  return Promise.all(
+    ordenarProximos(viajes, inicioDeHoy).map(async ({ viaje, sinCerrar }) => ({
+      ...(await serializarViaje(viaje, usuarioSolicitante)),
+      sinCerrar,
+    }))
+  );
 }
 
 module.exports = {

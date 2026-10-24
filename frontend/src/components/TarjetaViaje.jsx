@@ -70,11 +70,15 @@ function TarjetaViaje({ viaje, onClick, variante, mostrarPendientes = false }) {
 // Listado de Viajes y Mis viajes: las tarjetas agrupadas por día de inicio (día
 // de Córdoba), en el orden en que llegan ("Hoy · vie 9 oct", "mié 7 oct").
 //
-// `enCurso` (Próximos de Mis viajes): el viaje En viaje va primero, en su propio
-// grupo "En curso", y no se mezcla con el día en que empezó.
-export function ListadoViajesPorDia({ viajes, enCurso = [], variante, mostrarPendientes, onSeleccionar }) {
+// `enCurso` (Próximos de Mis viajes y de Viajes): el viaje En viaje va primero, en
+// su propio grupo "En curso", y no se mezcla con el día en que empezó.
+// `sinCerrar` (Próximos de Viajes): los viajes de días anteriores que siguen
+// abiertos, en un grupo "Sin cerrar" arriba de todo (el día lo da el bloque de
+// fecha de cada tarjeta). Sin color ni badge para el atraso.
+export function ListadoViajesPorDia({ viajes, enCurso = [], sinCerrar = [], variante, mostrarPendientes, onSeleccionar }) {
   const grupos = agruparViajesPorDia(viajes);
   if (enCurso.length > 0) grupos.unshift({ dia: 'en-curso', titulo: 'En curso', viajes: enCurso });
+  if (sinCerrar.length > 0) grupos.unshift({ dia: 'sin-cerrar', titulo: 'Sin cerrar', viajes: sinCerrar });
 
   return grupos.map((grupo) => (
     <section key={grupo.dia ?? 'sin-fecha'} className="listado-grupo">

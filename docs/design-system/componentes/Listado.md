@@ -2,7 +2,7 @@ Patrón único para las pantallas de listado: Viajes, Flota de vehículos, Usuar
 
 ## Estructura de la pantalla
 1. Sin título visible: `ListadoHeader` renderiza solo `<h1 class="sr-only">`, para que cada página siga teniendo un `h1` para los lectores de pantalla. El texto es el mismo que el del ítem de navegación: "Viajes", "Mis viajes", "Flota de vehículos", "Usuarios" y "Documentación". La sección actual ya la marcan la sidebar y, en mobile, la topbar (ver `Navegacion`). La barra queda primera en el contenido, con el padding normal de `.layout-content` arriba. Las fichas y los formularios sí tienen `h1` visible.
-2. `.listado-toolbar`, en una línea: a la izquierda el buscador `.listado-buscar` (input con ícono de lupa, `flex: 1 1 160px`, `min-width: 0`, hasta 400px, para que entre junto a Filtros en mobile) y a su lado el botón "Filtros" (`.filtros-toggle-btn`, con el contador de filtros activos). Cada pantalla pone solo lo que usa: Viajes, solo Filtros (estado, desde, chofer); Mis viajes, Filtros (estado, desde, hasta) y, a la derecha de todo, el `ControlSegmentado` Próximos | Anteriores (ver "Mis viajes" abajo); Flota, buscador (dominio, interno o marca) y Filtros (estado); Usuarios, solo buscador; Documentación, buscador (dominio, interno o marca / nombre o DNI), Filtros (estado de la documentación) y, a la derecha de todo, el `ControlSegmentado` Vehículos | Choferes (prop `vistas` de `ListadoToolbar`; cuando la barra mide menos de 600px pasa arriba, a todo el ancho, y debajo de 400px oculta las cantidades. Es una container query sobre `.listado-toolbar`, no una media query: depende del ancho de la barra, no del de la pantalla). La posición y el estilo son siempre los mismos.
+2. `.listado-toolbar`, en una línea: a la izquierda el buscador `.listado-buscar` (input con ícono de lupa, `flex: 1 1 160px`, `min-width: 0`, hasta 400px, para que entre junto a Filtros en mobile) y a su lado el botón "Filtros" (`.filtros-toggle-btn`, con el contador de filtros activos). Cada pantalla pone solo lo que usa: Viajes, Filtros (estado, chofer, vehículo, desde, hasta y, para Administrador y Encargado, administrativo) y, a la derecha, el `ControlSegmentado` Próximos | Anteriores (ver "Viajes" abajo); Mis viajes, Filtros (estado, desde, hasta) y, a la derecha de todo, el `ControlSegmentado` Próximos | Anteriores (ver "Mis viajes" abajo); Flota, buscador (dominio, interno o marca) y Filtros (estado); Usuarios, solo buscador; Documentación, buscador (dominio, interno o marca / nombre o DNI), Filtros (estado de la documentación) y, a la derecha de todo, el `ControlSegmentado` Vehículos | Choferes (prop `vistas` de `ListadoToolbar`; cuando la barra mide menos de 600px pasa arriba, a todo el ancho, y debajo de 400px oculta las cantidades. Es una container query sobre `.listado-toolbar`, no una media query: depende del ancho de la barra, no del de la pantalla). La posición y el estilo son siempre los mismos.
    - **Excepción — Mantenimiento** (prop `vistasAlInicio` de `ListadoToolbar`): ahí el `ControlSegmentado` (Service | Arreglos | Historial) es la navegación principal, así que va **primero, a la izquierda**, y el buscador y Filtros quedan a la derecha. Es igual en las tres vistas, aunque Arreglos no tenga buscador. Sin acción en la barra: el service se registra tocando la tarjeta del vehículo, y el arreglo, con el formulario de su vista. Ese formulario es la otra excepción de la vista: ocupa **todo el ancho** del contenido (no los 720px de `.form-card`, clase `arreglos-form-card`), para que su borde izquierdo quede alineado con las pestañas y el derecho con las listas de Service e Historial; vive dentro de una pestaña junto a listas, no en una página propia. Sigue en dos columnas desde 640px, con Descripción, Repuestos y Observaciones a ancho completo.
    - Acción principal: último elemento de la barra, a la derecha de todo (prop `accion: { etiqueta, onClick }` de `ListadoToolbar`). Solo para los perfiles que pueden crear. Etiquetas: "Crear viaje", "Crear vehículo" y "Crear usuario". Mis viajes y Documentación no tienen acción (en Documentación ese lugar es del `ControlSegmentado`). Marcado:
      ```html
@@ -17,10 +17,22 @@ Patrón único para las pantallas de listado: Viajes, Flota de vehículos, Usuar
 
 ## Agrupado por día (Viajes y Mis viajes)
 - Las tarjetas se agrupan por día de inicio (día de Córdoba). Cada grupo es `<section class="listado-grupo"><h2 class="listado-dia">…</h2><div class="listado-cards">…</div></section>`.
-- Los grupos siguen el orden del listado y dentro de cada día se mantiene el mismo orden. En Viajes, el más reciente primero; en Mis viajes, depende de la vista (ver abajo).
+- Los grupos siguen el orden del listado y dentro de cada día se mantiene el mismo orden. En Viajes y en Mis viajes, el orden depende de la vista (ver abajo).
 - Título del grupo: "Hoy · vie 9 oct", "Mañana · sáb 10 oct", "Ayer · jue 8 oct"; cualquier otro día, "mié 7 oct". El año va solo si no es el año en curso ("lun 29 dic 2025"). Se escribe en minúscula y el CSS lo pasa a mayúsculas.
 - `.listado-dia`: 13px, 600, mayúsculas, letter-spacing 0.04em, `color-text-secondary`, margen inferior `space-3`. Entre grupos, `space-6`.
 - La lógica es una función pura, `agruparViajesPorDia` (`utils/viajesPorDia.js`).
+
+## Viajes: Próximos | Anteriores
+- La barra lleva el mismo `ControlSegmentado` "Próximos | Anteriores" que Mis viajes, con la vista en la URL: Próximos es la vista por defecto, sin parámetro; Anteriores es `?tab=anteriores`.
+- El corte y el orden los hace el backend (`GET /viajes?vista=proximos` o `vista=anteriores`). "Hoy" es el día de Córdoba.
+- **Próximos:** los viajes A confirmar, Programado y En viaje, en este orden:
+  1. "Sin cerrar": los de días anteriores que siguen abiertos (A confirmar, Programado o En viaje), del más viejo al más nuevo. El backend los marca con `sinCerrar`; el front no recalcula la regla. Mismo estilo `.listado-dia`, sin color ni badge extra: el día lo da el bloque de fecha de cada tarjeta.
+  2. "En curso": los En viaje que no son sin cerrar. Un En viaje que empezó ayer va solo en "Sin cerrar".
+  3. El resto, agrupado por día, del más próximo al más lejano. Los A confirmar sin fecha van al final, en "Sin fecha".
+- **Anteriores:** Finalizados y Cancelados agrupados por día, el más reciente primero.
+- Los filtros se aplican dentro de la vista. El filtro de estado ofrece solo los estados de la vista (Próximos: A confirmar, Programado y En viaje; Anteriores: Finalizado y Cancelado) y, al cambiar de vista, un estado que no es de la nueva se limpia.
+- Desde el Dashboard, un viaje Finalizado se abre con `?tab=anteriores`, para que la ficha lo encuentre.
+- La lógica es una función pura, `separarProximos` (`utils/vistasViajes.js`), y los grupos "Sin cerrar" y "En curso" los arma `ListadoViajesPorDia` con las props `sinCerrar` y `enCurso`.
 
 ## Mis viajes: Próximos | Anteriores
 - La barra lleva un `ControlSegmentado` "Próximos | Anteriores" (sin íconos ni cantidades), igual que Vehículos | Choferes en Documentación. La vista va en la URL: Próximos es la vista por defecto, sin parámetro; Anteriores es `?tab=anteriores`.
@@ -29,7 +41,7 @@ Patrón único para las pantallas de listado: Viajes, Flota de vehículos, Usuar
 - El chofer no ve viajes A confirmar (los filtra el backend), así que no están en ninguna vista.
 - El filtro de estado ofrece solo los estados de la vista (Próximos: Programado y En viaje; Anteriores: Finalizado y Cancelado). Al cambiar de vista, un estado que no es de la nueva vista se limpia.
 - Vacío sin filtros: "No tenés viajes próximos." o "No tenés viajes anteriores.". Con algún filtro activo: "No hay viajes con esos filtros.".
-- La lógica es una función pura, `viajesDeLaVista` (`utils/misViajes.js`), y el grupo "En curso" lo arma `ListadoViajesPorDia` con la prop `enCurso`.
+- La lógica es una función pura, `viajesDeLaVista` (`utils/misViajes.js`), y el grupo "En curso" lo arma `ListadoViajesPorDia` con la prop `enCurso`. La vista en la URL y el filtro de estado por vista son los mismos de Viajes (`utils/vistasViajes.js`).
 
 ## La tarjeta (`<button class="listado-card">`)
 Todas siguen la misma anatomía:
@@ -53,5 +65,5 @@ Contenido de cada pantalla:
 
 ## Reglas
 - Superficie `color-surface`, borde `color-border`, `radius-md`, `shadow-sm`, padding `space-4`. En hover (solo con mouse) y al tocar (`:active`), borde `brand-500` y `shadow-md`. Foco: outline 2px `brand-600`, offset 2px. Click o Enter abre la ficha.
-- Orden por defecto: Viajes, los de fecha de inicio más reciente primero (como hoy); Flota, por número de interno de menor a mayor; Usuarios, por nombre.
+- Orden por defecto: Viajes, según la vista (Próximos del más próximo al más lejano, con "Sin cerrar" y "En curso" arriba; Anteriores, el más reciente primero); Flota, por número de interno de menor a mayor; Usuarios, por nombre.
 - La tabla (`TablaListado`) ya no se usa en ninguna pantalla.

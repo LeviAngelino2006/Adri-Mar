@@ -9,6 +9,7 @@ import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { porcentajeProgresoViaje } from '../utils/fechaCordoba';
 import { formatearHoraRelativaHoy, nombreChofer } from '../utils/viajeFormato';
 import { consultasViajesDeHoy, resumenViajesDeHoy, unirViajesDeHoy } from '../utils/viajesDeHoy';
+import { parametrosDeVista, vistaDelEstado } from '../utils/vistasViajes';
 import { useCarga } from '../hooks/useCarga';
 
 const INTERVALO_PROGRESO_MS = 60 * 1000;
@@ -111,8 +112,11 @@ function PanelViajesDeHoy() {
     return () => clearInterval(id);
   }, [hayEnViaje]);
 
+  // Un Finalizado de hoy está en Anteriores del listado de Viajes: se abre esa
+  // vista para que la ficha lo encuentre.
   function abrir(viaje) {
-    navigate('/viajes', { state: { viajeId: viaje.id } });
+    const search = new URLSearchParams(parametrosDeVista(vistaDelEstado(viaje.estado))).toString();
+    navigate({ pathname: '/viajes', search }, { state: { viajeId: viaje.id } });
   }
 
   return (

@@ -19,7 +19,7 @@ Panel del Dashboard de Administrador y Encargado con los viajes del día: qué s
   2. `<span class="dashboard-fila-info">` con `.dashboard-fila-titulo` (`RutaViaje`) y `.dashboard-fila-meta` ("Martín Gómez · 12 - AE452KD", dominio con `.patente`; "Chofer pendiente" / "Vehículo pendiente" si faltan).
      - Si el viaje está En viaje, debajo va la barra de avance: `<span class="viajes-hoy-barra" role="progressbar" aria-label="Avance del viaje" aria-valuemin="0" aria-valuemax="100" aria-valuenow="…">` con `.viajes-hoy-barra-fill` al porcentaje (`porcentajeProgresoViaje`). Se recalcula cada 60 segundos, como en `ViajeEnCurso`.
   3. `EstadoBadge` sm con el estado.
-- Click o Enter en la fila abre la ficha del viaje en Viajes (`navigate('/viajes', { state: { viajeId } })`). No hay botones de acción.
+- Click o Enter en la fila abre la ficha del viaje en Viajes (`navigate('/viajes', { state: { viajeId } })`); un Finalizado, en la vista Anteriores (`/viajes?tab=anteriores`), que es donde está en el listado. No hay botones de acción.
 
 ## Estados
 - Cargando: `Cargando` en filas (vía `EstadoCarga`).

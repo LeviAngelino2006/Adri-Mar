@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
@@ -30,6 +30,15 @@ import { esChoferDelViaje } from '../utils/choferDelViaje';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import { useCarga } from '../hooks/useCarga';
 import { useViajesEnCurso } from '../hooks/useViajesEnCurso';
+import {
+  OPCIONES_VISTA,
+  VISTAS_VIAJES,
+  filtrosParaLaVista,
+  opcionesDeEstado,
+  parametrosDeVista,
+  separarProximos,
+  vistaDeLaUrl,
+} from '../utils/vistasViajes';
 import './Viajes.css';
 
 const ICONO_ALERTA = (
@@ -42,14 +51,11 @@ const ICONO_ALERTA = (
 
 const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
 
-const ESTADOS_FILTRO = [
-  { value: '', label: 'Todos' },
-  { value: 'A_CONFIRMAR', label: 'A confirmar' },
-  { value: 'PROGRAMADO', label: 'Programado' },
-  { value: 'EN_VIAJE', label: 'En viaje' },
-  { value: 'FINALIZADO', label: 'Finalizado' },
-  { value: 'CANCELADO', label: 'Cancelado' },
-];
+// El filtro de estado ofrece solo los estados de la vista (Próximos | Anteriores).
+const ESTADOS_FILTRO = {
+  proximos: opcionesDeEstado(VISTAS_VIAJES.proximos),
+  anteriores: opcionesDeEstado(VISTAS_VIAJES.anteriores),
+};
 
 const FILTROS_INICIALES = {
   estado: '',
@@ -106,6 +112,11 @@ function Viajes() {
   // navegación para abrir directo la ficha de ese viaje (mismo criterio que Mis
   // viajes). Se consume una sola vez, al terminar la primera carga del listado.
   const viajeIdPendiente = useRef(location.state?.viajeId ?? null);
+
+  // Próximos | Anteriores, en la URL (?tab=anteriores) como en Mis viajes. El
+  // corte y el orden los hace el backend (GET /viajes?vista=).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const vista = vistaDeLaUrl(searchParams.get('tab'));
 
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
@@ -164,7 +175,7 @@ function Viajes() {
   // Pide el listado con los filtros actuales; useCarga lleva los estados de
   // cargando y error (un error no es un listado vacío).
   const pedirViajes = useCallback(() => {
-    const params = {};
+    const params = { vista };
     if (filtros.estado) params.estado = filtros.estado;
     if (filtros.choferId) params.choferId = filtros.choferId;
     if (filtros.vehiculoId) params.vehiculoId = filtros.vehiculoId;
@@ -180,15 +191,18 @@ function Viajes() {
           viajeIdPendiente.current = null;
           if (pendiente) setSeleccionado(pendiente);
           // Se limpia el estado de navegación para que recargar la página no
-          // vuelva a abrir la ficha.
-          navigate(location.pathname, { replace: true, state: null });
+          // vuelva a abrir la ficha (la vista de la URL se conserva).
+          navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
         }
         return data.viajes;
       });
-  }, [filtros, navigate, location.pathname]);
+  }, [filtros, vista, navigate, location.pathname, location.search]);
 
   const cargaViajes = useCarga(pedirViajes);
   const viajes = cargaViajes.datos ?? [];
+  // En Anteriores no hay grupos aparte: todo va por día, el más reciente primero.
+  const { sinCerrar, enCurso, resto } =
+    vista === 'proximos' ? separarProximos(viajes) : { sinCerrar: [], enCurso: [], resto: viajes };
   const cargarViajes = cargaViajes.recargar;
 
   // Viajes En viaje, para no ofrecer "Comenzar viaje" si el chofer o el vehículo
@@ -237,6 +251,11 @@ function Viajes() {
   function handleFiltroChange(e) {
     const { name, value } = e.target;
     setFiltros((f) => ({ ...f, [name]: value }));
+  }
+
+  function cambiarVista(nueva) {
+    setSearchParams(parametrosDeVista(nueva));
+    setFiltros((f) => filtrosParaLaVista(f, VISTAS_VIAJES[nueva]));
   }
 
   function seleccionar(viaje) {
@@ -405,6 +424,7 @@ function Viajes() {
         <>
           <ListadoToolbar
             filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos: filtrosActivos }}
+            vistas={{ opciones: OPCIONES_VISTA, valor: vista, onChange: cambiarVista, ariaLabel: 'Vista de viajes' }}
             accion={puedeGestionar ? { etiqueta: 'Crear viaje', onClick: abrirNuevo } : undefined}
           />
 
@@ -412,7 +432,7 @@ function Viajes() {
             <form className="listado-filtros" onSubmit={(e) => e.preventDefault()}>
               <FormField id="estado" label="Estado">
                 <select name="estado" value={filtros.estado} onChange={handleFiltroChange}>
-                  {ESTADOS_FILTRO.map((e) => (
+                  {ESTADOS_FILTRO[vista].map((e) => (
                     <option key={e.value} value={e.value}>
                       {e.label}
                     </option>
@@ -471,7 +491,13 @@ function Viajes() {
             que="los viajes"
             vacio={viajes.length === 0 && <div className="listado-vacio">No se encontraron viajes</div>}
           >
-            <ListadoViajesPorDia viajes={viajes} mostrarPendientes={puedeGestionar} onSeleccionar={seleccionar} />
+            <ListadoViajesPorDia
+              viajes={resto}
+              enCurso={enCurso}
+              sinCerrar={sinCerrar}
+              mostrarPendientes={puedeGestionar}
+              onSeleccionar={seleccionar}
+            />
           </EstadoCarga>
         </>
       )}
