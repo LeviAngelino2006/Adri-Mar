@@ -1,7 +1,8 @@
 // Mantenimiento (ver docs/design-system/componentes/Mantenimiento.md).
 
-// Lo que incluye siempre el service: es un paquete fijo, se muestra como
-// lista informativa (no se tilda). Si algún día cambia, se cambia acá.
+// Lo que incluye siempre el service: es un paquete fijo. El modal "Registrar
+// service" lo muestra en una oración, debajo de la observación (ver
+// textoIncluyeService); no se tilda. Si algún día cambia, se cambia acá.
 export const TAREAS_SERVICE = [
   'Cambio de aceite',
   'Filtros de gasoil, aceite y habitáculo (aire acondicionado)',

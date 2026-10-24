@@ -1,5 +1,6 @@
 const prisma = require('./prismaClient');
 const { normalizarNombre } = require('../utils/normalizarNombre');
+const { SELECT_USUARIO_CON_NOMBRE, nombreDeUsuario } = require('../utils/usuarioConPersona');
 
 // Presupuestos para clientes potenciales (SCRUM-159). No tienen relación con
 // la gestión de viajes: solo reusan los catálogos de Cliente, Ubicacion y
@@ -32,7 +33,7 @@ const INCLUDE_LISTADO = {
 
 const INCLUDE_DETALLE = {
   ...INCLUDE_LISTADO,
-  creadoPor: { select: { id: true, nombre: true, apellido: true } },
+  creadoPor: SELECT_USUARIO_CON_NOMBRE,
   unidades: {
     orderBy: { orden: 'asc' },
     include: { vehiculo: { select: { id: true, numeroInterno: true, dominio: true } } },
@@ -277,7 +278,7 @@ function serializarDetalle(p) {
     cantidadPasajeros: p.cantidadPasajeros,
     formaPago: p.formaPago,
     diasValidez: p.diasValidez,
-    creadoPor: p.creadoPor,
+    creadoPor: nombreDeUsuario(p.creadoPor),
     unidades: p.unidades.map((u) => ({
       id: u.id,
       vehiculoId: u.vehiculoId,

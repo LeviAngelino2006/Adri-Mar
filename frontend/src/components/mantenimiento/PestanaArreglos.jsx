@@ -4,6 +4,7 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import FormField from '../ui/FormField';
 import GrupoCasillas from '../ui/GrupoCasillas';
+import OpcionVacia from '../ui/OpcionVacia';
 import SelectorBuscarOCrear from '../ui/SelectorBuscarOCrear';
 import Switch from '../ui/Switch';
 import { ListadoToolbar } from '../Listado';
@@ -191,7 +192,7 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
 
   return (
     <>
-      <ListadoToolbar vistas={vistas} vistasAlInicio />
+      <ListadoToolbar vistas={vistas} />
 
       <Card className="form-card arreglos-form-card">
         <form ref={refForm} onSubmit={handleSubmit} noValidate>
@@ -202,7 +203,9 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
                 onChange={(e) => cambiar('vehiculoId', e.target.value)}
                 disabled={cargaVehiculos.cargando && vehiculos.length === 0}
               >
-                <option value="">{cargaVehiculos.cargando && vehiculos.length === 0 ? 'Cargando…' : 'Elegí el vehículo'}</option>
+                <OpcionVacia obligatorio>
+                  {cargaVehiculos.cargando && vehiculos.length === 0 ? 'Cargando…' : 'Elegí el vehículo'}
+                </OpcionVacia>
                 {vehiculos.map((v) => (
                   <option key={v.id} value={v.id}>
                     {etiquetaVehiculo(v)}
@@ -252,7 +255,6 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
             <FormField
               id="arreglo-responsable"
               label="Responsable"
-              hint=""
               error={errores.responsableId}
             >
               <SelectorBuscarOCrear

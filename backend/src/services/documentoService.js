@@ -7,6 +7,7 @@ const {
   SELECT_MODELO_Y_MARCA,
   nombresMarcaModelo,
 } = require('../utils/marcaModeloVehiculo');
+const { SELECT_USUARIO_CON_NOMBRE, nombreDeUsuario } = require('../utils/usuarioConPersona');
 
 // Un documento pertenece a un vehículo o a un chofer. Todo el servicio se
 // escribe una sola vez y recibe el titular como { categoria, id }, donde
@@ -29,7 +30,6 @@ const MS_POR_DIA = 24 * 60 * 60 * 1000;
 // Más reciente primero; el id desempata dos cargas en el mismo instante.
 const ORDEN_RECIENTE = [{ creadoEn: 'desc' }, { id: 'desc' }];
 
-const SELECT_USUARIO = { select: { id: true, nombre: true, apellido: true } };
 const INCLUDE_TIPO = { include: { categoriaDocumento: true } };
 
 function errorHttp(status, mensaje) {
@@ -257,7 +257,7 @@ async function obtenerCarpeta(titular) {
     where: { [descriptor.campo]: id },
     distinct: ['tipoDocumentoId'],
     orderBy: ORDEN_RECIENTE,
-    include: { tipoDocumento: INCLUDE_TIPO, usuario: SELECT_USUARIO },
+    include: { tipoDocumento: INCLUDE_TIPO, usuario: SELECT_USUARIO_CON_NOMBRE },
   });
   const versiones = await prisma.documento.findMany({
     where: { [descriptor.campo]: id },
@@ -274,6 +274,7 @@ async function obtenerCarpeta(titular) {
       cantidadVersiones: cantidadVersiones(tipo.id),
       documento: {
         ...doc,
+        usuario: nombreDeUsuario(doc.usuario),
         esVigente: true,
         tieneArchivo: Boolean(doc.archivoPath),
         estadoVigencia: calcularEstadoVigencia(doc, ahora),
@@ -300,11 +301,12 @@ async function obtenerHistorial(titular, tipoDocumentoId) {
   const versiones = await prisma.documento.findMany({
     where: { [descriptor.campo]: id, tipoDocumentoId: tipo.id },
     orderBy: ORDEN_RECIENTE,
-    include: { tipoDocumento: INCLUDE_TIPO, usuario: SELECT_USUARIO },
+    include: { tipoDocumento: INCLUDE_TIPO, usuario: SELECT_USUARIO_CON_NOMBRE },
   });
 
   return versiones.map((doc, indice) => ({
     ...doc,
+    usuario: nombreDeUsuario(doc.usuario),
     esVigente: indice === 0,
     tieneArchivo: Boolean(doc.archivoPath),
     estadoVigencia: calcularEstadoVigencia(doc),
@@ -471,7 +473,7 @@ async function registrarDocumento(titular, datos, file, usuarioId) {
           observaciones: observaciones?.trim() || null,
           usuarioId,
         },
-        include: { tipoDocumento: INCLUDE_TIPO, usuario: SELECT_USUARIO },
+        include: { tipoDocumento: INCLUDE_TIPO, usuario: SELECT_USUARIO_CON_NOMBRE },
       });
 
       const versiones = await tx.documento.findMany({
@@ -497,6 +499,7 @@ async function registrarDocumento(titular, datos, file, usuarioId) {
 
   return {
     ...resultado.nuevo,
+    usuario: nombreDeUsuario(resultado.nuevo.usuario),
     esVigente: true,
     tieneArchivo: Boolean(resultado.nuevo.archivoPath),
     estadoVigencia: calcularEstadoVigencia(resultado.nuevo),

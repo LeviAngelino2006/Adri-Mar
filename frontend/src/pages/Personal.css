@@ -16,6 +16,16 @@
   gap: var(--space-2, 0.5rem);
 }
 
+/* "Chofer" en la tarjeta del listado (habilitado para conducir): un dato
+   secundario, en texto gris y sin color, como .listado-card-detalle. El color
+   queda para el estado (Activo / Baja). */
+.personal-conduce {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* Ficha de la persona: "Habilitado para conducir". */
 .personal-badge-conduce {
   display: inline-flex;
   align-items: center;

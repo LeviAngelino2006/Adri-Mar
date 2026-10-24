@@ -82,7 +82,7 @@ describe('POST /viajes con candidatos', () => {
       { id: 6, nombre: 'Beto', apellido: 'Gómez' },
     ]);
     assert.deepEqual(json.viaje.vehiculosCandidatos, [{ id: 7, dominio: 'AE452KD', numeroInterno: '12' }]);
-    assert.deepEqual(idsDe(candChofer, 'usuarioId', json.viaje.id), [5, 6]);
+    assert.deepEqual(idsDe(candChofer, 'personaId', json.viaje.id), [5, 6]);
     assert.deepEqual(idsDe(candVeh, 'vehiculoId', json.viaje.id), [7]);
   });
 
@@ -169,7 +169,7 @@ describe('PUT /viajes/:id: candidatos', () => {
     });
 
     assert.equal(status, 200);
-    assert.deepEqual(idsDe(candChofer, 'usuarioId', viaje.id), [6, 10]);
+    assert.deepEqual(idsDe(candChofer, 'personaId', viaje.id), [6, 10]);
     assert.deepEqual(idsDe(candVeh, 'vehiculoId', viaje.id), [8, 9]);
     assert.deepEqual(json.viaje.choferesCandidatos.map((c) => c.id), [6, 10]);
     assert.deepEqual(json.viaje.vehiculosCandidatos.map((c) => c.id), [8, 9]);
@@ -191,7 +191,7 @@ describe('PUT /viajes/:id: candidatos', () => {
 
     await pedir('PUT', `/viajes/${viaje.id}`, { perfil: 'ENCARGADO', body: { ...CORE, choferesCandidatos: [10] } });
 
-    assert.deepEqual(idsDe(candChofer, 'usuarioId', otro.id), [6]);
+    assert.deepEqual(idsDe(candChofer, 'personaId', otro.id), [6]);
     assert.deepEqual(idsDe(candVeh, 'vehiculoId', otro.id), [7]);
   });
 
@@ -205,7 +205,7 @@ describe('PUT /viajes/:id: candidatos', () => {
 
     assert.equal(status, 400);
     assert.ok('choferId' in json.errores);
-    assert.deepEqual(idsDe(candChofer, 'usuarioId', viaje.id), [5]);
+    assert.deepEqual(idsDe(candChofer, 'personaId', viaje.id), [5]);
   });
 
   test('lista inválida: 400 y los candidatos quedan como estaban', async () => {
@@ -217,7 +217,7 @@ describe('PUT /viajes/:id: candidatos', () => {
     });
 
     assert.equal(status, 400);
-    assert.deepEqual(idsDe(candChofer, 'usuarioId', viaje.id), [5]);
+    assert.deepEqual(idsDe(candChofer, 'personaId', viaje.id), [5]);
     assert.deepEqual(idsDe(candVeh, 'vehiculoId', viaje.id), [7]);
   });
 
@@ -235,7 +235,7 @@ describe('PUT /viajes/:id: candidatos', () => {
     assert.equal(status, 500);
     // El deleteMany de choferes y el de vehículos ya habían corrido: tienen que
     // haberse revertido.
-    assert.deepEqual(idsDe(candChofer, 'usuarioId', viaje.id), [5, 6]);
+    assert.deepEqual(idsDe(candChofer, 'personaId', viaje.id), [5, 6]);
     assert.deepEqual(idsDe(candVeh, 'vehiculoId', viaje.id), [7]);
   });
 
@@ -321,11 +321,11 @@ describe('PATCH /viajes/:id/confirmar', () => {
       body: CONFIRMACION,
     });
 
-    assert.deepEqual(idsDe(candChofer, 'usuarioId', viaje.id), []);
+    assert.deepEqual(idsDe(candChofer, 'personaId', viaje.id), []);
     assert.deepEqual(idsDe(candVeh, 'vehiculoId', viaje.id), []);
     assert.deepEqual(json.viaje.choferesCandidatos, []);
     assert.deepEqual(json.viaje.vehiculosCandidatos, []);
-    assert.deepEqual(idsDe(candChofer, 'usuarioId', otro.id), [10]);
+    assert.deepEqual(idsDe(candChofer, 'personaId', otro.id), [10]);
     assert.deepEqual(idsDe(candVeh, 'vehiculoId', otro.id), [9]);
   });
 
@@ -359,7 +359,7 @@ describe('PATCH /viajes/:id/confirmar', () => {
       'vehiculoId',
     ]);
     assert.equal(filaPorId(viaje.id).estadoViajeId, ESTADOS.A_CONFIRMAR);
-    assert.deepEqual(idsDe(candChofer, 'usuarioId', viaje.id), [5]);
+    assert.deepEqual(idsDe(candChofer, 'personaId', viaje.id), [5]);
   });
 
   const NO_DISPONIBLES = [
@@ -379,7 +379,7 @@ describe('PATCH /viajes/:id/confirmar', () => {
       assert.equal(status, 400);
       assert.ok(campo in json.errores);
       assert.equal(filaPorId(viaje.id).estadoViajeId, ESTADOS.A_CONFIRMAR);
-      assert.equal(idsDe(candChofer, 'usuarioId', viaje.id).length, 3);
+      assert.equal(idsDe(candChofer, 'personaId', viaje.id).length, 3);
       assert.equal(idsDe(candVeh, 'vehiculoId', viaje.id).length, 2);
     });
   }
@@ -395,14 +395,14 @@ describe('PATCH /viajes/:id/confirmar', () => {
 
     assert.equal(status, 400);
     assert.ok('choferId' in json.errores);
-    assert.deepEqual(idsDe(candChofer, 'usuarioId', viaje.id), [5]);
+    assert.deepEqual(idsDe(candChofer, 'personaId', viaje.id), [5]);
   });
 
   test('un viaje que ya está PROGRAMADO: 409 y sus datos quedan intactos', async () => {
     const viaje = agregarViaje({ estado: 'PROGRAMADO', choferId: 5, vehiculoId: 7 });
     // Candidatos "perdidos" a propósito: una segunda confirmación no puede
     // borrarlos.
-    candChofer.push({ viajeId: viaje.id, usuarioId: 6 });
+    candChofer.push({ viajeId: viaje.id, personaId: 6 });
     const antes = { ...filaPorId(viaje.id) };
 
     const { status } = await pedir('PATCH', `/viajes/${viaje.id}/confirmar`, {
@@ -412,7 +412,7 @@ describe('PATCH /viajes/:id/confirmar', () => {
 
     assert.equal(status, 409);
     assert.deepEqual(filaPorId(viaje.id), antes);
-    assert.deepEqual(idsDe(candChofer, 'usuarioId', viaje.id), [6]);
+    assert.deepEqual(idsDe(candChofer, 'personaId', viaje.id), [6]);
   });
 
   test('carrera: si otra confirmación gana entre la lectura y la transacción, 409 sin borrar nada', async () => {
@@ -439,7 +439,7 @@ describe('PATCH /viajes/:id/confirmar', () => {
     // ...y el error se lanzó antes de los deleteMany: ni siquiera se
     // ejecutaron (no alcanza con que un rollback los hubiera deshecho).
     assert.deepEqual(borrados, []);
-    assert.deepEqual(idsDe(candChofer, 'usuarioId', viaje.id), [5, 6]);
+    assert.deepEqual(idsDe(candChofer, 'personaId', viaje.id), [5, 6]);
     assert.deepEqual(idsDe(candVeh, 'vehiculoId', viaje.id), [7]);
   });
 
@@ -461,7 +461,7 @@ describe('PATCH /viajes/:id/confirmar', () => {
     assert.equal(fila.estadoViajeId, ESTADOS.A_CONFIRMAR);
     assert.equal(fila.choferId, null);
     assert.equal(fila.vehiculoId, null);
-    assert.deepEqual(idsDe(candChofer, 'usuarioId', viaje.id), [5, 6]);
+    assert.deepEqual(idsDe(candChofer, 'personaId', viaje.id), [5, 6]);
     assert.deepEqual(idsDe(candVeh, 'vehiculoId', viaje.id), [7, 9]);
   });
 

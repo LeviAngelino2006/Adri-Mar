@@ -5,6 +5,7 @@ import Button from './ui/Button';
 import FormField from './ui/FormField';
 import Alert from './ui/Alert';
 import OpcionesCatalogo from './ui/OpcionesCatalogo';
+import OpcionVacia from './ui/OpcionVacia';
 import { useCatalogosPago, valoresAPayload, validarMontos, viajeAValores } from '../utils/datosAdministrativos';
 import { capitalizarCatalogo, formatearFechaCorta, formatearMonto } from '../utils/viajeFormato';
 import './DatosAdministrativosViaje.css';
@@ -141,7 +142,7 @@ function DatosAdministrativosViaje({ viaje, onGuardado, ref }) {
               </FormField>
               <FormField id="estadoPagoClienteId" label="Estado del pago" error={errores.estadoPagoClienteId}>
                 <select name="estadoPagoClienteId" value={valores.estadoPagoClienteId} onChange={handleChange}>
-                  <option value="">Sin definir</option>
+                  <OpcionVacia>Sin definir</OpcionVacia>
                   <OpcionesCatalogo items={estadosPago} />
                 </select>
               </FormField>
@@ -150,7 +151,7 @@ function DatosAdministrativosViaje({ viaje, onGuardado, ref }) {
               </FormField>
               <FormField id="metodoPagoClienteId" label="Método de pago" error={errores.metodoPagoClienteId}>
                 <select name="metodoPagoClienteId" value={valores.metodoPagoClienteId} onChange={handleChange}>
-                  <option value="">Sin definir</option>
+                  <OpcionVacia>Sin definir</OpcionVacia>
                   <OpcionesCatalogo items={metodosPago} />
                 </select>
               </FormField>
@@ -165,7 +166,7 @@ function DatosAdministrativosViaje({ viaje, onGuardado, ref }) {
               </FormField>
               <FormField id="estadoPagoChoferId" label="Estado del pago" error={errores.estadoPagoChoferId}>
                 <select name="estadoPagoChoferId" value={valores.estadoPagoChoferId} onChange={handleChange}>
-                  <option value="">Sin definir</option>
+                  <OpcionVacia>Sin definir</OpcionVacia>
                   <OpcionesCatalogo items={estadosPago} />
                 </select>
               </FormField>
@@ -174,7 +175,7 @@ function DatosAdministrativosViaje({ viaje, onGuardado, ref }) {
               </FormField>
               <FormField id="metodoPagoChoferId" label="Método de pago" error={errores.metodoPagoChoferId}>
                 <select name="metodoPagoChoferId" value={valores.metodoPagoChoferId} onChange={handleChange}>
-                  <option value="">Sin definir</option>
+                  <OpcionVacia>Sin definir</OpcionVacia>
                   <OpcionesCatalogo items={metodosPago} />
                 </select>
               </FormField>

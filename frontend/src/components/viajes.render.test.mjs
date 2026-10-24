@@ -1,5 +1,5 @@
 // Smoke test de render de la tarjeta de viaje del listado (agrupado por día,
-// con el badge de pendiente administrativo), del formulario de alta (sin datos
+// con el pendiente administrativo en texto gris), del formulario de alta (sin datos
 // administrativos, y precargado al duplicar), del botón "Duplicar viaje" y de los
 // paneles del Dashboard (Viajes de hoy y estados vacíos). Se corre con `npm test` (node:test).
 //
@@ -29,6 +29,7 @@ let DuplicarViaje;
 let valoresParaDuplicar;
 let ContenidoViajesDeHoy;
 let ContenidoPorConfirmar;
+let ContenidoSinCerrar;
 
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
@@ -40,6 +41,7 @@ before(async () => {
   ({ valoresParaDuplicar } = await vite.ssrLoadModule('/src/utils/valoresFormViaje.js'));
   ({ ContenidoViajesDeHoy } = await vite.ssrLoadModule('/src/components/PanelViajesDeHoy.jsx'));
   ({ ContenidoPorConfirmar } = await vite.ssrLoadModule('/src/components/PanelViajesPorConfirmar.jsx'));
+  ({ ContenidoSinCerrar } = await vite.ssrLoadModule('/src/components/PanelViajesSinCerrar.jsx'));
 });
 
 after(() => vite.close());
@@ -124,21 +126,57 @@ describe('RutaViaje resumen: corte prolijo en pantallas chicas', () => {
   });
 });
 
+describe('TarjetaViaje: cliente', () => {
+  const render = (props) => renderToStaticMarkup(h(TarjetaViaje, { onClick() {}, ...props }));
+  const CLIENTE = { id: 3, nombre: 'Colegio Nacional de Monserrat' };
+
+  test('con mostrarCliente, el cliente va en gris debajo de la ruta (antes del horario), sin badge', () => {
+    const html = render({ viaje: viaje({ cliente: CLIENTE }), mostrarCliente: true });
+    assert.match(
+      html,
+      /<\/div><div class="listado-card-bajada">Colegio Nacional de Monserrat<\/div><div class="listado-card-sub">/
+    );
+    assert.equal(html.match(/estado-badge /g).length, 1, 'solo el badge de estado');
+  });
+
+  test('sin mostrarCliente (Mis viajes) no se muestra aunque el dato venga', () => {
+    const html = render({ viaje: viaje({ cliente: CLIENTE }) });
+    assert.ok(!html.includes('listado-card-bajada'));
+    assert.ok(!html.includes('Monserrat'));
+  });
+
+  test('un viaje sin cliente no agrega la línea', () => {
+    assert.ok(!render({ viaje: viaje({ cliente: null }), mostrarCliente: true }).includes('listado-card-bajada'));
+  });
+
+  test('ListadoViajesPorDia pasa mostrarCliente a cada tarjeta, también a las de En curso y Sin cerrar', () => {
+    const props = {
+      viajes: [viaje({ id: 1, cliente: CLIENTE })],
+      enCurso: [viaje({ id: 2, estado: 'EN_VIAJE', cliente: { id: 4, nombre: 'Turismo Sierras SRL' } })],
+      sinCerrar: [viaje({ id: 3, cliente: { id: 5, nombre: 'Club Atlético Talleres' } })],
+      onSeleccionar() {},
+    };
+    const con = sinEtiquetas(renderToStaticMarkup(h(ListadoViajesPorDia, { ...props, mostrarCliente: true })));
+    assert.match(con, /Club Atlético Talleres[\s\S]*Turismo Sierras SRL[\s\S]*Colegio Nacional de Monserrat/);
+    assert.ok(!renderToStaticMarkup(h(ListadoViajesPorDia, props)).includes('listado-card-bajada'));
+  });
+});
+
 describe('TarjetaViaje: pendiente administrativo', () => {
   const render = (props) => renderToStaticMarkup(h(TarjetaViaje, { onClick() {}, ...props }));
 
-  test('con mostrarPendientes, SIN_PRECIO da el badge "Sin precio" en el detalle', () => {
+  test('con mostrarPendientes, SIN_PRECIO da "Sin precio" en el detalle, como texto gris y sin badge', () => {
     const html = render({ viaje: viaje({ pendienteAdministrativo: 'SIN_PRECIO' }), mostrarPendientes: true });
-    assert.match(
-      html,
-      /class="listado-card-detalle"><span class="estado-badge estado-badge-warning estado-badge-sm">.*Sin precio<\/span><\/div>/
-    );
+    assert.match(html, /class="listado-card-detalle">Sin precio<\/div>/);
+    assert.ok(!html.includes('estado-badge-warning'));
+    assert.equal(html.match(/estado-badge /g).length, 1, 'solo el badge de estado');
   });
 
-  test('con mostrarPendientes, COBRO_PENDIENTE da el badge "Cobro pendiente"', () => {
-    const html = render({ viaje: viaje({ pendienteAdministrativo: 'COBRO_PENDIENTE' }), mostrarPendientes: true });
-    assert.match(sinEtiquetas(html), /Cobro pendiente/);
+  test('con mostrarPendientes, COBRO_PENDIENTE da "Cobro pendiente", también sin badge', () => {
+    const html = render({ viaje: viaje({ estado: 'FINALIZADO', pendienteAdministrativo: 'COBRO_PENDIENTE' }), mostrarPendientes: true });
+    assert.match(html, /class="listado-card-detalle">Cobro pendiente<\/div>/);
     assert.ok(!html.includes('Sin precio'));
+    assert.equal(html.match(/estado-badge /g).length, 1, 'solo el badge de estado');
   });
 
   test('sin pendiente (null) no hay detalle', () => {
@@ -162,7 +200,7 @@ describe('TarjetaViaje: pendiente administrativo', () => {
     const con = renderToStaticMarkup(h(ListadoViajesPorDia, { viajes, mostrarPendientes: true, onSeleccionar() {} }));
     const sin = renderToStaticMarkup(h(ListadoViajesPorDia, { viajes, onSeleccionar() {} }));
     assert.match(sinEtiquetas(con), /Sin precio[\s\S]*Cobro pendiente/);
-    assert.ok(!sin.includes('estado-badge-warning'));
+    assert.ok(!sin.includes('listado-card-detalle'));
   });
 });
 
@@ -295,6 +333,13 @@ describe('ContenidoViajesDeHoy', () => {
     assert.match(html, /class="viajes-hoy-barra-fill" style="width:70%"/);
   });
 
+  test('solo la lista de hoy: sin grupos ni títulos (los sin cerrar tienen su propio panel)', () => {
+    const html = render({ viajes: [viaje(), viaje({ id: 2 })] });
+    assert.match(html, /^<ul class="dashboard-lista">/);
+    assert.doesNotMatch(html, /<h[34]/);
+    assert.doesNotMatch(html, /Sin cerrar/);
+  });
+
   test('estados de carga, error y vacío', () => {
     assert.match(render({ carga: { ...CARGA_LISTA, cargando: true } }), /<div class="carga" role="status" aria-live="polite"><\/div>/);
     const conError = render({ carga: { ...CARGA_LISTA, error: new Error('Network Error') } });
@@ -302,6 +347,52 @@ describe('ContenidoViajesDeHoy', () => {
     assert.match(conError, />Reintentar</);
     assert.ok(!conError.includes('No hay viajes para hoy'), 'un error no se muestra como vacío');
     assert.match(render({}), /class="dashboard-empty">No hay viajes para hoy</);
+  });
+});
+
+describe('ContenidoSinCerrar', () => {
+  const render = (props) =>
+    renderToStaticMarkup(
+      h(ContenidoSinCerrar, { carga: CARGA_LISTA, viajes: [], ahora: AHORA, onAbrir() {}, onVerTodos() {}, ...props })
+    );
+  // De días anteriores al vie 9 oct, del más viejo al más nuevo, como los deja viajesSinCerrar.
+  const sinCerrar = (cantidad) =>
+    Array.from({ length: cantidad }, (_, i) =>
+      viaje({ id: i + 1, fechaInicio: `2026-10-0${i + 1}T11:00:00Z`, destino: { nombre: `Destino ${i + 1}` }, sinCerrar: true })
+    );
+  const filas = (html) => html.match(/<button type="button" class="dashboard-fila sin-hora">/g) ?? [];
+
+  test('cada fila: ruta, fecha y estado; sin color ni badge para el atraso', () => {
+    const html = render({ viajes: [viaje({ id: 7, fechaInicio: '2026-10-08T11:00:00Z', sinCerrar: true })] });
+    assert.equal(filas(html).length, 1);
+    assert.match(html, /class="ruta-viaje/);
+    assert.match(html, /<span class="dashboard-fila-meta">Ayer · jue 8 oct · 08:00<\/span>/);
+    // Un solo badge, el del estado.
+    assert.equal(html.match(/estado-badge /g).length, 1);
+    assert.match(html, /Programado/);
+    assert.doesNotMatch(html, /Ver todos/);
+  });
+
+  test('con 5, las 5 y sin "Ver todos"', () => {
+    const html = render({ viajes: sinCerrar(5) });
+    assert.equal(filas(html).length, 5);
+    assert.doesNotMatch(html, /Ver todos/);
+  });
+
+  test('con más de 5, solo las 5 más viejas y "Ver todos"', () => {
+    const html = render({ viajes: sinCerrar(7) });
+    assert.equal(filas(html).length, 5);
+    assert.match(html, /Destino 1</);
+    assert.match(html, /Destino 5</);
+    assert.doesNotMatch(html, /Destino 6</);
+    assert.match(html, /<button type="button" class="btn btn-secondary dashboard-ver-mas"><span>Ver todos<\/span><\/button>/);
+  });
+
+  test('cargando y error con el patrón compartido (Reintentar)', () => {
+    assert.match(render({ carga: { ...CARGA_LISTA, cargando: true } }), /<div class="carga" role="status" aria-live="polite"><\/div>/);
+    const conError = render({ carga: { ...CARGA_LISTA, error: new Error('Network Error') } });
+    assert.match(conError, /No pudimos cargar los viajes sin cerrar\. Revisá tu conexión\./);
+    assert.match(conError, />Reintentar</);
   });
 });
 

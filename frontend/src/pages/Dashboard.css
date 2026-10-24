@@ -212,8 +212,9 @@
 }
 
 /* Paneles del Dashboard de Administrador y Encargado: Viajes de hoy a todo el
-   ancho y, debajo, Viajes por confirmar y Documentación en dos columnas desde
-   1024px. Comparten la lista de filas clickeables (.dashboard-fila). */
+   ancho y, debajo, dos columnas desde 1024px: a la izquierda Viajes por
+   confirmar y a la derecha Sin cerrar (si hay) y Documentación. Comparten la
+   lista de filas clickeables (.dashboard-fila). */
 .dashboard-panel {
   margin-bottom: var(--space-6);
 }
@@ -245,6 +246,19 @@
 }
 
 .dashboard-columnas > .card {
+  margin-bottom: 0;
+}
+
+/* Columna derecha: sus paneles apilados, con la misma separación que las
+   columnas. */
+.dashboard-columna {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+.dashboard-columna > .card {
   margin-bottom: 0;
 }
 

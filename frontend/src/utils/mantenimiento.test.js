@@ -13,12 +13,14 @@ import {
   ordenarEstadoService,
   pieRegistro,
   textoAdvertenciaViaje,
+  textoIncluyeService,
   textoIntervalo,
   textoRegistro,
   textoTiposArreglo,
   validarRegistroMantenimiento,
   esKmAnterior,
 } from './mantenimiento.js';
+import { TAREAS_SERVICE } from '../constants/mantenimiento.js';
 
 // Un ítem como los de GET /mantenimientos/planes.
 function item(id, numeroInterno, estado, extra = {}) {
@@ -267,6 +269,20 @@ describe('validarRegistroMantenimiento', () => {
     assert.equal(nombreTipoArreglo(otro), 'Cambio de espejo');
     assert.equal(nombreTipoArreglo({ ...otro, detalle: null }), 'Otro');
     assert.match(detalleRegistro({ tipo: 'ARREGLO', tiposArreglo: [engrase, otro] }), /^Trabajos: Engrase, Cambio de espejo$/);
+  });
+});
+
+describe('textoIncluyeService', () => {
+  test('con la plantilla del service: una sola oración, con "y" antes de la última tarea', () => {
+    assert.equal(
+      textoIncluyeService(TAREAS_SERVICE),
+      'Incluye cambio de aceite, filtros de gasoil, aceite y habitáculo (aire acondicionado), alineado y balanceado y revisión general del motor.'
+    );
+  });
+
+  test('se arma con las tareas que recibe, no con un texto fijo', () => {
+    assert.equal(textoIncluyeService(['Cambio de aceite']), 'Incluye cambio de aceite.');
+    assert.equal(textoIncluyeService(['Engrase', 'Lavado', 'Órbita de prueba']), 'Incluye engrase, lavado y órbita de prueba.');
   });
 });
 

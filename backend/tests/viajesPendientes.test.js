@@ -81,29 +81,10 @@ const CASOS = [
   ['CANCELADO con precio sin cobrar', viaje(17, { estado: 'CANCELADO', precio: '10.00', estadoPago: 'PENDIENTE' }), null],
 ];
 
-// Evalúa un `where` de Prisma sobre una fila en memoria. Cubre solo lo que usa
-// FILTRO_ADMINISTRATIVO_PENDIENTE y los filtros de listarViajes (igualdad con
-// null, `equals`, `not`, `is`, `OR`,
-// `AND`, relaciones anidadas): si el filtro empieza a usar otra cosa, este
-// evaluador falla en vez de dar un resultado inventado.
-function cumple(fila, where) {
-  return Object.entries(where).every(([clave, condicion]) => {
-    if (clave === 'OR') return condicion.some((w) => cumple(fila, w));
-    if (clave === 'AND') return condicion.every((w) => cumple(fila, w));
-    const valor = fila[clave];
-    if (condicion === null) return valor === null || valor === undefined;
-    if (typeof condicion !== 'object') return valor === condicion;
-    if ('is' in condicion) return valor != null && cumple(valor, condicion.is);
-    if ('equals' in condicion) return valor === condicion.equals;
-    if ('not' in condicion) {
-      if (Object.keys(condicion).length !== 1) throw new Error(`condición no soportada en ${clave}`);
-      return valor !== condicion.not;
-    }
-    // Relación a uno sin `is` (ej. estadoViaje: { descripcion: ... }).
-    if (valor == null || typeof valor !== 'object') throw new Error(`condición no soportada en ${clave}`);
-    return cumple(valor, condicion);
-  });
-}
+// Evalúa un `where` de Prisma sobre una fila en memoria (ver el helper): si el
+// filtro empieza a usar algo que el evaluador no conoce, falla en vez de dar un
+// resultado inventado.
+const { cumple } = require('./helpers/whereEnMemoria');
 
 // --- Doble de Prisma -----------------------------------------------------------
 

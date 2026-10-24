@@ -2,17 +2,19 @@ import { useState } from 'react';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 import FormField from '../ui/FormField';
+import OpcionVacia from '../ui/OpcionVacia';
 import ModalMarco from '../documentacion/ModalMarco';
 import { useFocoEnPrimerError } from '../../hooks/useFocoEnPrimerError';
 import { registrarService } from '../../services/mantenimientoApi';
 import { MAX_TEXTO_MANTENIMIENTO, TAREAS_SERVICE } from '../../constants/mantenimiento';
 import { hoyCordobaISO } from '../../utils/fechaCordoba';
 import { formatearKm } from '../../utils/viajeFormato';
-import { etiquetaVehiculo, validarRegistroMantenimiento } from '../../utils/mantenimiento';
+import { etiquetaVehiculo, textoIncluyeService, validarRegistroMantenimiento } from '../../utils/mantenimiento';
 
 // Registrar un service: fecha, km del odómetro y observación. El service es
-// siempre el paquete completo (TAREAS_SERVICE), que se muestra como lista
-// informativa. Si el vehículo viene elegido (desde su tarjeta) no se pregunta.
+// siempre el paquete completo (TAREAS_SERVICE), que se muestra en una oración
+// como ayuda de la observación. Si el vehículo viene elegido (desde su tarjeta)
+// no se pregunta.
 // Se monta solo mientras está abierto, así arranca siempre limpio.
 function ModalRegistrarService({ vehiculos, vehiculo: elegido = null, onClose, onSuccess }) {
   const hoy = hoyCordobaISO();
@@ -99,7 +101,7 @@ function ModalRegistrarService({ vehiculos, vehiculo: elegido = null, onClose, o
         {!elegido && (
           <FormField id="service-vehiculo" label="Vehículo" required error={errores.vehiculoId}>
             <select value={form.vehiculoId} onChange={(e) => cambiar('vehiculoId', e.target.value)}>
-              <option value="">Elegí el vehículo</option>
+              <OpcionVacia obligatorio>Elegí el vehículo</OpcionVacia>
               {vehiculos.map((item) => (
                 <option key={item.vehiculo.id} value={item.vehiculo.id}>
                   {etiquetaVehiculo(item.vehiculo)}
@@ -147,6 +149,7 @@ function ModalRegistrarService({ vehiculos, vehiculo: elegido = null, onClose, o
               </span>
             </>
           }
+          hint={textoIncluyeService(TAREAS_SERVICE)}
           error={errores.observaciones}
         >
           <textarea
@@ -156,15 +159,6 @@ function ModalRegistrarService({ vehiculos, vehiculo: elegido = null, onClose, o
             onChange={(e) => cambiar('observaciones', e.target.value)}
           />
         </FormField>
-
-        <Alert variant="info">
-          <span className="service-incluye-titulo">Incluye:</span>
-          <ul className="service-incluye">
-            {TAREAS_SERVICE.map((tarea) => (
-              <li key={tarea}>{tarea}</li>
-            ))}
-          </ul>
-        </Alert>
       </form>
     </ModalMarco>
   );

@@ -26,23 +26,19 @@ export function ListadoHeader({ titulo }) {
   return <h1 className="sr-only">{titulo}</h1>;
 }
 
-// Buscador (con lupa), botón "Filtros" con el contador de filtros activos y,
-// a la derecha de todo, la acción principal o el control de vistas. Cada
-// pantalla pasa solo lo que usa:
-//   busqueda: { valor, onChange(texto), placeholder }
+// Barra única de todos los listados: a la izquierda el buscador (con lupa) y el
+// botón "Filtros" con el contador de filtros activos; a la derecha de todo, el
+// control de vistas y, al final, la acción principal. Cada pantalla pasa solo lo
+// que usa; el orden y la posición son siempre los mismos:
+//   busqueda: { valor, onChange(texto), placeholder, maxLength? }
 //   filtros:  { abierto, onToggle(), activos }
-//   vistas:   las props de ControlSegmentado (Documentación: Vehículos | Choferes)
+//   vistas:   las props de ControlSegmentado (Documentación: Vehículos | Choferes;
+//             Mantenimiento: Service | Arreglos | Historial)
 //   accion:   { etiqueta, onClick } ("Crear vehículo"); debajo de 640px se ve
 //             solo el "+" y la etiqueta queda para los lectores de pantalla.
-//   vistasAlInicio: true pone el control de vistas primero, a la izquierda, y
-//             el buscador y Filtros a la derecha (Mantenimiento: las vistas son
-//             la navegación principal de la pantalla). Por defecto las vistas
-//             van a la derecha de todo, como en Documentación.
-export function ListadoToolbar({ busqueda, filtros, vistas, accion, vistasAlInicio = false }) {
-  const controlVistas = vistas && <ControlSegmentado {...vistas} />;
+export function ListadoToolbar({ busqueda, filtros, vistas, accion }) {
   return (
-    <div className={vistasAlInicio ? 'listado-toolbar listado-toolbar-vistas-inicio' : 'listado-toolbar'}>
-      {vistasAlInicio && controlVistas}
+    <div className="listado-toolbar">
       {busqueda && (
         <div className="listado-buscar">
           {ICONO_LUPA}
@@ -52,6 +48,7 @@ export function ListadoToolbar({ busqueda, filtros, vistas, accion, vistasAlInic
             onChange={(e) => busqueda.onChange(e.target.value)}
             placeholder={busqueda.placeholder}
             aria-label={busqueda.placeholder}
+            maxLength={busqueda.maxLength}
           />
         </div>
       )}
@@ -62,7 +59,7 @@ export function ListadoToolbar({ busqueda, filtros, vistas, accion, vistasAlInic
           {filtros.activos > 0 && <span className="filtros-toggle-badge">{filtros.activos}</span>}
         </button>
       )}
-      {!vistasAlInicio && controlVistas}
+      {vistas && <ControlSegmentado {...vistas} />}
       {accion && (
         <Button variant="primary" className="listado-accion" aria-label={accion.etiqueta} onClick={accion.onClick}>
           <span className="listado-accion-signo" aria-hidden="true">
@@ -76,12 +73,25 @@ export function ListadoToolbar({ busqueda, filtros, vistas, accion, vistasAlInic
 }
 
 // Tarjeta del listado: marca (ícono, Avatar o bloque de fecha), cuerpo con
-// título + estado, dato principal, detalle opcional y pie (lista de datos,
-// separados a los lados). `marcaClassName` suma una clase a la marca (la tarjeta
+// título + estado, una bajada opcional en gris debajo del título (el cliente en
+// la tarjeta de viaje de gestión), dato principal, detalle opcional y pie (lista
+// de datos, separados a los lados). `marcaClassName` suma una clase a la marca (la tarjeta
 // de viaje usa `fecha-tile`) y `className`, a la tarjeta (`listado-card-viaje`).
 // Sin `onClick` es una tarjeta de solo lectura (un `div`, sin hover ni foco: el
 // historial de Mantenimiento no abre ninguna ficha).
-export function ListadoCard({ className, marca, marcaClassName, marcaSinFondo = false, titulo, estado, sub, detalle, pie, onClick }) {
+export function ListadoCard({
+  className,
+  marca,
+  marcaClassName,
+  marcaSinFondo = false,
+  titulo,
+  estado,
+  bajada,
+  sub,
+  detalle,
+  pie,
+  onClick,
+}) {
   const Contenedor = onClick ? 'button' : 'div';
   return (
     <Contenedor
@@ -101,6 +111,7 @@ export function ListadoCard({ className, marca, marcaClassName, marcaSinFondo = 
           <span className="listado-card-titulo">{titulo}</span>
           {estado}
         </div>
+        {bajada && <div className="listado-card-bajada">{bajada}</div>}
         <div className="listado-card-sub">{sub}</div>
         {detalle && <div className="listado-card-detalle">{detalle}</div>}
         <div className="listado-card-pie">

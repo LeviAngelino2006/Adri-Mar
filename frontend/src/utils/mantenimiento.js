@@ -1,3 +1,4 @@
+import { listaConY } from './documentacion.js';
 import { formatearKm } from './viajeFormato.js';
 import { ordenarPorInterno } from './vehiculos.js';
 
@@ -75,6 +76,16 @@ export function detalleEstadoService(item) {
 export function textoIntervalo(item) {
   const tipo = item.vehiculo.tipoVehiculo ?? 'Vehículo';
   return item.plantilla ? `${tipo} · service cada ${formatearKm(item.plantilla.intervaloKm)} km` : tipo;
+}
+
+// Lo que incluye el service, en una sola oración, armada con las tareas de la
+// plantilla (TAREAS_SERVICE): "Incluye cambio de aceite, filtros de gasoil,
+// aceite y habitáculo (aire acondicionado), alineado y balanceado y revisión
+// general del motor.". Cada tarea va tal cual viene de la plantilla, con la
+// inicial en minúscula porque queda en medio de la oración.
+export function textoIncluyeService(tareas) {
+  const enMinuscula = tareas.map((tarea) => tarea.charAt(0).toLocaleLowerCase('es') + tarea.slice(1));
+  return `Incluye ${listaConY(enMinuscula)}.`;
 }
 
 // "12 - AE452KD · Mercedes O500", para los <option> (el texto no admite `.patente`).

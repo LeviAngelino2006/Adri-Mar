@@ -95,7 +95,6 @@ function PestanaService({ carga, tiposVehiculo, vistas, onRegistrar, onAsignar }
         busqueda={{ valor: busqueda, onChange: setBusqueda, placeholder: 'Buscar por interno, dominio, marca o modelo' }}
         filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos }}
         vistas={vistas}
-        vistasAlInicio
       />
 
       {mostrarFiltros && (

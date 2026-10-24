@@ -2,11 +2,11 @@ Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento
 
 ## Estructura
 - Sin título visible: `ListadoHeader` con "Mantenimiento" en `.sr-only`, como los listados.
-- `ControlSegmentado` **Service | Arreglos | Historial** en la barra (`vistas` de `ListadoToolbar`), a la derecha del buscador y Filtros, igual que en Documentación. Service lleva como cantidad las alertas (vencidos + próximos); no se muestra mientras carga, si falló o si es 0. Arreglos e Historial no llevan cantidad.
+- `ControlSegmentado` **Service | Arreglos | Historial** en la barra (`vistas` de `ListadoToolbar`), a la derecha de todo, con el buscador y Filtros a la izquierda, igual que en Documentación. Está en el mismo lugar en las tres vistas (en Arreglos, que no tiene buscador ni Filtros, queda solo a la derecha) y, debajo de 600px de barra, pasa arriba a todo el ancho (ver `Listado`). Sin acción en la barra. Service lleva como cantidad las alertas (vencidos + próximos); no se muestra mientras carga, si falló o si es 0. Arreglos e Historial no llevan cantidad.
 - La vista y el vehículo del historial van en la URL: `?tab=arreglos`, `?tab=historial&vehiculoId=7`. Service es la vista por defecto (sin `tab`). Al cambiar de vista la página vuelve arriba.
 
 ## Service
-- Barra: buscador ("Buscar por interno, dominio, marca o modelo"), Filtros y la acción "Registrar service" (abre el modal sin vehículo elegido).
+- Barra: buscador ("Buscar por interno, dominio, marca o modelo") y Filtros, sin acción: el service se registra tocando la tarjeta del vehículo.
 - Filtros: Estado (Todos, Vencido, Próximo, Al día, Sin plan), Tipo de vehículo y Ordenar por (Más urgente, Número de interno, Tipo de vehículo, Km desde el último service). El contador de Filtros cuenta estado y tipo; el orden no.
 - Orden por defecto, Más urgente: la fracción del intervalo recorrida, de mayor a menor, con los Sin plan al final. Por km restantes no: 900 km son el 4,5 % de un colectivo y el 9 % de un utilitario.
 - Filtrado y orden en el front (son pocos vehículos): funciones puras en `utils/mantenimiento.js`.
@@ -24,7 +24,7 @@ Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento
 ## Modal "Registrar service"
 - `ModalMarco` con título "Registrar service" y, si el vehículo viene elegido, el subtítulo "12 - AB123CD · Mercedes-Benz O500".
 - Campos: Vehículo (solo si no vino elegido; `select` ordenado por interno), Fecha (hoy por defecto, no puede ser futura) | Km del odómetro (hint "Odómetro actual: 57.345 km"), Observación (textarea con contador "0/500").
-- Debajo, un `Alert` info "Incluye:" con la lista fija de `TAREAS_SERVICE` (`constants/mantenimiento.js`). Es informativa: no se tilda, el service siempre es completo. Sin costo ni responsable.
+- Lo que incluye el service va como hint de Observación (texto gris de ayuda, `caption`, enlazado al textarea con `aria-describedby`), en una sola oración: "Incluye cambio de aceite, filtros de gasoil, aceite y habitáculo (aire acondicionado), alineado y balanceado y revisión general del motor.". La arma `textoIncluyeService` (`utils/mantenimiento.js`) con las tareas de la plantilla, `TAREAS_SERVICE` (`constants/mantenimiento.js`): si la plantilla cambia, la oración cambia sola. Nada de caja de color ni viñetas: es informativa, no se tilda, el service siempre es completo. Sin costo ni responsable.
 - Botones "Cancelar" y "Registrar service" ("Registrando…"). Éxito: toast "Service registrado." con la acción "Ver en el historial".
 
 ## Modal "Asignar plan de service"
@@ -32,9 +32,10 @@ Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento
 - Botones "Cancelar" y "Asignar plan" ("Asignando…"). Éxito: toast "Plan de service asignado.".
 
 ## Arreglos
-- Solo el formulario, sin listado: `Card .form-card` con un `.form-grid`, como `FormularioVehiculo`. La barra tiene solo el `ControlSegmentado`.
-- Pares: Vehículo | Km del odómetro; Fecha | Responsable (`SelectorBuscarOCrear` sobre `/mantenimientos/responsables`, hint "Mecánico, chapista o taller"); Tipos de trabajo (ancho); Descripción (ancho); Repuestos (ancho); Observaciones (ancho). Los textos largos llevan contador "0/500".
-- Tipos de trabajo es un `GrupoCasillas` con los tipos activos de `GET /mantenimientos/tipos-arreglo`, solo con el nombre. Se puede marcar más de uno (por ejemplo, Engrase + Cambio de cubiertas): se guardan en un solo registro. Sin ninguno marcado: "Elegí al menos un tipo de trabajo".
+- Solo el formulario, sin listado: `Card .form-card` con un `.form-grid`, como `FormularioVehiculo`. La barra tiene solo el `ControlSegmentado`, a la derecha.
+- El formulario ocupa **todo el ancho** del contenido (no los 720px de `.form-card`, clase `arreglos-form-card`), para que sus bordes queden alineados con la barra y con las listas de Service e Historial; vive dentro de una pestaña junto a listas, no en una página propia. Sigue en dos columnas desde 640px, con Trabajos realizados, Descripción, Repuestos y Observaciones a ancho completo.
+- Pares: Vehículo | Km del odómetro; Fecha | Responsable (`SelectorBuscarOCrear` sobre `/mantenimientos/responsables`, sin hint); Trabajos realizados (ancho); Descripción (ancho); Repuestos (ancho); Observaciones (ancho). Los textos largos llevan contador "0/500".
+- Trabajos realizados es un `GrupoCasillas` con los tipos activos de `GET /mantenimientos/tipos-arreglo`, solo con el nombre. Se puede marcar más de uno (por ejemplo, Engrase + Cambio de cubiertas): se guardan en un solo registro. Sin ninguno marcado: "Elegí al menos un tipo de trabajo".
 - "Otro" se puede combinar con los demás. Al marcarlo aparece debajo de su casilla (`contenidoMarcada`) el campo obligatorio "¿Qué trabajo?" (placeholder "Por ejemplo, cambio de espejo", hasta 60 caracteres). Si queda vacío: `Contá qué trabajo se hizo (obligatorio para "Otro")`. Al desmarcarlo, el campo y lo escrito se descartan. La Descripción es siempre opcional.
 - El km no puede ser menor al odómetro actual: "Cargá un kilometraje válido: no puede ser menor al odómetro actual (57.345 km). Si es un arreglo anterior, marcalo abajo." Mientras el km es menor (con debounce: recién 700 ms después de dejar de escribir, o al enviar), debajo del par Vehículo | Km aparece (ancho) un `Switch` "Es un arreglo anterior, hecho con menos km que el odómetro actual"; marcado, se acepta y se manda `esAnterior: true` (el odómetro no cambia). Si el km vuelve a ser igual o mayor, el switch se va y no se manda. El backend también rechaza un `esAnterior` con km igual o mayor al odómetro.
 - Sin campo de costo.
