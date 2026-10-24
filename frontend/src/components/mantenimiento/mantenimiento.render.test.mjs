@@ -107,23 +107,46 @@ describe('TarjetaRegistro (historial)', () => {
     responsable: null,
   };
 
-  test('un arreglo: tarjeta de solo lectura, con el tipo, quién lo hizo y quién lo registró', () => {
+  test('un arreglo: tarjeta de solo lectura, con los tipos, quién lo hizo y quién lo registró', () => {
     const html = renderToStaticMarkup(
       h(TarjetaRegistro, {
-        registro: { ...base, tipo: 'ARREGLO', tipoArreglo: { id: 3, nombre: 'Frenos' }, descripcion: 'Pastillas', responsable: 'Taller Gómez' },
+        registro: {
+          ...base,
+          tipo: 'ARREGLO',
+          tiposArreglo: [
+            { id: 1, nombre: 'Engrase' },
+            { id: 4, nombre: 'Frenos' },
+          ],
+          descripcion: 'Pastillas',
+          responsable: 'Taller Gómez',
+        },
       })
     );
     assert.match(html, /^<div class="listado-card"/);
     assert.doesNotMatch(html, /<button/);
     assert.match(html, /class="listado-card-marca fecha-tile"/);
     assert.match(html, /<span class="sr-only">12 mar 2026: <\/span>/);
-    assert.match(texto(html), /Frenos/);
+    assert.match(html, /estado-badge[^>]*>.*Engrase \+ Frenos/);
+    assert.match(texto(html), /Trabajos: Engrase, Frenos/);
     assert.match(texto(html), /57\.345 km · Hizo: Taller Gómez/);
     assert.match(texto(html), /Registró: Ana Pérez/);
   });
 
+  test('con 3 tipos o más el badge dice "N trabajos" y lleva el texto completo en title', () => {
+    const tiposArreglo = [
+      { id: 1, nombre: 'Engrase', detalle: null },
+      { id: 4, nombre: 'Frenos', detalle: null },
+      { id: 8, nombre: 'Otro', detalle: 'Cambio de espejo' },
+    ];
+    const html = renderToStaticMarkup(h(TarjetaRegistro, { registro: { ...base, tipo: 'ARREGLO', tiposArreglo } }));
+    assert.match(html, /estado-badge[^>]*>.*3 trabajos/);
+    assert.match(html, /title="Engrase, Frenos, Cambio de espejo"/);
+    assert.match(html, /historial-badge-tipos/);
+    assert.match(texto(html), /Trabajos: Engrase, Frenos, Cambio de espejo/);
+  });
+
   test('un service lleva el badge de marca "Service"', () => {
-    const html = renderToStaticMarkup(h(TarjetaRegistro, { registro: { ...base, tipo: 'SERVICE', tipoArreglo: null } }));
+    const html = renderToStaticMarkup(h(TarjetaRegistro, { registro: { ...base, tipo: 'SERVICE', tiposArreglo: [] } }));
     assert.match(html, /estado-badge-brand[^>]*>.*Service/);
     assert.match(texto(html), /Service completo/);
   });
@@ -169,7 +192,11 @@ describe('PestanaArreglos', () => {
       )
     );
     assert.match(html, /class="card form-card"|form-card/);
-    assert.match(html, /Tipo de trabajo/);
+    // Los tipos se eligen con casillas (GrupoCasillas), no con un select. En SSR
+    // la lista todavía no cargó, así que solo se ve el grupo.
+    assert.match(html, /<fieldset[^>]*id="arreglo-tipos"/);
+    assert.match(html, /<legend[^>]*>Tipos de trabajo/);
+    assert.doesNotMatch(html, /Elegí el tipo de trabajo/);
     assert.match(html, /Quién hizo el trabajo/);
     assert.match(html, /Mecánico, chapista o taller/);
     assert.match(html, /Registrar arreglo/);

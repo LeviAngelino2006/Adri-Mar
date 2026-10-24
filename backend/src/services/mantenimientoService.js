@@ -7,14 +7,17 @@ const { aDiaCordoba, diaCordobaISO, SOLO_DIA_REGEX } = require('../utils/fechaCo
 // Mantenimiento de la flota (ver docs/dominio.md §2):
 //  - SERVICE: el paquete fijo (aceite, filtros, alineado y balanceado,
 //    revisión general). Reinicia el conteo del plan del vehículo.
-//  - ARREGLO: cualquier otro trabajo, de un tipo del catálogo tipos_arreglo.
-//    No toca el plan ni genera alertas.
-// Los dos se guardan en mantenimientos_realizados (el CHECK
-// mantenimientos_service_o_arreglo impide mezclarlos).
+//  - ARREGLO: cualquier otro trabajo, de uno o más tipos del catálogo
+//    tipos_arreglo (tabla intermedia mantenimiento_tipos_arreglo). No toca el
+//    plan ni genera alertas.
+// Los dos se guardan en mantenimientos_realizados. Un service no lleva tipos y
+// un arreglo lleva al menos uno: lo valida este servicio (un CHECK no puede
+// mirar la tabla intermedia).
 
 const ID_MAXIMO = 2147483647; // INTEGER de Postgres
 const MAX_TEXTO = 500;
 const MAX_RESPONSABLE = 120;
+const MAX_DETALLE_TIPO = 60; // "¿Qué trabajo?" de "Otro": va en el badge del historial
 const POR_PAGINA_DEFECTO = 30;
 const POR_PAGINA_MAXIMO = 100;
 const ESTADO_DADO_DE_BAJA = 'DADO_DE_BAJA';
@@ -33,6 +36,7 @@ const ORDENES_HISTORIAL = {
 // rechazan en vez de ignorarse, así queda explícito.
 const CAMPOS_AJENOS_SERVICE = {
   tipoArregloId: 'El service no lleva tipo de arreglo: para otro trabajo, registrá un arreglo',
+  tiposArregloIds: 'El service no lleva tipo de arreglo: para otro trabajo, registrá un arreglo',
   categoria: 'El service no lleva categoría',
   costo: 'El service no lleva costo',
   tallerMecanico: 'El service no lleva responsable',
@@ -41,6 +45,7 @@ const CAMPOS_AJENOS_SERVICE = {
 
 const CAMPOS_AJENOS_ARREGLO = {
   categoria: 'El arreglo no lleva categoría: indicá el tipo de trabajo',
+  tipoArregloId: 'Ahora se mandan varios tipos en "tiposArregloIds"',
   costo: 'El arreglo no lleva costo',
   tallerMecanico: 'Indicá quién hizo el trabajo en "responsable"',
 };
@@ -67,8 +72,9 @@ const INCLUDE_VEHICULO = {
 };
 
 const INCLUDE_REGISTRO = {
-  tipoArreglo: true,
-  usuario: { select: { nombre: true, apellido: true } },
+  tiposArreglo: { include: { tipoArreglo: true }, orderBy: { tipoArreglo: { orden: 'asc' } } },
+  // Nombre y apellido están en Persona desde la separación usuario/persona.
+  usuario: { select: { persona: { select: { nombre: true, apellido: true } } } },
   vehiculo: { include: { tipoVehiculo: true, ...INCLUDE_MODELO_Y_MARCA } },
 };
 
@@ -141,7 +147,11 @@ function serializarRegistro(registro) {
   return {
     id: registro.id,
     tipo: registro.esServicePreventivo ? 'SERVICE' : 'ARREGLO',
-    tipoArreglo: registro.tipoArreglo ? { id: registro.tipoArreglo.id, nombre: registro.tipoArreglo.nombre } : null,
+    tiposArreglo: (registro.tiposArreglo ?? []).map(({ tipoArreglo: t, detalle }) => ({
+      id: t.id,
+      nombre: t.nombre,
+      detalle: detalle ?? null,
+    })),
     fecha: registro.fecha,
     kilometraje: registro.kilometraje,
     descripcion: registro.descripcion ?? null,
@@ -156,7 +166,9 @@ function serializarRegistro(registro) {
       modelo,
       tipoVehiculo: v.tipoVehiculo?.descripcion ?? null,
     },
-    usuario: registro.usuario ? `${registro.usuario.nombre} ${registro.usuario.apellido}` : null,
+    usuario: registro.usuario?.persona
+      ? `${registro.usuario.persona.nombre} ${registro.usuario.persona.apellido}`
+      : null,
     creadoEn: registro.creadoEn,
   };
 }
@@ -407,7 +419,6 @@ async function registrarService(datos, usuarioId) {
         vehiculoId: vehiculo.id,
         planMantenimientoId: plan.id,
         esServicePreventivo: true,
-        tipoArregloId: null,
         fecha,
         kilometraje,
         observaciones,
@@ -421,6 +432,69 @@ async function registrarService(datos, usuarioId) {
   });
 }
 
+// Los tipos de un arreglo: al menos uno, todos existentes y activos. Los
+// repetidos se toman una vez. Devuelve los tipos por orden del catálogo ([] si
+// hay error).
+async function validarTiposArreglo(valor, errores) {
+  if (!Array.isArray(valor) || valor.length === 0) {
+    errores.tiposArregloIds = 'Elegí al menos un tipo de trabajo';
+    return [];
+  }
+  const ids = valor.map(parsearId);
+  if (ids.includes(null)) {
+    errores.tiposArregloIds = 'El tipo de trabajo no es válido';
+    return [];
+  }
+  const unicos = [...new Set(ids)];
+  const tipos = await prisma.tipoArreglo.findMany({ where: { id: { in: unicos } } });
+  if (tipos.length !== unicos.length || tipos.some((t) => !t.activo)) {
+    errores.tiposArregloIds = 'El tipo de trabajo no es válido';
+    return [];
+  }
+  return tipos.sort((a, b) => a.orden - b.orden);
+}
+
+// Qué se hizo en los tipos con requiereDetalle ("Otro"): `valor` es
+// { [tipoArregloId]: texto } y `tipos`, los ya validados. Devuelve
+// Map<tipoId, texto>. Un detalle para un tipo que no lo lleva se rechaza en vez
+// de ignorarse. Se informa un solo error, el primero en el orden del catálogo.
+function validarDetallesTipos(valor, tipos, errores) {
+  const detalles = new Map();
+  if (valor === undefined || valor === null) valor = {};
+  if (typeof valor !== 'object' || Array.isArray(valor)) {
+    errores.detallesTipos = 'Los detalles de los tipos no son válidos';
+    return detalles;
+  }
+  for (const [clave, texto] of Object.entries(valor)) {
+    const tipo = tipos.find((t) => t.id === parsearId(clave));
+    if (!tipo) {
+      errores.detallesTipos = 'El detalle es de un tipo que no está marcado';
+      return detalles;
+    }
+    if (!tipo.requiereDetalle) {
+      errores.detallesTipos = `"${tipo.nombre}" no lleva detalle`;
+      return detalles;
+    }
+    if (typeof texto !== 'string') {
+      errores.detallesTipos = 'Los detalles de los tipos no son válidos';
+      return detalles;
+    }
+    if (texto.trim()) detalles.set(tipo.id, texto.trim());
+  }
+  for (const tipo of tipos.filter((t) => t.requiereDetalle)) {
+    const texto = detalles.get(tipo.id);
+    if (!texto) {
+      errores.detallesTipos = `Contá qué trabajo se hizo (obligatorio para "${tipo.nombre}")`;
+      return detalles;
+    }
+    if ([...texto].length > MAX_DETALLE_TIPO) {
+      errores.detallesTipos = `Hasta ${MAX_DETALLE_TIPO} caracteres`;
+      return detalles;
+    }
+  }
+  return detalles;
+}
+
 async function registrarArreglo(datos, usuarioId) {
   const errores = {};
   rechazarCamposAjenos(datos, CAMPOS_AJENOS_ARREGLO, errores);
@@ -432,20 +506,8 @@ async function registrarArreglo(datos, usuarioId) {
   const responsable = validarTexto(datos.responsable, 'responsable', 'Quién hizo el trabajo', MAX_RESPONSABLE, errores);
   const vehiculo = await buscarVehiculoActivo(datos.vehiculoId, errores);
 
-  const tipoArregloId = parsearId(datos.tipoArregloId);
-  let tipoArreglo = null;
-  if (!tipoArregloId) {
-    errores.tipoArregloId = 'Elegí el tipo de trabajo';
-  } else {
-    tipoArreglo = await prisma.tipoArreglo.findUnique({ where: { id: tipoArregloId } });
-    if (!tipoArreglo || !tipoArreglo.activo) {
-      errores.tipoArregloId = 'El tipo de trabajo no es válido';
-      tipoArreglo = null;
-    }
-  }
-  if (tipoArreglo?.requiereDetalle && !descripcion && !errores.descripcion) {
-    errores.descripcion = `Contá qué trabajo se hizo (obligatorio para "${tipoArreglo.nombre}")`;
-  }
+  const tipos = await validarTiposArreglo(datos.tiposArregloIds, errores);
+  const detalles = tipos.length > 0 ? validarDetallesTipos(datos.detallesTipos, tipos, errores) : new Map();
   if (Object.keys(errores).length > 0) throw new ValidacionError(errores);
 
   // No toca el plan: un arreglo no reinicia el conteo del service.
@@ -455,7 +517,7 @@ async function registrarArreglo(datos, usuarioId) {
         vehiculoId: vehiculo.id,
         planMantenimientoId: null,
         esServicePreventivo: false,
-        tipoArregloId: tipoArreglo.id,
+        tiposArreglo: { create: tipos.map((t) => ({ tipoArregloId: t.id, detalle: detalles.get(t.id) ?? null })) },
         fecha,
         kilometraje,
         descripcion,
@@ -513,7 +575,7 @@ function armarFiltroHistorial(query, errores) {
 
   if (query.tipoArregloId !== undefined && query.tipoArregloId !== '') {
     const id = parsearId(query.tipoArregloId);
-    if (id) where.tipoArregloId = id;
+    if (id) where.tiposArreglo = { some: { tipoArregloId: id } };
     else errores.tipoArregloId = 'El tipo de trabajo no es válido';
   }
 

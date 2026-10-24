@@ -3,11 +3,12 @@ import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import FormField from '../ui/FormField';
+import GrupoCasillas from '../ui/GrupoCasillas';
 import { ListadoToolbar } from '../Listado';
 import { useCarga } from '../../hooks/useCarga';
 import { useFocoEnPrimerError } from '../../hooks/useFocoEnPrimerError';
 import { listarTiposArreglo, registrarArreglo } from '../../services/mantenimientoApi';
-import { MAX_RESPONSABLE, MAX_TEXTO_MANTENIMIENTO } from '../../constants/mantenimiento';
+import { MAX_DETALLE_TIPO, MAX_RESPONSABLE, MAX_TEXTO_MANTENIMIENTO } from '../../constants/mantenimiento';
 import { mensajeErrorCarga } from '../../utils/errorCarga';
 import { hoyCordobaISO } from '../../utils/fechaCordoba';
 import { formatearKm } from '../../utils/viajeFormato';
@@ -16,7 +17,9 @@ import { ordenarPorInterno } from '../../utils/vehiculos';
 
 const formVacio = () => ({
   vehiculoId: '',
-  tipoArregloId: '',
+  tiposArregloIds: [],
+  // "¿Qué trabajo?" de los tipos que lo piden ("Otro"): { [tipoId]: texto }.
+  detallesTipos: {},
   fecha: hoyCordobaISO(),
   kilometraje: '',
   descripcion: '',
@@ -51,7 +54,8 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
   const vehiculos = ordenarPorInterno((cargaVehiculos.datos ?? []).map((item) => item.vehiculo));
   const tipos = cargaTipos.datos ?? [];
   const vehiculo = vehiculos.find((v) => String(v.id) === form.vehiculoId);
-  const tipoArreglo = tipos.find((t) => String(t.id) === form.tipoArregloId) ?? null;
+  const tiposElegidos = tipos.filter((t) => form.tiposArregloIds.includes(t.id));
+  const opcionesTipos = tipos.map((t) => ({ id: t.id, etiqueta: t.nombre, detalle: t.descripcion || undefined }));
 
   const errorVehiculos = cargaVehiculos.error ? mensajeErrorCarga(cargaVehiculos.error, 'la lista de vehículos') : '';
   const errorTipos = cargaTipos.error ? mensajeErrorCarga(cargaTipos.error, 'los tipos de trabajo') : '';
@@ -59,6 +63,39 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
   function cambiar(campo, valor) {
     setForm((actual) => ({ ...actual, [campo]: valor }));
     setErrores((actuales) => ({ ...actuales, [campo]: undefined }));
+  }
+
+  // Al desmarcar un tipo se descarta su "¿Qué trabajo?", así no se manda; y se
+  // limpia el error del detalle, que puede ser de un tipo que ya no está.
+  function cambiarTipos(ids) {
+    setForm((actual) => ({
+      ...actual,
+      tiposArregloIds: ids,
+      detallesTipos: Object.fromEntries(Object.entries(actual.detallesTipos).filter(([id]) => ids.includes(Number(id)))),
+    }));
+    setErrores((actuales) => ({ ...actuales, tiposArregloIds: undefined, detallesTipos: undefined }));
+  }
+
+  function cambiarDetalle(tipoId, texto) {
+    setForm((actual) => ({ ...actual, detallesTipos: { ...actual.detallesTipos, [tipoId]: texto } }));
+    setErrores((actuales) => ({ ...actuales, detallesTipos: undefined }));
+  }
+
+  // Debajo de un tipo marcado que lo pide ("Otro"): qué trabajo se hizo.
+  function campoDetalle(opcion) {
+    const tipo = tipos.find((t) => t.id === opcion.id);
+    if (!tipo?.requiereDetalle) return null;
+    return (
+      <FormField id={`arreglo-detalle-${tipo.id}`} label="¿Qué trabajo?" required error={errores.detallesTipos}>
+        <input
+          type="text"
+          maxLength={MAX_DETALLE_TIPO}
+          placeholder="Por ejemplo, cambio de espejo"
+          value={form.detallesTipos[tipo.id] ?? ''}
+          onChange={(e) => cambiarDetalle(tipo.id, e.target.value)}
+        />
+      </FormField>
+    );
   }
 
   function limpiar() {
@@ -73,9 +110,10 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
     const invalidos = validarRegistroMantenimiento(form, {
       hoy,
       esArreglo: true,
-      tipoArreglo,
+      tiposArreglo: tiposElegidos,
       maxTexto: MAX_TEXTO_MANTENIMIENTO,
       maxResponsable: MAX_RESPONSABLE,
+      maxDetalleTipo: MAX_DETALLE_TIPO,
     });
     setErrores(invalidos);
     if (Object.keys(invalidos).length > 0) {
@@ -86,9 +124,14 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
     setEnviando(true);
     try {
       const texto = (campo) => form[campo].trim() || undefined;
+      // Solo los tipos marcados que lo piden (cambiarTipos ya descarta los demás).
+      const detalles = Object.fromEntries(
+        tiposElegidos.filter((t) => t.requiereDetalle).map((t) => [t.id, form.detallesTipos[t.id].trim()])
+      );
       const { data } = await registrarArreglo({
         vehiculoId: Number(form.vehiculoId),
-        tipoArregloId: Number(form.tipoArregloId),
+        tiposArregloIds: form.tiposArregloIds,
+        detallesTipos: Object.keys(detalles).length > 0 ? detalles : undefined,
         fecha: form.fecha,
         kilometraje: Number(form.kilometraje),
         descripcion: texto('descripcion'),
@@ -137,31 +180,6 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
             </FormField>
 
             <FormField
-              id="arreglo-tipo"
-              label="Tipo de trabajo"
-              required
-              hint={tipoArreglo?.descripcion || undefined}
-              error={errores.tipoArregloId || errorTipos}
-            >
-              <select
-                value={form.tipoArregloId}
-                onChange={(e) => cambiar('tipoArregloId', e.target.value)}
-                disabled={cargaTipos.cargando && tipos.length === 0}
-              >
-                <option value="">{cargaTipos.cargando && tipos.length === 0 ? 'Cargando…' : 'Elegí el tipo de trabajo'}</option>
-                {tipos.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nombre}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-
-            <FormField id="arreglo-fecha" label="Fecha" required error={errores.fecha}>
-              <input type="date" max={hoy} value={form.fecha} onChange={(e) => cambiar('fecha', e.target.value)} />
-            </FormField>
-
-            <FormField
               id="arreglo-km"
               label="Km del odómetro"
               required
@@ -179,25 +197,9 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
               />
             </FormField>
 
-            <div className="form-field-ancho">
-              <FormField
-                id="arreglo-descripcion"
-                label={
-                  <>
-                    Descripción <Contador texto={form.descripcion} maximo={MAX_TEXTO_MANTENIMIENTO} />
-                  </>
-                }
-                required={Boolean(tipoArreglo?.requiereDetalle)}
-                error={errores.descripcion}
-              >
-                <textarea
-                  rows={3}
-                  placeholder="Qué se hizo"
-                  value={form.descripcion}
-                  onChange={(e) => cambiar('descripcion', e.target.value)}
-                />
-              </FormField>
-            </div>
+            <FormField id="arreglo-fecha" label="Fecha" required error={errores.fecha}>
+              <input type="date" max={hoy} value={form.fecha} onChange={(e) => cambiar('fecha', e.target.value)} />
+            </FormField>
 
             <FormField
               id="arreglo-responsable"
@@ -212,7 +214,40 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
                 onChange={(e) => cambiar('responsable', e.target.value)}
               />
             </FormField>
-            <div className="form-hueco" aria-hidden="true" />
+
+            <div className="form-field-ancho">
+              <GrupoCasillas
+                id="arreglo-tipos"
+                legend="Tipos de trabajo"
+                required
+                opciones={opcionesTipos}
+                valor={form.tiposArregloIds}
+                onChange={cambiarTipos}
+                contenidoMarcada={campoDetalle}
+                hint={cargaTipos.cargando && tipos.length === 0 ? 'Cargando…' : undefined}
+                error={errores.tiposArregloIds || errorTipos}
+                disabled={cargaTipos.cargando && tipos.length === 0}
+              />
+            </div>
+
+            <div className="form-field-ancho">
+              <FormField
+                id="arreglo-descripcion"
+                label={
+                  <>
+                    Descripción <Contador texto={form.descripcion} maximo={MAX_TEXTO_MANTENIMIENTO} />
+                  </>
+                }
+                error={errores.descripcion}
+              >
+                <textarea
+                  rows={3}
+                  placeholder="Qué se hizo"
+                  value={form.descripcion}
+                  onChange={(e) => cambiar('descripcion', e.target.value)}
+                />
+              </FormField>
+            </div>
 
             <div className="form-field-ancho">
               <FormField

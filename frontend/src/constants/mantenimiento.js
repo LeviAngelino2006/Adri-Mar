@@ -50,3 +50,5 @@ export const POR_PAGINA_HISTORIAL = 30;
 // alimentan los contadores y la validación previa: el que rechaza es el backend.
 export const MAX_TEXTO_MANTENIMIENTO = 500;
 export const MAX_RESPONSABLE = 120;
+// "¿Qué trabajo?" de "Otro" (va en el badge del historial).
+export const MAX_DETALLE_TIPO = 60;

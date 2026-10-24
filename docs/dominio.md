@@ -55,16 +55,16 @@ La pantalla tiene tres pestañas: **Service** (estado de cada vehículo y regist
 - **Reinicia el conteo:** el km del último service pasa a ser el del service registrado. Un service viejo (con menos km que el último) se guarda en el historial pero **no** baja el conteo.
 
 ### 2.3. Arreglos
-- Cualquier trabajo que no es el service, de un tipo del catálogo `tipos_arreglo`: Engrase, Rotación de cubiertas (se recomienda cada 10.000 km, pero no genera alerta), Cambio de cubiertas, Frenos, Batería y electricidad, Chapa y pintura, Mecánica general y Otro.
-- "Otro" exige una descripción (`requiere_detalle`). Un tipo que se deja de usar se desactiva (`activo`), no se borra.
+- Cualquier trabajo que no es el service, de **uno o más** tipos del catálogo `tipos_arreglo`: Engrase, Rotación de cubiertas (se recomienda cada 10.000 km, pero no genera alerta), Cambio de cubiertas, Frenos, Batería y electricidad, Chapa y pintura, Mecánica general y Otro. Los tipos de cada arreglo se guardan en la tabla intermedia `mantenimiento_tipos_arreglo` (por ejemplo, "Engrase + Cambio de cubiertas" es un solo registro).
+- "Otro" se puede combinar con los demás tipos y, si está marcado, exige indicar qué trabajo se hizo ("¿Qué trabajo?", hasta 60 caracteres, `requiere_detalle`). Se guarda en `mantenimiento_tipos_arreglo.detalle` y el historial lo muestra en lugar de "Otro" ("Engrase + Cambio de espejo"). La descripción del arreglo es opcional. Los arreglos con "Otro" cargados antes no tienen detalle y siguen mostrando "Otro". Un tipo que se deja de usar se desactiva (`activo`), no se borra.
 - Se registra con fecha, km, descripción, quién hizo el trabajo (texto libre: mecánico, chapista o taller), repuestos y observaciones. Sin costo por ahora.
 - Los arreglos **no reinician el conteo del service ni generan alertas**.
 
 ### 2.4. Reglas comunes e Historial
-- Service y arreglo se guardan en la misma tabla (`mantenimientos_realizados`): un registro es uno o el otro, nunca los dos (CHECK `mantenimientos_service_o_arreglo`).
+- Service y arreglo se guardan en la misma tabla (`mantenimientos_realizados`): un registro es un service (sin tipos de arreglo) o un arreglo (con al menos un tipo), nunca los dos. Lo valida `mantenimientoService`.
 - La fecha es un día de Córdoba y no puede ser posterior a hoy. El vehículo no puede estar dado de baja.
 - Si el km cargado supera al odómetro del vehículo, se registra una lectura de odómetro con origen `MANTENIMIENTO` (ver §3.1), con la misma regla de "no retroceder".
-- El historial muestra toda la flota (también los dados de baja), del más reciente al más antiguo, con buscador por vehículo, filtros (tipo de registro, tipo de arreglo, tipo de vehículo, fechas), orden y paginado de a 30.
+- El historial muestra toda la flota (también los dados de baja), del más reciente al más antiguo, con buscador por vehículo, filtros (tipo de registro, tipo de arreglo —trae los arreglos que incluyen ese tipo—, tipo de vehículo, fechas), orden y paginado de a 30.
 - No hay órdenes de trabajo ni estados de una orden: se registra el trabajo ya hecho.
 
 ---

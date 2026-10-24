@@ -581,21 +581,39 @@ model TipoArreglo {
   id              Int                      @id @default(autoincrement()) @map("id_tipoarreglo")
   nombre          String                   @unique
   descripcion     String?
-  // true = el registro exige una descripción (ej. "Otro": sin detalle no se
-  // sabe qué se hizo). Parametrizado acá en vez de comparar con "Otro" en el
-  // código.
+  // true = el tipo exige indicar qué se hizo (mantenimiento_tipos_arreglo.detalle;
+  // ej. "Otro": sin detalle no se sabe qué fue). Parametrizado acá en vez de
+  // comparar con "Otro" en el código.
   requiereDetalle Boolean                  @default(false) @map("requiere_detalle")
   orden           Int
   activo          Boolean                  @default(true)
   creadoEn        DateTime                 @default(now()) @map("creado_en")
-  mantenimientos  MantenimientoRealizado[]
+  mantenimientos  MantenimientoTipoArreglo[]
 
   @@map("tipos_arreglo")
 }
 
-// Un registro es un SERVICE (es_service_preventivo = true, tipo_arreglo_id
-// null) o un ARREGLO (false, con tipo_arreglo_id). Nunca las dos cosas: lo
-// garantiza el CHECK mantenimientos_service_o_arreglo de la migración.
+// Tipos de trabajo de un arreglo (uno o más: "Engrase + Cambio de cubiertas").
+// Borrar el registro borra sus filas; un tipo usado no se puede borrar (se
+// desactiva, ver TipoArreglo).
+model MantenimientoTipoArreglo {
+  mantenimientoId Int                    @map("mantenimiento_id")
+  mantenimiento   MantenimientoRealizado @relation(fields: [mantenimientoId], references: [id], onDelete: Cascade)
+  tipoArregloId   Int                    @map("tipo_arreglo_id")
+  tipoArreglo     TipoArreglo            @relation(fields: [tipoArregloId], references: [id], onDelete: Restrict)
+  // Qué se hizo, para tipos con requiereDetalle ("Otro": "Cambio de espejo").
+  // Se muestra en lugar del nombre del tipo. Null en los demás.
+  detalle         String?
+
+  @@id([mantenimientoId, tipoArregloId])
+  @@index([tipoArregloId])
+  @@map("mantenimiento_tipos_arreglo")
+}
+
+// Un registro es un SERVICE (es_service_preventivo = true, sin tipos de
+// arreglo) o un ARREGLO (false, con al menos un tipo en
+// mantenimiento_tipos_arreglo). Nunca las dos cosas: lo valida
+// mantenimientoService (un CHECK no puede mirar la tabla intermedia).
 // Service y arreglo comparten tabla para que el historial sea una sola
 // consulta. `costo` y `tallerMecanico` quedan en la base (nullable): hoy el
 // service no los usa y el arreglo solo usa tallerMecanico (en la API,
@@ -608,8 +626,7 @@ model MantenimientoRealizado {
   planMantenimientoId Int?               @map("plan_mantenimiento_id")
   planMantenimiento   PlanMantenimiento? @relation(fields: [planMantenimientoId], references: [id], onDelete: SetNull)
   esServicePreventivo Boolean            @default(false) @map("es_service_preventivo")
-  tipoArregloId       Int?               @map("tipo_arreglo_id")
-  tipoArreglo         TipoArreglo?       @relation(fields: [tipoArregloId], references: [id], onDelete: Restrict)
+  tiposArreglo        MantenimientoTipoArreglo[]
   fecha               DateTime
   kilometraje         Int
   descripcion         String?

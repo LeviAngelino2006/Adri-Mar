@@ -92,3 +92,14 @@
   margin-top: calc(-1 * var(--space-3));
   margin-bottom: var(--space-6);
 }
+
+/* Badge de los tipos de un arreglo: con un "¿Qué trabajo?" largo corta con "…"
+   (el texto completo va en el title y en la línea "Trabajos"). */
+.historial-badge-tipos {
+  display: inline-block;
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}

@@ -64,6 +64,8 @@ function crearEntorno() {
     plantillasMantenimiento: [],
     planesMantenimiento: [],
     mantenimientosRealizados: [],
+    // Tabla intermedia registro ↔ tipo de arreglo ({ mantenimientoId, tipoArregloId }).
+    mantenimientosTiposArreglo: [],
     tiposArreglo: [],
     lecturas: [],
     // Orígenes de lectura sembrados (id → descripción).
@@ -186,6 +188,7 @@ function crearEntorno() {
     ]);
     reemplazar(db.planesMantenimiento, []);
     reemplazar(db.mantenimientosRealizados, []);
+    reemplazar(db.mantenimientosTiposArreglo, []);
     const tipoArreglo = (id, nombre, { requiereDetalle = false, activo = true } = {}) => ({
       id,
       nombre,
@@ -484,8 +487,13 @@ function crearEntorno() {
   // Soporta solo los filtros que arma mantenimientoService; uno desconocido revienta.
   function coincideRegistro(fila, where = {}) {
     return Object.entries(where).every(([clave, filtro]) => {
-      if (['vehiculoId', 'esServicePreventivo', 'tipoArregloId'].includes(clave)) return fila[clave] === filtro;
+      if (['vehiculoId', 'esServicePreventivo'].includes(clave)) return fila[clave] === filtro;
       if (clave === 'id') return filtro.in.includes(fila.id);
+      if (clave === 'tiposArreglo') {
+        return db.mantenimientosTiposArreglo.some(
+          (t) => t.mantenimientoId === fila.id && t.tipoArregloId === filtro.some.tipoArregloId
+        );
+      }
       if (clave === 'fecha') {
         const t = fila.fecha.getTime();
         return (!filtro.gte || t >= filtro.gte.getTime()) && (!filtro.lt || t < filtro.lt.getTime());
@@ -499,10 +507,16 @@ function crearEntorno() {
 
   function armarRegistro(fila) {
     const usuario = db.usuarios.find((u) => u.id === fila.usuarioId);
+    // Como el include real: filas de la tabla intermedia con su tipo, por orden del catálogo.
+    const tiposArreglo = db.mantenimientosTiposArreglo
+      .filter((t) => t.mantenimientoId === fila.id)
+      .map((t) => ({ ...t, tipoArreglo: db.tiposArreglo.find((x) => x.id === t.tipoArregloId) }))
+      .sort((a, b) => a.tipoArreglo.orden - b.tipoArreglo.orden);
     return {
       ...fila,
-      tipoArreglo: db.tiposArreglo.find((t) => t.id === fila.tipoArregloId) ?? null,
-      usuario: usuario ? { nombre: usuario.nombre, apellido: usuario.apellido } : null,
+      tiposArreglo,
+      // Como el select real: nombre y apellido viven en Persona (Usuario ya no los tiene).
+      usuario: usuario ? { persona: { nombre: usuario.persona.nombre, apellido: usuario.persona.apellido } } : null,
       vehiculo: { ...db.vehiculos.find((v) => v.id === fila.vehiculoId) },
     };
   }
@@ -510,23 +524,32 @@ function crearEntorno() {
   const modeloMantenimientoRealizado = {
     create: async ({ data }) => {
       if (db.fallos.createMantenimiento) throw new Error('falla simulada en el create del mantenimiento');
-      // CHECK mantenimientos_service_o_arreglo de la migración.
-      if (data.esServicePreventivo === (data.tipoArregloId != null)) {
-        throw new Error('violates check constraint "mantenimientos_service_o_arreglo"');
+      // La base no lo impide (lo valida el servicio), pero un service con tipos
+      // o un arreglo sin tipos es un bug: el doble revienta.
+      const { tiposArreglo, ...columnas } = data;
+      const tipos = tiposArreglo?.create ?? [];
+      if (columnas.esServicePreventivo === tipos.length > 0) {
+        throw new Error('un service no lleva tipos de arreglo y un arreglo lleva al menos uno');
+      }
+      // PK compuesta (mantenimiento_id, tipo_arreglo_id).
+      if (new Set(tipos.map((t) => t.tipoArregloId)).size !== tipos.length) {
+        throw new Error('Unique constraint failed on the fields: (`mantenimiento_id`,`tipo_arreglo_id`)');
       }
       const fila = {
         id: db.siguienteId++,
         planMantenimientoId: null,
-        tipoArregloId: null,
         descripcion: null,
         repuestos: null,
         tallerMecanico: null,
         costo: null,
         observaciones: null,
-        ...data,
+        ...columnas,
         creadoEn: new Date(),
       };
       db.mantenimientosRealizados.push(fila);
+      for (const { tipoArregloId, detalle } of tipos) {
+        db.mantenimientosTiposArreglo.push({ mantenimientoId: fila.id, tipoArregloId, detalle: detalle ?? null });
+      }
       return armarRegistro(fila);
     },
     count: async ({ where } = {}) => db.mantenimientosRealizados.filter((m) => coincideRegistro(m, where)).length,
@@ -546,7 +569,9 @@ function crearEntorno() {
   };
 
   const modeloTipoArreglo = {
+    // Dos formas: el catálogo (activos por orden) o los tipos elegidos (id in, activos o no).
     findMany: async ({ where, orderBy }) => {
+      if (where?.id?.in) return db.tiposArreglo.filter((t) => where.id.in.includes(t.id)).map((t) => ({ ...t }));
       if (!where?.activo || orderBy?.orden !== 'asc') throw new Error('el doble espera where activo + orderBy orden asc');
       return db.tiposArreglo
         .filter((t) => t.activo)
@@ -957,6 +982,7 @@ function crearEntorno() {
         documentos: db.documentos.map((d) => ({ ...d })),
         planesMantenimiento: db.planesMantenimiento.map((p) => ({ ...p })),
         mantenimientosRealizados: db.mantenimientosRealizados.map((m) => ({ ...m })),
+        mantenimientosTiposArreglo: db.mantenimientosTiposArreglo.map((t) => ({ ...t })),
         lecturas: db.lecturas.map((l) => ({ ...l })),
         kmVehiculos: db.vehiculos.map((v) => [v, v.kilometraje]),
       };
@@ -970,6 +996,7 @@ function crearEntorno() {
         reemplazar(db.documentos, copia.documentos);
         reemplazar(db.planesMantenimiento, copia.planesMantenimiento);
         reemplazar(db.mantenimientosRealizados, copia.mantenimientosRealizados);
+        reemplazar(db.mantenimientosTiposArreglo, copia.mantenimientosTiposArreglo);
         reemplazar(db.lecturas, copia.lecturas);
         for (const [vehiculo, km] of copia.kmVehiculos) vehiculo.kilometraje = km;
         throw err;

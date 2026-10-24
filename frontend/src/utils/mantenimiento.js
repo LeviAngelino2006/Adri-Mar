@@ -85,12 +85,25 @@ export function etiquetaVehiculo(vehiculo) {
 // Línea principal de un registro del historial: la descripción o la observación.
 export function textoRegistro(registro) {
   if (registro.tipo === 'SERVICE') return registro.observaciones || 'Service completo';
-  return registro.descripcion || registro.observaciones || 'Sin descripción';
+  // Sin descripción ni observación, el "¿Qué trabajo?" de "Otro": el badge lo
+  // corta con "…" y en el celular no hay title para leerlo entero.
+  const detalles = (registro.tiposArreglo ?? []).map((t) => t.detalle).filter(Boolean);
+  return registro.descripcion || registro.observaciones || detalles.join(', ') || 'Sin descripción';
+}
+
+// Cómo se muestra un tipo de un arreglo: lo que se hizo, si el tipo lo pide
+// ("Otro" → "Cambio de espejo"), o su nombre. Un "Otro" cargado antes de que
+// existiera el detalle se muestra como "Otro".
+export function nombreTipoArreglo(tipo) {
+  return tipo.detalle || tipo.nombre;
 }
 
 // Datos secundarios de un registro que no entraron en la línea principal.
+// Con 2 tipos o más, la lista completa ("Trabajos: …"); con 1 ya está en el badge.
 export function detalleRegistro(registro) {
   const partes = [];
+  const tipos = registro.tiposArreglo ?? [];
+  if (tipos.length > 1) partes.push(`Trabajos: ${tipos.map(nombreTipoArreglo).join(', ')}`);
   if (registro.repuestos) partes.push(`Repuestos: ${registro.repuestos}`);
   if (registro.tipo === 'ARREGLO' && registro.descripcion && registro.observaciones) {
     partes.push(`Observaciones: ${registro.observaciones}`);
@@ -108,11 +121,16 @@ const largo = (texto) => [...String(texto ?? '')].length;
 
 // Validación previa de los formularios de service y arreglo (el backend valida
 // igual). Devuelve { campo: mensaje } con todos los errores juntos.
-// `hoy` es el día de Córdoba ("YYYY-MM-DD"); `tipoArreglo` solo en arreglos.
-export function validarRegistroMantenimiento(form, { hoy, esArreglo = false, tipoArreglo = null, maxTexto, maxResponsable }) {
+// `hoy` es el día de Córdoba ("YYYY-MM-DD"); `tiposArreglo` (los tipos
+// marcados, con `requiereDetalle`) solo en arreglos: los que lo piden necesitan
+// su "¿Qué trabajo?" en `form.detallesTipos[id]`.
+export function validarRegistroMantenimiento(
+  form,
+  { hoy, esArreglo = false, tiposArreglo = [], maxTexto, maxResponsable, maxDetalleTipo }
+) {
   const errores = {};
   if (!form.vehiculoId) errores.vehiculoId = 'Elegí el vehículo';
-  if (esArreglo && !form.tipoArregloId) errores.tipoArregloId = 'Elegí el tipo de trabajo';
+  if (esArreglo && !form.tiposArregloIds?.length) errores.tiposArregloIds = 'Elegí al menos un tipo de trabajo';
   if (!form.fecha) errores.fecha = 'Indicá la fecha';
   else if (form.fecha > hoy) errores.fecha = 'La fecha no puede ser posterior a hoy';
 
@@ -125,10 +143,23 @@ export function validarRegistroMantenimiento(form, { hoy, esArreglo = false, tip
     if (largo(form[campo]) > maxTexto) errores[campo] = `Hasta ${maxTexto} caracteres`;
   }
   if (esArreglo && largo(form.responsable) > maxResponsable) errores.responsable = `Hasta ${maxResponsable} caracteres`;
-  if (esArreglo && tipoArreglo?.requiereDetalle && !String(form.descripcion ?? '').trim() && !errores.descripcion) {
-    errores.descripcion = `Contá qué trabajo se hizo (obligatorio para "${tipoArreglo.nombre}")`;
+  for (const tipo of esArreglo ? tiposArreglo.filter((t) => t.requiereDetalle) : []) {
+    const detalle = String(form.detallesTipos?.[tipo.id] ?? '').trim();
+    if (!detalle) errores.detallesTipos = `Contá qué trabajo se hizo (obligatorio para "${tipo.nombre}")`;
+    else if (largo(detalle) > maxDetalleTipo) errores.detallesTipos = `Hasta ${maxDetalleTipo} caracteres`;
+    if (errores.detallesTipos) break;
   }
   return errores;
+}
+
+// Badge del historial: 1 o 2 tipos por nombre ("Engrase + Frenos", en el orden
+// del catálogo, como los devuelve el backend); desde 3, "N trabajos", así no se
+// estira. La lista completa va en el detalle (detalleRegistro).
+export function textoTiposArreglo(registro) {
+  const tipos = registro.tiposArreglo ?? [];
+  if (tipos.length === 0) return 'Arreglo';
+  if (tipos.length >= 3) return `${tipos.length} trabajos`;
+  return tipos.map(nombreTipoArreglo).join(' + ');
 }
 
 // Advertencia del formulario de viaje (GET /mantenimientos/evaluar-viaje).
