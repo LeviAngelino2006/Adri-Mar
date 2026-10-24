@@ -68,6 +68,11 @@ const FILTROS_INICIALES = {
   administrativoPendiente: '',
 };
 
+const VACIO_SIN_FILTROS = {
+  proximos: 'No hay viajes próximos.',
+  anteriores: 'No hay viajes anteriores.',
+};
+
 function dedupePorId(lista) {
   const vistos = new Map();
   for (const item of lista) {
@@ -129,6 +134,8 @@ function Viajes() {
   const [busquedaAplicada, setBusquedaAplicada] = useState('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const filtrosActivos = Object.values(filtros).filter(Boolean).length;
+  // "Limpiar filtros" aparece si hay algún filtro o una búsqueda.
+  const hayFiltrosOBusqueda = filtrosActivos > 0 || busqueda.trim() !== '';
   const [opcionesChofer, setOpcionesChofer] = useState([]);
   const [opcionesVehiculo, setOpcionesVehiculo] = useState([]);
   const [mensaje, setMensaje] = useState('');
@@ -266,6 +273,13 @@ function Viajes() {
   function handleFiltroChange(e) {
     const { name, value } = e.target;
     setFiltros((f) => ({ ...f, [name]: value }));
+  }
+
+  // Limpia los filtros y la búsqueda, sin esperar el debounce. La vista no cambia.
+  function limpiarFiltros() {
+    setFiltros(FILTROS_INICIALES);
+    setBusqueda('');
+    setBusquedaAplicada('');
   }
 
   function cambiarVista(nueva) {
@@ -503,6 +517,12 @@ function Viajes() {
                   </select>
                 </FormField>
               )}
+
+              {hayFiltrosOBusqueda && (
+                <Button variant="secondary" className="listado-filtros-limpiar" onClick={limpiarFiltros}>
+                  Limpiar filtros
+                </Button>
+              )}
             </form>
           )}
 
@@ -510,7 +530,19 @@ function Viajes() {
             carga={cargaViajes}
             forma="viajes"
             que="los viajes"
-            vacio={viajes.length === 0 && <div className="listado-vacio">No se encontraron viajes</div>}
+            vacio={
+              viajes.length === 0 &&
+              (hayFiltrosOBusqueda ? (
+                <div className="listado-vacio">
+                  <p className="listado-vacio-texto">No hay viajes con esos filtros.</p>
+                  <Button variant="secondary" onClick={limpiarFiltros}>
+                    Limpiar filtros
+                  </Button>
+                </div>
+              ) : (
+                <div className="listado-vacio">{VACIO_SIN_FILTROS[vista]}</div>
+              ))
+            }
           >
             <ListadoViajesPorDia
               viajes={resto}

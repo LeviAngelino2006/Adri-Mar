@@ -192,6 +192,11 @@
   .listado-filtros .form-field {
     flex: 1;
   }
+
+  .listado-filtros .listado-filtros-limpiar {
+    align-self: flex-end;
+    flex: 0 0 auto;
+  }
 }
 
 .listado-cards {
@@ -205,6 +210,16 @@
   text-align: center;
   color: var(--color-text-secondary);
   padding: var(--space-8) 0;
+}
+
+/* Vacío con filtros: el texto y, debajo, "Limpiar filtros". */
+.listado-vacio-texto {
+  margin: 0 0 var(--space-3);
+}
+
+/* "Limpiar filtros" al final del panel: del ancho de su texto, no del panel. */
+.listado-filtros .listado-filtros-limpiar {
+  align-self: flex-start;
 }
 
 .listado-card {

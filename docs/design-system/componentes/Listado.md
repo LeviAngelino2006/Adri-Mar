@@ -31,6 +31,7 @@ Patrón único para las pantallas de listado: Viajes, Flota de vehículos, Usuar
   3. El resto, agrupado por día, del más próximo al más lejano. Los A confirmar sin fecha van al final, en "Sin fecha".
 - **Anteriores:** Finalizados y Cancelados agrupados por día, el más reciente primero.
 - Los filtros se aplican dentro de la vista. El filtro de estado ofrece solo los estados de la vista (Próximos: A confirmar, Programado y En viaje; Anteriores: Finalizado y Cancelado) y, al cambiar de vista, un estado que no es de la nueva se limpia.
+- Vacío sin filtros: "No hay viajes próximos." o "No hay viajes anteriores.". Con algún filtro o una búsqueda: "No hay viajes con esos filtros." y, debajo, el botón "Limpiar filtros" (ver `Filtros`). Si no se pudo cargar, el error con "Reintentar" (`EstadoCarga`).
 - Filtro "Cobro" (solo Administrador y Encargado): "Todos" o "Sin precio o cobro pendiente" (parámetro `administrativoPendiente=true`).
 - Desde el Dashboard, un viaje Finalizado se abre con `?tab=anteriores`, para que la ficha lo encuentre.
 - Buscador "Buscar por cliente o lugar", siempre visible en la barra (no en el panel de filtros): busca en el backend (`q`) por cliente, origen, destino y paradas, dentro de la vista y junto con los filtros. No distingue mayúsculas ni tildes ("cordoba" encuentra "Córdoba"), salvo en las direcciones particulares de Google, donde sí distingue tildes. Se pide 300 ms después de dejar de escribir; hasta 100 caracteres.

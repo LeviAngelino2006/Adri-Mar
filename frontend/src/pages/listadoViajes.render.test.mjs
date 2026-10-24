@@ -1,6 +1,6 @@
 // Tests de la tanda "encontrar viajes": el listado de Viajes con Próximos |
-// Anteriores, el buscador por cliente o lugar, el cliente en la tarjeta y el
-// filtro "Cobro". Se corren con `npm test`
+// Anteriores, el buscador por cliente o lugar, el cliente en la tarjeta, el
+// filtro "Cobro", "Limpiar filtros" y los estados vacíos. Se corren con `npm test`
 // (node:test).
 //
 // Mismo método que choferCelular.render.test.mjs: se monta la pantalla real con
@@ -357,5 +357,77 @@ describe('Filtro "Cobro"', () => {
     await montar('Viajes', '/viajes', { id: 9, personaId: 30, nombre: 'Raúl', apellido: 'Quiroga', perfil: 'PERSONAL_TALLER', habilitadoParaConducir: false });
     await abrirFiltros();
     assert.equal(contenedor.querySelector('select[name="administrativoPendiente"]'), null);
+  });
+});
+
+describe('Limpiar filtros y estados vacíos', () => {
+  const botonesLimpiar = () => [...contenedor.querySelectorAll('button')].filter((b) => b.textContent === 'Limpiar filtros');
+  const enPanel = () => contenedor.querySelector('.listado-filtros .listado-filtros-limpiar');
+  const vacio = () => contenedor.querySelector('.listado-vacio');
+
+  test('en el panel, "Limpiar filtros" aparece solo con algún filtro o una búsqueda', async () => {
+    await montar('Viajes', '/viajes');
+    await abrirFiltros();
+    assert.equal(enPanel(), null);
+
+    await elegir('choferId', '5');
+    assert.ok(enPanel());
+    await elegir('choferId', '');
+    assert.equal(enPanel(), null);
+
+    await escribir('Mendoza');
+    assert.ok(enPanel(), 'también con solo la búsqueda');
+  });
+
+  test('limpia los filtros y la búsqueda de una vez, pero no cambia la vista', async () => {
+    await montar('Viajes', '/viajes?tab=anteriores');
+    await abrirFiltros();
+    await elegir('estado', 'CANCELADO');
+    await escribir('Embalse');
+    await dejarPasar();
+    assert.deepEqual(ultimoPedido(), { vista: 'anteriores', estado: 'CANCELADO', q: 'Embalse' });
+
+    await act(async () => enPanel().click());
+    assert.deepEqual(ultimoPedido(), { vista: 'anteriores' });
+    assert.equal(buscador().value, '');
+    assert.equal(contenedor.querySelector('select[name="estado"]').value, '');
+    assert.equal(router.ubicacion.search, '?tab=anteriores');
+    assert.equal(boton('Anteriores').getAttribute('aria-pressed'), 'true');
+    assert.equal(contenedor.querySelector('.filtros-toggle-badge'), null);
+    assert.equal(enPanel(), null);
+  });
+
+  test('vacío sin filtros: el texto de cada vista, sin botón', async () => {
+    respuestas = { proximos: [], anteriores: [] };
+    await montar('Viajes', '/viajes');
+    assert.equal(vacio().textContent, 'No hay viajes próximos.');
+    assert.equal(botonesLimpiar().length, 0);
+
+    await act(async () => boton('Anteriores').click());
+    assert.equal(vacio().textContent, 'No hay viajes anteriores.');
+    assert.equal(botonesLimpiar().length, 0);
+  });
+
+  test('vacío con un filtro: "No hay viajes con esos filtros." y "Limpiar filtros", que vuelve a la lista', async () => {
+    await montar('Viajes', '/viajes');
+    await abrirFiltros();
+    respuestas = { proximos: [], anteriores: ANTERIORES };
+    await elegir('estado', 'A_CONFIRMAR');
+    assert.equal(vacio().querySelector('.listado-vacio-texto').textContent, 'No hay viajes con esos filtros.');
+
+    respuestas = { proximos: PROXIMOS, anteriores: ANTERIORES };
+    const enElVacio = vacio().querySelector('button');
+    assert.equal(enElVacio.textContent, 'Limpiar filtros');
+    await act(async () => enElVacio.click());
+    assert.deepEqual(ultimoPedido(), { vista: 'proximos' });
+    assert.equal(destinos().length, PROXIMOS.length);
+  });
+
+  test('vacío con solo una búsqueda: el mismo texto y el mismo botón', async () => {
+    await montar('Viajes', '/viajes');
+    await escribir('Ushuaia');
+    await dejarPasar();
+    assert.equal(vacio().querySelector('.listado-vacio-texto').textContent, 'No hay viajes con esos filtros.');
+    assert.equal(botonesLimpiar().length, 1);
   });
 });

@@ -120,7 +120,7 @@ const botonReintentar = () => [...contenedor.querySelectorAll('button')].find((b
 const CASOS = [
   {
     pantalla: 'Viajes', perfil: 'ADMINISTRADOR', ruta: '/viajes', endpoint: '/viajes',
-    vacio: 'No se encontraron viajes', error: 'No pudimos cargar los viajes. Revisá tu conexión.', dato: 'Mendoza',
+    vacio: 'No hay viajes próximos.', error: 'No pudimos cargar los viajes. Revisá tu conexión.', dato: 'Mendoza',
   },
   {
     pantalla: 'FlotaVehiculos', perfil: 'ADMINISTRADOR', ruta: '/vehiculos', endpoint: '/vehiculos',
