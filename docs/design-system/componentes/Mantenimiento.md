@@ -16,6 +16,7 @@ Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento
   - Badge sm: Vencido (error), Próximo (warning), Al día (success), Sin plan (neutral).
   - Sub: marca y modelo.
   - Detalle: "Próximo service a los 340.000 km · faltan 800 km", "· pasado por 1.200 km" o "· le toca ahora". Sin plan: "Sin plan de service: asignale uno para seguir sus kilómetros."
+  - Barra de avance (`.service-barra`, debajo del detalle, solo con plan): la fracción del intervalo recorrida (`porcentajeConsumido`), llena al llegar o pasar el service. 4px, `radius-full`, track `color-border`, máximo 240px. El relleno mezcla `state-success-solid` y `state-error-solid` en oklch según el avance: verde recién hecho el service, ámbar a mitad de camino, rojo al vencer. `role="progressbar"` con `aria-valuenow` y la etiqueta "Intervalo de service recorrido".
   - Pie: "Colectivo · service cada 20.000 km" a la izquierda y "Último: 320.000 km" a la derecha ("Odómetro: 57.345 km" si no tiene plan).
   - Click: con plan abre "Registrar service" con el vehículo elegido; sin plan, "Asignar plan de service".
 - Vacío: "No hay vehículos con esos filtros.".

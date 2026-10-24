@@ -78,6 +78,20 @@ describe('TarjetaService', () => {
     assert.match(html, /Sin plan/);
     assert.match(html, /Odómetro: 339\.200 km/);
   });
+
+  test('con plan: barra de avance con el porcentaje del intervalo recorrido', () => {
+    const html = renderToStaticMarkup(h(TarjetaService, { item: itemProximo, onClick: () => {} }));
+    assert.match(html, /class="service-barra" role="progressbar"/);
+    assert.match(html, /aria-valuenow="96"/);
+    assert.match(html, /width:96%/);
+  });
+
+  test('vencido: la barra queda llena; sin plan no hay barra', () => {
+    const vencido = { ...itemProximo, estado: 'VENCIDO', porcentajeConsumido: 1.2 };
+    assert.match(renderToStaticMarkup(h(TarjetaService, { item: vencido, onClick: () => {} })), /aria-valuenow="100"/);
+    const sinPlan = { ...itemProximo, plan: null, estado: 'SIN_PLAN', kmProximoService: null, porcentajeConsumido: null };
+    assert.doesNotMatch(renderToStaticMarkup(h(TarjetaService, { item: sinPlan, onClick: () => {} })), /progressbar/);
+  });
 });
 
 describe('TarjetaRegistro (historial)', () => {

@@ -15,6 +15,26 @@ import {
 
 const FILTRO_ESTADO = [{ value: '', label: 'Todos' }, ...Object.entries(ESTADOS_SERVICE).map(([value, { label }]) => ({ value, label }))];
 
+// Avance hacia el próximo service: la fracción del intervalo recorrida (llena
+// al llegar o pasar el service). El color va de verde a rojo con el avance.
+function BarraService({ porcentajeConsumido }) {
+  const avance = Math.min(1, Math.max(0, porcentajeConsumido ?? 0));
+  const porcentaje = Math.round(avance * 100);
+  return (
+    <span
+      className="service-barra"
+      role="progressbar"
+      aria-label="Intervalo de service recorrido"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={porcentaje}
+      style={{ '--avance': avance }}
+    >
+      <span className="service-barra-fill" style={{ width: `${porcentaje}%` }} />
+    </span>
+  );
+}
+
 // Tarjeta del estado del service de un vehículo. Con plan, el click abre
 // "Registrar service"; sin plan, "Asignar plan".
 export function TarjetaService({ item, onClick }) {
@@ -34,7 +54,16 @@ export function TarjetaService({ item, onClick }) {
         </EstadoBadge>
       }
       sub={`${vehiculo.marca} ${vehiculo.modelo}`}
-      detalle={detalleEstadoService(item)}
+      detalle={
+        item.estado === 'SIN_PLAN' ? (
+          detalleEstadoService(item)
+        ) : (
+          <>
+            {detalleEstadoService(item)}
+            <BarraService porcentajeConsumido={item.porcentajeConsumido} />
+          </>
+        )
+      }
       pie={[
         textoIntervalo(item),
         item.plan ? `Último: ${formatearKm(item.plan.kmUltimoService)} km` : `Odómetro: ${formatearKm(vehiculo.kilometraje)} km`,

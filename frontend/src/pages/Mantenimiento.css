@@ -9,6 +9,29 @@
   max-width: none;
 }
 
+/* Avance hacia el próximo service en la tarjeta de Service (como la barra de
+   Viajes de hoy). El relleno pasa de verde a rojo según --avance (0 a 1). */
+.service-barra {
+  display: block;
+  height: 4px;
+  max-width: 240px;
+  margin-top: var(--space-1);
+  border-radius: var(--radius-full);
+  background-color: var(--color-border);
+  overflow: hidden;
+}
+
+.service-barra-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background-color: color-mix(
+    in oklch,
+    var(--state-error-solid) calc(var(--avance, 0) * 100%),
+    var(--state-success-solid)
+  );
+}
+
 /* Lista "Incluye:" del service, dentro de un Alert info. */
 .service-incluye-titulo {
   font-weight: 600;
