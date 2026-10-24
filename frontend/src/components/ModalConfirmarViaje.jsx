@@ -158,6 +158,7 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
           <SeleccionCandidato
             id="confirmar-choferId"
             etiqueta="Chofer"
+            placeholder="Elegí el chofer"
             candidatos={candidatosChofer}
             otros={otrosChoferes}
             estados={disponibilidad?.choferes}
@@ -171,6 +172,7 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
           <SeleccionCandidato
             id="confirmar-vehiculoId"
             etiqueta="Vehículo"
+            placeholder="Elegí el vehículo"
             candidatos={candidatosVehiculo}
             otros={otrosVehiculos}
             estados={disponibilidad?.vehiculos}

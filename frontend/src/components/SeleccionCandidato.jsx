@@ -1,4 +1,5 @@
 import FormField from './ui/FormField';
+import OpcionVacia from './ui/OpcionVacia';
 import './SeleccionCandidato.css';
 
 const OPCION_OTRO = 'otro';
@@ -17,9 +18,12 @@ const OPCION_OTRO = 'otro';
 // select también van deshabilitados, con el motivo en la etiqueta: no se
 // pueden elegir.
 //
+// `placeholder` es la primera opción del select ("Elegí el chofer"): no se
+// puede elegir, porque confirmar exige uno (ver OpcionVacia).
+//
 // `valor` es { opcion, otroId }: `opcion` es el id del candidato elegido
 // (string, por ser el value de un radio) o 'otro'.
-function SeleccionCandidato({ id, etiqueta, candidatos, otros, estados, valor, onChange, error }) {
+function SeleccionCandidato({ id, etiqueta, placeholder, candidatos, otros, estados, valor, onChange, error }) {
   const estadoDe = (itemId) => estados?.[itemId];
   const noDisponible = (itemId) => estadoDe(itemId)?.disponible === false;
 
@@ -29,7 +33,7 @@ function SeleccionCandidato({ id, etiqueta, candidatos, otros, estados, valor, o
   const select = (
     <FormField id={`${id}-otro`} label={hayCandidatos ? `${etiqueta} (otro)` : etiqueta} error={hayCandidatos ? undefined : error}>
       <select value={valor.otroId} onChange={(e) => onChange({ opcion: OPCION_OTRO, otroId: e.target.value })}>
-        <option value="">Seleccionar…</option>
+        <OpcionVacia obligatorio>{placeholder}</OpcionVacia>
         {otros.map((o) => (
           <option key={o.id} value={o.id} disabled={noDisponible(o.id)}>
             {noDisponible(o.id) ? `${o.etiqueta} — ${estadoDe(o.id).motivo}` : o.etiqueta}

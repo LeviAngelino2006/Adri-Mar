@@ -9,6 +9,7 @@ import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { porcentajeProgresoViaje } from '../utils/fechaCordoba';
 import { formatearHoraRelativaHoy, nombreChofer } from '../utils/viajeFormato';
 import { consultasViajesDeHoy, resumenViajesDeHoy, unirViajesDeHoy } from '../utils/viajesDeHoy';
+import { destinoFichaViaje } from '../utils/vistasViajes';
 import { useCarga } from '../hooks/useCarga';
 
 const INTERVALO_PROGRESO_MS = 60 * 1000;
@@ -62,7 +63,8 @@ function FilaViajeDeHoy({ viaje, ahora, onAbrir }) {
 
 // Lo que muestra el panel según su estado, sin lógica de carga. `carga` es lo
 // que devuelve useCarga: un error se muestra con "Reintentar" (EstadoCarga),
-// nunca como "No hay viajes para hoy".
+// nunca como "No hay viajes para hoy". Solo los de hoy: los sin cerrar de días
+// anteriores van en su propio panel (PanelViajesSinCerrar).
 export function ContenidoViajesDeHoy({ carga, viajes, ahora, onAbrir }) {
   return (
     <EstadoCarga
@@ -80,7 +82,7 @@ export function ContenidoViajesDeHoy({ carga, viajes, ahora, onAbrir }) {
   );
 }
 
-// Las dos consultas del panel, unidas. Fuera del componente para que useCarga
+// Las consultas del panel, unidas. Fuera del componente para que useCarga
 // reciba siempre la misma función; el día se calcula en cada pedido.
 function pedirViajesDeHoy() {
   return Promise.all(consultasViajesDeHoy().map((params) => api.get('/viajes', { params }))).then((respuestas) =>
@@ -90,12 +92,11 @@ function pedirViajesDeHoy() {
 
 // Panel del Dashboard de Administrador y Encargado: los viajes Programados, En
 // viaje y Finalizados que salen hoy (día de Córdoba), más cualquier En viaje que
-// haya salido antes, del más temprano al más tarde. Cada fila abre la ficha del
-// viaje en Viajes; no hay acciones.
+// se haya comenzado antes de su día, del más temprano al más tarde. Los de días
+// anteriores que siguen abiertos no van acá: están en el panel Sin cerrar. Cada
+// fila abre la ficha del viaje en Viajes; no hay acciones.
 //
-// GET /viajes acepta un solo estado, así que se hacen dos consultas: la del día
-// (el backend toma la fecha suelta como el día entero de Córdoba) y la de todos
-// los En viaje. Se unen sin duplicados y se sacan A confirmar y Cancelados acá.
+// Las consultas y cómo se unen están en utils/viajesDeHoy.
 function PanelViajesDeHoy() {
   const navigate = useNavigate();
   const carga = useCarga(pedirViajesDeHoy);
@@ -111,8 +112,10 @@ function PanelViajesDeHoy() {
     return () => clearInterval(id);
   }, [hayEnViaje]);
 
+  // Un Finalizado de hoy está en Anteriores del listado de Viajes: se abre esa
+  // vista para que la ficha lo encuentre.
   function abrir(viaje) {
-    navigate('/viajes', { state: { viajeId: viaje.id } });
+    navigate(...destinoFichaViaje(viaje));
   }
 
   return (

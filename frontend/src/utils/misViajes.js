@@ -6,15 +6,13 @@
 // - Anteriores: Finalizados y Cancelados, el más reciente primero.
 //
 // El chofer no ve viajes A confirmar (los filtra el backend), así que no van en
-// ninguna de las dos vistas.
+// ninguna de las dos vistas. La vista en la URL y el resto de lo que comparte con
+// el listado de Viajes están en utils/vistasViajes.
 
 export const VISTAS_MIS_VIAJES = {
-  proximos: ['EN_VIAJE', 'PROGRAMADO'],
+  proximos: ['PROGRAMADO', 'EN_VIAJE'],
   anteriores: ['FINALIZADO', 'CANCELADO'],
 };
-
-// La vista sale de la URL (?tab=anteriores); cualquier otro valor es Próximos.
-export const vistaMisViajes = (valor) => (valor === 'anteriores' ? 'anteriores' : 'proximos');
 
 // Por fecha de inicio, 'asc' o 'desc'. Sin fecha de inicio (no debería haber: es
 // obligatoria) va al final en los dos sentidos. No modifica el arreglo recibido.

@@ -1,4 +1,6 @@
-// Viajes del panel "Viajes de hoy" del Dashboard (Administrador y Encargado).
+// Viajes del panel "Viajes de hoy" del Dashboard (Administrador y Encargado):
+// solo los de hoy. Los de días anteriores que siguen abiertos ("sin cerrar") van
+// en su propio panel (ver viajesSinCerrar.js), no acá.
 //
 // Los imports llevan la extensión .js para que los tests (node --test) los
 // resuelvan igual que Vite.
@@ -7,23 +9,30 @@ import { hoyCordobaISO } from './fechaCordoba.js';
 
 const EXCLUIDOS = ['A_CONFIRMAR', 'CANCELADO'];
 
-// Lo que se le pide al backend: los viajes que empiezan hoy (día de Córdoba; el
-// backend interpreta una fecha suelta como el día entero de Córdoba, de 00:00 a
-// 23:59:59.999) y, aparte, todos los En viaje, para no perder uno que salió ayer.
+// Lo que se le pide al backend (GET /viajes acepta un solo estado, por eso son
+// dos consultas):
+//  1. Los que empiezan hoy, en cualquier estado (también los Finalizados de hoy).
+//     El backend interpreta una fecha suelta como el día entero de Córdoba, de
+//     00:00 a 23:59:59.999.
+//  2. Todos los En viaje, con vista=proximos: uno que se comenzó antes de su día
+//     no tiene que perderse, y la vista marca con `sinCerrar` al que empezó un
+//     día anterior, que no es de hoy (está en el panel Sin cerrar).
 export function consultasViajesDeHoy(ahora = Date.now()) {
   const hoy = hoyCordobaISO(ahora);
-  return [{ fechaDesde: hoy, fechaHasta: hoy }, { estado: 'EN_VIAJE' }];
+  return [{ fechaDesde: hoy, fechaHasta: hoy }, { vista: 'proximos', estado: 'EN_VIAJE' }];
 }
 
-// Une las dos respuestas sin duplicados, saca los A confirmar y los Cancelados y
-// ordena por salida, del más temprano al más tarde.
+// Une las respuestas sin duplicados (si alguna copia de un viaje viene marcada
+// `sinCerrar`, queda esa), saca los A confirmar, los Cancelados y los sin cerrar
+// (lo decide el backend: acá no se recalcula) y ordena por salida, del más
+// temprano al más tarde.
 export function unirViajesDeHoy(...listas) {
   const porId = new Map();
   for (const viaje of listas.flat()) {
-    if (!porId.has(viaje.id)) porId.set(viaje.id, viaje);
+    if (!porId.has(viaje.id) || viaje.sinCerrar) porId.set(viaje.id, viaje);
   }
   return [...porId.values()]
-    .filter((viaje) => !EXCLUIDOS.includes(viaje.estado))
+    .filter((viaje) => !viaje.sinCerrar && !EXCLUIDOS.includes(viaje.estado))
     .sort((a, b) => new Date(a.fechaInicio) - new Date(b.fechaInicio));
 }
 

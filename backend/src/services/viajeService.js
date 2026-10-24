@@ -9,6 +9,7 @@ const {
 const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../utils/marcaModeloVehiculo');
 // Fechas sin offset = hora de Córdoba (UTC-3 todo el año): ver utils/fechaCordoba.
 const { aFechaCordoba } = require('../utils/fechaCordoba');
+const { normalizarNombre } = require('../utils/normalizarNombre');
 
 // Un punto del recorrido (origen, destino o parada) como lo ve el front: con el
 // placeId de Google y las coordenadas (null si no tiene), para que el link
@@ -589,14 +590,11 @@ function serializarDatosAdministrativos(viaje) {
 
 function serializarCandidatos(viaje) {
   return {
-    choferesCandidatos: (viaje.choferesCandidatos ?? []).map(({ persona, usuario }) => {
-      const p = persona || usuario;
-      return {
-        id: p.id,
-        nombre: p.nombre,
-        apellido: p.apellido,
-      };
-    }),
+    choferesCandidatos: (viaje.choferesCandidatos ?? []).map(({ persona }) => ({
+      id: persona.id,
+      nombre: persona.nombre,
+      apellido: persona.apellido,
+    })),
     vehiculosCandidatos: (viaje.vehiculosCandidatos ?? []).map(({ vehiculo }) => ({
       id: vehiculo.id,
       dominio: vehiculo.dominio,
@@ -1262,7 +1260,7 @@ async function disponibilidadDeViaje(id, { todos = false } = {}) {
     throw new ValidacionError({ fechaInicio: 'El viaje no tiene fecha de inicio' });
   }
 
-  let choferIds = actual.choferesCandidatos.map((c) => c.personaId ?? c.usuarioId);
+  let choferIds = actual.choferesCandidatos.map((c) => c.personaId);
   let vehiculoIds = actual.vehiculosCandidatos.map((c) => c.vehiculoId);
 
   if (todos) {
@@ -1751,11 +1749,117 @@ function parsearFechaHasta(valor) {
 // listado general (GET /viajes) nunca pasa esta opción, así que ve
 // A_CONFIRMAR con total normalidad.
 //
+// --- Vistas del listado (GET /viajes?vista=...) -------------------------------
+//
+// Mismo corte que Mis viajes (frontend/src/utils/misViajes.js): por estado.
+// - proximos: los que siguen abiertos (A confirmar, Programado, En viaje), sea
+//   cual sea su fecha. Van primero los "sin cerrar" (de días anteriores a hoy en
+//   Córdoba), después los En viaje que no son sin cerrar y después el resto, del
+//   más próximo al más lejano; los que no tienen fecha (A confirmar), al final.
+// - anteriores: Finalizados y Cancelados, el más reciente primero.
+// Un viaje de un día anterior que sigue abierto es "sin cerrar": es la única
+// definición, la usan el listado y el Dashboard de gestión (que la lee del campo
+// `sinCerrar` de la respuesta, no la recalcula).
+const VISTAS_LISTADO = {
+  proximos: ['A_CONFIRMAR', 'PROGRAMADO', 'EN_VIAJE'],
+  anteriores: ['FINALIZADO', 'CANCELADO'],
+};
+
+const ORDEN_VISTA = {
+  proximos: [{ fechaInicio: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
+  anteriores: [{ fechaInicio: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
+};
+
+// undefined (no vino) o el nombre de una vista; cualquier otro valor es un 400:
+// ignorarlo devolvería el listado completo, que no es lo que se pidió.
+function validarVista(vista) {
+  if (vista === undefined) return undefined;
+  if (typeof vista === 'string' && Object.hasOwn(VISTAS_LISTADO, vista)) return vista;
+  throw new ValidacionError({ vista: "La vista tiene que ser 'proximos' o 'anteriores'" });
+}
+
+const esSinCerrar = (viaje, inicioDeHoy) => viaje.fechaInicio != null && viaje.fechaInicio < inicioDeHoy;
+
+// Orden de Próximos sobre la lista que ya viene por fecha ascendente: los sin
+// cerrar ya quedan primero (son los más viejos); solo hay que adelantar los En
+// viaje al resto. Devuelve [{ viaje, sinCerrar }].
+function ordenarProximos(viajes, inicioDeHoy) {
+  const sinCerrar = [];
+  const enViaje = [];
+  const resto = [];
+  for (const viaje of viajes) {
+    if (esSinCerrar(viaje, inicioDeHoy)) sinCerrar.push(viaje);
+    else if (viaje.estadoViaje.descripcion === 'EN_VIAJE') enViaje.push(viaje);
+    else resto.push(viaje);
+  }
+  return [
+    ...sinCerrar.map((viaje) => ({ viaje, sinCerrar: true })),
+    ...[...enViaje, ...resto].map((viaje) => ({ viaje, sinCerrar: false })),
+  ];
+}
+
+// --- Búsqueda del listado (GET /viajes?q=...) ----------------------------------
+//
+// Por nombre del cliente, del origen, del destino o de una parada, sin distinguir
+// mayúsculas ni tildes ("cordoba" encuentra "Córdoba"). Para eso se busca en
+// nombreNormalizado (minúsculas y sin acentos, ver utils/normalizarNombre), que
+// ya tienen todos los clientes y las ubicaciones frecuentes, con el texto pasado
+// por la misma función: sin unaccent ni migraciones. Las ubicaciones
+// particulares (direcciones de Google) no tienen nombreNormalizado: para ellas se
+// busca en el nombre con mode: 'insensitive', que no distingue mayúsculas pero sí
+// tildes.
+const MAX_LONGITUD_BUSQUEDA = 100;
+
+// null si no hay búsqueda (no vino, o vacía o solo espacios); si no, el texto sin
+// espacios en los extremos. Más largo que el máximo, o algo que no es un texto
+// (?q=a&q=b), es un 400.
+function validarBusqueda(q) {
+  if (q === undefined || q === null) return null;
+  if (typeof q !== 'string') {
+    throw new ValidacionError({ q: 'La búsqueda debe ser un texto' });
+  }
+  const texto = q.trim();
+  if (texto === '') return null;
+  if ([...texto].length > MAX_LONGITUD_BUSQUEDA) {
+    throw new ValidacionError({ q: `La búsqueda no puede superar los ${MAX_LONGITUD_BUSQUEDA} caracteres` });
+  }
+  return texto;
+}
+
+// Prisma arma `contains` como un LIKE '%…%' de Postgres y no escapa los
+// comodines: sin esto, "%" o "_" encontrarían cualquier viaje. Se escapan con la
+// barra invertida, el carácter de escape por defecto de LIKE.
+const escaparComodines = (texto) => texto.replace(/[\\%_]/g, '\\$&');
+
+function filtroBusqueda(texto) {
+  const normalizado = escaparComodines(normalizarNombre(texto));
+  const literal = escaparComodines(texto);
+  const enUbicacion = {
+    OR: [{ nombreNormalizado: { contains: normalizado } }, { nombre: { contains: literal, mode: 'insensitive' } }],
+  };
+  return {
+    OR: [
+      { cliente: { is: { nombreNormalizado: { contains: normalizado } } } },
+      { origen: { is: enUbicacion } },
+      { destino: { is: enUbicacion } },
+      { paradas: { some: { ubicacion: enUbicacion } } },
+    ],
+  };
+}
+
 // `administrativoPendiente` ('true' en la query) deja solo los viajes con algún
 // pendiente administrativo (ver FILTRO_ADMINISTRATIVO_PENDIENTE). Filtrar por
 // precio/pago ya revela esos datos, así que sigue la misma regla que la
 // serialización: solo Administrador/Encargado; para el resto es un 403 (no se
 // ignora en silencio, porque devolvería un listado que no es lo que se pidió).
+//
+// `vista` ('proximos' | 'anteriores', ver VISTAS_LISTADO) corta y ordena el
+// listado; los demás filtros se aplican dentro de la vista (un estado que no es
+// de la vista da una lista vacía). En Próximos cada viaje trae además
+// `sinCerrar`. Sin `vista`, todo sigue como antes: todos los estados, del más
+// futuro al más viejo y sin `sinCerrar` (lo usan el Dashboard y otras pantallas).
+//
+// `q` busca por cliente o lugar (ver filtroBusqueda), también dentro de la vista.
 async function listarViajes(
   {
     estado,
@@ -1764,17 +1868,28 @@ async function listarViajes(
     fechaDesde,
     fechaHasta,
     administrativoPendiente,
+    vista,
+    q,
     excluirAConfirmar = false,
   } = {},
   usuarioSolicitante
 ) {
+  const vistaValida = validarVista(vista);
+  const busqueda = validarBusqueda(q);
   const where = {};
+  const condiciones = [];
 
   if (administrativoPendiente === 'true') {
     if (!puedeVerDatosAdministrativos(usuarioSolicitante)) {
       throw new PermisoDenegadoError('Solo Administrador y Encargado pueden filtrar por datos administrativos');
     }
-    where.AND = [FILTRO_ADMINISTRATIVO_PENDIENTE];
+    condiciones.push(FILTRO_ADMINISTRATIVO_PENDIENTE);
+  }
+  if (busqueda) {
+    condiciones.push(filtroBusqueda(busqueda));
+  }
+  if (condiciones.length > 0) {
+    where.AND = condiciones;
   }
 
   const filtroEstado = {};
@@ -1783,6 +1898,9 @@ async function listarViajes(
   }
   if (excluirAConfirmar) {
     filtroEstado.not = 'A_CONFIRMAR';
+  }
+  if (vistaValida) {
+    filtroEstado.in = VISTAS_LISTADO[vistaValida];
   }
   if (Object.keys(filtroEstado).length > 0) {
     where.estadoViaje = { descripcion: filtroEstado };
@@ -1815,10 +1933,22 @@ async function listarViajes(
     // del listado en vez de reventar la query o aparecer primero/mezclados
     // (Postgres por defecto pone los NULL primero en DESC, que sería peor:
     // los viajes sin programar todavía tapando los reales arriba de todo).
-    orderBy: { fechaInicio: { sort: 'desc', nulls: 'last' } },
+    // Con vista, el id desempata para que el orden no cambie entre pedidos.
+    orderBy: vistaValida ? ORDEN_VISTA[vistaValida] : { fechaInicio: { sort: 'desc', nulls: 'last' } },
   });
 
-  return Promise.all(viajes.map((viaje) => serializarViaje(viaje, usuarioSolicitante)));
+  if (vistaValida !== 'proximos') {
+    return Promise.all(viajes.map((viaje) => serializarViaje(viaje, usuarioSolicitante)));
+  }
+
+  // "Hoy" es el día de Córdoba: su inicio es las 00:00 de Córdoba.
+  const { inicio: inicioDeHoy } = rangoDelDiaCordoba(new Date());
+  return Promise.all(
+    ordenarProximos(viajes, inicioDeHoy).map(async ({ viaje, sinCerrar }) => ({
+      ...(await serializarViaje(viaje, usuarioSolicitante)),
+      sinCerrar,
+    }))
+  );
 }
 
 module.exports = {

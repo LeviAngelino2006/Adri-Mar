@@ -7,6 +7,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Switch from '../components/ui/Switch';
 import FormField from '../components/ui/FormField';
+import OpcionVacia from '../components/ui/OpcionVacia';
 import Alert from '../components/ui/Alert';
 import Cargando from '../components/ui/Cargando';
 import Toast from '../components/ui/Toast';
@@ -255,7 +256,7 @@ function Personal() {
 
                 <FormField id="perfil" label="Puesto / Perfil" required error={errores.perfil}>
                   <select name="perfil" value={form.perfil} onChange={handleChange}>
-                    <option value="">Seleccionar…</option>
+                    <OpcionVacia obligatorio>Elegí el perfil</OpcionVacia>
                     {perfilesDisponibles.map((p) => (
                       <option key={p.value} value={p.value}>
                         {p.label}
@@ -327,8 +328,8 @@ function Personal() {
                     estado={
                       <div className="personal-badges">
                         {p.habilitadoParaConducir && (
-                          <span className="personal-badge-conduce" title="Habilitado para conducir">
-                            🚗 Chofer
+                          <span className="personal-conduce" title="Habilitado para conducir">
+                            Chofer
                           </span>
                         )}
                         <EstadoBadge tono={p.activo ? 'success' : 'neutral'} size="sm">

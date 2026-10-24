@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
@@ -30,6 +30,15 @@ import { esChoferDelViaje } from '../utils/choferDelViaje';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import { useCarga } from '../hooks/useCarga';
 import { useViajesEnCurso } from '../hooks/useViajesEnCurso';
+import {
+  OPCIONES_VISTA,
+  VISTAS_VIAJES,
+  filtrosParaLaVista,
+  opcionesDeEstado,
+  parametrosDeVista,
+  separarProximos,
+  vistaDeLaUrl,
+} from '../utils/vistasViajes';
 import './Viajes.css';
 
 const ICONO_ALERTA = (
@@ -42,14 +51,11 @@ const ICONO_ALERTA = (
 
 const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
 
-const ESTADOS_FILTRO = [
-  { value: '', label: 'Todos' },
-  { value: 'A_CONFIRMAR', label: 'A confirmar' },
-  { value: 'PROGRAMADO', label: 'Programado' },
-  { value: 'EN_VIAJE', label: 'En viaje' },
-  { value: 'FINALIZADO', label: 'Finalizado' },
-  { value: 'CANCELADO', label: 'Cancelado' },
-];
+// El filtro de estado ofrece solo los estados de la vista (Próximos | Anteriores).
+const ESTADOS_FILTRO = {
+  proximos: opcionesDeEstado(VISTAS_VIAJES.proximos),
+  anteriores: opcionesDeEstado(VISTAS_VIAJES.anteriores),
+};
 
 const FILTROS_INICIALES = {
   estado: '',
@@ -57,9 +63,14 @@ const FILTROS_INICIALES = {
   vehiculoId: '',
   fechaDesde: '',
   fechaHasta: '',
-  // 'true' o '': viajes con badge "Sin precio" o "Cobro pendiente". Solo lo ven
-  // (y el backend solo lo acepta de) Administrador y Encargado.
+  // 'true' o '': viajes con "Sin precio" o "Cobro pendiente" (filtro "Cobro").
+  // Solo lo ven (y el backend solo lo acepta de) Administrador y Encargado.
   administrativoPendiente: '',
+};
+
+const VACIO_SIN_FILTROS = {
+  proximos: 'No hay viajes próximos.',
+  anteriores: 'No hay viajes anteriores.',
 };
 
 function dedupePorId(lista) {
@@ -71,6 +82,11 @@ function dedupePorId(lista) {
 }
 
 const MARGEN_SCROLL_PX = 16;
+
+// La búsqueda se pide al dejar de escribir, no en cada tecla. El máximo es el
+// mismo que valida el backend (viajeService, MAX_LONGITUD_BUSQUEDA).
+const DEMORA_BUSQUEDA_MS = 300;
+const MAX_LONGITUD_BUSQUEDA = 100;
 
 // Scroll suave hasta la tarjeta de datos administrativos de la ficha. Si su
 // encabezado (título y botón "Editar datos administrativos") ya se ve entero
@@ -107,9 +123,19 @@ function Viajes() {
   // viajes). Se consume una sola vez, al terminar la primera carga del listado.
   const viajeIdPendiente = useRef(location.state?.viajeId ?? null);
 
+  // Próximos | Anteriores, en la URL (?tab=anteriores) como en Mis viajes. El
+  // corte y el orden los hace el backend (GET /viajes?vista=).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const vista = vistaDeLaUrl(searchParams.get('tab'));
+
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
+  // Búsqueda por cliente o lugar: lo que se escribe y lo que ya se pidió.
+  const [busqueda, setBusqueda] = useState('');
+  const [busquedaAplicada, setBusquedaAplicada] = useState('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const filtrosActivos = Object.values(filtros).filter(Boolean).length;
+  // "Limpiar filtros" aparece si hay algún filtro o una búsqueda.
+  const hayFiltrosOBusqueda = filtrosActivos > 0 || busqueda.trim() !== '';
   const [opcionesChofer, setOpcionesChofer] = useState([]);
   const [opcionesVehiculo, setOpcionesVehiculo] = useState([]);
   const [mensaje, setMensaje] = useState('');
@@ -161,10 +187,17 @@ function Viajes() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => setBusquedaAplicada(busqueda.trim()), DEMORA_BUSQUEDA_MS);
+    return () => clearTimeout(t);
+  }, [busqueda]);
+
   // Pide el listado con los filtros actuales; useCarga lleva los estados de
-  // cargando y error (un error no es un listado vacío).
+  // cargando y error (un error no es un listado vacío) y descarta la respuesta
+  // de un pedido viejo (mientras se escribe en el buscador, por ejemplo).
   const pedirViajes = useCallback(() => {
-    const params = {};
+    const params = { vista };
+    if (busquedaAplicada) params.q = busquedaAplicada;
     if (filtros.estado) params.estado = filtros.estado;
     if (filtros.choferId) params.choferId = filtros.choferId;
     if (filtros.vehiculoId) params.vehiculoId = filtros.vehiculoId;
@@ -180,15 +213,18 @@ function Viajes() {
           viajeIdPendiente.current = null;
           if (pendiente) setSeleccionado(pendiente);
           // Se limpia el estado de navegación para que recargar la página no
-          // vuelva a abrir la ficha.
-          navigate(location.pathname, { replace: true, state: null });
+          // vuelva a abrir la ficha (la vista de la URL se conserva).
+          navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
         }
         return data.viajes;
       });
-  }, [filtros, navigate, location.pathname]);
+  }, [filtros, vista, busquedaAplicada, navigate, location.pathname, location.search]);
 
   const cargaViajes = useCarga(pedirViajes);
   const viajes = cargaViajes.datos ?? [];
+  // En Anteriores no hay grupos aparte: todo va por día, el más reciente primero.
+  const { sinCerrar, enCurso, resto } =
+    vista === 'proximos' ? separarProximos(viajes) : { sinCerrar: [], enCurso: [], resto: viajes };
   const cargarViajes = cargaViajes.recargar;
 
   // Viajes En viaje, para no ofrecer "Comenzar viaje" si el chofer o el vehículo
@@ -237,6 +273,18 @@ function Viajes() {
   function handleFiltroChange(e) {
     const { name, value } = e.target;
     setFiltros((f) => ({ ...f, [name]: value }));
+  }
+
+  // Limpia los filtros y la búsqueda, sin esperar el debounce. La vista no cambia.
+  function limpiarFiltros() {
+    setFiltros(FILTROS_INICIALES);
+    setBusqueda('');
+    setBusquedaAplicada('');
+  }
+
+  function cambiarVista(nueva) {
+    setSearchParams(parametrosDeVista(nueva));
+    setFiltros((f) => filtrosParaLaVista(f, VISTAS_VIAJES[nueva]));
   }
 
   function seleccionar(viaje) {
@@ -404,7 +452,14 @@ function Viajes() {
       {!mostrarForm && !seleccionado && (
         <>
           <ListadoToolbar
+            busqueda={{
+              valor: busqueda,
+              onChange: setBusqueda,
+              placeholder: 'Buscar por cliente o lugar',
+              maxLength: MAX_LONGITUD_BUSQUEDA,
+            }}
             filtros={{ abierto: mostrarFiltros, onToggle: () => setMostrarFiltros((m) => !m), activos: filtrosActivos }}
+            vistas={{ opciones: OPCIONES_VISTA, valor: vista, onChange: cambiarVista, ariaLabel: 'Vista de viajes' }}
             accion={puedeGestionar ? { etiqueta: 'Crear viaje', onClick: abrirNuevo } : undefined}
           />
 
@@ -412,7 +467,7 @@ function Viajes() {
             <form className="listado-filtros" onSubmit={(e) => e.preventDefault()}>
               <FormField id="estado" label="Estado">
                 <select name="estado" value={filtros.estado} onChange={handleFiltroChange}>
-                  {ESTADOS_FILTRO.map((e) => (
+                  {ESTADOS_FILTRO[vista].map((e) => (
                     <option key={e.value} value={e.value}>
                       {e.label}
                     </option>
@@ -451,16 +506,22 @@ function Viajes() {
               </FormField>
 
               {puedeGestionar && (
-                <FormField id="administrativoPendiente" label="Administrativo">
+                <FormField id="administrativoPendiente" label="Cobro">
                   <select
                     name="administrativoPendiente"
                     value={filtros.administrativoPendiente}
                     onChange={handleFiltroChange}
                   >
                     <option value="">Todos</option>
-                    <option value="true">Administrativo pendiente</option>
+                    <option value="true">Sin precio o cobro pendiente</option>
                   </select>
                 </FormField>
+              )}
+
+              {hayFiltrosOBusqueda && (
+                <Button variant="secondary" className="listado-filtros-limpiar" onClick={limpiarFiltros}>
+                  Limpiar filtros
+                </Button>
               )}
             </form>
           )}
@@ -469,9 +530,28 @@ function Viajes() {
             carga={cargaViajes}
             forma="viajes"
             que="los viajes"
-            vacio={viajes.length === 0 && <div className="listado-vacio">No se encontraron viajes</div>}
+            vacio={
+              viajes.length === 0 &&
+              (hayFiltrosOBusqueda ? (
+                <div className="listado-vacio">
+                  <p className="listado-vacio-texto">No hay viajes con esos filtros.</p>
+                  <Button variant="secondary" onClick={limpiarFiltros}>
+                    Limpiar filtros
+                  </Button>
+                </div>
+              ) : (
+                <div className="listado-vacio">{VACIO_SIN_FILTROS[vista]}</div>
+              ))
+            }
           >
-            <ListadoViajesPorDia viajes={viajes} mostrarPendientes={puedeGestionar} onSeleccionar={seleccionar} />
+            <ListadoViajesPorDia
+              viajes={resto}
+              enCurso={enCurso}
+              sinCerrar={sinCerrar}
+              mostrarCliente
+              mostrarPendientes={puedeGestionar}
+              onSeleccionar={seleccionar}
+            />
           </EstadoCarga>
         </>
       )}

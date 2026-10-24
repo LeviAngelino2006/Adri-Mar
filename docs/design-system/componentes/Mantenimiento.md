@@ -2,11 +2,11 @@ Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento
 
 ## Estructura
 - Sin título visible: `ListadoHeader` con "Mantenimiento" en `.sr-only`, como los listados.
-- `ControlSegmentado` **Service | Arreglos | Historial** en la barra (`vistas` de `ListadoToolbar`), a la derecha del buscador y Filtros, igual que en Documentación. Service lleva como cantidad las alertas (vencidos + próximos); no se muestra mientras carga, si falló o si es 0. Arreglos e Historial no llevan cantidad.
+- `ControlSegmentado` **Service | Arreglos | Historial** en la barra (`vistas` de `ListadoToolbar`), a la derecha de todo, con el buscador y Filtros a la izquierda, igual que en Documentación. Está en el mismo lugar en las tres vistas (en Arreglos, que no tiene buscador ni Filtros, queda solo a la derecha) y, debajo de 600px de barra, pasa arriba a todo el ancho (ver `Listado`). Sin acción en la barra. Service lleva como cantidad las alertas (vencidos + próximos); no se muestra mientras carga, si falló o si es 0. Arreglos e Historial no llevan cantidad.
 - La vista y el vehículo del historial van en la URL: `?tab=arreglos`, `?tab=historial&vehiculoId=7`. Service es la vista por defecto (sin `tab`). Al cambiar de vista la página vuelve arriba.
 
 ## Service
-- Barra: buscador ("Buscar por interno, dominio, marca o modelo"), Filtros y la acción "Registrar service" (abre el modal sin vehículo elegido).
+- Barra: buscador ("Buscar por interno, dominio, marca o modelo") y Filtros, sin acción: el service se registra tocando la tarjeta del vehículo.
 - Filtros: Estado (Todos, Vencido, Próximo, Al día, Sin plan), Tipo de vehículo y Ordenar por (Más urgente, Número de interno, Tipo de vehículo, Km desde el último service). El contador de Filtros cuenta estado y tipo; el orden no.
 - Orden por defecto, Más urgente: la fracción del intervalo recorrida, de mayor a menor, con los Sin plan al final. Por km restantes no: 900 km son el 4,5 % de un colectivo y el 9 % de un utilitario.
 - Filtrado y orden en el front (son pocos vehículos): funciones puras en `utils/mantenimiento.js`.
@@ -23,7 +23,7 @@ Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento
 ## Modal "Registrar service"
 - `ModalMarco` con título "Registrar service" y, si el vehículo viene elegido, el subtítulo "12 - AB123CD · Mercedes-Benz O500".
 - Campos: Vehículo (solo si no vino elegido; `select` ordenado por interno), Fecha (hoy por defecto, no puede ser futura) | Km del odómetro (hint "Odómetro actual: 57.345 km"), Observación (textarea con contador "0/500").
-- Debajo, un `Alert` info "Incluye:" con la lista fija de `TAREAS_SERVICE` (`constants/mantenimiento.js`). Es informativa: no se tilda, el service siempre es completo. Sin costo ni responsable.
+- Lo que incluye el service va como hint de Observación (texto gris de ayuda, `caption`, enlazado al textarea con `aria-describedby`), en una sola oración: "Incluye cambio de aceite, filtros de gasoil, aceite y habitáculo (aire acondicionado), alineado y balanceado y revisión general del motor.". La arma `textoIncluyeService` (`utils/mantenimiento.js`) con las tareas de la plantilla, `TAREAS_SERVICE` (`constants/mantenimiento.js`): si la plantilla cambia, la oración cambia sola. Nada de caja de color ni viñetas: es informativa, no se tilda, el service siempre es completo. Sin costo ni responsable.
 - Botones "Cancelar" y "Registrar service" ("Registrando…"). Éxito: toast "Service registrado." con la acción "Ver en el historial".
 
 ## Modal "Asignar plan de service"
@@ -31,7 +31,8 @@ Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento
 - Botones "Cancelar" y "Asignar plan" ("Asignando…"). Éxito: toast "Plan de service asignado.".
 
 ## Arreglos
-- Solo el formulario, sin listado: `Card .form-card` con un `.form-grid`, como `FormularioVehiculo`. La barra tiene solo el `ControlSegmentado`.
+- Solo el formulario, sin listado: `Card .form-card` con un `.form-grid`, como `FormularioVehiculo`. La barra tiene solo el `ControlSegmentado`, a la derecha.
+- El formulario ocupa **todo el ancho** del contenido (no los 720px de `.form-card`, clase `arreglos-form-card`), para que sus bordes queden alineados con la barra y con las listas de Service e Historial; vive dentro de una pestaña junto a listas, no en una página propia. Sigue en dos columnas desde 640px, con Descripción, Repuestos y Observaciones a ancho completo.
 - Pares: Vehículo | Tipo de trabajo; Fecha | Km del odómetro; Descripción (ancho); Quién hizo el trabajo (hint "Mecánico, chapista o taller"); Repuestos (ancho); Observaciones (ancho). Los textos largos llevan contador "0/500".
 - Tipo de trabajo sale de `GET /mantenimientos/tipos-arreglo`; el hint es la descripción del tipo elegido ("Rotación de neumáticos. Se recomienda cada 10.000 km, pero no genera alerta"). Descripción lleva asterisco solo si el tipo lo exige ("Otro").
 - Sin campo de costo.

@@ -20,6 +20,12 @@
 #   2. `prisma migrate diff --exit-code`: compara la base resultante con
 #      schema.prisma. Si alguien cambió el schema sin crear la migración (o al
 #      revés), sale con código 2 y el job falla.
+#   3. `npm run test:integracion` (backend/tests/integracion): siembra la base
+#      con prisma/seed.js y datos mínimos, y pega a los listados, fichas y altas
+#      de Documentación, Presupuestos, Mantenimiento, Viajes, Flota y Personal
+#      con el Prisma real. Falla si alguna consulta explota (un select o include
+#      con un campo que el schema ya no tiene), lo que el doble en memoria de
+#      los tests del job Backend no ve.
 #   La base es descartable y las credenciales son de prueba: este job no toca Neon.
 
 name: CI
@@ -123,3 +129,8 @@ jobs:
 
       - name: Comparar la base migrada con schema.prisma
         run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+
+      - run: npx prisma generate
+
+      - name: Consultas reales de Prisma contra la base migrada
+        run: npm run test:integracion
