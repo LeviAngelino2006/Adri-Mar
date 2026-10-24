@@ -23,7 +23,7 @@ Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento
 ## Modal "Registrar service"
 - `ModalMarco` con título "Registrar service" y, si el vehículo viene elegido, el subtítulo "12 - AB123CD · Mercedes-Benz O500".
 - Campos: Vehículo (solo si no vino elegido; `select` ordenado por interno), Fecha (hoy por defecto, no puede ser futura) | Km del odómetro (hint "Odómetro actual: 57.345 km"), Observación (textarea con contador "0/500").
-- Debajo, un `Alert` info "Incluye:" con la lista fija de `TAREAS_SERVICE` (`constants/mantenimiento.js`). Es informativa: no se tilda, el service siempre es completo. Sin costo ni responsable.
+- Lo que incluye el service va como hint de Observación (texto gris de ayuda, `caption`, enlazado al textarea con `aria-describedby`), en una sola oración: "Incluye cambio de aceite, filtros de gasoil, aceite y habitáculo (aire acondicionado), alineado y balanceado y revisión general del motor.". La arma `textoIncluyeService` (`utils/mantenimiento.js`) con las tareas de la plantilla, `TAREAS_SERVICE` (`constants/mantenimiento.js`): si la plantilla cambia, la oración cambia sola. Nada de caja de color ni viñetas: es informativa, no se tilda, el service siempre es completo. Sin costo ni responsable.
 - Botones "Cancelar" y "Registrar service" ("Registrando…"). Éxito: toast "Service registrado." con la acción "Ver en el historial".
 
 ## Modal "Asignar plan de service"

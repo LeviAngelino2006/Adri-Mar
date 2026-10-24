@@ -140,7 +140,7 @@ describe('TarjetaRegistro (historial)', () => {
 });
 
 describe('ModalRegistrarService', () => {
-  test('con el vehículo elegido: fecha, km con el odómetro actual, observación y la lista "Incluye"', () => {
+  test('con el vehículo elegido: fecha, km con el odómetro actual y observación, con "Incluye…" de ayuda', () => {
     const html = renderToStaticMarkup(
       h(ModalRegistrarService, { vehiculos: [itemProximo], vehiculo: itemProximo, onClose: () => {}, onSuccess: () => {} })
     );
@@ -148,9 +148,15 @@ describe('ModalRegistrarService', () => {
     assert.doesNotMatch(html, /id="service-vehiculo"/);
     assert.match(html, /id="service-fecha"/);
     assert.match(html, /Odómetro actual: 339\.200 km/);
-    assert.match(html, /Incluye:/);
-    assert.match(html, /Cambio de aceite/);
-    assert.match(html, /Revisión general del motor/);
+    // "Incluye" es el hint de la observación (texto gris de ayuda, enlazado al
+    // textarea), en una oración: no una caja celeste con viñetas.
+    assert.match(
+      html,
+      /<p id="service-observaciones-hint" class="form-field-hint">Incluye cambio de aceite, filtros de gasoil, aceite y habitáculo \(aire acondicionado\), alineado y balanceado y revisión general del motor\.<\/p>/
+    );
+    assert.match(html, /<textarea[^>]*aria-describedby="service-observaciones-hint"/);
+    assert.doesNotMatch(html, /class="alert alert-info/);
+    assert.doesNotMatch(html, /<ul/);
     // El service no tiene costo ni responsable, ni casillas para tildar.
     assert.doesNotMatch(html, /type="checkbox"/);
     assert.doesNotMatch(html, /[Cc]osto/);

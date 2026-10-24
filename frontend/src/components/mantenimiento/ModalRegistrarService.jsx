@@ -8,11 +8,12 @@ import { registrarService } from '../../services/mantenimientoApi';
 import { MAX_TEXTO_MANTENIMIENTO, TAREAS_SERVICE } from '../../constants/mantenimiento';
 import { hoyCordobaISO } from '../../utils/fechaCordoba';
 import { formatearKm } from '../../utils/viajeFormato';
-import { etiquetaVehiculo, validarRegistroMantenimiento } from '../../utils/mantenimiento';
+import { etiquetaVehiculo, textoIncluyeService, validarRegistroMantenimiento } from '../../utils/mantenimiento';
 
 // Registrar un service: fecha, km del odómetro y observación. El service es
-// siempre el paquete completo (TAREAS_SERVICE), que se muestra como lista
-// informativa. Si el vehículo viene elegido (desde su tarjeta) no se pregunta.
+// siempre el paquete completo (TAREAS_SERVICE), que se muestra en una oración
+// como ayuda de la observación. Si el vehículo viene elegido (desde su tarjeta)
+// no se pregunta.
 // Se monta solo mientras está abierto, así arranca siempre limpio.
 function ModalRegistrarService({ vehiculos, vehiculo: elegido = null, onClose, onSuccess }) {
   const hoy = hoyCordobaISO();
@@ -147,6 +148,7 @@ function ModalRegistrarService({ vehiculos, vehiculo: elegido = null, onClose, o
               </span>
             </>
           }
+          hint={textoIncluyeService(TAREAS_SERVICE)}
           error={errores.observaciones}
         >
           <textarea
@@ -156,15 +158,6 @@ function ModalRegistrarService({ vehiculos, vehiculo: elegido = null, onClose, o
             onChange={(e) => cambiar('observaciones', e.target.value)}
           />
         </FormField>
-
-        <Alert variant="info">
-          <span className="service-incluye-titulo">Incluye:</span>
-          <ul className="service-incluye">
-            {TAREAS_SERVICE.map((tarea) => (
-              <li key={tarea}>{tarea}</li>
-            ))}
-          </ul>
-        </Alert>
       </form>
     </ModalMarco>
   );

@@ -9,16 +9,6 @@
   max-width: none;
 }
 
-/* Lista "Incluye:" del service, dentro de un Alert info. */
-.service-incluye-titulo {
-  font-weight: 600;
-}
-
-.service-incluye {
-  margin: var(--space-1) 0 0;
-  padding-left: var(--space-5);
-}
-
 /* Historial filtrado por un vehículo: el vehículo, su estado y "Ver toda la flota". */
 .historial-vehiculo {
   display: flex;
