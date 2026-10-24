@@ -265,6 +265,19 @@
   color: var(--color-text-secondary);
 }
 
+/* Viajes de hoy: el día de cada grupo de "Sin cerrar" ("Ayer · vie 23 oct"),
+   debajo del subtítulo del grupo, en gris y sin mayúsculas. */
+.viajes-hoy-dia {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.viajes-hoy-sin-cerrar {
+  margin-bottom: var(--space-4);
+}
+
 .dashboard-lista {
   list-style: none;
   margin: 0;

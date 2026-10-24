@@ -1,6 +1,7 @@
 // Tests de la tanda "encontrar viajes": el listado de Viajes con Próximos |
 // Anteriores, el buscador por cliente o lugar, el cliente en la tarjeta, el
-// filtro "Cobro", "Limpiar filtros" y los estados vacíos. Se corren con `npm test`
+// filtro "Cobro", "Limpiar filtros", los estados vacíos y "Sin cerrar" en el
+// Dashboard de gestión. Se corren con `npm test`
 // (node:test).
 //
 // Mismo método que choferCelular.render.test.mjs: se monta la pantalla real con
@@ -49,6 +50,10 @@ const HORA = 60 * 60 * 1000;
 const DIA = 24 * HORA;
 const AHORA = Date.now();
 const fecha = (desplazamiento) => new Date(AHORA + desplazamiento).toISOString();
+// Ayer a una hora fija de Córdoba. Córdoba no tiene horario de verano: ahora - 24 h
+// siempre es el día anterior, a cualquier hora en que corra el test.
+const DIA_CORDOBA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Cordoba' });
+const ayerA = (hhmm) => new Date(`${DIA_CORDOBA.format(AHORA - DIA)}T${hhmm}:00-03:00`).toISOString();
 
 const MARTIN = { id: 5, nombre: 'Martín', apellido: 'Gómez' };
 const VEHICULO = { id: 4, numeroInterno: '12', dominio: 'AE452KD', marca: 'Mercedes-Benz', modelo: 'O500', kilometraje: 157345 };
@@ -64,8 +69,12 @@ function viaje(id, estado, destino, inicio, extra = {}) {
 }
 
 // Como los manda el backend con vista=proximos: sin cerrar, En viaje y el resto.
-const PROGRAMADO_AYER = viaje(1, 'PROGRAMADO', 'Santa Rosa de Calamuchita', -DIA, { sinCerrar: true });
-const EN_VIAJE_DESDE_AYER = viaje(2, 'EN_VIAJE', 'Villa General Belgrano', -DIA + HORA, { sinCerrar: true });
+const PROGRAMADO_AYER = viaje(1, 'PROGRAMADO', 'Santa Rosa de Calamuchita', -DIA, {
+  sinCerrar: true, fechaInicio: ayerA('08:00'), fechaFin: ayerA('11:00'),
+});
+const EN_VIAJE_DESDE_AYER = viaje(2, 'EN_VIAJE', 'Villa General Belgrano', -DIA, {
+  sinCerrar: true, fechaInicio: ayerA('22:00'), fechaFin: ayerA('23:30'),
+});
 const EN_VIAJE_HOY = viaje(3, 'EN_VIAJE', 'Alta Gracia', -HORA, { sinCerrar: false });
 const PROGRAMADO_HOY = viaje(4, 'PROGRAMADO', 'Córdoba', 0, { sinCerrar: false });
 const PROGRAMADO_SEMANA_QUE_VIENE = viaje(5, 'PROGRAMADO', 'Mendoza', 7 * DIA, { sinCerrar: false });
@@ -76,6 +85,8 @@ const CANCELADO = viaje(7, 'CANCELADO', 'Embalse', -15 * DIA);
 const ANTERIORES = [FINALIZADO, CANCELADO];
 
 let respuestas;
+// Si está, responde GET /viajes en lugar de `respuestas` (el Dashboard).
+let responderViajes = null;
 const pedidos = [];
 // Demora de la respuesta según la búsqueda (ms), para ver que una respuesta vieja
 // no pisa a una nueva.
@@ -93,6 +104,7 @@ before(async () => {
     if (endpoint === '/viajes/mis-viajes') return { data: { viajes: PROXIMOS } };
     if (endpoint === '/documentos/alertas') return { data: { totalAlertas: 0, vencidos: 0, porVencer: 0, documentos: [] } };
     if (endpoint !== '/viajes') throw new Error(`endpoint no previsto en el test: ${endpoint}`);
+    if (responderViajes) return { data: { viajes: responderViajes(params) } };
     let lista = params.vista ? respuestas[params.vista] : [...respuestas.proximos, ...respuestas.anteriores];
     if (params.estado) lista = lista.filter((v) => v.estado === params.estado);
     if (params.q) lista = lista.filter((v) => coincide(v, params.q));
@@ -111,6 +123,7 @@ after(() => vite.close());
 beforeEach(() => {
   respuestas = { proximos: PROXIMOS, anteriores: ANTERIORES };
   demoraPorBusqueda = {};
+  responderViajes = null;
   pedidos.length = 0;
   contenedor = document.createElement('div');
   document.body.appendChild(contenedor);
@@ -429,5 +442,63 @@ describe('Limpiar filtros y estados vacíos', () => {
     await dejarPasar();
     assert.equal(vacio().querySelector('.listado-vacio-texto').textContent, 'No hay viajes con esos filtros.');
     assert.equal(botonesLimpiar().length, 1);
+  });
+});
+
+describe('Dashboard de gestión: "Sin cerrar" en Viajes de hoy', () => {
+  // Responde como el backend: con vista=proximos, los abiertos marcados con
+  // sinCerrar; sin vista, los de hoy sin la marca.
+  const quitarMarca = (v) => {
+    const sinMarca = { ...v };
+    delete sinMarca.sinCerrar;
+    return sinMarca;
+  };
+  const A_CONFIRMAR_HOY = viaje(8, 'A_CONFIRMAR', 'Embalse', 2 * HORA, { sinCerrar: false, chofer: null, choferId: null });
+  const FINALIZADO_HOY = viaje(9, 'FINALIZADO', 'Villa Carlos Paz', -6 * HORA);
+  function comoElBackend(params) {
+    const abiertos = [PROGRAMADO_AYER, EN_VIAJE_DESDE_AYER, EN_VIAJE_HOY, PROGRAMADO_HOY, A_CONFIRMAR_HOY];
+    if (params.vista === 'proximos' && params.estado === 'EN_VIAJE') return abiertos.filter((v) => v.estado === 'EN_VIAJE');
+    if (params.vista === 'proximos' && params.fechaHasta) return abiertos;
+    if (params.fechaDesde && params.fechaHasta && !params.vista) {
+      return [EN_VIAJE_HOY, PROGRAMADO_HOY, A_CONFIRMAR_HOY, FINALIZADO_HOY].map(quitarMarca);
+    }
+    return [];
+  }
+
+  const panel = () => contenedor.querySelector('[aria-label="Viajes de hoy"]');
+  const destinosEn = (seccion) =>
+    [...seccion.querySelectorAll('.dashboard-fila')].map((fila) => [...fila.querySelectorAll('.ruta-viaje-punto')].at(-1).textContent);
+
+  test('los sin cerrar van arriba, por día; el En viaje de ayer aparece una sola vez', async () => {
+    responderViajes = comoElBackend;
+    await montar('Dashboard', '/');
+
+    const sinCerrar = panel().querySelector('[aria-label="Sin cerrar"]');
+    assert.equal(sinCerrar.querySelector('h3').textContent, 'Sin cerrar');
+    assert.match(sinCerrar.querySelector('h4').textContent, /^Ayer · /);
+    assert.deepEqual(destinosEn(sinCerrar), ['Santa Rosa de Calamuchita', 'Villa General Belgrano']);
+
+    const hoy = panel().querySelector('[aria-label="Hoy"]');
+    assert.match(hoy.querySelector('h3').textContent, /^Hoy · /);
+    assert.deepEqual(new Set(destinosEn(hoy)), new Set(['Villa Carlos Paz', 'Alta Gracia', 'Córdoba']));
+
+    assert.equal(destinosEn(panel()).filter((d) => d === 'Villa General Belgrano').length, 1);
+    // El resumen cuenta solo los de hoy.
+    assert.equal(panel().querySelector('.dashboard-resumen').textContent, '3 viajes · 1 en viaje · 1 finalizado');
+  });
+
+  test('pide vista=proximos al backend (la regla de sin cerrar es una sola)', async () => {
+    responderViajes = comoElBackend;
+    await montar('Dashboard', '/');
+    const conVista = pedidos.filter((p) => p.endpoint === '/viajes' && p.params.vista === 'proximos');
+    assert.equal(conVista.length, 2);
+  });
+
+  test('sin viajes sin cerrar, no aparece el grupo ni el título de hoy', async () => {
+    responderViajes = (params) => comoElBackend(params).filter((v) => !v.sinCerrar);
+    await montar('Dashboard', '/');
+    assert.equal(panel().querySelector('[aria-label="Sin cerrar"]'), null);
+    assert.equal(panel().querySelector('h3'), null);
+    assert.equal(destinosEn(panel()).length, 3);
   });
 });

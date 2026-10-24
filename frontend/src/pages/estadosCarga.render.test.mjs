@@ -229,7 +229,7 @@ describe('Dashboard de gestión: los tres paneles con el backend cortado', () =>
 
     const pedidosViajes = pedidos.filter((e) => e === '/viajes').length;
     await act(async () => botonesReintentar()[0].click());
-    assert.equal(pedidos.filter((e) => e === '/viajes').length, pedidosViajes + 2, 'Viajes de hoy hace dos consultas');
+    assert.equal(pedidos.filter((e) => e === '/viajes').length, pedidosViajes + 3, 'Viajes de hoy hace tres consultas');
     assert.ok(texto().includes('Mendoza'));
     assert.equal(botonesReintentar().length, 2);
 

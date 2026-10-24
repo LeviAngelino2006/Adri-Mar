@@ -331,6 +331,40 @@ describe('ContenidoViajesDeHoy', () => {
     assert.match(html, /class="viajes-hoy-barra-fill" style="width:70%"/);
   });
 
+  // Los títulos (h3 y h4) del panel, en orden.
+  const titulos = (html) => [...html.matchAll(/<h[34][^>]*>([^<]*)<\/h[34]>/g)].map(([, texto]) => texto);
+
+  test('con sin cerrar: arriba "Sin cerrar" por día y después "Hoy", con las horas del día del grupo', () => {
+    const html = render({
+      viajes: [
+        viaje({ id: 7, fechaInicio: '2026-10-07T13:00:00Z', fechaFin: '2026-10-07T16:00:00Z', sinCerrar: true }),
+        viaje({ id: 8, estado: 'EN_VIAJE', fechaInicio: '2026-10-09T01:00:00Z', fechaFin: '2026-10-09T04:00:00Z', sinCerrar: true }),
+        viaje({ id: 9, sinCerrar: false }),
+      ],
+    });
+    assert.deepEqual(titulos(html), ['Sin cerrar', 'mié 7 oct', 'Ayer · jue 8 oct', 'Hoy · vie 9 oct']);
+    // Bajo "Ayer" la salida va sola (el día ya lo dice el título) y la llegada de
+    // hoy dice "hoy"; en la lista de hoy, las dos solas.
+    assert.match(html, /<span class="hora-col">22:00<small>hoy 01:00<\/small><\/span>/);
+    assert.match(html, /<span class="hora-col">07:30<small>10:00<\/small><\/span>/);
+    // Sin color ni badge para el atraso: solo el badge de estado de cada fila.
+    assert.equal(html.match(/<button type="button" class="dashboard-fila">/g).length, 3);
+    assert.equal(html.match(/estado-badge /g).length, 3);
+    assert.ok(!html.includes('dashboard-empty'));
+  });
+
+  test('con sin cerrar y nada para hoy: "No hay viajes para hoy" debajo de "Hoy"', () => {
+    const html = render({ viajes: [viaje({ sinCerrar: true, fechaInicio: '2026-10-08T10:30:00Z' })] });
+    assert.deepEqual(titulos(html), ['Sin cerrar', 'Ayer · jue 8 oct', 'Hoy · vie 9 oct']);
+    assert.match(html, /aria-label="Hoy"><h3 class="dashboard-grupo-dia">Hoy · vie 9 oct<\/h3><div class="dashboard-empty">No hay viajes para hoy<\/div>/);
+  });
+
+  test('sin sin cerrar, el panel es la lista de siempre, sin títulos de grupo', () => {
+    const html = render({ viajes: [viaje({ sinCerrar: false }), viaje({ id: 2 })] });
+    assert.deepEqual(titulos(html), []);
+    assert.match(html, /^<ul class="dashboard-lista">/);
+  });
+
   test('estados de carga, error y vacío', () => {
     assert.match(render({ carga: { ...CARGA_LISTA, cargando: true } }), /<div class="carga" role="status" aria-live="polite"><\/div>/);
     const conError = render({ carga: { ...CARGA_LISTA, error: new Error('Network Error') } });
