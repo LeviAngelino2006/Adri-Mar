@@ -34,8 +34,9 @@ Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento
 ## Arreglos
 - Solo el formulario, sin listado: `Card .form-card` con un `.form-grid`, como `FormularioVehiculo`. La barra tiene solo el `ControlSegmentado`.
 - Pares: Vehículo | Km del odómetro; Fecha | Quién hizo el trabajo (hint "Mecánico, chapista o taller"); Tipos de trabajo (ancho); Descripción (ancho); Repuestos (ancho); Observaciones (ancho). Los textos largos llevan contador "0/500".
-- Tipos de trabajo es un `GrupoCasillas` con los tipos activos de `GET /mantenimientos/tipos-arreglo`, cada uno con su descripción debajo ("Rotación de neumáticos. Se recomienda cada 10.000 km, pero no genera alerta"). Se puede marcar más de uno (por ejemplo, Engrase + Cambio de cubiertas): se guardan en un solo registro. Sin ninguno marcado: "Elegí al menos un tipo de trabajo".
+- Tipos de trabajo es un `GrupoCasillas` con los tipos activos de `GET /mantenimientos/tipos-arreglo`, solo con el nombre. Se puede marcar más de uno (por ejemplo, Engrase + Cambio de cubiertas): se guardan en un solo registro. Sin ninguno marcado: "Elegí al menos un tipo de trabajo".
 - "Otro" se puede combinar con los demás. Al marcarlo aparece debajo de su casilla (`contenidoMarcada`) el campo obligatorio "¿Qué trabajo?" (placeholder "Por ejemplo, cambio de espejo", hasta 60 caracteres). Si queda vacío: `Contá qué trabajo se hizo (obligatorio para "Otro")`. Al desmarcarlo, el campo y lo escrito se descartan. La Descripción es siempre opcional.
+- El km no puede ser menor al odómetro actual: "Cargá un kilometraje válido: no puede ser menor al odómetro actual (57.345 km). Si es un arreglo anterior, marcalo abajo." Mientras el km es menor (con debounce: recién 700 ms después de dejar de escribir, o al enviar), debajo del par Vehículo | Km aparece (ancho) un `Switch` "Es un arreglo anterior, hecho con menos km que el odómetro actual"; marcado, se acepta y se manda `esAnterior: true` (el odómetro no cambia). Si el km vuelve a ser igual o mayor, el switch se va y no se manda. El backend también rechaza un `esAnterior` con km igual o mayor al odómetro.
 - Sin campo de costo.
 - Botones "Registrar arreglo" ("Registrando…") y "Cancelar" (limpia el formulario). Éxito: el formulario se limpia y toast "Arreglo registrado." con la acción "Ver en el historial" (`?tab=historial&vehiculoId=…`).
 - Si no carga la lista de vehículos o de tipos, el mensaje va como error de su campo (`FormField` o `GrupoCasillas`); el resto del formulario sigue usable.
@@ -49,9 +50,9 @@ Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento
 - Tarjeta (`ListadoCard` de solo lectura, sin `onClick`: un `div` sin hover ni foco):
   - Marca: el bloque de fecha (`fecha-tile`). Como es decorativo, el título lleva la fecha completa en `.sr-only`.
   - Título "12 - AB123CD".
-  - Badge sm: "Service" (brand) o los tipos del arreglo (neutral), en el orden del catálogo: con 1 o 2, por nombre ("Frenos", "Engrase + Frenos"); con 3 o más, "N trabajos". "Otro" se muestra con su "¿Qué trabajo?" ("Engrase + Cambio de espejo"); uno cargado antes del detalle, como "Otro". El texto tiene tope de 28ch y corta con "…"; la lista completa va en el `title`.
-  - Sub: la descripción o la observación ("Service completo" si un service no tiene observación). Un arreglo sin ninguna de las dos muestra el "¿Qué trabajo?" de "Otro" completo (el badge lo corta); si tampoco hay, "Sin descripción".
-  - Detalle: con 2 tipos o más, primero "Trabajos: Engrase, Cambio de cubiertas, Cambio de espejo" (la lista completa, con el detalle de "Otro", que corta renglón sola); después "Repuestos: …" y la observación si no entró en el sub.
+  - Badge sm: "Service" (brand) o, en un arreglo, cuántos trabajos tiene (neutral): "1 trabajo", "2 trabajos", "N trabajos", igual en todas las tarjetas. La lista va en el `title`.
+  - Sub: la descripción o la observación ("Service completo" si un service no tiene observación; "Sin descripción" si un arreglo no tiene ninguna). El "¿Qué trabajo?" de "Otro" no va acá.
+  - Detalle: primero "Trabajos: Engrase, Cambio de cubiertas, Cambio de espejo" (todos los tipos, aunque sea uno, en el orden del catálogo; "Otro" con su "¿Qué trabajo?", o "Otro" si se cargó antes del detalle); después "Repuestos: …" y la observación si no entró en el sub.
   - Pie: "57.345 km · Hizo: Taller Gómez" (el "Hizo" solo si se cargó) a la izquierda y "Registró: Nombre Apellido" a la derecha.
 - Paginado de a 30, con el botón secondary "Ver más" al final (mismo estilo que "Ver N más" del Dashboard).
 - Vacío: "No hay registros con esos filtros." (o "Todavía no hay services ni arreglos registrados." sin filtros).

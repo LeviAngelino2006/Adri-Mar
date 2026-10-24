@@ -1,18 +1,19 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import FormField from '../ui/FormField';
 import GrupoCasillas from '../ui/GrupoCasillas';
+import Switch from '../ui/Switch';
 import { ListadoToolbar } from '../Listado';
 import { useCarga } from '../../hooks/useCarga';
 import { useFocoEnPrimerError } from '../../hooks/useFocoEnPrimerError';
 import { listarTiposArreglo, registrarArreglo } from '../../services/mantenimientoApi';
-import { MAX_DETALLE_TIPO, MAX_RESPONSABLE, MAX_TEXTO_MANTENIMIENTO } from '../../constants/mantenimiento';
+import { DEMORA_KM_MS, MAX_DETALLE_TIPO, MAX_RESPONSABLE, MAX_TEXTO_MANTENIMIENTO } from '../../constants/mantenimiento';
 import { mensajeErrorCarga } from '../../utils/errorCarga';
 import { hoyCordobaISO } from '../../utils/fechaCordoba';
 import { formatearKm } from '../../utils/viajeFormato';
-import { etiquetaVehiculo, validarRegistroMantenimiento } from '../../utils/mantenimiento';
+import { esKmAnterior, etiquetaVehiculo, validarRegistroMantenimiento } from '../../utils/mantenimiento';
 import { ordenarPorInterno } from '../../utils/vehiculos';
 
 const formVacio = () => ({
@@ -22,6 +23,8 @@ const formVacio = () => ({
   detallesTipos: {},
   fecha: hoyCordobaISO(),
   kilometraje: '',
+  // Trabajo hecho antes que se carga ahora: deja poner menos km que el odómetro.
+  esAnterior: false,
   descripcion: '',
   responsable: '',
   repuestos: '',
@@ -55,7 +58,20 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
   const tipos = cargaTipos.datos ?? [];
   const vehiculo = vehiculos.find((v) => String(v.id) === form.vehiculoId);
   const tiposElegidos = tipos.filter((t) => form.tiposArregloIds.includes(t.id));
-  const opcionesTipos = tipos.map((t) => ({ id: t.id, etiqueta: t.nombre, detalle: t.descripcion || undefined }));
+  // El switch "arreglo anterior" solo aparece (y solo se manda) si el km es
+  // menor al odómetro del vehículo elegido.
+  const kmAnterior = esKmAnterior(form.kilometraje, vehiculo?.kilometraje);
+  const esAnterior = kmAnterior && form.esAnterior;
+  // Debounce: el switch aparece cuando se deja de escribir el km (si no, al
+  // tipear "1" de "12000" ya preguntaría). Se oculta con cualquier cambio del km
+  // y vuelve solo cuando el valor quedó quieto.
+  const [kmTipeado, setKmTipeado] = useState(form.kilometraje);
+  useEffect(() => {
+    const temporizador = setTimeout(() => setKmTipeado(form.kilometraje), DEMORA_KM_MS);
+    return () => clearTimeout(temporizador);
+  }, [form.kilometraje]);
+  const mostrarSwitchAnterior = kmAnterior && kmTipeado === form.kilometraje;
+  const opcionesTipos = tipos.map((t) => ({ id: t.id, etiqueta: t.nombre }));
 
   const errorVehiculos = cargaVehiculos.error ? mensajeErrorCarga(cargaVehiculos.error, 'la lista de vehículos') : '';
   const errorTipos = cargaTipos.error ? mensajeErrorCarga(cargaTipos.error, 'los tipos de trabajo') : '';
@@ -107,13 +123,16 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    const invalidos = validarRegistroMantenimiento(form, {
+    // Si se envía antes de la demora, el switch se muestra ya (el error lo nombra).
+    setKmTipeado(form.kilometraje);
+    const invalidos = validarRegistroMantenimiento({ ...form, esAnterior }, {
       hoy,
       esArreglo: true,
       tiposArreglo: tiposElegidos,
       maxTexto: MAX_TEXTO_MANTENIMIENTO,
       maxResponsable: MAX_RESPONSABLE,
       maxDetalleTipo: MAX_DETALLE_TIPO,
+      kmMinimo: vehiculo?.kilometraje,
     });
     setErrores(invalidos);
     if (Object.keys(invalidos).length > 0) {
@@ -134,6 +153,7 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
         detallesTipos: Object.keys(detalles).length > 0 ? detalles : undefined,
         fecha: form.fecha,
         kilometraje: Number(form.kilometraje),
+        esAnterior: esAnterior || undefined,
         descripcion: texto('descripcion'),
         responsable: texto('responsable'),
         repuestos: texto('repuestos'),
@@ -196,6 +216,22 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
                 onChange={(e) => cambiar('kilometraje', e.target.value)}
               />
             </FormField>
+
+            {mostrarSwitchAnterior && (
+              <div className="form-field switch-field">
+                <label htmlFor="arreglo-anterior" className="switch-field-label">
+                  <Switch
+                    id="arreglo-anterior"
+                    checked={form.esAnterior}
+                    onChange={(e) => {
+                      cambiar('esAnterior', e.target.checked);
+                      setErrores((actuales) => ({ ...actuales, kilometraje: undefined }));
+                    }}
+                  />
+                  Es un arreglo anterior, hecho con menos km que el odómetro actual
+                </label>
+              </div>
+            )}
 
             <FormField id="arreglo-fecha" label="Fecha" required error={errores.fecha}>
               <input type="date" max={hoy} value={form.fecha} onChange={(e) => cambiar('fecha', e.target.value)} />

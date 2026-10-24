@@ -85,10 +85,8 @@ export function etiquetaVehiculo(vehiculo) {
 // Línea principal de un registro del historial: la descripción o la observación.
 export function textoRegistro(registro) {
   if (registro.tipo === 'SERVICE') return registro.observaciones || 'Service completo';
-  // Sin descripción ni observación, el "¿Qué trabajo?" de "Otro": el badge lo
-  // corta con "…" y en el celular no hay title para leerlo entero.
-  const detalles = (registro.tiposArreglo ?? []).map((t) => t.detalle).filter(Boolean);
-  return registro.descripcion || registro.observaciones || detalles.join(', ') || 'Sin descripción';
+  // El "¿Qué trabajo?" de "Otro" no va acá: ya está en "Trabajos: …".
+  return registro.descripcion || registro.observaciones || 'Sin descripción';
 }
 
 // Cómo se muestra un tipo de un arreglo: lo que se hizo, si el tipo lo pide
@@ -99,11 +97,11 @@ export function nombreTipoArreglo(tipo) {
 }
 
 // Datos secundarios de un registro que no entraron en la línea principal.
-// Con 2 tipos o más, la lista completa ("Trabajos: …"); con 1 ya está en el badge.
+// Primero la lista de tipos ("Trabajos: …"): el badge solo dice cuántos son.
 export function detalleRegistro(registro) {
   const partes = [];
   const tipos = registro.tiposArreglo ?? [];
-  if (tipos.length > 1) partes.push(`Trabajos: ${tipos.map(nombreTipoArreglo).join(', ')}`);
+  if (tipos.length > 0) partes.push(`Trabajos: ${tipos.map(nombreTipoArreglo).join(', ')}`);
   if (registro.repuestos) partes.push(`Repuestos: ${registro.repuestos}`);
   if (registro.tipo === 'ARREGLO' && registro.descripcion && registro.observaciones) {
     partes.push(`Observaciones: ${registro.observaciones}`);
@@ -123,10 +121,19 @@ const largo = (texto) => [...String(texto ?? '')].length;
 // igual). Devuelve { campo: mensaje } con todos los errores juntos.
 // `hoy` es el día de Córdoba ("YYYY-MM-DD"); `tiposArreglo` (los tipos
 // marcados, con `requiereDetalle`) solo en arreglos: los que lo piden necesitan
-// su "¿Qué trabajo?" en `form.detallesTipos[id]`.
+// su "¿Qué trabajo?" en `form.detallesTipos[id]`. `kmMinimo` (el odómetro del
+// vehículo, solo en arreglos): el km no puede ser menor, salvo que el arreglo
+// esté marcado como anterior (`form.esAnterior`).
+// Si el km cargado (texto del input) es un entero menor al odómetro: ahí el
+// formulario de arreglos pregunta si es un arreglo anterior.
+export function esKmAnterior(km, odometro) {
+  const texto = String(km ?? '').trim();
+  return Number.isInteger(odometro) && /^\d+$/.test(texto) && Number(texto) < odometro;
+}
+
 export function validarRegistroMantenimiento(
   form,
-  { hoy, esArreglo = false, tiposArreglo = [], maxTexto, maxResponsable, maxDetalleTipo }
+  { hoy, esArreglo = false, tiposArreglo = [], maxTexto, maxResponsable, maxDetalleTipo, kmMinimo }
 ) {
   const errores = {};
   if (!form.vehiculoId) errores.vehiculoId = 'Elegí el vehículo';
@@ -137,6 +144,9 @@ export function validarRegistroMantenimiento(
   const km = String(form.kilometraje ?? '').trim();
   if (!km) errores.kilometraje = 'Indicá el km del odómetro';
   else if (!/^\d+$/.test(km)) errores.kilometraje = 'Tiene que ser un número entero, sin puntos';
+  else if (esKmAnterior(km, kmMinimo) && !form.esAnterior) {
+    errores.kilometraje = `Cargá un kilometraje válido: no puede ser menor al odómetro actual (${formatearKm(kmMinimo)} km). Si es un arreglo anterior, marcalo abajo.`;
+  }
 
   const textos = esArreglo ? ['descripcion', 'repuestos', 'observaciones'] : ['observaciones'];
   for (const campo of textos) {
@@ -152,14 +162,12 @@ export function validarRegistroMantenimiento(
   return errores;
 }
 
-// Badge del historial: 1 o 2 tipos por nombre ("Engrase + Frenos", en el orden
-// del catálogo, como los devuelve el backend); desde 3, "N trabajos", así no se
-// estira. La lista completa va en el detalle (detalleRegistro).
+// Badge del historial: cuántos trabajos tiene ("1 trabajo", "3 trabajos"),
+// igual para todas las tarjetas. Los nombres van en el detalle (detalleRegistro).
 export function textoTiposArreglo(registro) {
-  const tipos = registro.tiposArreglo ?? [];
-  if (tipos.length === 0) return 'Arreglo';
-  if (tipos.length >= 3) return `${tipos.length} trabajos`;
-  return tipos.map(nombreTipoArreglo).join(' + ');
+  const n = (registro.tiposArreglo ?? []).length;
+  if (n === 0) return 'Arreglo';
+  return n === 1 ? '1 trabajo' : `${n} trabajos`;
 }
 
 // Advertencia del formulario de viaje (GET /mantenimientos/evaluar-viaje).

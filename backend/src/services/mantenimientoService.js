@@ -41,6 +41,7 @@ const CAMPOS_AJENOS_SERVICE = {
   costo: 'El service no lleva costo',
   tallerMecanico: 'El service no lleva responsable',
   responsable: 'El service no lleva responsable',
+  esAnterior: 'El service no lleva esa marca: uno con menos km se registra igual',
 };
 
 const CAMPOS_AJENOS_ARREGLO = {
@@ -495,6 +496,22 @@ function validarDetallesTipos(valor, tipos, errores) {
   return detalles;
 }
 
+// A diferencia del service, el km de un arreglo no puede ir por debajo del
+// odómetro, salvo que se lo marque como anterior (`esAnterior`, un trabajo
+// hecho antes que se carga ahora); y uno anterior tiene que tener menos km.
+function validarKmArreglo(esAnterior, kilometraje, vehiculo, errores) {
+  if (esAnterior !== undefined && typeof esAnterior !== 'boolean') {
+    errores.esAnterior = 'Indicá si es un arreglo anterior con true o false';
+    return;
+  }
+  if (!vehiculo || kilometraje === null) return;
+  if (esAnterior && kilometraje >= vehiculo.kilometraje) {
+    errores.kilometraje = `Un arreglo anterior tiene que tener menos km que el odómetro actual (${vehiculo.kilometraje} km)`;
+  } else if (!esAnterior && kilometraje < vehiculo.kilometraje) {
+    errores.kilometraje = `El kilometraje no puede ser menor al odómetro actual (${vehiculo.kilometraje} km): si es un arreglo anterior, indicalo`;
+  }
+}
+
 async function registrarArreglo(datos, usuarioId) {
   const errores = {};
   rechazarCamposAjenos(datos, CAMPOS_AJENOS_ARREGLO, errores);
@@ -505,6 +522,7 @@ async function registrarArreglo(datos, usuarioId) {
   const observaciones = validarTexto(datos.observaciones, 'observaciones', 'La observación', MAX_TEXTO, errores);
   const responsable = validarTexto(datos.responsable, 'responsable', 'Quién hizo el trabajo', MAX_RESPONSABLE, errores);
   const vehiculo = await buscarVehiculoActivo(datos.vehiculoId, errores);
+  validarKmArreglo(datos.esAnterior, kilometraje, vehiculo, errores);
 
   const tipos = await validarTiposArreglo(datos.tiposArregloIds, errores);
   const detalles = tipos.length > 0 ? validarDetallesTipos(datos.detallesTipos, tipos, errores) : new Map();

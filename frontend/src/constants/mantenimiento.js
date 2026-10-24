@@ -9,6 +9,10 @@ export const TAREAS_SERVICE = [
   'Revisión general del motor',
 ];
 
+// Arreglos: cuánto se espera sin teclear el km para preguntar si es un
+// arreglo anterior (debounce).
+export const DEMORA_KM_MS = 700;
+
 // Estado del service de un vehículo (calcularEstadoService en el backend).
 export const ESTADOS_SERVICE = {
   VENCIDO: { label: 'Vencido', tono: 'error' },

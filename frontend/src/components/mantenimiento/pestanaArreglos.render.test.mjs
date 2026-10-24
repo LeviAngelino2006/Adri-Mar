@@ -46,6 +46,7 @@ const enviados = [];
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
   PestanaArreglos = (await vite.ssrLoadModule('/src/components/mantenimiento/PestanaArreglos.jsx')).default;
+  ({ DEMORA_KM_MS } = await vite.ssrLoadModule('/src/constants/mantenimiento.js'));
   api = (await vite.ssrLoadModule('/src/services/api.js')).default;
   api.get = () =>
     new Promise((resolver) => {
@@ -94,6 +95,10 @@ const errorDetalle = () => contenedor.querySelector('#arreglo-detalle-8-error');
 const enviar = () =>
   act(async () => contenedor.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })));
 
+// El switch "arreglo anterior" aparece tras el debounce del km.
+let DEMORA_KM_MS;
+const esperarDemoraKm = () => act(() => new Promise((resolver) => setTimeout(resolver, DEMORA_KM_MS + 50)));
+
 // Escribe como el usuario: React escucha "input"/"change" y lee el value nativo.
 function escribir(elemento, valor) {
   const prototipo = elemento.tagName === 'SELECT' ? window.HTMLSelectElement.prototype : window.HTMLInputElement.prototype;
@@ -104,12 +109,13 @@ function escribir(elemento, valor) {
 }
 
 describe('PestanaArreglos montada', () => {
-  test('mientras cargan los tipos dice "Cargando…"; al llegar, una casilla por tipo', async () => {
+  test('mientras cargan los tipos dice "Cargando…"; al llegar, una casilla por tipo, solo con el nombre', async () => {
     montar();
     assert.match(grupo().textContent, /Cargando…/);
     await act(async () => responderTipos());
     assert.doesNotMatch(grupo().textContent, /Cargando…/);
     assert.equal(grupo().querySelectorAll('input[type="checkbox"]').length, 2);
+    assert.doesNotMatch(grupo().textContent, /Rodamientos|Cualquier otro trabajo/);
   });
 
   test('"Otro" pide "¿Qué trabajo?" debajo de su casilla; al desmarcarlo se va con su error', async () => {
@@ -156,5 +162,77 @@ describe('PestanaArreglos montada', () => {
     assert.equal(enviados.length, 2);
     assert.deepEqual(enviados[1].tiposArregloIds, [1]);
     assert.ok(!enviados[1].detallesTipos?.[8], 'mandó el detalle de un "Otro" desmarcado');
+  });
+
+  test('km menor al odómetro: error y switch "arreglo anterior"; marcado, se registra con esAnterior', async () => {
+    montar();
+    await act(async () => responderTipos());
+    const switchAnterior = () => contenedor.querySelector('#arreglo-anterior');
+    escribir(contenedor.querySelector('#arreglo-vehiculo'), '7');
+    escribir(contenedor.querySelector('#arreglo-km'), '1000');
+    assert.equal(switchAnterior(), null, 'con el km igual al odómetro no pregunta');
+    act(() => casilla(1).click());
+
+    escribir(contenedor.querySelector('#arreglo-km'), '800');
+    assert.equal(switchAnterior(), null, 'preguntó mientras se escribía el km');
+    await esperarDemoraKm();
+    assert.ok(switchAnterior());
+    enviados.length = 0;
+    await enviar();
+    assert.equal(enviados.length, 0);
+    assert.match(contenedor.querySelector('#arreglo-km-error').textContent, /Cargá un kilometraje válido/);
+
+    act(() => switchAnterior().click());
+    await enviar();
+    assert.equal(enviados.length, 1);
+    assert.equal(enviados[0].kilometraje, 800);
+    assert.equal(enviados[0].esAnterior, true);
+  });
+
+  test('si el km vuelve a ser mayor, el switch se va y no se manda esAnterior', async () => {
+    montar();
+    await act(async () => responderTipos());
+    escribir(contenedor.querySelector('#arreglo-vehiculo'), '7');
+    act(() => casilla(1).click());
+    escribir(contenedor.querySelector('#arreglo-km'), '800');
+    await esperarDemoraKm();
+    act(() => contenedor.querySelector('#arreglo-anterior').click());
+    escribir(contenedor.querySelector('#arreglo-km'), '1200');
+    assert.equal(contenedor.querySelector('#arreglo-anterior'), null);
+
+    enviados.length = 0;
+    await enviar();
+    assert.equal(enviados.length, 1);
+    assert.equal(enviados[0].esAnterior, undefined);
+  });
+
+  test('con el switch visible, borrar y volver a escribir lo oculta hasta que el km queda quieto', async () => {
+    montar();
+    await act(async () => responderTipos());
+    const switchAnterior = () => contenedor.querySelector('#arreglo-anterior');
+    const km = () => contenedor.querySelector('#arreglo-km');
+    escribir(contenedor.querySelector('#arreglo-vehiculo'), '7');
+    escribir(km(), '800');
+    await esperarDemoraKm();
+    assert.ok(switchAnterior());
+
+    for (const parcial of ['', '5', '50']) {
+      escribir(km(), parcial);
+      assert.equal(switchAnterior(), null, `apareció mientras se escribía "${parcial}"`);
+    }
+    await esperarDemoraKm();
+    assert.ok(switchAnterior());
+  });
+
+  test('si se envía antes de la demora, el error sale y el switch aparece ya', async () => {
+    montar();
+    await act(async () => responderTipos());
+    escribir(contenedor.querySelector('#arreglo-vehiculo'), '7');
+    act(() => casilla(1).click());
+    escribir(contenedor.querySelector('#arreglo-km'), '800');
+    enviados.length = 0;
+    await enviar();
+    assert.equal(enviados.length, 0);
+    assert.ok(contenedor.querySelector('#arreglo-anterior'));
   });
 });

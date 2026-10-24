@@ -484,6 +484,48 @@ describe('POST /arreglos', () => {
     assert.equal(vehiculo(7).kilometraje, 3500);
   });
 
+  test('con km menor al odómetro → 400 y no guarda nada; igual al odómetro se acepta', async () => {
+    const { status, body } = await arreglo({ tiposArregloIds: [4], kilometraje: 999 });
+    assert.equal(status, 400);
+    assert.match(body.errores.kilometraje, /menor al odómetro actual \(1000 km\)/);
+    assert.equal(db.mantenimientosRealizados.length, 0);
+
+    const igual = await arreglo({ tiposArregloIds: [4], kilometraje: 1000 });
+    assert.equal(igual.status, 201);
+    assert.equal(db.lecturas.length, 0);
+  });
+
+  test('un arreglo anterior acepta menos km, sin lectura ni cambio de odómetro', async () => {
+    const { status } = await arreglo({ tiposArregloIds: [4], kilometraje: 500, fecha: diaCordoba(-30), esAnterior: true });
+    assert.equal(status, 201);
+    assert.equal(db.mantenimientosRealizados.length, 1);
+    assert.equal(db.lecturas.length, 0);
+    assert.equal(vehiculo(7).kilometraje, 1000);
+  });
+
+  test('un arreglo anterior con km igual o mayor al odómetro → 400', async () => {
+    for (const kilometraje of [1000, 3500]) {
+      const { status, body } = await arreglo({ tiposArregloIds: [4], kilometraje, esAnterior: true });
+      assert.equal(status, 400);
+      assert.match(body.errores.kilometraje, /anterior tiene que tener menos km/);
+    }
+    assert.equal(db.mantenimientosRealizados.length, 0);
+  });
+
+  test('esAnterior que no es booleano → 400; el service lo rechaza', async () => {
+    const { status, body } = await arreglo({ tiposArregloIds: [4], kilometraje: 500, esAnterior: 'si' });
+    assert.equal(status, 400);
+    assert.ok(body.errores.esAnterior);
+
+    const service = await pedirJson('/services', {
+      metodo: 'POST',
+      body: { vehiculoId: 7, fecha: HOY, kilometraje: 500, esAnterior: true },
+      perfil: 'PERSONAL_TALLER',
+    });
+    assert.equal(service.status, 400);
+    assert.ok(service.body.errores.esAnterior);
+  });
+
   test('fecha futura y vehículo dado de baja → 400', async () => {
     const { status, body } = await arreglo({ tiposArregloIds: [1], vehiculoId: 10, fecha: diaCordoba(2) });
     assert.equal(status, 400);

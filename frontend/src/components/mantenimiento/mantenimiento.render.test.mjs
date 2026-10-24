@@ -126,13 +126,22 @@ describe('TarjetaRegistro (historial)', () => {
     assert.doesNotMatch(html, /<button/);
     assert.match(html, /class="listado-card-marca fecha-tile"/);
     assert.match(html, /<span class="sr-only">12 mar 2026: <\/span>/);
-    assert.match(html, /estado-badge[^>]*>.*Engrase \+ Frenos/);
+    assert.match(html, /estado-badge[^>]*>.*2 trabajos/);
     assert.match(texto(html), /Trabajos: Engrase, Frenos/);
     assert.match(texto(html), /57\.345 km · Hizo: Taller Gómez/);
     assert.match(texto(html), /Registró: Ana Pérez/);
   });
 
-  test('con 3 tipos o más el badge dice "N trabajos" y lleva el texto completo en title', () => {
+  test('con 1 tipo el badge dice "1 trabajo" y el tipo va en "Trabajos: …"', () => {
+    const tiposArreglo = [{ id: 8, nombre: 'Otro', detalle: 'Cambio de espejo' }];
+    const html = renderToStaticMarkup(h(TarjetaRegistro, { registro: { ...base, tipo: 'ARREGLO', tiposArreglo } }));
+    assert.match(html, /estado-badge[^>]*>.*1 trabajo</);
+    assert.match(texto(html), /Sin descripción/);
+    assert.equal(texto(html).match(/Cambio de espejo/g).length, 1);
+    assert.match(texto(html), /Trabajos: Cambio de espejo/);
+  });
+
+  test('con 3 tipos el badge dice "3 trabajos" y lleva la lista en title', () => {
     const tiposArreglo = [
       { id: 1, nombre: 'Engrase', detalle: null },
       { id: 4, nombre: 'Frenos', detalle: null },

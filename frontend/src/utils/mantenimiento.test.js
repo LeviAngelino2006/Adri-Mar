@@ -17,6 +17,7 @@ import {
   textoRegistro,
   textoTiposArreglo,
   validarRegistroMantenimiento,
+  esKmAnterior,
 } from './mantenimiento.js';
 
 // Un ítem como los de GET /mantenimientos/planes.
@@ -142,12 +143,15 @@ describe('textos del historial', () => {
     assert.equal(textoRegistro({ ...arreglo, descripcion: null }), 'Revisar en 5.000 km');
   });
 
-  test('línea principal: sin descripción ni observación, el "¿Qué trabajo?" completo de "Otro"', () => {
-    const largo = 'Cambio de espejo retrovisor izquierdo y soporte del brazo';
-    const soloOtro = { tipo: 'ARREGLO', descripcion: null, observaciones: null, tiposArreglo: [{ id: 8, nombre: 'Otro', detalle: largo }] };
-    assert.equal(textoRegistro(soloOtro), largo);
+  test('línea principal: el "¿Qué trabajo?" de "Otro" no se repite (va en "Trabajos: …")', () => {
+    const soloOtro = {
+      tipo: 'ARREGLO',
+      descripcion: null,
+      observaciones: null,
+      tiposArreglo: [{ id: 8, nombre: 'Otro', detalle: 'Cambio de espejo' }],
+    };
+    assert.equal(textoRegistro(soloOtro), 'Sin descripción');
     assert.equal(textoRegistro({ ...soloOtro, descripcion: 'Con tornillos nuevos' }), 'Con tornillos nuevos');
-    assert.equal(textoRegistro({ ...soloOtro, tiposArreglo: [{ id: 1, nombre: 'Engrase', detalle: null }] }), 'Sin descripción');
   });
 
   test('detalle: repuestos y la observación que no entró arriba', () => {
@@ -155,7 +159,7 @@ describe('textos del historial', () => {
     assert.equal(detalleRegistro(service), '');
   });
 
-  test('detalle: con varios tipos, la lista completa adelante; con uno, nada', () => {
+  test('detalle: la lista de tipos adelante, aunque sea uno solo', () => {
     const tipos = [
       { id: 1, nombre: 'Engrase' },
       { id: 4, nombre: 'Frenos' },
@@ -164,7 +168,7 @@ describe('textos del historial', () => {
       detalleRegistro({ ...arreglo, tiposArreglo: tipos }),
       'Trabajos: Engrase, Frenos · Repuestos: Pastillas Frasle · Observaciones: Revisar en 5.000 km'
     );
-    assert.doesNotMatch(detalleRegistro({ ...arreglo, tiposArreglo: [tipos[0]] }), /Trabajos/);
+    assert.match(detalleRegistro({ ...arreglo, tiposArreglo: [tipos[0]] }), /^Trabajos: Engrase · /);
   });
 
   test('pie: km y quién hizo el trabajo', () => {
@@ -185,6 +189,28 @@ describe('validarRegistroMantenimiento', () => {
     const errores = validarRegistroMantenimiento({ vehiculoId: '', fecha: '2026-10-24', kilometraje: '57.345' }, opciones);
     assert.deepEqual(Object.keys(errores).sort(), ['fecha', 'kilometraje', 'vehiculoId']);
     assert.match(errores.fecha, /posterior a hoy/);
+  });
+
+  test('arreglo: el km no puede ser menor al odómetro (igual sí)', () => {
+    const conMinimo = (kilometraje) =>
+      validarRegistroMantenimiento({ ...valido, kilometraje }, { ...opciones, kmMinimo: 57345 }).kilometraje;
+    assert.equal(
+      conMinimo('57344'),
+      'Cargá un kilometraje válido: no puede ser menor al odómetro actual (57.345 km). Si es un arreglo anterior, marcalo abajo.'
+    );
+    assert.equal(conMinimo('57345'), undefined);
+    assert.equal(validarRegistroMantenimiento({ ...valido, kilometraje: '1' }, opciones).kilometraje, undefined);
+
+    const anterior = validarRegistroMantenimiento({ ...valido, kilometraje: '50000', esAnterior: true }, { ...opciones, kmMinimo: 57345 });
+    assert.equal(anterior.kilometraje, undefined);
+  });
+
+  test('esKmAnterior: solo un entero menor al odómetro', () => {
+    assert.equal(esKmAnterior('999', 1000), true);
+    assert.equal(esKmAnterior(' 1000 ', 1000), false);
+    assert.equal(esKmAnterior('', 1000), false);
+    assert.equal(esKmAnterior('9.99', 1000), false);
+    assert.equal(esKmAnterior('5', undefined), false);
   });
 
   test('arreglo: tipo obligatorio, detalle si el tipo lo pide y topes de largo', () => {
@@ -223,14 +249,14 @@ describe('validarRegistroMantenimiento', () => {
     assert.deepEqual(sinOtro, {});
   });
 
-  test('textoTiposArreglo: 1 o 2 tipos por nombre, desde 3 "N trabajos"', () => {
+  test('textoTiposArreglo: siempre "N trabajos" ("1 trabajo" en singular)', () => {
     const tipos = [
       { id: 1, nombre: 'Engrase', detalle: null },
       { id: 3, nombre: 'Cambio de cubiertas', detalle: null },
       { id: 4, nombre: 'Frenos', detalle: null },
     ];
-    assert.equal(textoTiposArreglo({ tiposArreglo: [tipos[2]] }), 'Frenos');
-    assert.equal(textoTiposArreglo({ tiposArreglo: [tipos[0], tipos[2]] }), 'Engrase + Frenos');
+    assert.equal(textoTiposArreglo({ tiposArreglo: [tipos[2]] }), '1 trabajo');
+    assert.equal(textoTiposArreglo({ tiposArreglo: [tipos[0], tipos[2]] }), '2 trabajos');
     assert.equal(textoTiposArreglo({ tiposArreglo: tipos }), '3 trabajos');
     assert.equal(textoTiposArreglo({ tiposArreglo: [...tipos, ...tipos] }), '6 trabajos');
     assert.equal(textoTiposArreglo({ tiposArreglo: [] }), 'Arreglo');
@@ -239,9 +265,8 @@ describe('validarRegistroMantenimiento', () => {
   test('"Otro" se muestra con su detalle; uno viejo sin detalle, como "Otro"', () => {
     const otro = { id: 8, nombre: 'Otro', detalle: 'Cambio de espejo' };
     const engrase = { id: 1, nombre: 'Engrase', detalle: null };
-    assert.equal(textoTiposArreglo({ tiposArreglo: [engrase, otro] }), 'Engrase + Cambio de espejo');
-    assert.equal(textoTiposArreglo({ tiposArreglo: [{ ...otro, detalle: null }] }), 'Otro');
     assert.equal(nombreTipoArreglo(otro), 'Cambio de espejo');
+    assert.equal(nombreTipoArreglo({ ...otro, detalle: null }), 'Otro');
     assert.match(detalleRegistro({ tipo: 'ARREGLO', tiposArreglo: [engrase, otro] }), /^Trabajos: Engrase, Cambio de espejo$/);
   });
 });
