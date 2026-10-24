@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import {
   formatearDni,
   formatearFechaCorta,
+  formatearHoraDelDia,
   formatearHoraRelativaHoy,
   formatearHorarioViaje,
   partesFechaTile,
@@ -64,6 +65,19 @@ describe('formatearHoraRelativaHoy', () => {
     assert.equal(formatearHoraRelativaHoy('2026-10-09T01:00:00Z', AHORA), 'ayer 22:00');
     assert.equal(formatearHoraRelativaHoy('2026-10-10T05:00:00Z', AHORA), 'mañana 02:00');
     assert.equal(formatearHoraRelativaHoy('2026-10-08T01:00:00Z', AHORA), '07 oct 22:00');
+  });
+});
+
+describe('formatearHoraDelDia', () => {
+  test('la hora sola si es del día del grupo; "hoy" si es de hoy; si no, relativa a hoy', () => {
+    // Grupo de ayer (jue 8): la salida de ayer, sola; la llegada de hoy, con "hoy".
+    assert.equal(formatearHoraDelDia('2026-10-09T01:00:00Z', '2026-10-08', AHORA), '22:00');
+    assert.equal(formatearHoraDelDia('2026-10-09T09:00:00Z', '2026-10-08', AHORA), 'hoy 06:00');
+    // Grupo del mié 7: una llegada del jue 8 dice "ayer".
+    assert.equal(formatearHoraDelDia('2026-10-08T13:00:00Z', '2026-10-07', AHORA), 'ayer 10:00');
+    // La lista de hoy, igual que formatearHoraRelativaHoy.
+    assert.equal(formatearHoraDelDia('2026-10-09T10:30:00Z', '2026-10-09', AHORA), '07:30');
+    assert.equal(formatearHoraDelDia('2026-10-10T05:00:00Z', '2026-10-09', AHORA), 'mañana 02:00');
   });
 });
 

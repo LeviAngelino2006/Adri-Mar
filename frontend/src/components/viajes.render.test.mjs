@@ -1,5 +1,5 @@
 // Smoke test de render de la tarjeta de viaje del listado (agrupado por día,
-// con el badge de pendiente administrativo), del formulario de alta (sin datos
+// con el pendiente administrativo en texto gris), del formulario de alta (sin datos
 // administrativos, y precargado al duplicar), del botón "Duplicar viaje" y de los
 // paneles del Dashboard (Viajes de hoy y estados vacíos). Se corre con `npm test` (node:test).
 //
@@ -124,21 +124,57 @@ describe('RutaViaje resumen: corte prolijo en pantallas chicas', () => {
   });
 });
 
+describe('TarjetaViaje: cliente', () => {
+  const render = (props) => renderToStaticMarkup(h(TarjetaViaje, { onClick() {}, ...props }));
+  const CLIENTE = { id: 3, nombre: 'Colegio Nacional de Monserrat' };
+
+  test('con mostrarCliente, el cliente va en gris debajo de la ruta (antes del horario), sin badge', () => {
+    const html = render({ viaje: viaje({ cliente: CLIENTE }), mostrarCliente: true });
+    assert.match(
+      html,
+      /<\/div><div class="listado-card-bajada">Colegio Nacional de Monserrat<\/div><div class="listado-card-sub">/
+    );
+    assert.equal(html.match(/estado-badge /g).length, 1, 'solo el badge de estado');
+  });
+
+  test('sin mostrarCliente (Mis viajes) no se muestra aunque el dato venga', () => {
+    const html = render({ viaje: viaje({ cliente: CLIENTE }) });
+    assert.ok(!html.includes('listado-card-bajada'));
+    assert.ok(!html.includes('Monserrat'));
+  });
+
+  test('un viaje sin cliente no agrega la línea', () => {
+    assert.ok(!render({ viaje: viaje({ cliente: null }), mostrarCliente: true }).includes('listado-card-bajada'));
+  });
+
+  test('ListadoViajesPorDia pasa mostrarCliente a cada tarjeta, también a las de En curso y Sin cerrar', () => {
+    const props = {
+      viajes: [viaje({ id: 1, cliente: CLIENTE })],
+      enCurso: [viaje({ id: 2, estado: 'EN_VIAJE', cliente: { id: 4, nombre: 'Turismo Sierras SRL' } })],
+      sinCerrar: [viaje({ id: 3, cliente: { id: 5, nombre: 'Club Atlético Talleres' } })],
+      onSeleccionar() {},
+    };
+    const con = sinEtiquetas(renderToStaticMarkup(h(ListadoViajesPorDia, { ...props, mostrarCliente: true })));
+    assert.match(con, /Club Atlético Talleres[\s\S]*Turismo Sierras SRL[\s\S]*Colegio Nacional de Monserrat/);
+    assert.ok(!renderToStaticMarkup(h(ListadoViajesPorDia, props)).includes('listado-card-bajada'));
+  });
+});
+
 describe('TarjetaViaje: pendiente administrativo', () => {
   const render = (props) => renderToStaticMarkup(h(TarjetaViaje, { onClick() {}, ...props }));
 
-  test('con mostrarPendientes, SIN_PRECIO da el badge "Sin precio" en el detalle', () => {
+  test('con mostrarPendientes, SIN_PRECIO da "Sin precio" en el detalle, como texto gris y sin badge', () => {
     const html = render({ viaje: viaje({ pendienteAdministrativo: 'SIN_PRECIO' }), mostrarPendientes: true });
-    assert.match(
-      html,
-      /class="listado-card-detalle"><span class="estado-badge estado-badge-warning estado-badge-sm">.*Sin precio<\/span><\/div>/
-    );
+    assert.match(html, /class="listado-card-detalle">Sin precio<\/div>/);
+    assert.ok(!html.includes('estado-badge-warning'));
+    assert.equal(html.match(/estado-badge /g).length, 1, 'solo el badge de estado');
   });
 
-  test('con mostrarPendientes, COBRO_PENDIENTE da el badge "Cobro pendiente"', () => {
-    const html = render({ viaje: viaje({ pendienteAdministrativo: 'COBRO_PENDIENTE' }), mostrarPendientes: true });
-    assert.match(sinEtiquetas(html), /Cobro pendiente/);
+  test('con mostrarPendientes, COBRO_PENDIENTE da "Cobro pendiente", también sin badge', () => {
+    const html = render({ viaje: viaje({ estado: 'FINALIZADO', pendienteAdministrativo: 'COBRO_PENDIENTE' }), mostrarPendientes: true });
+    assert.match(html, /class="listado-card-detalle">Cobro pendiente<\/div>/);
     assert.ok(!html.includes('Sin precio'));
+    assert.equal(html.match(/estado-badge /g).length, 1, 'solo el badge de estado');
   });
 
   test('sin pendiente (null) no hay detalle', () => {
@@ -162,7 +198,7 @@ describe('TarjetaViaje: pendiente administrativo', () => {
     const con = renderToStaticMarkup(h(ListadoViajesPorDia, { viajes, mostrarPendientes: true, onSeleccionar() {} }));
     const sin = renderToStaticMarkup(h(ListadoViajesPorDia, { viajes, onSeleccionar() {} }));
     assert.match(sinEtiquetas(con), /Sin precio[\s\S]*Cobro pendiente/);
-    assert.ok(!sin.includes('estado-badge-warning'));
+    assert.ok(!sin.includes('listado-card-detalle'));
   });
 });
 
@@ -293,6 +329,40 @@ describe('ContenidoViajesDeHoy', () => {
     assert.match(html, /<span class="hora-col">ayer 22:00<small>18:00<\/small><\/span>/);
     assert.match(html, /role="progressbar"[^>]*aria-valuenow="70"/);
     assert.match(html, /class="viajes-hoy-barra-fill" style="width:70%"/);
+  });
+
+  // Los títulos (h3 y h4) del panel, en orden.
+  const titulos = (html) => [...html.matchAll(/<h[34][^>]*>([^<]*)<\/h[34]>/g)].map(([, texto]) => texto);
+
+  test('con sin cerrar: arriba "Sin cerrar" por día y después "Hoy", con las horas del día del grupo', () => {
+    const html = render({
+      viajes: [
+        viaje({ id: 7, fechaInicio: '2026-10-07T13:00:00Z', fechaFin: '2026-10-07T16:00:00Z', sinCerrar: true }),
+        viaje({ id: 8, estado: 'EN_VIAJE', fechaInicio: '2026-10-09T01:00:00Z', fechaFin: '2026-10-09T04:00:00Z', sinCerrar: true }),
+        viaje({ id: 9, sinCerrar: false }),
+      ],
+    });
+    assert.deepEqual(titulos(html), ['Sin cerrar', 'mié 7 oct', 'Ayer · jue 8 oct', 'Hoy · vie 9 oct']);
+    // Bajo "Ayer" la salida va sola (el día ya lo dice el título) y la llegada de
+    // hoy dice "hoy"; en la lista de hoy, las dos solas.
+    assert.match(html, /<span class="hora-col">22:00<small>hoy 01:00<\/small><\/span>/);
+    assert.match(html, /<span class="hora-col">07:30<small>10:00<\/small><\/span>/);
+    // Sin color ni badge para el atraso: solo el badge de estado de cada fila.
+    assert.equal(html.match(/<button type="button" class="dashboard-fila">/g).length, 3);
+    assert.equal(html.match(/estado-badge /g).length, 3);
+    assert.ok(!html.includes('dashboard-empty'));
+  });
+
+  test('con sin cerrar y nada para hoy: "No hay viajes para hoy" debajo de "Hoy"', () => {
+    const html = render({ viajes: [viaje({ sinCerrar: true, fechaInicio: '2026-10-08T10:30:00Z' })] });
+    assert.deepEqual(titulos(html), ['Sin cerrar', 'Ayer · jue 8 oct', 'Hoy · vie 9 oct']);
+    assert.match(html, /aria-label="Hoy"><h3 class="dashboard-grupo-dia">Hoy · vie 9 oct<\/h3><div class="dashboard-empty">No hay viajes para hoy<\/div>/);
+  });
+
+  test('sin sin cerrar, el panel es la lista de siempre, sin títulos de grupo', () => {
+    const html = render({ viajes: [viaje({ sinCerrar: false }), viaje({ id: 2 })] });
+    assert.deepEqual(titulos(html), []);
+    assert.match(html, /^<ul class="dashboard-lista">/);
   });
 
   test('estados de carga, error y vacío', () => {

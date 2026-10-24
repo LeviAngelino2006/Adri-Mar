@@ -120,7 +120,7 @@ const botonReintentar = () => [...contenedor.querySelectorAll('button')].find((b
 const CASOS = [
   {
     pantalla: 'Viajes', perfil: 'ADMINISTRADOR', ruta: '/viajes', endpoint: '/viajes',
-    vacio: 'No se encontraron viajes', error: 'No pudimos cargar los viajes. Revisá tu conexión.', dato: 'Mendoza',
+    vacio: 'No hay viajes próximos.', error: 'No pudimos cargar los viajes. Revisá tu conexión.', dato: 'Mendoza',
   },
   {
     pantalla: 'FlotaVehiculos', perfil: 'ADMINISTRADOR', ruta: '/vehiculos', endpoint: '/vehiculos',
@@ -229,7 +229,7 @@ describe('Dashboard de gestión: los tres paneles con el backend cortado', () =>
 
     const pedidosViajes = pedidos.filter((e) => e === '/viajes').length;
     await act(async () => botonesReintentar()[0].click());
-    assert.equal(pedidos.filter((e) => e === '/viajes').length, pedidosViajes + 2, 'Viajes de hoy hace dos consultas');
+    assert.equal(pedidos.filter((e) => e === '/viajes').length, pedidosViajes + 3, 'Viajes de hoy hace tres consultas');
     assert.ok(texto().includes('Mendoza'));
     assert.equal(botonesReintentar().length, 2);
 

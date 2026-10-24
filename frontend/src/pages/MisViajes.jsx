@@ -16,7 +16,8 @@ import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { nombreVehiculo } from '../utils/viajeFormato';
-import { VISTAS_MIS_VIAJES, viajesDeLaVista, vistaMisViajes } from '../utils/misViajes';
+import { VISTAS_MIS_VIAJES, viajesDeLaVista } from '../utils/misViajes';
+import { OPCIONES_VISTA, filtrosParaLaVista, opcionesDeEstado, parametrosDeVista, vistaDeLaUrl } from '../utils/vistasViajes';
 import { esChoferDelViaje } from '../utils/choferDelViaje';
 import { useCarga } from '../hooks/useCarga';
 import { useViajesEnCurso } from '../hooks/useViajesEnCurso';
@@ -26,22 +27,9 @@ const PUEDE_GESTIONAR = ['ADMINISTRADOR', 'ENCARGADO'];
 
 // El filtro de estado ofrece solo los estados de la vista (Próximos | Anteriores).
 const ESTADOS_FILTRO = {
-  proximos: [
-    { value: '', label: 'Todos' },
-    { value: 'PROGRAMADO', label: 'Programado' },
-    { value: 'EN_VIAJE', label: 'En viaje' },
-  ],
-  anteriores: [
-    { value: '', label: 'Todos' },
-    { value: 'FINALIZADO', label: 'Finalizado' },
-    { value: 'CANCELADO', label: 'Cancelado' },
-  ],
+  proximos: opcionesDeEstado(VISTAS_MIS_VIAJES.proximos),
+  anteriores: opcionesDeEstado(VISTAS_MIS_VIAJES.anteriores),
 };
-
-const OPCIONES_VISTA = [
-  { valor: 'proximos', etiqueta: 'Próximos' },
-  { valor: 'anteriores', etiqueta: 'Anteriores' },
-];
 
 const VACIO_SIN_FILTROS = {
   proximos: 'No tenés viajes próximos.',
@@ -68,7 +56,7 @@ function MisViajes() {
 
   // Próximos | Anteriores, en la URL (?tab=anteriores) como en Documentación.
   const [searchParams, setSearchParams] = useSearchParams();
-  const vista = vistaMisViajes(searchParams.get('tab'));
+  const vista = vistaDeLaUrl(searchParams.get('tab'));
 
   const [filtros, setFiltros] = useState(FILTROS_INICIALES);
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
@@ -140,10 +128,8 @@ function MisViajes() {
   // Un estado que no es de la nueva vista (Cancelado al pasar a Próximos) se
   // limpia: si no, la vista quedaría vacía por un filtro que ya no se ve.
   function cambiarVista(nueva) {
-    setSearchParams(nueva === 'anteriores' ? { tab: 'anteriores' } : {});
-    if (filtros.estado && !VISTAS_MIS_VIAJES[nueva].includes(filtros.estado)) {
-      setFiltros((f) => ({ ...f, estado: '' }));
-    }
+    setSearchParams(parametrosDeVista(nueva));
+    setFiltros((f) => filtrosParaLaVista(f, VISTAS_MIS_VIAJES[nueva]));
   }
 
   function seleccionar(viaje) {

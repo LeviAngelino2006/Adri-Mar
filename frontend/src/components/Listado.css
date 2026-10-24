@@ -31,15 +31,17 @@
 }
 
 /* Barra de menos de 600px: el control pasa arriba, a todo el ancho, con las
-   opciones en partes iguales. */
+   opciones en partes iguales. Con .listado-toolbar delante: si no, cuando
+   ControlSegmentado.css se carga después que este archivo, su `flex: 0 0 auto`
+   gana y el control queda angosto, compartiendo línea con el buscador. */
 @container listado-toolbar (max-width: 599px) {
-  .control-segmentado {
+  .listado-toolbar .control-segmentado {
     order: -1;
     flex: 1 1 100%;
     margin-left: 0;
   }
 
-  .control-segmentado-opcion {
+  .listado-toolbar .control-segmentado-opcion {
     flex: 1;
   }
 }
@@ -70,6 +72,15 @@
 .listado-buscar input {
   width: 100%;
   padding-left: calc(var(--space-3) + 16px + var(--space-2));
+}
+
+/* Barra de menos de 400px (celular de 360px): el buscador cede lugar para que
+   Filtros, con su contador, y la acción entren en la misma línea. Va después de
+   .listado-buscar para ganarle. */
+@container listado-toolbar (max-width: 399px) {
+  .listado-buscar {
+    flex-basis: 100px;
+  }
 }
 
 .filtros-toggle-btn {
@@ -181,6 +192,11 @@
   .listado-filtros .form-field {
     flex: 1;
   }
+
+  .listado-filtros .listado-filtros-limpiar {
+    align-self: flex-end;
+    flex: 0 0 auto;
+  }
 }
 
 .listado-cards {
@@ -194,6 +210,16 @@
   text-align: center;
   color: var(--color-text-secondary);
   padding: var(--space-8) 0;
+}
+
+/* Vacío con filtros: el texto y, debajo, "Limpiar filtros". */
+.listado-vacio-texto {
+  margin: 0 0 var(--space-3);
+}
+
+/* "Limpiar filtros" al final del panel: del ancho de su texto, no del panel. */
+.listado-filtros .listado-filtros-limpiar {
+  align-self: flex-start;
 }
 
 .listado-card {
@@ -278,9 +304,14 @@ button.listado-card:focus-visible {
   font-size: 0.9375rem;
 }
 
+.listado-card-bajada,
 .listado-card-detalle {
   color: var(--color-text-secondary);
   font-size: 0.875rem;
+}
+
+.listado-card-bajada {
+  overflow-wrap: anywhere;
 }
 
 .listado-card-pie {

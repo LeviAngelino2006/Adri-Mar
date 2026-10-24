@@ -3,7 +3,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { ordenarPorInicio, viajesDeLaVista, vistaMisViajes } from './misViajes.js';
+import { ordenarPorInicio, viajesDeLaVista } from './misViajes.js';
 
 const viaje = (id, estado, fechaInicio) => ({ id, estado, fechaInicio });
 const ids = (viajes) => viajes.map((v) => v.id);
@@ -48,13 +48,5 @@ describe('ordenarPorInicio', () => {
     const viajes = [viaje('sin fecha', 'PROGRAMADO', null), viaje('b', 'PROGRAMADO', '2026-10-21T10:00:00Z'), viaje('a', 'PROGRAMADO', '2026-10-20T10:00:00Z')];
     assert.deepEqual(ids(ordenarPorInicio(viajes, 'asc')), ['a', 'b', 'sin fecha']);
     assert.deepEqual(ids(ordenarPorInicio(viajes, 'desc')), ['b', 'a', 'sin fecha']);
-  });
-});
-
-describe('vistaMisViajes', () => {
-  test('?tab=anteriores es Anteriores; cualquier otro valor, Próximos', () => {
-    assert.equal(vistaMisViajes('anteriores'), 'anteriores');
-    assert.equal(vistaMisViajes(null), 'proximos');
-    assert.equal(vistaMisViajes('cualquiera'), 'proximos');
   });
 });

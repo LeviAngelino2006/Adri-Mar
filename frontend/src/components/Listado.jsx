@@ -29,7 +29,7 @@ export function ListadoHeader({ titulo }) {
 // Buscador (con lupa), botón "Filtros" con el contador de filtros activos y,
 // a la derecha de todo, la acción principal o el control de vistas. Cada
 // pantalla pasa solo lo que usa:
-//   busqueda: { valor, onChange(texto), placeholder }
+//   busqueda: { valor, onChange(texto), placeholder, maxLength? }
 //   filtros:  { abierto, onToggle(), activos }
 //   vistas:   las props de ControlSegmentado (Documentación: Vehículos | Choferes)
 //   accion:   { etiqueta, onClick } ("Crear vehículo"); debajo de 640px se ve
@@ -52,6 +52,7 @@ export function ListadoToolbar({ busqueda, filtros, vistas, accion, vistasAlInic
             onChange={(e) => busqueda.onChange(e.target.value)}
             placeholder={busqueda.placeholder}
             aria-label={busqueda.placeholder}
+            maxLength={busqueda.maxLength}
           />
         </div>
       )}
@@ -76,12 +77,25 @@ export function ListadoToolbar({ busqueda, filtros, vistas, accion, vistasAlInic
 }
 
 // Tarjeta del listado: marca (ícono, Avatar o bloque de fecha), cuerpo con
-// título + estado, dato principal, detalle opcional y pie (lista de datos,
-// separados a los lados). `marcaClassName` suma una clase a la marca (la tarjeta
+// título + estado, una bajada opcional en gris debajo del título (el cliente en
+// la tarjeta de viaje de gestión), dato principal, detalle opcional y pie (lista
+// de datos, separados a los lados). `marcaClassName` suma una clase a la marca (la tarjeta
 // de viaje usa `fecha-tile`) y `className`, a la tarjeta (`listado-card-viaje`).
 // Sin `onClick` es una tarjeta de solo lectura (un `div`, sin hover ni foco: el
 // historial de Mantenimiento no abre ninguna ficha).
-export function ListadoCard({ className, marca, marcaClassName, marcaSinFondo = false, titulo, estado, sub, detalle, pie, onClick }) {
+export function ListadoCard({
+  className,
+  marca,
+  marcaClassName,
+  marcaSinFondo = false,
+  titulo,
+  estado,
+  bajada,
+  sub,
+  detalle,
+  pie,
+  onClick,
+}) {
   const Contenedor = onClick ? 'button' : 'div';
   return (
     <Contenedor
@@ -101,6 +115,7 @@ export function ListadoCard({ className, marca, marcaClassName, marcaSinFondo = 
           <span className="listado-card-titulo">{titulo}</span>
           {estado}
         </div>
+        {bajada && <div className="listado-card-bajada">{bajada}</div>}
         <div className="listado-card-sub">{sub}</div>
         {detalle && <div className="listado-card-detalle">{detalle}</div>}
         <div className="listado-card-pie">

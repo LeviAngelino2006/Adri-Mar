@@ -105,6 +105,17 @@ export function formatearHoraRelativaHoy(valor, ahora = Date.now()) {
   return `${diaMesSinPunto(new Date(valor))} ${hora}`;
 }
 
+// Hora de un viaje en una lista agrupada por día (los sin cerrar del panel Viajes
+// de hoy): "07:30" si cae ese día, que ya lo dice el título del grupo; "hoy 06:00"
+// si el grupo es de otro día y la hora es de hoy; si no, relativa a hoy, como
+// formatearHoraRelativaHoy ("ayer 22:00", "21 oct 13:00").
+export function formatearHoraDelDia(valor, diaISO, ahora = Date.now()) {
+  const dia = fechaCordobaISO(valor);
+  if (dia === diaISO) return formatearHora(valor);
+  if (dia === hoyCordobaISO(ahora)) return `hoy ${formatearHora(valor)}`;
+  return formatearHoraRelativaHoy(valor, ahora);
+}
+
 // Kilómetros con separador de miles es-AR: 110030 -> "110.030".
 export function formatearKm(valor) {
   return Number(valor).toLocaleString('es-AR');
