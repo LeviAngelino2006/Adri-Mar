@@ -1,5 +1,6 @@
 // Tests de la tanda "encontrar viajes": el listado de Viajes con Próximos |
-// Anteriores, el buscador por cliente o lugar y el cliente en la tarjeta. Se corren con `npm test`
+// Anteriores, el buscador por cliente o lugar, el cliente en la tarjeta y el
+// filtro "Cobro". Se corren con `npm test`
 // (node:test).
 //
 // Mismo método que choferCelular.render.test.mjs: se monta la pantalla real con
@@ -336,5 +337,25 @@ describe('Cliente en la tarjeta: solo en el listado de gestión', () => {
     await montar('MisViajes', '/mis-viajes');
     assert.ok(contenedor.querySelectorAll('.listado-card').length > 0);
     assert.deepEqual(bajadas(), []);
+  });
+});
+
+describe('Filtro "Cobro"', () => {
+  test('se llama "Cobro", con "Sin precio o cobro pendiente", y manda el mismo parámetro de siempre', async () => {
+    await montar('Viajes', '/viajes');
+    await abrirFiltros();
+    const campo = contenedor.querySelector('select[name="administrativoPendiente"]');
+    assert.equal(contenedor.querySelector('label[for="administrativoPendiente"]').textContent, 'Cobro');
+    assert.deepEqual([...campo.options].map((o) => o.textContent), ['Todos', 'Sin precio o cobro pendiente']);
+    assert.ok(!contenedor.textContent.includes('Administrativo'));
+
+    await elegir('administrativoPendiente', 'true');
+    assert.equal(ultimoPedido().administrativoPendiente, 'true');
+  });
+
+  test('Personal de Taller no lo ve', async () => {
+    await montar('Viajes', '/viajes', { id: 9, personaId: 30, nombre: 'Raúl', apellido: 'Quiroga', perfil: 'PERSONAL_TALLER', habilitadoParaConducir: false });
+    await abrirFiltros();
+    assert.equal(contenedor.querySelector('select[name="administrativoPendiente"]'), null);
   });
 });

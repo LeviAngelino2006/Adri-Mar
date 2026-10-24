@@ -1,5 +1,5 @@
 // Smoke test de render de la tarjeta de viaje del listado (agrupado por día,
-// con el badge de pendiente administrativo), del formulario de alta (sin datos
+// con el pendiente administrativo en texto gris), del formulario de alta (sin datos
 // administrativos, y precargado al duplicar), del botón "Duplicar viaje" y de los
 // paneles del Dashboard (Viajes de hoy y estados vacíos). Se corre con `npm test` (node:test).
 //
@@ -163,18 +163,18 @@ describe('TarjetaViaje: cliente', () => {
 describe('TarjetaViaje: pendiente administrativo', () => {
   const render = (props) => renderToStaticMarkup(h(TarjetaViaje, { onClick() {}, ...props }));
 
-  test('con mostrarPendientes, SIN_PRECIO da el badge "Sin precio" en el detalle', () => {
+  test('con mostrarPendientes, SIN_PRECIO da "Sin precio" en el detalle, como texto gris y sin badge', () => {
     const html = render({ viaje: viaje({ pendienteAdministrativo: 'SIN_PRECIO' }), mostrarPendientes: true });
-    assert.match(
-      html,
-      /class="listado-card-detalle"><span class="estado-badge estado-badge-warning estado-badge-sm">.*Sin precio<\/span><\/div>/
-    );
+    assert.match(html, /class="listado-card-detalle">Sin precio<\/div>/);
+    assert.ok(!html.includes('estado-badge-warning'));
+    assert.equal(html.match(/estado-badge /g).length, 1, 'solo el badge de estado');
   });
 
-  test('con mostrarPendientes, COBRO_PENDIENTE da el badge "Cobro pendiente"', () => {
-    const html = render({ viaje: viaje({ pendienteAdministrativo: 'COBRO_PENDIENTE' }), mostrarPendientes: true });
-    assert.match(sinEtiquetas(html), /Cobro pendiente/);
+  test('con mostrarPendientes, COBRO_PENDIENTE da "Cobro pendiente", también sin badge', () => {
+    const html = render({ viaje: viaje({ estado: 'FINALIZADO', pendienteAdministrativo: 'COBRO_PENDIENTE' }), mostrarPendientes: true });
+    assert.match(html, /class="listado-card-detalle">Cobro pendiente<\/div>/);
     assert.ok(!html.includes('Sin precio'));
+    assert.equal(html.match(/estado-badge /g).length, 1, 'solo el badge de estado');
   });
 
   test('sin pendiente (null) no hay detalle', () => {
@@ -198,7 +198,7 @@ describe('TarjetaViaje: pendiente administrativo', () => {
     const con = renderToStaticMarkup(h(ListadoViajesPorDia, { viajes, mostrarPendientes: true, onSeleccionar() {} }));
     const sin = renderToStaticMarkup(h(ListadoViajesPorDia, { viajes, onSeleccionar() {} }));
     assert.match(sinEtiquetas(con), /Sin precio[\s\S]*Cobro pendiente/);
-    assert.ok(!sin.includes('estado-badge-warning'));
+    assert.ok(!sin.includes('listado-card-detalle'));
   });
 });
 

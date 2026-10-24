@@ -63,8 +63,8 @@ const FILTROS_INICIALES = {
   vehiculoId: '',
   fechaDesde: '',
   fechaHasta: '',
-  // 'true' o '': viajes con badge "Sin precio" o "Cobro pendiente". Solo lo ven
-  // (y el backend solo lo acepta de) Administrador y Encargado.
+  // 'true' o '': viajes con "Sin precio" o "Cobro pendiente" (filtro "Cobro").
+  // Solo lo ven (y el backend solo lo acepta de) Administrador y Encargado.
   administrativoPendiente: '',
 };
 
@@ -492,14 +492,14 @@ function Viajes() {
               </FormField>
 
               {puedeGestionar && (
-                <FormField id="administrativoPendiente" label="Administrativo">
+                <FormField id="administrativoPendiente" label="Cobro">
                   <select
                     name="administrativoPendiente"
                     value={filtros.administrativoPendiente}
                     onChange={handleFiltroChange}
                   >
                     <option value="">Todos</option>
-                    <option value="true">Administrativo pendiente</option>
+                    <option value="true">Sin precio o cobro pendiente</option>
                   </select>
                 </FormField>
               )}

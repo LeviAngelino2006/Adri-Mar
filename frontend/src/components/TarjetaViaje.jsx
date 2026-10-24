@@ -21,7 +21,7 @@ import { agruparViajesPorDia } from '../utils/viajesPorDia';
 // la ruta; Mis viajes no lo muestra. Sin cliente cargado no se agrega nada.
 //
 // `mostrarPendientes` (solo el listado de Viajes, para Administrador/Encargado)
-// agrega en el detalle el badge "Sin precio" o "Cobro pendiente". El valor lo
+// agrega en el detalle, en texto gris, "Sin precio" o "Cobro pendiente". El valor lo
 // manda el backend solo a esos perfiles: para el resto la clave no existe y no
 // se muestra nada aunque la prop venga en true.
 function TarjetaViaje({ viaje, onClick, variante, mostrarCliente = false, mostrarPendientes = false }) {
@@ -55,13 +55,7 @@ function TarjetaViaje({ viaje, onClick, variante, mostrarCliente = false, mostra
         </EstadoBadge>
       }
       sub={sub}
-      detalle={
-        pendiente && (
-          <EstadoBadge tono={pendiente.tono} size="sm">
-            {pendiente.label}
-          </EstadoBadge>
-        )
-      }
+      detalle={pendiente?.label}
       pie={[
         vehiculoTexto,
         kilometrosEstimados != null ? `${formatearKm(kilometrosEstimados)} km estimados` : 'Km pendientes',
