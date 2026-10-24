@@ -10,5 +10,6 @@ Envuelve un control con su label, hint y mensaje de error accesibles.
 
 ## Reglas
 - Los controles miden mínimo 44px de alto, padding `space-2` × `space-3`, borde `color-border`, radio `radius-sm`.
+- Foco (input, select y textarea por igual): outline 2px `brand-600` con offset -2px, por dentro del control, tapando el borde. Lo da la regla global de `index.css`, no `FormField`: vale también para los campos que no van en un `FormField` (el buscador de los listados). Por dentro y no por fuera porque, con offset 2px, el cuerpo con scroll de los modales recortaba el anillo: un textarea a todo el ancho mostraba solo el borde de abajo.
 - Dentro de `.form-grid` los campos pasan a dos columnas desde 640px.
 - Validá todo junto antes de enviar, así los errores salen en una sola vuelta (el backend valida igual). Al mostrar los errores, el foco y el scroll van al primer campo con error: `useFocoEnPrimerError` (`hooks/useFocoEnPrimerError.js`) busca el primer control con `aria-invalid` en el `<form>`; si el error es general, scrollea hasta el `Alert`.

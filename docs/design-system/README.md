@@ -46,7 +46,7 @@ Sistema visual de Adri-Mar Gestión, la app interna de Adri Mar Viajes (transpor
 ## Interacción y accesibilidad
 
 - Todo control interactivo mide al menos 44px de alto (botones, inputs, ítems de navegación), también el link "← Volver al listado" (`.back-link`).
-- Foco visible: outline 2px `brand-600` con offset 2px. No lo quites.
+- Foco visible: outline 2px `brand-600` con offset 2px. No lo quites. Los campos de formulario (`input`, `select` y `textarea`, salvo checkbox y radio) llevan el mismo anillo por dentro, con offset -2px: así un contenedor con scroll (el cuerpo de un modal) no lo recorta y todos los campos se ven iguales en cualquier pantalla. Es una regla global de `index.css`: no le pongas otro foco a un campo.
 - Deshabilitado: opacidad 0.6 y cursor not-allowed.
 - El hover solo aplica con mouse: todo estilo `:hover` va dentro de `@media (hover: hover)`. En pantallas táctiles el hover queda pegado en lo que estaba bajo el dedo al cambiar de pantalla (un botón o tarjeta aparece resaltado sin que nadie lo toque). Para que el toque tenga respuesta, cada regla de hover tiene un `:active` con el mismo estilo, fuera de la media query. `:focus-visible` y `:disabled` no cambian.
 - Al abrir una ficha o un formulario que reemplaza al listado dentro de la misma ruta (Viajes, Mis viajes, Flota de vehículos, Usuarios y Documentación) y al volver al listado, la página vuelve arriba (`window.scrollTo(0, 0)`). Al cambiar de ruta también (`ScrollAlTope`). El router no reinicia el scroll solo.

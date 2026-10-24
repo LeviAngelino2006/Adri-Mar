@@ -205,6 +205,19 @@ label {
   outline-offset: 2px;
 }
 
+/* Campos de formulario (input, select y textarea): el mismo anillo, pero por
+   dentro del control (offset -2px: tapa el borde y queda adentro). Con el anillo
+   por fuera, un contenedor con scroll lo recortaba: en los modales (el cuerpo
+   tiene overflow: auto) un textarea a todo el ancho mostraba solo el borde de
+   abajo, más grueso, y los inputs de la orilla perdían un costado. Así todos los
+   campos se ven igual, en una página o en un modal. Checkbox y radio siguen con
+   el anillo de afuera, como los botones. */
+input:not([type='checkbox'], [type='radio']):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: -2px;
+}
+
 /* Números que se comparan en columnas (km, odómetro, horas). */
 .num {
   font-variant-numeric: tabular-nums;
