@@ -112,6 +112,16 @@ async function obtenerUsuario(id) {
   return usuario;
 }
 
+// La ficha de una cuenta (GET /usuarios/:id), con la misma regla que la ficha de
+// una persona: un Encargado no ve la cuenta de un Administrador.
+async function consultarUsuario(id, { perfilSolicitante } = {}) {
+  const usuario = await obtenerUsuario(id);
+  if (perfilSolicitante === 'ENCARGADO' && usuario.persona.perfil.descripcion === 'ADMINISTRADOR') {
+    throw new PermisoDenegadoError();
+  }
+  return serializarUsuario(usuario);
+}
+
 async function crearUsuario(
   { personaId, nombreUsuario, contrasena },
   { perfilSolicitante } = {}
@@ -325,6 +335,7 @@ module.exports = {
   actualizarUsuario,
   darDeBajaUsuario,
   obtenerUsuario,
+  consultarUsuario,
   listarDisponiblesParaConducir,
   serializarUsuario,
   ValidacionError,

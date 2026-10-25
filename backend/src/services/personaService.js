@@ -349,15 +349,17 @@ async function listarPersonas(
 }
 
 // Choferes asignables: personas activas y habilitadas para conducir, tengan o
-// no cuenta en el sistema.
+// no cuenta en el sistema. Incluye a un Administrador que maneja (se lo tiene
+// que poder asignar), así que, a diferencia de la ficha y el listado de
+// Personal, no se puede ocultar a los Administradores para un Encargado: en
+// cambio, solo viaja lo que hace falta para elegir al chofer (nada de DNI,
+// email, teléfono ni cuenta).
 async function listarDisponiblesParaConducir() {
-  const personas = await prisma.persona.findMany({
+  return prisma.persona.findMany({
     where: { habilitadoParaConducir: true, activo: true },
-    include: INCLUDE_PERSONA,
+    select: { id: true, nombre: true, apellido: true },
     orderBy: [{ nombre: 'asc' }, { apellido: 'asc' }],
   });
-
-  return personas.map(serializarPersona);
 }
 
 module.exports = {

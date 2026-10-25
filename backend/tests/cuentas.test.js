@@ -1,7 +1,8 @@
 // Tests de seguridad de Personal y Usuarios (tanda 1 de la auditoría,
 // docs/auditoria-ux/personal-usuarios.md): el último Administrador (H2), las
-// acciones sobre uno mismo (H3) y las credenciales de un Encargado (H4). Los
-// escenarios salen de las pruebas contra la API de la auditoría (G1, G2 y G3).
+// acciones sobre uno mismo (H3), las credenciales de un Encargado (H4) y lo que
+// un Encargado ve de un Administrador (H5). Los escenarios salen de las pruebas
+// contra la API de la auditoría (G1, G2 y G3).
 //
 // Levantan la app real con un JWT real, la sesión tomada del token
 // (helpers/sesionDelToken.js) y Prisma en memoria con estado
@@ -237,5 +238,36 @@ describe('H4: un Encargado no toma la cuenta de otro Encargado', () => {
     const { status } = await pedir('PATCH', '/usuarios/3/baja', { como: DIEGO });
     assert.equal(status, 200);
     assert.equal(estadoDe(3), 'INACTIVO');
+  });
+});
+
+describe('H5: lo que un Encargado ve de un Administrador', () => {
+  const DIEGO = { id: 4, personaId: 4, perfil: 'ENCARGADO' };
+  const ADRIANA = { id: 1, personaId: 1, perfil: 'ADMINISTRADOR' };
+
+  test('G1: GET /usuarios/:id de un Administrador da 403 a un Encargado, igual que GET /personas/:id', async () => {
+    const cuentaAdmin = await pedir('GET', '/usuarios/1', { como: DIEGO });
+    const personaAdmin = await pedir('GET', '/personas/1', { como: DIEGO });
+    assert.equal(cuentaAdmin.status, 403);
+    assert.equal(cuentaAdmin.json.error, 'No tiene permisos para consultar este usuario');
+    assert.equal(cuentaAdmin.json.usuario, undefined);
+    assert.equal(personaAdmin.status, 403);
+  });
+
+  test('la cuenta de otro Encargado sí la ve, y un Administrador ve todas', async () => {
+    assert.equal((await pedir('GET', '/usuarios/3', { como: DIEGO })).status, 200);
+    assert.equal((await pedir('GET', '/usuarios/1', { como: ADRIANA })).status, 200);
+  });
+
+  test('los disponibles para conducir incluyen al Administrador que maneja, pero sin sus datos personales', async () => {
+    persona(1).habilitadoParaConducir = true;
+    for (const ruta of ['/personas/disponibles-chofer', '/usuarios/disponibles-chofer']) {
+      const { status, json } = await pedir('GET', ruta, { como: DIEGO });
+      assert.equal(status, 200);
+      const lista = json.personas ?? json.usuarios;
+      const adriana = lista.find((p) => p.id === 1);
+      assert.deepEqual(adriana, { id: 1, nombre: 'Adriana', apellido: 'Martínez' }, ruta);
+      for (const p of lista) assert.deepEqual(Object.keys(p).sort(), ['apellido', 'id', 'nombre'], ruta);
+    }
   });
 });

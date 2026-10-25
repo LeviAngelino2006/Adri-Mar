@@ -143,8 +143,10 @@ function crearCuentas() {
     },
     persona: {
       findUnique: async ({ where, include }) => conIncludePersona(db.personas.find((p) => p.id === where.id), include),
-      findMany: async ({ where, include } = {}) =>
-        db.personas.filter((p) => cumplePersona(p, where)).map((p) => conIncludePersona(p, include)),
+      findMany: async ({ where, include, select } = {}) =>
+        db.personas
+          .filter((p) => cumplePersona(p, where))
+          .map((p) => (select ? Object.fromEntries(Object.keys(select).map((k) => [k, p[k]])) : conIncludePersona(p, include))),
       count: async ({ where } = {}) => db.personas.filter((p) => cumplePersona(p, where)).length,
       create: async ({ data, include }) => {
         if (data.dni && db.personas.some((p) => p.dni === data.dni)) throw errorUnico('dni');
