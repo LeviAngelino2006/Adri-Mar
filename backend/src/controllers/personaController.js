@@ -68,6 +68,9 @@ async function actualizar(req, res) {
     if (err instanceof personaService.PermisoDenegadoError) {
       return res.status(403).json({ error: 'No tiene permisos para modificar esta persona' });
     }
+    if (err instanceof personaService.PersonaDadaDeBajaError) {
+      return res.status(409).json({ error: err.message });
+    }
     if (err instanceof personaService.ChoferEnViajeError) {
       return res.status(409).json({ error: err.message });
     }

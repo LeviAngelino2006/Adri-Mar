@@ -50,6 +50,15 @@ class ChoferConViajesProgramadosError extends Error {
   }
 }
 
+// Los datos de una persona dada de baja son de solo consulta, como los de un
+// vehículo dado de baja (H12 de la auditoría, decisión del cliente): para
+// corregirlos, primero se la reactiva. Lo usa también usuarioService (H10).
+class PersonaDadaDeBajaError extends Error {
+  constructor() {
+    super('Reactivá primero a la persona.');
+  }
+}
+
 // Nadie se da de baja, se bloquea la cuenta ni se cambia el perfil a sí mismo
 // (H3 de la auditoría de Personal y Usuarios): es fácil de hacer sin querer y no
 // tiene vuelta atrás desde la pantalla. Lo usa también usuarioService.
@@ -250,6 +259,9 @@ async function actualizarPersona(
       throw new PermisoDenegadoError();
     }
   }
+  if (!actual.activo) {
+    throw new PersonaDadaDeBajaError();
+  }
 
   // Sus propios datos sí, pero el perfil y la habilitación de uno los cambia
   // otro. El front manda el formulario entero: solo es un cambio si difiere.
@@ -428,5 +440,6 @@ module.exports = {
   ChoferConViajesProgramadosError,
   UltimoAdministradorError,
   AccionSobreSiMismoError,
+  PersonaDadaDeBajaError,
   PERFILES_VALIDOS,
 };
