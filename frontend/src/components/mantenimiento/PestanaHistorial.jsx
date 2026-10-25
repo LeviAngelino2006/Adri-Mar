@@ -11,7 +11,14 @@ import { ESTADOS_SERVICE, ORDENES_HISTORIAL, POR_PAGINA_HISTORIAL, TIPOS_REGISTR
 import { ESTADOS_VEHICULO } from '../../constants/estadosVehiculo';
 import { mensajeErrorCarga } from '../../utils/errorCarga';
 import { formatearFechaCorta } from '../../utils/viajeFormato';
-import { detalleEstadoService, detalleRegistro, pieRegistro, textoRegistro } from '../../utils/mantenimiento';
+import {
+  detalleEstadoService,
+  detalleRegistro,
+  nombreTipoArreglo,
+  pieRegistro,
+  textoRegistro,
+  textoTiposArreglo,
+} from '../../utils/mantenimiento';
 
 const DEMORA_BUSQUEDA_MS = 300;
 const FILTROS_VACIOS = { tipo: '', tipoArregloId: '', tipoVehiculoId: '', desde: '', hasta: '' };
@@ -37,7 +44,13 @@ export function TarjetaRegistro({ registro }) {
           </EstadoBadge>
         ) : (
           <EstadoBadge tono="neutral" size="sm">
-            {registro.tipoArreglo?.nombre ?? 'Arreglo'}
+            {/* Con tope de ancho: un "¿Qué trabajo?" largo no aprieta el título. */}
+            <span
+              className="historial-badge-tipos"
+              title={(registro.tiposArreglo ?? []).map(nombreTipoArreglo).join(', ') || undefined}
+            >
+              {textoTiposArreglo(registro)}
+            </span>
           </EstadoBadge>
         )
       }

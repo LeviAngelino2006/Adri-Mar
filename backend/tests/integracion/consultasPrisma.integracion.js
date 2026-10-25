@@ -42,6 +42,7 @@ const SRC = path.join(BACKEND, 'src');
 
 const app = require(path.join(SRC, 'app.js'));
 const prisma = require(path.join(SRC, 'services', 'prismaClient.js'));
+const { normalizarNombre } = require(path.join(SRC, 'utils', 'normalizarNombre.js'));
 
 const ADMIN = { nombreUsuario: 'admin-integracion', contrasena: 'clave-solo-para-integracion' };
 
@@ -209,14 +210,18 @@ async function sembrarDatos() {
       usuarioId: admin.id,
     },
   });
+  const nombreResponsable = `Taller de integración ${SUFIJO}`;
+  const responsable = await prisma.responsableMantenimiento.create({
+    data: { nombre: nombreResponsable, nombreNormalizado: normalizarNombre(nombreResponsable) },
+  });
   await prisma.mantenimientoRealizado.create({
     data: {
       vehiculoId: vehiculo.id,
-      tipoArregloId: tipoArreglo.id,
       fecha: new Date(`${diaCordoba(-10)}T12:00:00Z`),
       kilometraje: 45000,
-      tallerMecanico: 'Taller de integración',
+      responsableId: responsable.id,
       usuarioId: admin.id,
+      tiposArreglo: { create: [{ tipoArregloId: tipoArreglo.id }] },
     },
   });
 
@@ -236,6 +241,7 @@ async function sembrarDatos() {
     matafuegos,
     licencia,
     tipoArreglo: tipoArreglo.id,
+    responsable: responsable.id,
   });
 }
 
@@ -354,6 +360,7 @@ describe('Presupuestos', () => {
 describe('Mantenimiento', () => {
   probarGets([
     ['tipos de arreglo', () => '/mantenimientos/tipos-arreglo'],
+    ['responsables', () => '/mantenimientos/responsables'],
     ['estado del service (pestaña Service)', () => '/mantenimientos/planes'],
     ['historial', () => '/mantenimientos/historial'],
     ['historial de services', () => '/mantenimientos/historial?tipo=SERVICE'],
@@ -370,7 +377,15 @@ describe('Mantenimiento', () => {
     await esperar(
       'POST',
       '/mantenimientos/arreglos',
-      { body: { vehiculoId: ids.vehiculo, fecha: HOY, kilometraje: 50000, tipoArregloId: ids.tipoArreglo, responsable: 'Taller' } },
+      {
+        body: {
+          vehiculoId: ids.vehiculo,
+          fecha: HOY,
+          kilometraje: 50000,
+          tiposArregloIds: [ids.tipoArreglo],
+          responsableId: ids.responsable,
+        },
+      },
       201
     );
   });

@@ -40,4 +40,4 @@ backend/privado/
 # Configuración local de asistentes IA
 CLAUDE.md
 CLAUDE.propuesta.md
-
+.claude/

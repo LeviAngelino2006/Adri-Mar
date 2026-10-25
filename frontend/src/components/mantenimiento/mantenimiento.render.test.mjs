@@ -79,6 +79,20 @@ describe('TarjetaService', () => {
     assert.match(html, /Sin plan/);
     assert.match(html, /Odómetro: 339\.200 km/);
   });
+
+  test('con plan: barra de avance con el porcentaje del intervalo recorrido', () => {
+    const html = renderToStaticMarkup(h(TarjetaService, { item: itemProximo, onClick: () => {} }));
+    assert.match(html, /class="service-barra" role="progressbar"/);
+    assert.match(html, /aria-valuenow="96"/);
+    assert.match(html, /width:96%/);
+  });
+
+  test('vencido: la barra queda llena; sin plan no hay barra', () => {
+    const vencido = { ...itemProximo, estado: 'VENCIDO', porcentajeConsumido: 1.2 };
+    assert.match(renderToStaticMarkup(h(TarjetaService, { item: vencido, onClick: () => {} })), /aria-valuenow="100"/);
+    const sinPlan = { ...itemProximo, plan: null, estado: 'SIN_PLAN', kmProximoService: null, porcentajeConsumido: null };
+    assert.doesNotMatch(renderToStaticMarkup(h(TarjetaService, { item: sinPlan, onClick: () => {} })), /progressbar/);
+  });
 });
 
 describe('PestanaService', () => {
@@ -117,23 +131,55 @@ describe('TarjetaRegistro (historial)', () => {
     responsable: null,
   };
 
-  test('un arreglo: tarjeta de solo lectura, con el tipo, quién lo hizo y quién lo registró', () => {
+  test('un arreglo: tarjeta de solo lectura, con los tipos, quién lo hizo y quién lo registró', () => {
     const html = renderToStaticMarkup(
       h(TarjetaRegistro, {
-        registro: { ...base, tipo: 'ARREGLO', tipoArreglo: { id: 3, nombre: 'Frenos' }, descripcion: 'Pastillas', responsable: 'Taller Gómez' },
+        registro: {
+          ...base,
+          tipo: 'ARREGLO',
+          tiposArreglo: [
+            { id: 1, nombre: 'Engrase' },
+            { id: 4, nombre: 'Frenos' },
+          ],
+          descripcion: 'Pastillas',
+          responsable: 'Taller Gómez',
+        },
       })
     );
     assert.match(html, /^<div class="listado-card"/);
     assert.doesNotMatch(html, /<button/);
     assert.match(html, /class="listado-card-marca fecha-tile"/);
     assert.match(html, /<span class="sr-only">12 mar 2026: <\/span>/);
-    assert.match(texto(html), /Frenos/);
+    assert.match(html, /estado-badge[^>]*>.*2 trabajos/);
+    assert.match(texto(html), /Trabajos: Engrase, Frenos/);
     assert.match(texto(html), /57\.345 km · Hizo: Taller Gómez/);
     assert.match(texto(html), /Registró: Ana Pérez/);
   });
 
+  test('con 1 tipo el badge dice "1 trabajo" y el tipo va en "Trabajos: …"', () => {
+    const tiposArreglo = [{ id: 8, nombre: 'Otro', detalle: 'Cambio de espejo' }];
+    const html = renderToStaticMarkup(h(TarjetaRegistro, { registro: { ...base, tipo: 'ARREGLO', tiposArreglo } }));
+    assert.match(html, /estado-badge[^>]*>.*1 trabajo</);
+    assert.match(texto(html), /Sin descripción/);
+    assert.equal(texto(html).match(/Cambio de espejo/g).length, 1);
+    assert.match(texto(html), /Trabajos: Cambio de espejo/);
+  });
+
+  test('con 3 tipos el badge dice "3 trabajos" y lleva la lista en title', () => {
+    const tiposArreglo = [
+      { id: 1, nombre: 'Engrase', detalle: null },
+      { id: 4, nombre: 'Frenos', detalle: null },
+      { id: 8, nombre: 'Otro', detalle: 'Cambio de espejo' },
+    ];
+    const html = renderToStaticMarkup(h(TarjetaRegistro, { registro: { ...base, tipo: 'ARREGLO', tiposArreglo } }));
+    assert.match(html, /estado-badge[^>]*>.*3 trabajos/);
+    assert.match(html, /title="Engrase, Frenos, Cambio de espejo"/);
+    assert.match(html, /historial-badge-tipos/);
+    assert.match(texto(html), /Trabajos: Engrase, Frenos, Cambio de espejo/);
+  });
+
   test('un service lleva el badge de marca "Service"', () => {
-    const html = renderToStaticMarkup(h(TarjetaRegistro, { registro: { ...base, tipo: 'SERVICE', tipoArreglo: null } }));
+    const html = renderToStaticMarkup(h(TarjetaRegistro, { registro: { ...base, tipo: 'SERVICE', tiposArreglo: [] } }));
     assert.match(html, /estado-badge-brand[^>]*>.*Service/);
     assert.match(texto(html), /Service completo/);
   });
@@ -185,15 +231,22 @@ describe('PestanaArreglos', () => {
       )
     );
     assert.match(html, /class="card form-card"|form-card/);
-    assert.match(html, /Tipo de trabajo/);
-    assert.match(html, /Quién hizo el trabajo/);
-    assert.match(html, /Mecánico, chapista o taller/);
+    // Los tipos se eligen con casillas (GrupoCasillas), no con un select. En SSR
+    // la lista todavía no cargó, así que solo se ve el grupo.
+    assert.match(html, /<fieldset[^>]*id="arreglo-tipos"/);
+    assert.match(html, /<legend[^>]*>Trabajos realizados/);
+    assert.doesNotMatch(html, /Elegí el tipo de trabajo/);
+    // Responsable: catálogo "buscar o crear", no texto libre.
+    assert.match(html, /<label for="arreglo-responsable">Responsable/);
+    assert.match(html, /class="selector-buscar-crear"[^]*id="arreglo-responsable"[^>]*placeholder="Buscar o crear responsable…"/);
+    assert.doesNotMatch(html, /Quién hizo el trabajo/);
     assert.match(html, /Registrar arreglo/);
-    // Vehículo y Tipo de trabajo son obligatorios: "Elegí…" (o "Cargando…") se ve,
-    // pero no se puede elegir (no es una opción más de la lista). Con los tipos
-    // cargados, ver arreglosSelect.render.test.mjs.
+    // Vehículo es obligatorio: "Elegí el vehículo" se ve, pero no se puede elegir
+    // (no es una opción más de la lista). Mientras cargan los tipos, el grupo
+    // muestra "Cargando…" como hint. Con los tipos cargados, ver
+    // arreglosSelect.render.test.mjs.
     assert.match(html, /<option value="" disabled="" hidden="" selected="">Elegí el vehículo<\/option>/);
-    assert.match(html, /<option value="" disabled="" hidden="" selected="">Cargando…<\/option>/);
+    assert.match(html, /<p id="arreglo-tipos-hint" class="form-field-hint">Cargando…<\/p>/);
     assert.doesNotMatch(html, /[Cc]osto/);
   });
 });
