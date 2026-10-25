@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -50,6 +51,7 @@ function Usuarios() {
   const idDesdeQuery = searchParams.get('id');
   const crearConPersonaId = searchParams.get('crearConPersonaId');
   const nombreSugerido = searchParams.get('nombre');
+  const { usuario: usuarioActual } = useAuth();
 
   const [usuarios, setUsuarios] = useState([]);
   const [personasSinUsuario, setPersonasSinUsuario] = useState([]);
@@ -421,9 +423,12 @@ function Usuarios() {
                 <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
                   Modificar credenciales
                 </Button>
-                <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
-                  Desactivar acceso
-                </Button>
+                {/* La cuenta propia no se bloquea (el backend lo rechaza). */}
+                {seleccionado.personaId !== usuarioActual.personaId && (
+                  <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
+                    Desactivar acceso
+                  </Button>
+                )}
               </div>
             )}
           </Card>

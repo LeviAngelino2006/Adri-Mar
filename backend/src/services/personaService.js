@@ -34,6 +34,11 @@ class YaInactivaError extends Error {}
 // en vez de importar viajeService, para no crear una dependencia cruzada.
 class ChoferEnViajeError extends Error {}
 
+// Nadie se da de baja, se bloquea la cuenta ni se cambia el perfil a sí mismo
+// (H3 de la auditoría de Personal y Usuarios): es fácil de hacer sin querer y no
+// tiene vuelta atrás desde la pantalla. Lo usa también usuarioService.
+class AccionSobreSiMismoError extends Error {}
+
 const INCLUDE_PERSONA = { perfil: true, usuario: { include: { estadoUsuario: true } } };
 
 async function esChoferDeViajeEnCurso(personaId) {
@@ -193,13 +198,24 @@ async function crearPersona(
 async function actualizarPersona(
   id,
   { nombre, apellido, perfil, dni, email, telefono, habilitadoParaConducir },
-  { perfilSolicitante } = {}
+  { perfilSolicitante, personaIdSolicitante } = {}
 ) {
   const actual = await obtenerPersonaConRelaciones(id);
 
   if (perfilSolicitante === 'ENCARGADO') {
     if (actual.perfil.descripcion === 'ADMINISTRADOR' || perfil === 'ADMINISTRADOR') {
       throw new PermisoDenegadoError();
+    }
+  }
+
+  // Sus propios datos sí, pero el perfil y la habilitación de uno los cambia
+  // otro. El front manda el formulario entero: solo es un cambio si difiere.
+  if (actual.id === personaIdSolicitante) {
+    const cambiaPerfil = perfil !== actual.perfil.descripcion;
+    const cambiaHabilitacion =
+      typeof habilitadoParaConducir === 'boolean' && habilitadoParaConducir !== actual.habilitadoParaConducir;
+    if (cambiaPerfil || cambiaHabilitacion) {
+      throw new AccionSobreSiMismoError('No podés cambiar tu propio perfil');
     }
   }
 
@@ -241,11 +257,14 @@ async function actualizarPersona(
 // Baja lógica de la persona: conserva sus datos, viajes y documentos. Si tiene
 // cuenta de acceso, se desactiva en la MISMA transacción (una persona que ya
 // no está en la empresa no puede seguir entrando al sistema).
-async function darDeBajaPersona(id, { perfilSolicitante } = {}) {
+async function darDeBajaPersona(id, { perfilSolicitante, personaIdSolicitante } = {}) {
   const actual = await obtenerPersonaConRelaciones(id);
 
   if (perfilSolicitante === 'ENCARGADO' && actual.perfil.descripcion === 'ADMINISTRADOR') {
     throw new PermisoDenegadoError();
+  }
+  if (actual.id === personaIdSolicitante) {
+    throw new AccionSobreSiMismoError('No podés darte de baja a vos mismo');
   }
   if (!actual.activo) {
     throw new YaInactivaError();
@@ -355,5 +374,6 @@ module.exports = {
   YaInactivaError,
   ChoferEnViajeError,
   UltimoAdministradorError,
+  AccionSobreSiMismoError,
   PERFILES_VALIDOS,
 };

@@ -1,6 +1,7 @@
 // Tests de seguridad de Personal y Usuarios (tanda 1 de la auditoría,
-// docs/auditoria-ux/personal-usuarios.md): el último Administrador (H2). Los
-// escenarios salen de las pruebas contra la API de la auditoría (G2).
+// docs/auditoria-ux/personal-usuarios.md): el último Administrador (H2) y las
+// acciones sobre uno mismo (H3). Los escenarios salen de las pruebas contra la
+// API de la auditoría (G1, G2 y G3).
 //
 // Levantan la app real con un JWT real, la sesión tomada del token
 // (helpers/sesionDelToken.js) y Prisma en memoria con estado
@@ -136,5 +137,63 @@ describe('H2: siempre queda un Administrador activo', () => {
     assert.equal(baja.status, 200);
     assert.equal(perfil.status, 200);
     assert.equal(db.locks.length, 0);
+  });
+});
+
+describe('H3: nadie actúa sobre sí mismo', () => {
+  const ADRIANA = { id: 1, personaId: 1, perfil: 'ADMINISTRADOR' };
+  const DIEGO = { id: 4, personaId: 4, perfil: 'ENCARGADO' };
+
+  test('G2: la Administradora no se puede dar de baja a sí misma', async () => {
+    const { status, json } = await pedir('PATCH', '/personas/1/baja', { como: ADRIANA });
+    assert.equal(status, 409);
+    assert.equal(json.error, 'No podés darte de baja a vos mismo');
+    assert.equal(persona(1).activo, true);
+  });
+
+  test('G1: el Encargado no se puede cambiar el perfil a sí mismo', async () => {
+    const { status, json } = await pedir('PUT', '/personas/4', { como: DIEGO, body: datosDe(4, { perfil: 'PERSONAL_TALLER' }) });
+    assert.equal(status, 409);
+    assert.equal(json.error, 'No podés cambiar tu propio perfil');
+    assert.equal(perfilDe(4), 'ENCARGADO');
+  });
+
+  test('tampoco la habilitación para conducir', async () => {
+    const { status, json } = await pedir('PUT', '/personas/1', { como: ADRIANA, body: datosDe(1, { habilitadoParaConducir: true }) });
+    assert.equal(status, 409);
+    assert.equal(json.error, 'No podés cambiar tu propio perfil');
+    assert.equal(persona(1).habilitadoParaConducir, false);
+  });
+
+  test('sus propios datos sí: el formulario completo con el mismo perfil y habilitación', async () => {
+    const { status, json } = await pedir('PUT', '/personas/4', { como: DIEGO, body: datosDe(4, { telefono: '3571 41-0004' }) });
+    assert.equal(status, 200);
+    assert.equal(json.persona.telefono, '3571 41-0004');
+  });
+
+  test('G1 y G3: nadie se bloquea la cuenta, ni por /baja ni por PUT activo=false', async () => {
+    const encargado = await pedir('PATCH', '/usuarios/4/baja', { como: DIEGO });
+    const admin = await pedir('PUT', '/usuarios/1', { como: ADRIANA, body: { nombreUsuario: 'amartinez', activo: false } });
+    for (const { status, json } of [encargado, admin]) {
+      assert.equal(status, 409);
+      assert.equal(json.error, 'No podés bloquear tu propia cuenta');
+    }
+    assert.equal(estadoDe(4), 'ACTIVO');
+    assert.equal(estadoDe(1), 'ACTIVO');
+  });
+
+  test('sobre otra persona sí: Carlos le cambia el perfil a Adriana', async () => {
+    const CARLOS = { id: 2, personaId: 2, perfil: 'ADMINISTRADOR' };
+    const { status } = await pedir('PUT', '/personas/1', { como: CARLOS, body: datosDe(1, { perfil: 'ENCARGADO' }) });
+    assert.equal(status, 200);
+  });
+
+  test('se compara la persona, no el id de la cuenta: Ramiro (cuenta 11, persona 14)', async () => {
+    const RAMIRO_GESTOR = { id: 11, personaId: 14, perfil: 'ENCARGADO' };
+    const propia = await pedir('PATCH', '/usuarios/11/baja', { como: RAMIRO_GESTOR });
+    assert.equal(propia.status, 409);
+    // La cuenta 14 no existe; la persona 11 tampoco es él: no lo confunde.
+    const ajena = await pedir('PATCH', '/personas/14/baja', { como: { id: 14, personaId: 11, perfil: 'ENCARGADO' } });
+    assert.equal(ajena.status, 200);
   });
 });

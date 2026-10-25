@@ -20,6 +20,8 @@ class PermisoDenegadoError extends Error {}
 class NoEncontradoError extends Error {}
 class YaInactivoError extends Error {}
 
+const BLOQUEAR_PROPIA_CUENTA = 'No podés bloquear tu propia cuenta';
+
 const INCLUDE_USUARIO = {
   estadoUsuario: true,
   persona: { include: { perfil: true } },
@@ -192,12 +194,15 @@ async function crearUsuario(
 async function actualizarUsuario(
   id,
   { nombreUsuario, contrasena, activo },
-  { perfilSolicitante } = {}
+  { perfilSolicitante, personaIdSolicitante } = {}
 ) {
   const actual = await obtenerUsuario(id);
 
   if (perfilSolicitante === 'ENCARGADO' && actual.persona?.perfil?.descripcion === 'ADMINISTRADOR') {
     throw new PermisoDenegadoError();
+  }
+  if (activo === false && actual.personaId === personaIdSolicitante) {
+    throw new personaService.AccionSobreSiMismoError(BLOQUEAR_PROPIA_CUENTA);
   }
 
   const creds = validarCredenciales({ nombreUsuario, contrasena }, { requireContrasena: false });
@@ -238,11 +243,14 @@ async function actualizarUsuario(
   return serializarUsuario(usuario);
 }
 
-async function darDeBajaUsuario(id, { perfilSolicitante } = {}) {
+async function darDeBajaUsuario(id, { perfilSolicitante, personaIdSolicitante } = {}) {
   const actual = await obtenerUsuario(id);
 
   if (perfilSolicitante === 'ENCARGADO' && actual.persona?.perfil?.descripcion === 'ADMINISTRADOR') {
     throw new PermisoDenegadoError();
+  }
+  if (actual.personaId === personaIdSolicitante) {
+    throw new personaService.AccionSobreSiMismoError(BLOQUEAR_PROPIA_CUENTA);
   }
 
   if (actual.estadoUsuario.descripcion !== 'ACTIVO') {
@@ -314,4 +322,5 @@ module.exports = {
   YaInactivoError,
   PermisoDenegadoError,
   UltimoAdministradorError,
+  AccionSobreSiMismoError: personaService.AccionSobreSiMismoError,
 };

@@ -48,7 +48,7 @@ async function actualizar(req, res) {
     const usuario = await usuarioService.actualizarUsuario(
       req.params.id,
       { nombreUsuario, contrasena, activo },
-      { perfilSolicitante: req.usuario.perfil }
+      { perfilSolicitante: req.usuario.perfil, personaIdSolicitante: req.usuario.personaId }
     );
     return res.json({ usuario });
   } catch (err) {
@@ -64,6 +64,9 @@ async function actualizar(req, res) {
     if (err instanceof usuarioService.UltimoAdministradorError) {
       return res.status(409).json({ error: err.message });
     }
+    if (err instanceof usuarioService.AccionSobreSiMismoError) {
+      return res.status(409).json({ error: err.message });
+    }
     throw err;
   }
 }
@@ -72,6 +75,7 @@ async function darDeBaja(req, res) {
   try {
     const usuario = await usuarioService.darDeBajaUsuario(req.params.id, {
       perfilSolicitante: req.usuario.perfil,
+      personaIdSolicitante: req.usuario.personaId,
     });
     return res.json({ usuario });
   } catch (err) {
@@ -85,6 +89,9 @@ async function darDeBaja(req, res) {
       return res.status(409).json({ error: 'El usuario ya está inactivo' });
     }
     if (err instanceof usuarioService.UltimoAdministradorError) {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err instanceof usuarioService.AccionSobreSiMismoError) {
       return res.status(409).json({ error: err.message });
     }
     throw err;
