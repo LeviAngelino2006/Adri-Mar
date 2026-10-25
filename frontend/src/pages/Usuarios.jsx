@@ -192,7 +192,10 @@ function Usuarios() {
         const payload = {
           nombreUsuario: form.nombreUsuario,
         };
-        if (form.contrasena && form.contrasena.trim()) {
+        // Vacío es "no cambiarla". Cualquier otra cosa se manda tal cual: si son
+        // solo espacios, el backend lo rechaza y el error sale en el campo (antes
+        // se descartaba en silencio y parecía guardada).
+        if (form.contrasena !== '') {
           payload.contrasena = form.contrasena;
         }
         await api.put(`/usuarios/${editando.id}`, payload);

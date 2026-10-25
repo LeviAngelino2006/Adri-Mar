@@ -3,7 +3,9 @@
 // cuenta ni se cambia el perfil a sí mismo. En la ficha propia no aparecen "Dar
 // de baja" ni "Desactivar acceso", y al editarse a sí mismo el perfil queda de
 // solo lectura con el motivo. Y un Encargado no ve "Modificar credenciales" en la
-// cuenta de un Encargado (H4). Se corren con `npm test`.
+// cuenta de un Encargado (H4). Al editar una cuenta, una contraseña de solo
+// espacios se manda y el error del backend sale en el campo (H12). Se corren con
+// `npm test`.
 //
 // Se montan Personal y Usuarios con react-dom/client sobre jsdom; la API se
 // reemplaza por un doble.
@@ -61,6 +63,7 @@ const PERSONAS = [
   persona(4, 'Diego', 'Sosa', 'dsosa'),
   { ...persona(14, 'Ramiro', 'Acosta', 'racosta'), perfil: 'CHOFER', habilitadoParaConducir: true },
 ];
+const enviados = [];
 // Quién está logueado en cada test (Diego salvo que el test diga otra cosa).
 let logueado = DIEGO;
 const USUARIOS = PERSONAS.map((p) => ({
@@ -85,6 +88,16 @@ before(async () => {
     if (endpoint === '/usuarios') return { data: { usuarios: USUARIOS } };
     return { data: {} };
   };
+  // Como el backend: una contraseña de solo espacios da 400 en el campo.
+  api.put = async (endpoint, datos) => {
+    enviados.push({ endpoint, datos });
+    if (datos.contrasena !== undefined && datos.contrasena.trim() === '') {
+      const err = new Error('400');
+      err.response = { status: 400, data: { errores: { contrasena: 'La contraseña no puede tener solo espacios' } } };
+      throw err;
+    }
+    return { data: {} };
+  };
   ({ MemoryRouter } = await import('react-router-dom'));
   ({ AuthProvider } = await vite.ssrLoadModule('/src/context/AuthContext.jsx'));
   Personal = (await vite.ssrLoadModule('/src/pages/Personal.jsx')).default;
@@ -95,6 +108,7 @@ after(() => vite.close());
 
 beforeEach(() => {
   logueado = DIEGO;
+  enviados.length = 0;
   localStorage.setItem('adrimar_token', 'token-de-prueba');
   localStorage.setItem('adrimar_usuario', JSON.stringify(DIEGO));
   contenedor = document.createElement('div');
@@ -181,5 +195,37 @@ describe('Usuarios: las credenciales de un Encargado (H4)', () => {
     localStorage.setItem('adrimar_usuario', JSON.stringify(ADRIANA));
     await montar(Usuarios, '/usuarios?id=3');
     assert.ok(botones().includes('Modificar credenciales'));
+  });
+});
+
+describe('Usuarios: la contraseña al editar (H12)', () => {
+  function escribir(input, texto) {
+    const asignarValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    act(() => {
+      asignarValue.call(input, texto);
+      input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+  }
+
+  async function editarCuentaDeRamiro(contrasena) {
+    logueado = ADRIANA;
+    localStorage.setItem('adrimar_usuario', JSON.stringify(ADRIANA));
+    await montar(Usuarios, '/usuarios?id=14');
+    await act(async () => boton('Modificar credenciales').click());
+    if (contrasena !== undefined) escribir(contenedor.querySelector('input[name="contrasena"]'), contrasena);
+    await act(async () => boton('Guardar cambios').click());
+  }
+
+  test('solo espacios se manda y el error del backend sale en el campo', async () => {
+    await editarCuentaDeRamiro('     ');
+    assert.equal(enviados.length, 1);
+    assert.equal(enviados[0].datos.contrasena, '     ');
+    assert.equal(contenedor.querySelector('#contrasena-error')?.textContent, 'La contraseña no puede tener solo espacios');
+  });
+
+  test('vacía no se manda: es no cambiarla', async () => {
+    await editarCuentaDeRamiro();
+    assert.equal(enviados.length, 1);
+    assert.equal('contrasena' in enviados[0].datos, false);
   });
 });

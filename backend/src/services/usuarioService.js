@@ -78,6 +78,13 @@ function serializarUsuario(usuario) {
   };
 }
 
+function validarContrasena(contrasena) {
+  if (typeof contrasena !== 'string' || contrasena === '') return 'La contraseña no puede estar vacía';
+  if (contrasena.trim() === '') return 'La contraseña no puede tener solo espacios';
+  if (contrasena.length < 8) return 'La contraseña debe tener al menos 8 caracteres';
+  return null;
+}
+
 function validarCredenciales({ nombreUsuario, contrasena }, { requireContrasena = true } = {}) {
   const errores = {};
 
@@ -86,14 +93,14 @@ function validarCredenciales({ nombreUsuario, contrasena }, { requireContrasena 
     errores.nombreUsuario = 'El nombre de usuario es obligatorio';
   }
 
-  if (requireContrasena) {
-    if (!contrasena) {
-      errores.contrasena = 'La contraseña es obligatoria';
-    } else if (contrasena.length < 8) {
-      errores.contrasena = 'La contraseña debe tener al menos 8 caracteres';
-    }
-  } else if (contrasena && contrasena.length < 8) {
-    errores.contrasena = 'La contraseña debe tener al menos 8 caracteres';
+  // En el alta la contraseña es obligatoria; al editar, no mandarla (undefined)
+  // es "no cambiarla". Si viene, en los dos casos: no vacía, no solo espacios
+  // (antes "        " pasaba como contraseña de 8 caracteres) y 8 o más.
+  if (requireContrasena && (contrasena === undefined || contrasena === '')) {
+    errores.contrasena = 'La contraseña es obligatoria';
+  } else if (contrasena !== undefined) {
+    const errorContrasena = validarContrasena(contrasena);
+    if (errorContrasena) errores.contrasena = errorContrasena;
   }
 
   if (Object.keys(errores).length > 0) {
@@ -245,7 +252,8 @@ async function actualizarUsuario(
     nombreUsuario: creds.nombreUsuario,
   };
 
-  if (contrasena && contrasena.trim()) {
+  // Ya validada: si vino, se cambia.
+  if (contrasena !== undefined) {
     data.contrasenaHash = await bcrypt.hash(contrasena, SALT_ROUNDS);
   }
 

@@ -4,6 +4,12 @@ const { generarToken } = require('./tokenService');
 
 class CredencialesInvalidasError extends Error {}
 
+// Hash de una contraseña que nadie tiene. Si la cuenta no existe, está bloqueada
+// o la persona se dio de baja, se compara contra este: la respuesta es la misma
+// ("Usuario o contraseña incorrectos") y tarda lo mismo que con una cuenta real,
+// así ni el mensaje ni el tiempo dicen qué nombres de usuario existen.
+const HASH_DE_RELLENO = bcrypt.hashSync('contraseña-que-nadie-tiene', 10);
+
 async function login(nombreUsuario, contrasena) {
   const usuario = await prisma.usuario.findUnique({
     where: { nombreUsuario },
@@ -13,17 +19,10 @@ async function login(nombreUsuario, contrasena) {
     },
   });
 
-  if (!usuario || usuario.estadoUsuario.descripcion !== 'ACTIVO') {
-    throw new CredencialesInvalidasError();
-  }
+  const puedeIngresar = Boolean(usuario) && usuario.estadoUsuario.descripcion === 'ACTIVO' && usuario.persona.activo;
+  const contrasenaValida = await bcrypt.compare(contrasena, puedeIngresar ? usuario.contrasenaHash : HASH_DE_RELLENO);
 
-  if (!usuario.persona.activo) {
-    throw new CredencialesInvalidasError();
-  }
-
-  const contrasenaValida = await bcrypt.compare(contrasena, usuario.contrasenaHash);
-
-  if (!contrasenaValida) {
+  if (!puedeIngresar || !contrasenaValida) {
     throw new CredencialesInvalidasError();
   }
 

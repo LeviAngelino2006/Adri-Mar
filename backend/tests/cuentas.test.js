@@ -1,9 +1,10 @@
 // Tests de seguridad de Personal y Usuarios (tanda 1 de la auditoría,
 // docs/auditoria-ux/personal-usuarios.md): el último Administrador (H2), las
 // acciones sobre uno mismo (H3), las credenciales de un Encargado (H4), lo que un
-// Encargado ve de un Administrador (H5) y la cuenta de una persona dada de baja
-// (H10). Los escenarios salen de las pruebas contra la API de la auditoría (G1,
-// G2, G3 y G4).
+// Encargado ve de un Administrador (H5), la cuenta de una persona dada de baja
+// (H10) y las contraseñas vacías o con solo espacios (H12). Los escenarios salen
+// de las pruebas contra la API de la auditoría (G1, G2, G3, G4 y G7). El límite
+// de intentos de login está en login.test.js.
 //
 // Levantan la app real con un JWT real, la sesión tomada del token
 // (helpers/sesionDelToken.js) y Prisma en memoria con estado
@@ -298,5 +299,43 @@ describe('H10: la cuenta de una persona dada de baja', () => {
     const { status } = await pedir('PUT', '/usuarios/11', { body: { nombreUsuario: 'racosta', activo: true } });
     assert.equal(status, 200);
     assert.equal(estadoDe(11), 'ACTIVO');
+  });
+});
+
+describe('G7: contraseñas vacías o con solo espacios', () => {
+  test('en el alta: 8 espacios no son una contraseña', async () => {
+    const { status, json } = await pedir('POST', '/usuarios', { body: { personaId: 7, nombreUsuario: 'hpaz', contrasena: '        ' } });
+    assert.equal(status, 400);
+    assert.equal(json.errores.contrasena, 'La contraseña no puede tener solo espacios');
+    assert.equal(db.usuarios.some((u) => u.personaId === 7), false);
+  });
+
+  test('en el alta: vacía sigue siendo obligatoria', async () => {
+    const { status, json } = await pedir('POST', '/usuarios', { body: { personaId: 7, nombreUsuario: 'hpaz', contrasena: '' } });
+    assert.equal(status, 400);
+    assert.equal(json.errores.contrasena, 'La contraseña es obligatoria');
+  });
+
+  test('al editar: solo espacios o vacía (mandada) dan error y no se cambia nada', async () => {
+    const espacios = await pedir('PUT', '/usuarios/11', { body: { nombreUsuario: 'racosta', contrasena: '          ' } });
+    const vacia = await pedir('PUT', '/usuarios/11', { body: { nombreUsuario: 'racosta', contrasena: '' } });
+    assert.equal(espacios.status, 400);
+    assert.equal(espacios.json.errores.contrasena, 'La contraseña no puede tener solo espacios');
+    assert.equal(vacia.status, 400);
+    assert.equal(vacia.json.errores.contrasena, 'La contraseña no puede estar vacía');
+    assert.equal(cuenta(11).contrasenaHash, 'hash-de-prueba');
+  });
+
+  test('al editar sin mandar contraseña, no se cambia (y se guarda lo demás)', async () => {
+    const { status } = await pedir('PUT', '/usuarios/11', { body: { nombreUsuario: 'ramiro.acosta' } });
+    assert.equal(status, 200);
+    assert.equal(cuenta(11).nombreUsuario, 'ramiro.acosta');
+    assert.equal(cuenta(11).contrasenaHash, 'hash-de-prueba');
+  });
+
+  test('una contraseña con espacios adentro es válida', async () => {
+    const { status } = await pedir('PUT', '/usuarios/11', { body: { nombreUsuario: 'racosta', contrasena: 'mi clave larga' } });
+    assert.equal(status, 200);
+    assert.notEqual(cuenta(11).contrasenaHash, 'hash-de-prueba');
   });
 });
