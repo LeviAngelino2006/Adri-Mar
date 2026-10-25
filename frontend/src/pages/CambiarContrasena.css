@@ -1,0 +1,19 @@
+/* "Cambiar contraseña" obligatoria: la card del login (Login.css) con un título
+   y un texto de apoyo. La forma por elección usa las clases de formulario. */
+
+.cambiar-contrasena-titulo {
+  margin: 0 0 var(--space-2);
+  text-align: center;
+}
+
+.cambiar-contrasena-texto {
+  margin: 0 0 var(--space-6);
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.cambiar-contrasena-salir {
+  width: 100%;
+  margin-top: var(--space-2);
+}

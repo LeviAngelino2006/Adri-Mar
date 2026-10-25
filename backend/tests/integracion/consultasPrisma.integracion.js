@@ -495,6 +495,50 @@ describe('Sesión contra la base', () => {
   });
 });
 
+// La contraseña provisoria (H11) contra la base: la columna
+// debe_cambiar_contrasena en la consulta de la sesión, el bloqueo de autenticar y
+// el cambio de la propia contraseña.
+describe('Contraseña provisoria contra la base', () => {
+  test('la cuenta que crea un gestor solo usa /auth/me y el cambio hasta cambiarla', async () => {
+    const { persona } = await esperar(
+      'POST',
+      '/personas',
+      { body: { nombre: 'Provisoria', apellido: `Integración ${SUFIJO}`, dni: `6${String(Date.now()).slice(-7)}`, perfil: 'CHOFER' } },
+      201
+    );
+    const credenciales = { nombreUsuario: `provisoria-${SUFIJO}`, contrasena: 'provisoria-de-integracion' };
+    const { usuario } = await esperar('POST', '/usuarios', { body: { personaId: persona.id, ...credenciales } }, 201);
+    assert.equal(usuario.debeCambiarContrasena, true);
+
+    const login = await esperar('POST', '/auth/login', { body: credenciales, conToken: null });
+    assert.equal(login.usuario.debeCambiarContrasena, true);
+    const conToken = login.token;
+
+    const me = await pedir('GET', '/auth/me', { conToken });
+    assert.equal(me.status, 200);
+    assert.equal(me.json.usuario.debeCambiarContrasena, true);
+    const bloqueado = await pedir('GET', '/viajes/mis-viajes', { conToken });
+    assert.equal(bloqueado.status, 403);
+    assert.equal(bloqueado.json.codigo, 'DEBE_CAMBIAR_CONTRASENA');
+
+    const incorrecta = await pedir('PUT', '/auth/contrasena', {
+      conToken,
+      body: { contrasenaActual: 'no-es-esta', contrasenaNueva: 'definitiva-de-integracion' },
+    });
+    assert.equal(incorrecta.status, 400);
+    const cambio = await pedir('PUT', '/auth/contrasena', {
+      conToken,
+      body: { contrasenaActual: credenciales.contrasena, contrasenaNueva: 'definitiva-de-integracion' },
+    });
+    assert.equal(cambio.status, 200, JSON.stringify(cambio.json));
+    assert.equal(cambio.json.usuario.debeCambiarContrasena, false);
+
+    assert.equal((await pedir('GET', '/viajes/mis-viajes', { conToken })).status, 200);
+    const enLaBase = await prisma.usuario.findUnique({ where: { id: usuario.id } });
+    assert.equal(enLaBase.debeCambiarContrasena, false);
+  });
+});
+
 // Dar de baja o deshabilitar a quien maneja (personaService.liberarComoChofer):
 // la búsqueda de sus Programados, con origen y destino, y el borrado de sus
 // candidaturas filtrado por el estado del viaje, contra el schema real.

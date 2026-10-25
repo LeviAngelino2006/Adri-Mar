@@ -60,6 +60,8 @@ function serializarUsuario(usuario) {
     perfil: p.perfil.descripcion,
     habilitadoParaConducir: p.habilitadoParaConducir,
     activo: usuario.estadoUsuario?.descripcion === 'ACTIVO',
+    // La contraseña actual la puso un gestor y todavía no la cambió su dueño.
+    debeCambiarContrasena: Boolean(usuario.debeCambiarContrasena),
     creadoEn: usuario.creadoEn,
     persona: {
       id: p.id,
@@ -194,6 +196,8 @@ async function crearUsuario(
         nombreUsuario: creds.nombreUsuario,
         contrasenaHash,
         estadoUsuarioId: estadoActivo.id,
+        // La eligió el gestor: es provisoria y se cambia al entrar (H11).
+        debeCambiarContrasena: true,
       },
       include: INCLUDE_USUARIO,
     });
@@ -247,9 +251,12 @@ async function actualizarUsuario(
     nombreUsuario: creds.nombreUsuario,
   };
 
-  // Ya validada: si vino, se cambia.
+  // Ya validada: si vino, se cambia. Si se la cambia un gestor a otra persona,
+  // es provisoria (H11): la sabe quien la escribió, así que su dueño la tiene
+  // que cambiar en su próximo pedido. La propia, no.
   if (contrasena !== undefined) {
     data.contrasenaHash = await bcrypt.hash(contrasena, SALT_ROUNDS);
+    data.debeCambiarContrasena = actual.personaId !== personaIdSolicitante;
   }
 
   if (typeof activo === 'boolean') {
@@ -382,6 +389,8 @@ module.exports = {
   consultarUsuario,
   listarDisponiblesParaConducir,
   serializarUsuario,
+  validarContrasena,
+  SALT_ROUNDS,
   ValidacionError,
   NoEncontradoError,
   YaInactivoError,

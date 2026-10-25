@@ -92,7 +92,7 @@ Las pantallas se arman con las clases de `bundle.css` y los componentes de arrib
 - Documentación: `Listado` con `ControlSegmentado` (Vehículos | Choferes, con ícono y cantidad) en la misma barra que el buscador y Filtros, a la derecha, y, en la ficha, una `TarjetaDocumento` por documento.
 - Mantenimiento: `Mantenimiento` (Service | Arreglos | Historial con `ControlSegmentado` a la derecha de la barra, como en Documentación; tarjetas de estado del service, formulario de arreglos e historial de toda la flota).
 - Usuarios: `Avatar`, con el color según el perfil.
-- Layout: `Navegacion` (sidebar y topbar), `Login` (panel de marca + card).
+- Layout: `Navegacion` (sidebar y topbar, con el menú del usuario), `Login` (panel de marca + card) y `CambiarContrasena` (obligatoria, con el panel del login, o por elección, como formulario).
 - Carga: `Cargando` reemplaza al Spinner con "Cargando…" en pantallas y paneles; el Spinner queda para los botones.
 - Cargando, error y vacío: `EstadoCarga` (con el hook `useCarga`) muestra cada uno distinto; un error al cargar va con "Reintentar" y nunca como "no hay datos".
 

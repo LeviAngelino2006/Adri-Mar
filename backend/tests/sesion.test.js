@@ -224,6 +224,7 @@ describe('perfil y habilitación salen de la base (G1, G2, G6)', () => {
       nombreUsuario: 'dsosa',
       perfil: 'CHOFER',
       habilitadoParaConducir: true,
+      debeCambiarContrasena: false,
     });
   });
 });

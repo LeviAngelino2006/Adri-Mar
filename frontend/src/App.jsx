@@ -12,6 +12,8 @@ import ScrollAlTope from './components/ScrollAlTope';
 import Documentacion from './pages/Documentacion';
 import Presupuestos from './pages/Presupuestos';
 import Mantenimiento from './pages/Mantenimiento';
+import CambiarContrasena from './pages/CambiarContrasena';
+import { RUTA_CAMBIAR_CONTRASENA } from './utils/sesion';
 import './App.css';
 
 function App() {
@@ -90,6 +92,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <MisViajes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={RUTA_CAMBIAR_CONTRASENA}
+            element={
+              <ProtectedRoute permiteContrasenaProvisoria>
+                <CambiarContrasena />
               </ProtectedRoute>
             }
           />

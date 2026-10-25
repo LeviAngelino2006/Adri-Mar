@@ -8,6 +8,12 @@
 
 export const MENSAJE_SESION_VENCIDA = 'Tu sesión venció. Iniciá sesión de nuevo.';
 
+// Contraseña provisoria: la definió un gestor y hay que cambiarla antes de
+// seguir. Mientras tanto, el backend responde 403 con este código a todo salvo
+// /auth/me y el cambio de contraseña; el front lleva a "Cambiar contraseña".
+export const CODIGO_DEBE_CAMBIAR_CONTRASENA = 'DEBE_CAMBIAR_CONTRASENA';
+export const RUTA_CAMBIAR_CONTRASENA = '/cambiar-contrasena';
+
 // El payload de un JWT, sin verificar la firma (eso lo hace el backend): acá
 // solo se lee qué perfil trae. null si el token no tiene la forma esperada.
 export function payloadDelToken(token) {

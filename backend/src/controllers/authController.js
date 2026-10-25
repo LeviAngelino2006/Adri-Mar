@@ -24,4 +24,19 @@ async function me(req, res) {
   res.json({ usuario });
 }
 
-module.exports = { login, me };
+async function cambiarContrasena(req, res) {
+  const { contrasenaActual, contrasenaNueva } = req.body ?? {};
+  try {
+    const usuario = await authService.cambiarContrasenaPropia(req.usuario.id, { contrasenaActual, contrasenaNueva });
+    return res.json({ usuario });
+  } catch (err) {
+    if (err instanceof authService.ValidacionError) {
+      // Para el límite de intentos (limiteCambioContrasena).
+      if (err.intentoFallido) res.locals.contrasenaActualIncorrecta = true;
+      return res.status(400).json({ errores: err.errores });
+    }
+    throw err;
+  }
+}
+
+module.exports = { login, me, cambiarContrasena };

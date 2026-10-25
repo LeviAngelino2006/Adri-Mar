@@ -1,7 +1,9 @@
 // Doble de Prisma CON ESTADO para los tests de seguridad de Personal y Usuarios
 // (cuentas.test.js): personas y cuentas en memoria, un $transaction con rollback
 // real y el registro de los advisory locks ($executeRaw). Cubre lo que usan
-// personaService, usuarioService y authService. NO toca la base ni lee el .env.
+// personaService, usuarioService, authService y la consulta de sesionService
+// ($queryRaw), más los viajes y candidaturas de quien maneja. NO toca la base ni
+// lee el .env.
 //
 //   const { crearCuentas } = require('./helpers/prismaFalsoCuentas');
 //   const { prisma, db, sembrar } = crearCuentas();
@@ -73,6 +75,7 @@ function crearCuentas() {
       nombreUsuario,
       contrasenaHash: 'hash-de-prueba',
       estadoUsuarioId: ESTADOS_USUARIO.find((e) => e.descripcion === estado).id,
+      debeCambiarContrasena: false,
       creadoEn: new Date('2026-03-02T12:00:00Z'),
     });
     db.usuarios.splice(0, db.usuarios.length,
@@ -236,6 +239,27 @@ function crearCuentas() {
         db.candidatos.splice(0, db.candidatos.length, ...quedan);
         return { count };
       },
+    },
+    // La consulta de services/sesionService.js (la sesión de cada pedido, por id
+    // de cuenta), con las mismas columnas y alias. Para los tests que usan la
+    // sesión real en vez de helpers/sesionDelToken.js.
+    $queryRaw: async (partes, usuarioId) => {
+      if (!partes.join('?').includes('FROM usuarios u')) throw new Error(`$queryRaw no esperado: ${partes.join('?')}`);
+      const u = db.usuarios.find((x) => x.id === usuarioId);
+      if (!u) return [];
+      const p = db.personas.find((x) => x.id === u.personaId);
+      return [
+        {
+          id: u.id,
+          nombreUsuario: u.nombreUsuario,
+          personaId: u.personaId,
+          debeCambiarContrasena: u.debeCambiarContrasena,
+          estadoCuenta: estadoPorId(u.estadoUsuarioId).descripcion,
+          personaActiva: p.activo,
+          habilitadoParaConducir: p.habilitadoParaConducir,
+          perfil: perfilPorId(p.perfilId).descripcion,
+        },
+      ];
     },
     $executeRaw: async (partes, ...valores) => {
       db.locks.push({ sql: partes.join('?'), valores });
