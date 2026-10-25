@@ -1,6 +1,6 @@
-// Tests del select "Tipo de trabajo" de Arreglos con los tipos ya cargados: el
-// placeholder "Elegí el tipo de trabajo" no se puede elegir (antes aparecía como
-// una opción más de la lista). Se corren con `npm test` (node:test).
+// Tests de los campos obligatorios de Arreglos con los tipos ya cargados: los
+// tipos son casillas (no hay un "Elegí el tipo de trabajo" elegible) y el
+// placeholder del select de Vehículo no se puede elegir. Se corren con `npm test` (node:test).
 //
 // Mismo método que opcionesFormularios.render.test.mjs: se monta el componente
 // con react-dom/client sobre jsdom y la API se reemplaza por un doble (sin red).
@@ -73,37 +73,34 @@ async function montar() {
   );
 }
 
-function elegir(select, valor) {
-  const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
-  setter.call(select, valor);
-  select.dispatchEvent(new window.Event('change', { bubbles: true }));
-}
-
 describe('Arreglos: "Tipo de trabajo" con los tipos cargados', () => {
-  test('"Elegí el tipo de trabajo" se ve al empezar, pero no es una opción elegible', async () => {
+  // Desde que un arreglo lleva uno o más tipos, el select de tipo es una
+  // checklist: no hay placeholder que se pueda elegir.
+  test('los tipos se ven como casillas, sin un "Elegí el tipo de trabajo"', async () => {
     await montar();
-    const select = contenedor.querySelector('#arreglo-tipo');
-    const [placeholder, ...tipos] = select.options;
-    assert.equal(select.value, '');
-    assert.equal(placeholder.textContent, 'Elegí el tipo de trabajo');
-    assert.equal(placeholder.disabled, true);
-    assert.equal(placeholder.hidden, true);
+    assert.equal(contenedor.querySelector('#arreglo-tipo'), null);
+    assert.doesNotMatch(contenedor.innerHTML, /Elegí el tipo de trabajo/);
+    const casillas = [...contenedor.querySelectorAll('#arreglo-tipos input[type="checkbox"]')];
     assert.deepEqual(
-      tipos.map((o) => [o.textContent, o.disabled]),
+      casillas.map((c) => [c.closest('label').textContent, c.checked, c.disabled]),
       [
-        ['Engrase', false],
-        ['Frenos', false],
+        ['Engrase', false, false],
+        ['Frenos', false, false],
       ]
     );
   });
 
-  test('después de elegir un tipo, la lista sigue sin ofrecer el placeholder', async () => {
+  test('marcar un tipo deja los demás elegibles', async () => {
     await montar();
-    const select = contenedor.querySelector('#arreglo-tipo');
-    await act(async () => elegir(select, '4'));
-    assert.equal(select.value, '4');
-    const elegibles = [...select.options].filter((o) => !o.disabled && !o.hidden).map((o) => o.textContent);
-    assert.deepEqual(elegibles, ['Engrase', 'Frenos']);
+    await act(async () => contenedor.querySelector('#arreglo-tipos-4').click());
+    const casillas = [...contenedor.querySelectorAll('#arreglo-tipos input[type="checkbox"]')];
+    assert.deepEqual(
+      casillas.map((c) => [c.id, c.checked, c.disabled]),
+      [
+        ['arreglo-tipos-1', false, false],
+        ['arreglo-tipos-4', true, false],
+      ]
+    );
   });
 
   test('Vehículo, también obligatorio, sigue el mismo patrón', async () => {

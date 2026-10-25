@@ -10,6 +10,10 @@ export const TAREAS_SERVICE = [
   'Revisión general del motor',
 ];
 
+// Arreglos: cuánto se espera sin teclear el km para preguntar si es un
+// arreglo anterior (debounce).
+export const DEMORA_KM_MS = 700;
+
 // Estado del service de un vehículo (calcularEstadoService en el backend).
 export const ESTADOS_SERVICE = {
   VENCIDO: { label: 'Vencido', tono: 'error' },
@@ -50,4 +54,5 @@ export const POR_PAGINA_HISTORIAL = 30;
 // Mismos topes que valida el backend (mantenimientoService). Acá solo
 // alimentan los contadores y la validación previa: el que rechaza es el backend.
 export const MAX_TEXTO_MANTENIMIENTO = 500;
-export const MAX_RESPONSABLE = 120;
+// "¿Qué trabajo?" de "Otro" (va en el badge del historial).
+export const MAX_DETALLE_TIPO = 60;

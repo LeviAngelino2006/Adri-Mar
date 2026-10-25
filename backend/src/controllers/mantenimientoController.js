@@ -1,9 +1,10 @@
 const mantenimientoService = require('../services/mantenimientoService');
+const responsableService = require('../services/responsableService');
 
 // Errores del service → respuesta HTTP, con el mismo formato que el resto de
 // la API: 400 { errores } por campo y 404 { error }.
 function responderError(err, res, next) {
-  if (err instanceof mantenimientoService.ValidacionError) {
+  if (err instanceof mantenimientoService.ValidacionError || err instanceof responsableService.ValidacionError) {
     return res.status(400).json({ errores: err.errores });
   }
   if (err instanceof mantenimientoService.NoEncontradoError) {
@@ -16,6 +17,25 @@ async function listarTiposArreglo(req, res, next) {
   try {
     const tiposArreglo = await mantenimientoService.listarTiposArreglo();
     return res.json({ tiposArreglo });
+  } catch (err) {
+    return responderError(err, res, next);
+  }
+}
+
+// Catálogo de responsables de arreglos (lo usa SelectorBuscarOCrear).
+async function listarResponsables(req, res, next) {
+  try {
+    const responsables = await responsableService.buscar(req.query.busqueda);
+    return res.json({ responsables });
+  } catch (err) {
+    return responderError(err, res, next);
+  }
+}
+
+async function crearResponsable(req, res, next) {
+  try {
+    const responsable = await responsableService.buscarOCrear({ nombre: req.body?.nombre });
+    return res.status(200).json({ responsable });
   } catch (err) {
     return responderError(err, res, next);
   }
@@ -79,6 +99,8 @@ async function evaluarAdvertenciaViaje(req, res, next) {
 
 module.exports = {
   listarTiposArreglo,
+  listarResponsables,
+  crearResponsable,
   listarEstadoService,
   asignarPlan,
   registrarService,

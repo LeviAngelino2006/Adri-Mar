@@ -10,6 +10,10 @@ router.use(autenticar, autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'
 // Catálogo de tipos de arreglo activos, en orden.
 router.get('/tipos-arreglo', mantenimientoController.listarTiposArreglo);
 
+// Catálogo "buscar o crear" de quién hizo un arreglo (GET ?busqueda= y POST { nombre }).
+router.get('/responsables', mantenimientoController.listarResponsables);
+router.post('/responsables', mantenimientoController.crearResponsable);
+
 // Estado del service de cada vehículo no dado de baja (SIN_PLAN si no tiene).
 router.get('/planes', mantenimientoController.listarEstadoService);
 router.post('/planes', mantenimientoController.asignarPlan);

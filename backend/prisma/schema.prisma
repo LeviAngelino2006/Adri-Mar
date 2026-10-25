@@ -48,6 +48,7 @@ model Persona {
   viajes                 Viaje[]
   documentos             Documento[]            @relation("DocumentosDelChofer")
   viajesCandidato        ViajeChoferCandidato[]
+
   @@map("personas")
 }
 
@@ -72,8 +73,8 @@ model Usuario {
 }
 
 model TipoVehiculo {
-  id          Int        @id @default(autoincrement()) @map("id_tipovehiculo")
-  descripcion String     @unique
+  id          Int                     @id @default(autoincrement()) @map("id_tipovehiculo")
+  descripcion String                  @unique
   orden       Int
   vehiculos   Vehiculo[]
   plantilla   PlantillaMantenimiento?
@@ -90,33 +91,33 @@ model EstadoVehiculo {
 }
 
 model Vehiculo {
-  id               Int               @id @default(autoincrement())
-  dominio          String            @unique
-  numeroInterno    String            @map("numero_interno")
+  id                       Int                      @id @default(autoincrement())
+  dominio                  String                   @unique
+  numeroInterno            String                   @map("numero_interno")
   // Solo el modelo: la marca se obtiene por modelo.marca. Guardar también
   // marcaId permitiría un vehículo con una marca que no es la de su modelo.
   // onDelete: Restrict: no se puede borrar un modelo que usa algún vehículo.
-  modeloId         Int               @map("modelo_id")
-  modelo           Modelo            @relation(fields: [modeloId], references: [id], onDelete: Restrict)
+  modeloId                 Int                      @map("modelo_id")
+  modelo                   Modelo                   @relation(fields: [modeloId], references: [id], onDelete: Restrict)
   // true = el vehículo se compró usado: el historial de mantenimiento previo
   // a su incorporación a la flota es desconocido (lo que se registra en el
   // sistema arranca el día del alta, no cuando el vehículo era 0 km).
-  adquiridoUsado   Boolean           @default(false) @map("adquirido_usado")
-  anio             Int
-  asientos         Int
-  kilometraje      Int
-  estadoVehiculoId Int               @map("estado_vehiculo_id")
-  estadoVehiculo   EstadoVehiculo    @relation(fields: [estadoVehiculoId], references: [id])
-  tipoVehiculoId   Int               @map("tipo_vehiculo_id")
-  tipoVehiculo     TipoVehiculo      @relation(fields: [tipoVehiculoId], references: [id])
-  fechaBaja        DateTime?         @map("fecha_baja")
-  creadoEn         DateTime          @default(now()) @map("creado_en")
-  viajes           Viaje[]
-  lecturasOdometro LecturaOdometro[]
-  documentos       Documento[]
-  viajesCandidato  ViajeVehiculoCandidato[]
-  presupuestoUnidades PresupuestoUnidad[]
-  planMantenimiento   PlanMantenimiento?
+  adquiridoUsado           Boolean                  @default(false) @map("adquirido_usado")
+  anio                     Int
+  asientos                 Int
+  kilometraje              Int
+  estadoVehiculoId         Int                      @map("estado_vehiculo_id")
+  estadoVehiculo           EstadoVehiculo           @relation(fields: [estadoVehiculoId], references: [id])
+  tipoVehiculoId           Int                      @map("tipo_vehiculo_id")
+  tipoVehiculo             TipoVehiculo             @relation(fields: [tipoVehiculoId], references: [id])
+  fechaBaja                DateTime?                @map("fecha_baja")
+  creadoEn                 DateTime                 @default(now()) @map("creado_en")
+  viajes                   Viaje[]
+  lecturasOdometro         LecturaOdometro[]
+  documentos               Documento[]
+  viajesCandidato          ViajeVehiculoCandidato[]
+  presupuestoUnidades      PresupuestoUnidad[]
+  planMantenimiento        PlanMantenimiento?
   mantenimientosRealizados MantenimientoRealizado[]
 
   @@map("vehiculos")
@@ -133,8 +134,8 @@ model Marca {
   creadoEn          DateTime @default(now()) @map("creado_en")
   modelos           Modelo[]
 
-  @@index([nombre])
   @@unique([nombreNormalizado])
+  @@index([nombre])
   @@map("marcas")
 }
 
@@ -151,8 +152,8 @@ model Modelo {
   creadoEn          DateTime   @default(now()) @map("creado_en")
   vehiculos         Vehiculo[]
 
-  @@index([nombre])
   @@unique([marcaId, nombreNormalizado])
+  @@index([nombre])
   @@map("modelos")
 }
 
@@ -175,10 +176,10 @@ model EstadoViaje {
 // Reusado tal cual para el pago al cliente y el pago al chofer (dos FK
 // distintas en Viaje, mismo catálogo de valores: PENDIENTE/PAGADO/PARCIAL).
 model EstadoPago {
-  id                        Int     @id @default(autoincrement()) @map("id_estadopago")
-  descripcion               String  @unique
-  viajesEstadoPagoCliente   Viaje[] @relation("ViajeEstadoPagoCliente")
-  viajesEstadoPagoChofer    Viaje[] @relation("ViajeEstadoPagoChofer")
+  id                      Int     @id @default(autoincrement()) @map("id_estadopago")
+  descripcion             String  @unique
+  viajesEstadoPagoCliente Viaje[] @relation("ViajeEstadoPagoCliente")
+  viajesEstadoPagoChofer  Viaje[] @relation("ViajeEstadoPagoChofer")
 
   @@map("estado_pago")
 }
@@ -186,16 +187,16 @@ model EstadoPago {
 // Reusado tal cual para el pago al cliente y el pago al chofer (dos FK
 // distintas en Viaje, mismo catálogo de valores: EFECTIVO/BANCO/CHEQUE).
 model MetodoPago {
-  id                        Int     @id @default(autoincrement()) @map("id_metodopago")
-  descripcion               String  @unique
-  viajesMetodoPagoCliente   Viaje[] @relation("ViajeMetodoPagoCliente")
-  viajesMetodoPagoChofer    Viaje[] @relation("ViajeMetodoPagoChofer")
+  id                      Int     @id @default(autoincrement()) @map("id_metodopago")
+  descripcion             String  @unique
+  viajesMetodoPagoCliente Viaje[] @relation("ViajeMetodoPagoCliente")
+  viajesMetodoPagoChofer  Viaje[] @relation("ViajeMetodoPagoChofer")
 
   @@map("metodo_pago")
 }
 
 model Viaje {
-  id                  Int               @id @default(autoincrement())
+  id                    Int                      @id @default(autoincrement())
   // Nullable porque un viaje A_CONFIRMAR puede no tener ninguno de estos 5
   // todavía (se completan al editar o al confirmar). Un viaje PROGRAMADO (o
   // posterior) siempre los tiene — esa garantía la sostiene viajeService, no
@@ -213,118 +214,118 @@ model Viaje {
   // Nullable porque los viajes históricos no tienen este dato y no hay forma
   // de reconstruirlo retroactivamente. La obligatoriedad para viajes nuevos (y
   // al editar, en cualquier estado) se valida en viajeService, no acá.
-  fechaInicio         DateTime?         @map("fecha_inicio")
-  fechaFin            DateTime?         @map("fecha_fin")
-  kilometrosEstimados Int?              @map("kilometros_estimados")
+  fechaInicio           DateTime?                @map("fecha_inicio")
+  fechaFin              DateTime?                @map("fecha_fin")
+  kilometrosEstimados   Int?                     @map("kilometros_estimados")
   // Dato informativo, opcional en todos los estados: no se valida contra
   // Vehiculo.asientos ni restringe nada.
-  cantidadPasajeros   Int?              @map("cantidad_pasajeros")
-  odometroInicial     Int?              @map("odometro_inicial")
-  odometroFinal       Int?              @map("odometro_final")
-  estadoViajeId       Int               @map("estado_viaje_id")
-  estadoViaje         EstadoViaje       @relation(fields: [estadoViajeId], references: [id])
-  horaInicioReal      DateTime?         @map("hora_inicio_real")
-  horaFinReal         DateTime?         @map("hora_fin_real")
+  cantidadPasajeros     Int?                     @map("cantidad_pasajeros")
+  odometroInicial       Int?                     @map("odometro_inicial")
+  odometroFinal         Int?                     @map("odometro_final")
+  estadoViajeId         Int                      @map("estado_viaje_id")
+  estadoViaje           EstadoViaje              @relation(fields: [estadoViajeId], references: [id])
+  horaInicioReal        DateTime?                @map("hora_inicio_real")
+  horaFinReal           DateTime?                @map("hora_fin_real")
   // Nota libre opcional que se carga ÚNICAMENTE al finalizar el viaje (ver
   // finalizarViaje); no hay forma de editarla después. El límite de longitud
   // lo valida viajeService (no la base), igual que el resto de los textos.
-  observacionFinal    String?           @map("observacion_final")
-  lecturasOdometro    LecturaOdometro[]
+  observacionFinal      String?                  @map("observacion_final")
+  lecturasOdometro      LecturaOdometro[]
   // Choferes y vehículos posibles mientras el viaje está A_CONFIRMAR. Al
   // confirmar se elige uno de cada uno (choferId/vehiculoId) y estas filas se
   // borran en la misma transacción: no se guardan como historial.
-  choferesCandidatos  ViajeChoferCandidato[]
-  vehiculosCandidatos ViajeVehiculoCandidato[]
+  choferesCandidatos    ViajeChoferCandidato[]
+  vehiculosCandidatos   ViajeVehiculoCandidato[]
   // Puntos intermedios ORDENADOS entre origen y destino (ver ViajeParada).
-  paradas             ViajeParada[]
+  paradas               ViajeParada[]
   // Nullable porque los viajes históricos no tienen este dato y no hay forma
   // de reconstruirlo retroactivamente (quedan en null para siempre). La
   // obligatoriedad para viajes nuevos se valida en viajeService, no acá.
-  origenId            Int?              @map("origen_id")
-  origen              Ubicacion?        @relation("ViajeOrigen", fields: [origenId], references: [id])
-  destinoId           Int?              @map("destino_id")
-  destino             Ubicacion?        @relation("ViajeDestino", fields: [destinoId], references: [id])
+  origenId              Int?                     @map("origen_id")
+  origen                Ubicacion?               @relation("ViajeOrigen", fields: [origenId], references: [id])
+  destinoId             Int?                     @map("destino_id")
+  destino               Ubicacion?               @relation("ViajeDestino", fields: [destinoId], references: [id])
   // Datos administrativos (Precio/Cliente/pagos): acción aparte, independiente
   // del estado del viaje, cargada de a poco por Administrador/Encargado desde
   // PATCH /viajes/:id/datos-administrativos — por eso van todos nullable acá
   // también (no solo por los viajes históricos, sino porque un viaje nuevo
   // tampoco los tiene el día que se programa).
-  precio              Decimal?          @db.Decimal(12, 2)
-  clienteId           Int?              @map("cliente_id")
-  cliente             Cliente?          @relation(fields: [clienteId], references: [id])
-  estadoPagoClienteId Int?              @map("estado_pago_cliente_id")
-  estadoPagoCliente   EstadoPago?       @relation("ViajeEstadoPagoCliente", fields: [estadoPagoClienteId], references: [id])
-  fechaPagoCliente    DateTime?         @map("fecha_pago_cliente")
-  metodoPagoClienteId Int?              @map("metodo_pago_cliente_id")
-  metodoPagoCliente   MetodoPago?       @relation("ViajeMetodoPagoCliente", fields: [metodoPagoClienteId], references: [id])
-  pagoChofer          Decimal?          @db.Decimal(12, 2) @map("pago_chofer")
-  estadoPagoChoferId  Int?              @map("estado_pago_chofer_id")
-  estadoPagoChofer    EstadoPago?       @relation("ViajeEstadoPagoChofer", fields: [estadoPagoChoferId], references: [id])
-  fechaPagoChofer     DateTime?         @map("fecha_pago_chofer")
-  metodoPagoChoferId  Int?              @map("metodo_pago_chofer_id")
-  metodoPagoChofer    MetodoPago?       @relation("ViajeMetodoPagoChofer", fields: [metodoPagoChoferId], references: [id])
-  creadoEn            DateTime          @default(now()) @map("creado_en")
-  actualizadoEn       DateTime          @updatedAt @map("actualizado_en")
+  precio                Decimal?                 @db.Decimal(12, 2)
+  clienteId             Int?                     @map("cliente_id")
+  cliente               Cliente?                 @relation(fields: [clienteId], references: [id])
+  estadoPagoClienteId   Int?                     @map("estado_pago_cliente_id")
+  estadoPagoCliente     EstadoPago?              @relation("ViajeEstadoPagoCliente", fields: [estadoPagoClienteId], references: [id])
+  fechaPagoCliente      DateTime?                @map("fecha_pago_cliente")
+  metodoPagoClienteId   Int?                     @map("metodo_pago_cliente_id")
+  metodoPagoCliente     MetodoPago?              @relation("ViajeMetodoPagoCliente", fields: [metodoPagoClienteId], references: [id])
+  pagoChofer            Decimal?                 @map("pago_chofer") @db.Decimal(12, 2)
+  estadoPagoChoferId    Int?                     @map("estado_pago_chofer_id")
+  estadoPagoChofer      EstadoPago?              @relation("ViajeEstadoPagoChofer", fields: [estadoPagoChoferId], references: [id])
+  fechaPagoChofer       DateTime?                @map("fecha_pago_chofer")
+  metodoPagoChoferId    Int?                     @map("metodo_pago_chofer_id")
+  metodoPagoChofer      MetodoPago?              @relation("ViajeMetodoPagoChofer", fields: [metodoPagoChoferId], references: [id])
+  creadoEn              DateTime                 @default(now()) @map("creado_en")
+  actualizadoEn         DateTime                 @updatedAt @map("actualizado_en")
 
   @@map("viajes")
 }
 
 model Ubicacion {
-  id                Int      @id @default(autoincrement())
-  nombre            String
+  id                  Int           @id @default(autoincrement())
+  nombre              String
   // FRECUENTE (true): localidades de Georef, aeropuerto, colegios, hoteles;
   // aparecen en el buscador de ubicaciones. PARTICULAR (false): la casa de un
   // pasajero, creada al elegir una dirección de Google; NO aparece en el
   // buscador y su nombre es la dirección.
-  esFrecuente       Boolean  @default(true) @map("es_frecuente")
+  esFrecuente         Boolean       @default(true) @map("es_frecuente")
   // Calculado por normalizarNombre() al crear la fila. Nunca se expone en
   // la API, solo sirve para la garantía dura de no-duplicados (índice único
   // de abajo) contra la carrera entre dos requests simultáneos. Solo lo tienen
   // las frecuentes: las particulares van con null (Postgres admite varios null
   // en un índice único), así dos casas no chocan por nombre.
-  nombreNormalizado String?  @map("nombre_normalizado")
+  nombreNormalizado   String?       @map("nombre_normalizado")
   // Punto en el mapa (grados decimales, WGS84) con el que se calculan los km
   // estimados de un viaje cuando la ubicación no tiene placeId (las
   // localidades de Georef). Las que vienen de Google NO lo guardan: los
   // términos de Google solo permiten guardar el placeId sin límite de tiempo.
-  latitud           Float?
-  longitud          Float?
+  latitud             Float?
+  longitud            Float?
   // Place ID de Google Maps si la ubicación se eligió en el buscador de Google
   // (o se completó con él). Es lo único de Google que se puede guardar sin
   // límite; con él se calculan los km (Routes API) y se arma el link al
   // recorrido. Único: elegir dos veces la misma dirección no duplica la fila.
-  placeId           String?  @unique @map("place_id")
+  placeId             String?       @unique @map("place_id")
   // Dirección formateada de Google. Por ahora siempre null: no se guarda por
   // los mismos términos (ver placeId); la columna queda para cuando haya una
   // fuente propia de la dirección.
-  direccion         String?
+  direccion           String?
   // Id de la localidad en la API Georef (datos.gob.ar) si la fila vino de
   // scripts/importarLocalidadesCordoba.js o se completó con ella. Único, para
   // que correr la importación de nuevo no duplique localidades. Nulo en los
   // puntos de interés cargados a mano (colegios, hoteles, etc.).
-  georefId          String?  @unique @map("georef_id")
-  creadoEn          DateTime @default(now()) @map("creado_en")
-  viajesOrigen      Viaje[]  @relation("ViajeOrigen")
-  viajesDestino     Viaje[]  @relation("ViajeDestino")
-  viajesParada      ViajeParada[]
+  georefId            String?       @unique @map("georef_id")
+  creadoEn            DateTime      @default(now()) @map("creado_en")
+  viajesOrigen        Viaje[]       @relation("ViajeOrigen")
+  viajesDestino       Viaje[]       @relation("ViajeDestino")
+  viajesParada        ViajeParada[]
   presupuestosOrigen  Presupuesto[] @relation("PresupuestoOrigen")
   presupuestosDestino Presupuesto[] @relation("PresupuestoDestino")
 
-  @@index([nombre])
   @@unique([nombreNormalizado])
+  @@index([nombre])
   @@map("ubicaciones")
 }
 
 model Cliente {
-  id                Int      @id @default(autoincrement())
+  id                Int           @id @default(autoincrement())
   nombre            String
-  nombreNormalizado String   @map("nombre_normalizado")
-  creadoEn          DateTime @default(now()) @map("creado_en")
+  nombreNormalizado String        @map("nombre_normalizado")
+  creadoEn          DateTime      @default(now()) @map("creado_en")
   viajes            Viaje[]
   presupuestos      Presupuesto[]
 
-  @@index([nombre])
   @@unique([nombreNormalizado])
+  @@index([nombre])
   @@map("clientes")
 }
 
@@ -547,50 +548,84 @@ model PlanMantenimiento {
 // usar se desactiva (no se borra), así el historial que lo referencia no se
 // rompe.
 model TipoArreglo {
-  id              Int                      @id @default(autoincrement()) @map("id_tipoarreglo")
-  nombre          String                   @unique
+  id              Int                        @id @default(autoincrement()) @map("id_tipoarreglo")
+  nombre          String                     @unique
   descripcion     String?
-  // true = el registro exige una descripción (ej. "Otro": sin detalle no se
-  // sabe qué se hizo). Parametrizado acá en vez de comparar con "Otro" en el
-  // código.
-  requiereDetalle Boolean                  @default(false) @map("requiere_detalle")
+  // true = el tipo exige indicar qué se hizo (mantenimiento_tipos_arreglo.detalle;
+  // ej. "Otro": sin detalle no se sabe qué fue). Parametrizado acá en vez de
+  // comparar con "Otro" en el código.
+  requiereDetalle Boolean                    @default(false) @map("requiere_detalle")
   orden           Int
-  activo          Boolean                  @default(true)
-  creadoEn        DateTime                 @default(now()) @map("creado_en")
-  mantenimientos  MantenimientoRealizado[]
+  activo          Boolean                    @default(true)
+  creadoEn        DateTime                   @default(now()) @map("creado_en")
+  mantenimientos  MantenimientoTipoArreglo[]
 
   @@map("tipos_arreglo")
 }
 
-// Un registro es un SERVICE (es_service_preventivo = true, tipo_arreglo_id
-// null) o un ARREGLO (false, con tipo_arreglo_id). Nunca las dos cosas: lo
-// garantiza el CHECK mantenimientos_service_o_arreglo de la migración.
+// Tipos de trabajo de un arreglo (uno o más: "Engrase + Cambio de cubiertas").
+// Borrar el registro borra sus filas; un tipo usado no se puede borrar (se
+// desactiva, ver TipoArreglo).
+model MantenimientoTipoArreglo {
+  mantenimientoId Int                    @map("mantenimiento_id")
+  mantenimiento   MantenimientoRealizado @relation(fields: [mantenimientoId], references: [id], onDelete: Cascade)
+  tipoArregloId   Int                    @map("tipo_arreglo_id")
+  tipoArreglo     TipoArreglo            @relation(fields: [tipoArregloId], references: [id], onDelete: Restrict)
+  // Qué se hizo, para tipos con requiereDetalle ("Otro": "Cambio de espejo").
+  // Se muestra en lugar del nombre del tipo. Null en los demás.
+  detalle         String?
+
+  @@id([mantenimientoId, tipoArregloId])
+  @@index([tipoArregloId])
+  @@map("mantenimiento_tipos_arreglo")
+}
+
+// Quién hizo un arreglo (mecánico, chapista o taller). Catálogo "buscar o
+// crear", mismo patrón que Marca: se deduplica por nombreNormalizado y se
+// guarda el nombre tal cual se tipeó la primera vez.
+model ResponsableMantenimiento {
+  id                Int                      @id @default(autoincrement())
+  nombre            String
+  nombreNormalizado String                   @map("nombre_normalizado")
+  creadoEn          DateTime                 @default(now()) @map("creado_en")
+  mantenimientos    MantenimientoRealizado[]
+
+  @@unique([nombreNormalizado])
+  @@index([nombre])
+  @@map("responsables_mantenimiento")
+}
+
+// Un registro es un SERVICE (es_service_preventivo = true, sin tipos de
+// arreglo) o un ARREGLO (false, con al menos un tipo en
+// mantenimiento_tipos_arreglo). Nunca las dos cosas: lo valida
+// mantenimientoService (un CHECK no puede mirar la tabla intermedia).
 // Service y arreglo comparten tabla para que el historial sea una sola
-// consulta. `costo` y `tallerMecanico` quedan en la base (nullable): hoy el
-// service no los usa y el arreglo solo usa tallerMecanico (en la API,
-// "responsable"); sumar el costo es agregar el campo al formulario y a la API.
-// onDelete: Restrict en vehículo: misma razón que en PlanMantenimiento.
+// consulta. `costo` queda en la base (nullable) sin uso: sumarlo es agregar
+// el campo al formulario y a la API. El responsable solo lo lleva el arreglo.
+// onDelete: Restrict en vehículo: misma razón que en PlanMantenimiento; en
+// responsable, no se borra uno que figura en el historial.
 model MantenimientoRealizado {
-  id                  Int                @id @default(autoincrement())
-  vehiculoId          Int                @map("vehiculo_id")
-  vehiculo            Vehiculo           @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
-  planMantenimientoId Int?               @map("plan_mantenimiento_id")
-  planMantenimiento   PlanMantenimiento? @relation(fields: [planMantenimientoId], references: [id], onDelete: SetNull)
-  esServicePreventivo Boolean            @default(false) @map("es_service_preventivo")
-  tipoArregloId       Int?               @map("tipo_arreglo_id")
-  tipoArreglo         TipoArreglo?       @relation(fields: [tipoArregloId], references: [id], onDelete: Restrict)
+  id                  Int                        @id @default(autoincrement())
+  vehiculoId          Int                        @map("vehiculo_id")
+  vehiculo            Vehiculo                   @relation(fields: [vehiculoId], references: [id], onDelete: Restrict)
+  planMantenimientoId Int?                       @map("plan_mantenimiento_id")
+  planMantenimiento   PlanMantenimiento?         @relation(fields: [planMantenimientoId], references: [id], onDelete: SetNull)
+  esServicePreventivo Boolean                    @default(false) @map("es_service_preventivo")
+  tiposArreglo        MantenimientoTipoArreglo[]
   fecha               DateTime
   kilometraje         Int
   descripcion         String?
   repuestos           String?
-  tallerMecanico      String?            @map("taller_mecanico")
-  costo               Decimal?           @db.Decimal(12, 2)
+  responsableId       Int?                       @map("responsable_id")
+  responsable         ResponsableMantenimiento?  @relation(fields: [responsableId], references: [id], onDelete: Restrict)
+  costo               Decimal?                   @db.Decimal(12, 2)
   observaciones       String?
-  usuarioId           Int                @map("usuario_id")
-  usuario             Usuario            @relation(fields: [usuarioId], references: [id])
-  creadoEn            DateTime           @default(now()) @map("creado_en")
+  usuarioId           Int                        @map("usuario_id")
+  usuario             Usuario                    @relation(fields: [usuarioId], references: [id])
+  creadoEn            DateTime                   @default(now()) @map("creado_en")
 
   @@index([vehiculoId, fecha])
   @@index([fecha])
+  @@index([responsableId])
   @@map("mantenimientos_realizados")
 }

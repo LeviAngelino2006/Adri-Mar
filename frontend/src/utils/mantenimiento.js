@@ -96,12 +96,23 @@ export function etiquetaVehiculo(vehiculo) {
 // Línea principal de un registro del historial: la descripción o la observación.
 export function textoRegistro(registro) {
   if (registro.tipo === 'SERVICE') return registro.observaciones || 'Service completo';
+  // El "¿Qué trabajo?" de "Otro" no va acá: ya está en "Trabajos: …".
   return registro.descripcion || registro.observaciones || 'Sin descripción';
 }
 
+// Cómo se muestra un tipo de un arreglo: lo que se hizo, si el tipo lo pide
+// ("Otro" → "Cambio de espejo"), o su nombre. Un "Otro" cargado antes de que
+// existiera el detalle se muestra como "Otro".
+export function nombreTipoArreglo(tipo) {
+  return tipo.detalle || tipo.nombre;
+}
+
 // Datos secundarios de un registro que no entraron en la línea principal.
+// Primero la lista de tipos ("Trabajos: …"): el badge solo dice cuántos son.
 export function detalleRegistro(registro) {
   const partes = [];
+  const tipos = registro.tiposArreglo ?? [];
+  if (tipos.length > 0) partes.push(`Trabajos: ${tipos.map(nombreTipoArreglo).join(', ')}`);
   if (registro.repuestos) partes.push(`Repuestos: ${registro.repuestos}`);
   if (registro.tipo === 'ARREGLO' && registro.descripcion && registro.observaciones) {
     partes.push(`Observaciones: ${registro.observaciones}`);
@@ -119,27 +130,54 @@ const largo = (texto) => [...String(texto ?? '')].length;
 
 // Validación previa de los formularios de service y arreglo (el backend valida
 // igual). Devuelve { campo: mensaje } con todos los errores juntos.
-// `hoy` es el día de Córdoba ("YYYY-MM-DD"); `tipoArreglo` solo en arreglos.
-export function validarRegistroMantenimiento(form, { hoy, esArreglo = false, tipoArreglo = null, maxTexto, maxResponsable }) {
+// `hoy` es el día de Córdoba ("YYYY-MM-DD"); `tiposArreglo` (los tipos
+// marcados, con `requiereDetalle`) solo en arreglos: los que lo piden necesitan
+// su "¿Qué trabajo?" en `form.detallesTipos[id]`. `kmMinimo` (el odómetro del
+// vehículo, solo en arreglos): el km no puede ser menor, salvo que el arreglo
+// esté marcado como anterior (`form.esAnterior`).
+// Si el km cargado (texto del input) es un entero menor al odómetro: ahí el
+// formulario de arreglos pregunta si es un arreglo anterior.
+export function esKmAnterior(km, odometro) {
+  const texto = String(km ?? '').trim();
+  return Number.isInteger(odometro) && /^\d+$/.test(texto) && Number(texto) < odometro;
+}
+
+export function validarRegistroMantenimiento(
+  form,
+  { hoy, esArreglo = false, tiposArreglo = [], maxTexto, maxDetalleTipo, kmMinimo }
+) {
   const errores = {};
   if (!form.vehiculoId) errores.vehiculoId = 'Elegí el vehículo';
-  if (esArreglo && !form.tipoArregloId) errores.tipoArregloId = 'Elegí el tipo de trabajo';
+  if (esArreglo && !form.tiposArregloIds?.length) errores.tiposArregloIds = 'Elegí al menos un tipo de trabajo';
   if (!form.fecha) errores.fecha = 'Indicá la fecha';
   else if (form.fecha > hoy) errores.fecha = 'La fecha no puede ser posterior a hoy';
 
   const km = String(form.kilometraje ?? '').trim();
   if (!km) errores.kilometraje = 'Indicá el km del odómetro';
   else if (!/^\d+$/.test(km)) errores.kilometraje = 'Tiene que ser un número entero, sin puntos';
+  else if (esKmAnterior(km, kmMinimo) && !form.esAnterior) {
+    errores.kilometraje = `Cargá un kilometraje válido: no puede ser menor al odómetro actual (${formatearKm(kmMinimo)} km). Si es un arreglo anterior, marcalo abajo.`;
+  }
 
   const textos = esArreglo ? ['descripcion', 'repuestos', 'observaciones'] : ['observaciones'];
   for (const campo of textos) {
     if (largo(form[campo]) > maxTexto) errores[campo] = `Hasta ${maxTexto} caracteres`;
   }
-  if (esArreglo && largo(form.responsable) > maxResponsable) errores.responsable = `Hasta ${maxResponsable} caracteres`;
-  if (esArreglo && tipoArreglo?.requiereDetalle && !String(form.descripcion ?? '').trim() && !errores.descripcion) {
-    errores.descripcion = `Contá qué trabajo se hizo (obligatorio para "${tipoArreglo.nombre}")`;
+  for (const tipo of esArreglo ? tiposArreglo.filter((t) => t.requiereDetalle) : []) {
+    const detalle = String(form.detallesTipos?.[tipo.id] ?? '').trim();
+    if (!detalle) errores.detallesTipos = `Contá qué trabajo se hizo (obligatorio para "${tipo.nombre}")`;
+    else if (largo(detalle) > maxDetalleTipo) errores.detallesTipos = `Hasta ${maxDetalleTipo} caracteres`;
+    if (errores.detallesTipos) break;
   }
   return errores;
+}
+
+// Badge del historial: cuántos trabajos tiene ("1 trabajo", "3 trabajos"),
+// igual para todas las tarjetas. Los nombres van en el detalle (detalleRegistro).
+export function textoTiposArreglo(registro) {
+  const n = (registro.tiposArreglo ?? []).length;
+  if (n === 0) return 'Arreglo';
+  return n === 1 ? '1 trabajo' : `${n} trabajos`;
 }
 
 // Advertencia del formulario de viaje (GET /mantenimientos/evaluar-viaje).

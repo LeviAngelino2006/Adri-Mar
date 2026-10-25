@@ -66,18 +66,18 @@ function cambiarTipo(vehiculoId, tipoVehiculoId, descripcion) {
   Object.assign(vehiculo(vehiculoId), { tipoVehiculoId, tipoVehiculo: { id: tipoVehiculoId, descripcion, orden: tipoVehiculoId } });
 }
 
-function sembrarRegistro({ vehiculoId = 7, tipoArregloId = null, fecha, kilometraje = 1000, ...resto }) {
+// Sin tiposArregloIds es un service; con tipos, un arreglo (filas en la tabla intermedia).
+function sembrarRegistro({ vehiculoId = 7, tiposArregloIds = [], detalles = {}, fecha, kilometraje = 1000, ...resto }) {
   const fila = {
     id: db.siguienteId++,
     vehiculoId,
     planMantenimientoId: null,
-    esServicePreventivo: tipoArregloId === null,
-    tipoArregloId,
+    esServicePreventivo: tiposArregloIds.length === 0,
     fecha: new Date(`${fecha}T12:00:00-03:00`),
     kilometraje,
     descripcion: null,
     repuestos: null,
-    tallerMecanico: null,
+    responsableId: null,
     costo: null,
     observaciones: null,
     usuarioId: 5,
@@ -85,6 +85,9 @@ function sembrarRegistro({ vehiculoId = 7, tipoArregloId = null, fecha, kilometr
     ...resto,
   };
   db.mantenimientosRealizados.push(fila);
+  for (const tipoArregloId of tiposArregloIds) {
+    db.mantenimientosTiposArreglo.push({ mantenimientoId: fila.id, tipoArregloId, detalle: detalles[tipoArregloId] ?? null });
+  }
   return fila;
 }
 
@@ -232,7 +235,7 @@ describe('POST /services', () => {
     const { status, body } = await service({ kilometraje: 19500, observaciones: '  Sin novedades  ' });
     assert.equal(status, 201);
     assert.equal(body.registro.tipo, 'SERVICE');
-    assert.equal(body.registro.tipoArreglo, null);
+    assert.deepEqual(body.registro.tiposArreglo, []);
     assert.equal(body.registro.observaciones, 'Sin novedades');
     assert.equal(body.registro.vehiculo.marca, 'Mercedes');
     assert.equal(body.registro.usuario, 'Chofer Token');
@@ -242,7 +245,7 @@ describe('POST /services', () => {
     assert.equal(guardado.esServicePreventivo, true);
     assert.equal(guardado.planMantenimientoId, planDe(7).id);
     assert.equal(guardado.costo, null);
-    assert.equal(guardado.tallerMecanico, null);
+    assert.equal(guardado.responsableId, null);
   });
 
   test('un service con menos km que el último no baja el conteo (B3)', async () => {
@@ -290,12 +293,19 @@ describe('POST /services', () => {
     assert.equal(planDe(7), undefined);
   });
 
-  test('rechaza tipoArregloId, costo y responsable (no son parte del service)', async () => {
-    const { status, body } = await service({ kilometraje: 1000, tipoArregloId: 3, costo: 1000, tallerMecanico: 'X' });
+  test('rechaza tipos de arreglo, costo y responsable (no son parte del service)', async () => {
+    const { status, body } = await service({
+      kilometraje: 1000,
+      tipoArregloId: 3,
+      tiposArregloIds: [3],
+      costo: 1000,
+      responsableId: 1,
+    });
     assert.equal(status, 400);
     assert.ok(body.errores.tipoArregloId);
+    assert.ok(body.errores.tiposArregloIds);
     assert.ok(body.errores.costo);
-    assert.ok(body.errores.tallerMecanico);
+    assert.ok(body.errores.responsableId);
     assert.equal(db.mantenimientosRealizados.length, 0);
   });
 
@@ -331,64 +341,208 @@ describe('POST /arreglos', () => {
   test('guarda el tipo, el responsable y no toca el plan', async () => {
     sembrarPlan(7, 500);
     const { status, body } = await arreglo({
-      tipoArregloId: 3,
-      responsable: '  Gomería Río Tercero ',
+      tiposArregloIds: [3],
+      responsableId: 1,
       repuestos: '2 cubiertas 295/80',
     });
     assert.equal(status, 201);
     assert.equal(body.registro.tipo, 'ARREGLO');
-    assert.deepEqual(body.registro.tipoArreglo, { id: 3, nombre: 'Cambio de cubiertas' });
+    assert.deepEqual(body.registro.tiposArreglo, [{ id: 3, nombre: 'Cambio de cubiertas', detalle: null }]);
     assert.equal(body.registro.responsable, 'Gomería Río Tercero');
-    assert.equal(db.mantenimientosRealizados.at(-1).tallerMecanico, 'Gomería Río Tercero');
+    assert.equal(db.mantenimientosRealizados.at(-1).responsableId, 1);
     assert.equal(db.mantenimientosRealizados.at(-1).planMantenimientoId, null);
     assert.equal(planDe(7).kmUltimoService, 500);
   });
 
   test('el responsable es opcional y no crea plan', async () => {
-    const { status, body } = await arreglo({ tipoArregloId: 1 });
+    const { status, body } = await arreglo({ tiposArregloIds: [1] });
     assert.equal(status, 201);
     assert.equal(body.registro.responsable, null);
     assert.equal(planDe(7), undefined);
   });
 
+  test('un responsable que no está en el catálogo → 400', async () => {
+    for (const responsableId of [99, 'abc', 0]) {
+      const { status, body } = await arreglo({ tiposArregloIds: [1], responsableId });
+      assert.equal(status, 400);
+      assert.equal(body.errores.responsableId, 'El responsable no existe');
+    }
+    assert.equal(db.mantenimientosRealizados.length, 0);
+  });
+
+  test('el responsable como texto (API vieja) → 400 que pide responsableId', async () => {
+    const { status, body } = await arreglo({ tiposArregloIds: [1], responsable: 'Gomería' });
+    assert.equal(status, 400);
+    assert.match(body.errores.responsable, /responsableId/);
+  });
+
+  test('guarda varios tipos en un solo registro, en el orden del catálogo', async () => {
+    const { status, body } = await arreglo({ tiposArregloIds: [3, 1] });
+    assert.equal(status, 201);
+    assert.deepEqual(body.registro.tiposArreglo, [
+      { id: 1, nombre: 'Engrase', detalle: null },
+      { id: 3, nombre: 'Cambio de cubiertas', detalle: null },
+    ]);
+    assert.equal(db.mantenimientosRealizados.length, 1);
+    assert.equal(db.mantenimientosTiposArreglo.length, 2);
+  });
+
+  test('ids repetidos se guardan una sola vez', async () => {
+    const { status, body } = await arreglo({ tiposArregloIds: [1, 1] });
+    assert.equal(status, 201);
+    assert.deepEqual(
+      body.registro.tiposArreglo.map((t) => t.id),
+      [1]
+    );
+  });
+
+  test('lista vacía o que no es un array → 400', async () => {
+    for (const tiposArregloIds of [[], 3, '3', null, {}]) {
+      const { status, body } = await arreglo({ tiposArregloIds });
+      assert.equal(status, 400, JSON.stringify(tiposArregloIds));
+      assert.equal(body.errores.tiposArregloIds, 'Elegí al menos un tipo de trabajo');
+    }
+  });
+
+  test('un tipo válido junto con uno inactivo o inexistente → 400 y no guarda nada', async () => {
+    for (const tiposArregloIds of [[1, 9], [1, 77], [1, 'x']]) {
+      const { status, body } = await arreglo({ tiposArregloIds });
+      assert.equal(status, 400, JSON.stringify(tiposArregloIds));
+      assert.equal(body.errores.tiposArregloIds, 'El tipo de trabajo no es válido');
+    }
+    assert.equal(db.mantenimientosRealizados.length, 0);
+  });
+
+  test('"Otro" guarda su detalle y la descripción es opcional', async () => {
+    const { status, body } = await arreglo({ tiposArregloIds: [1, 8], detallesTipos: { 8: '  Cambio de espejo ' } });
+    assert.equal(status, 201);
+    assert.deepEqual(body.registro.tiposArreglo, [
+      { id: 1, nombre: 'Engrase', detalle: null },
+      { id: 8, nombre: 'Otro', detalle: 'Cambio de espejo' },
+    ]);
+    assert.equal(body.registro.descripcion, null);
+  });
+
+  test('"Otro" sin detalle, con detalle vacío o de más de 60 → 400', async () => {
+    const casos = [
+      [undefined, 'Contá qué trabajo se hizo (obligatorio para "Otro")'],
+      [{}, 'Contá qué trabajo se hizo (obligatorio para "Otro")'],
+      [{ 8: '   ' }, 'Contá qué trabajo se hizo (obligatorio para "Otro")'],
+      [{ 8: 'x'.repeat(61) }, 'Hasta 60 caracteres'],
+    ];
+    for (const [detallesTipos, mensaje] of casos) {
+      const { status, body } = await arreglo({ tiposArregloIds: [1, 8], detallesTipos, descripcion: 'Algo' });
+      assert.equal(status, 400, JSON.stringify(detallesTipos));
+      assert.equal(body.errores.detallesTipos, mensaje);
+      assert.equal(body.errores.descripcion, undefined);
+    }
+    assert.equal(db.mantenimientosRealizados.length, 0);
+    assert.equal((await arreglo({ tiposArregloIds: [8], detallesTipos: { 8: 'x'.repeat(60) } })).status, 201);
+  });
+
+  test('detalle para un tipo que no lo lleva o no está marcado → 400', async () => {
+    const noLleva = await arreglo({ tiposArregloIds: [1], detallesTipos: { 1: 'x' } });
+    assert.equal(noLleva.status, 400);
+    assert.equal(noLleva.body.errores.detallesTipos, '"Engrase" no lleva detalle');
+
+    const noMarcado = await arreglo({ tiposArregloIds: [1], detallesTipos: { 8: 'x' } });
+    assert.equal(noMarcado.status, 400);
+    assert.equal(noMarcado.body.errores.detallesTipos, 'El detalle es de un tipo que no está marcado');
+  });
+
+  test('detallesTipos que no es un objeto, o con un detalle que no es texto → 400', async () => {
+    for (const detallesTipos of ['x', [1], 5]) {
+      const { status, body } = await arreglo({ tiposArregloIds: [8], detallesTipos });
+      assert.equal(status, 400, JSON.stringify(detallesTipos));
+      assert.equal(body.errores.detallesTipos, 'Los detalles de los tipos no son válidos');
+    }
+    const noTexto = await arreglo({ tiposArregloIds: [8], detallesTipos: { 8: 5 } });
+    assert.equal(noTexto.body.errores.detallesTipos, 'Los detalles de los tipos no son válidos');
+  });
+
+  test('rechaza tipoArregloId (formato viejo)', async () => {
+    const { status, body } = await arreglo({ tipoArregloId: 3 });
+    assert.equal(status, 400);
+    assert.equal(body.errores.tipoArregloId, 'Ahora se mandan varios tipos en "tiposArregloIds"');
+  });
+
   test('sin tipo, con un tipo inactivo o inexistente → 400', async () => {
     const sinTipo = await arreglo({});
     assert.equal(sinTipo.status, 400);
-    assert.ok(sinTipo.body.errores.tipoArregloId);
+    assert.ok(sinTipo.body.errores.tiposArregloIds);
 
-    const inactivo = await arreglo({ tipoArregloId: 9 });
+    const inactivo = await arreglo({ tiposArregloIds: [9] });
     assert.equal(inactivo.status, 400);
-    assert.ok(inactivo.body.errores.tipoArregloId);
+    assert.ok(inactivo.body.errores.tiposArregloIds);
 
-    const inexistente = await arreglo({ tipoArregloId: 77 });
+    const inexistente = await arreglo({ tiposArregloIds: [77] });
     assert.equal(inexistente.status, 400);
   });
 
-  test('"Otro" exige descripción', async () => {
-    const sin = await arreglo({ tipoArregloId: 8, descripcion: '   ' });
+  test('"Otro" solo, sin detalle → 400 en el detalle, no en la descripción', async () => {
+    const sin = await arreglo({ tiposArregloIds: [8], descripcion: '   ' });
     assert.equal(sin.status, 400);
-    assert.match(sin.body.errores.descripcion, /Otro/);
-
-    const con = await arreglo({ tipoArregloId: 8, descripcion: 'Cambio de espejo' });
-    assert.equal(con.status, 201);
-    assert.equal(con.body.registro.descripcion, 'Cambio de espejo');
+    assert.match(sin.body.errores.detallesTipos, /"Otro"/);
+    assert.equal(sin.body.errores.descripcion, undefined);
   });
 
   test('rechaza el costo', async () => {
-    const { status, body } = await arreglo({ tipoArregloId: 1, costo: 5000 });
+    const { status, body } = await arreglo({ tiposArregloIds: [1], costo: 5000 });
     assert.equal(status, 400);
     assert.ok(body.errores.costo);
   });
 
   test('con km mayor al odómetro también crea la lectura', async () => {
-    const { status } = await arreglo({ tipoArregloId: 4, kilometraje: 3500 });
+    const { status } = await arreglo({ tiposArregloIds: [4], kilometraje: 3500 });
     assert.equal(status, 201);
     assert.equal(db.lecturas.length, 1);
     assert.equal(vehiculo(7).kilometraje, 3500);
   });
 
+  test('con km menor al odómetro → 400 y no guarda nada; igual al odómetro se acepta', async () => {
+    const { status, body } = await arreglo({ tiposArregloIds: [4], kilometraje: 999 });
+    assert.equal(status, 400);
+    assert.match(body.errores.kilometraje, /menor al odómetro actual \(1000 km\)/);
+    assert.equal(db.mantenimientosRealizados.length, 0);
+
+    const igual = await arreglo({ tiposArregloIds: [4], kilometraje: 1000 });
+    assert.equal(igual.status, 201);
+    assert.equal(db.lecturas.length, 0);
+  });
+
+  test('un arreglo anterior acepta menos km, sin lectura ni cambio de odómetro', async () => {
+    const { status } = await arreglo({ tiposArregloIds: [4], kilometraje: 500, fecha: diaCordoba(-30), esAnterior: true });
+    assert.equal(status, 201);
+    assert.equal(db.mantenimientosRealizados.length, 1);
+    assert.equal(db.lecturas.length, 0);
+    assert.equal(vehiculo(7).kilometraje, 1000);
+  });
+
+  test('un arreglo anterior con km igual o mayor al odómetro → 400', async () => {
+    for (const kilometraje of [1000, 3500]) {
+      const { status, body } = await arreglo({ tiposArregloIds: [4], kilometraje, esAnterior: true });
+      assert.equal(status, 400);
+      assert.match(body.errores.kilometraje, /anterior tiene que tener menos km/);
+    }
+    assert.equal(db.mantenimientosRealizados.length, 0);
+  });
+
+  test('esAnterior que no es booleano → 400; el service lo rechaza', async () => {
+    const { status, body } = await arreglo({ tiposArregloIds: [4], kilometraje: 500, esAnterior: 'si' });
+    assert.equal(status, 400);
+    assert.ok(body.errores.esAnterior);
+
+    const service = await pedirJson('/services', {
+      metodo: 'POST',
+      body: { vehiculoId: 7, fecha: HOY, kilometraje: 500, esAnterior: true },
+      perfil: 'PERSONAL_TALLER',
+    });
+    assert.equal(service.status, 400);
+    assert.ok(service.body.errores.esAnterior);
+  });
+
   test('fecha futura y vehículo dado de baja → 400', async () => {
-    const { status, body } = await arreglo({ tipoArregloId: 1, vehiculoId: 10, fecha: diaCordoba(2) });
+    const { status, body } = await arreglo({ tiposArregloIds: [1], vehiculoId: 10, fecha: diaCordoba(2) });
     assert.equal(status, 400);
     assert.ok(body.errores.fecha);
     assert.ok(body.errores.vehiculoId);
@@ -400,8 +554,8 @@ describe('GET /historial', () => {
     cambiarTipo(9, 3, 'Trafic');
     vehiculo(9).numeroInterno = '2';
     sembrarRegistro({ vehiculoId: 7, fecha: '2026-01-10', kilometraje: 10000, observaciones: 'Service enero' });
-    sembrarRegistro({ vehiculoId: 7, tipoArregloId: 3, fecha: '2026-02-15', kilometraje: 15000, tallerMecanico: 'Gomería' });
-    sembrarRegistro({ vehiculoId: 9, tipoArregloId: 4, fecha: '2026-03-20', kilometraje: 5000 });
+    sembrarRegistro({ vehiculoId: 7, tiposArregloIds: [1, 3], fecha: '2026-02-15', kilometraje: 15000, responsableId: 1 });
+    sembrarRegistro({ vehiculoId: 9, tiposArregloIds: [4], fecha: '2026-03-20', kilometraje: 5000 });
     sembrarRegistro({ vehiculoId: 10, fecha: '2026-04-01', kilometraje: 80000 }); // dado de baja: su historial se ve
     sembrarRegistro({ vehiculoId: 9, fecha: '2026-05-05', kilometraje: 8000 });
   }
@@ -419,7 +573,7 @@ describe('GET /historial', () => {
       ['2026-05-05', '2026-04-01', '2026-03-20', '2026-02-15', '2026-01-10']
     );
     const arreglo = body.items.find((i) => i.tipo === 'ARREGLO' && i.responsable);
-    assert.equal(arreglo.responsable, 'Gomería');
+    assert.equal(arreglo.responsable, 'Gomería Río Tercero');
     assert.equal(arreglo.vehiculo.marca, 'Mercedes');
     assert.equal(arreglo.vehiculo.modelo, 'O500');
     assert.equal(arreglo.usuario, 'Ana Pérez');
@@ -433,7 +587,20 @@ describe('GET /historial', () => {
 
     const frenos = (await pedirJson('/historial?tipoArregloId=4')).body;
     assert.equal(frenos.total, 1);
-    assert.equal(frenos.items[0].tipoArreglo.nombre, 'Frenos');
+    assert.deepEqual(
+      frenos.items[0].tiposArreglo.map((t) => t.nombre),
+      ['Frenos']
+    );
+
+    // Un arreglo con varios tipos aparece al filtrar por cualquiera de ellos.
+    for (const id of [1, 3]) {
+      const filtrado = (await pedirJson(`/historial?tipoArregloId=${id}`)).body;
+      assert.equal(filtrado.total, 1);
+      assert.deepEqual(
+        filtrado.items[0].tiposArreglo.map((t) => t.nombre),
+        ['Engrase', 'Cambio de cubiertas']
+      );
+    }
 
     const trafic = (await pedirJson('/historial?tipoVehiculoId=3')).body;
     assert.equal(trafic.total, 2);
@@ -486,6 +653,15 @@ describe('GET /historial', () => {
       ['2@2026-05-05', '2@2026-03-20', '12@2026-02-15', '12@2026-01-10']
     );
     assert.equal(interno.total, 5);
+  });
+
+  test('cada tipo trae su detalle ("Otro") o null', async () => {
+    sembrarRegistro({ vehiculoId: 7, tiposArregloIds: [1, 8], detalles: { 8: 'Cambio de espejo' }, fecha: '2026-06-01' });
+    const { body } = await pedirJson('/historial?tipoArregloId=8');
+    assert.deepEqual(body.items[0].tiposArreglo, [
+      { id: 1, nombre: 'Engrase', detalle: null },
+      { id: 8, nombre: 'Otro', detalle: 'Cambio de espejo' },
+    ]);
   });
 
   test('parámetros inválidos → 400', async () => {
