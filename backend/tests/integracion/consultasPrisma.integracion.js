@@ -551,6 +551,30 @@ describe('Bajas con viajes contra la base', () => {
   });
 });
 
+// Dar de baja, reactivar a la persona y después la cuenta, y volver a entrar.
+describe('Reactivar contra la base', () => {
+  test('la persona vuelve sin la cuenta; con la cuenta reactivada, inicia sesión', async () => {
+    const { persona } = await esperar(
+      'POST',
+      '/personas',
+      { body: { nombre: 'Reingreso', apellido: `Integración ${SUFIJO}`, dni: `5${String(Date.now()).slice(-7)}`, perfil: 'PERSONAL_TALLER' } },
+      201
+    );
+    const credenciales = { nombreUsuario: `reingreso-${SUFIJO}`, contrasena: 'clave-de-integracion' };
+    const { usuario } = await esperar('POST', '/usuarios', { body: { personaId: persona.id, ...credenciales } }, 201);
+    await esperar('PATCH', `/personas/${persona.id}/baja`);
+
+    const reactivada = await esperar('PATCH', `/personas/${persona.id}/reactivar`);
+    assert.equal(reactivada.persona.activo, true);
+    assert.equal(reactivada.persona.fechaBaja, null);
+    assert.equal(reactivada.persona.usuario.activo, false, 'la cuenta no se reactiva sola');
+    assert.equal((await pedir('POST', '/auth/login', { body: credenciales, conToken: null })).status, 401);
+
+    await esperar('PATCH', `/usuarios/${usuario.id}/reactivar`);
+    assert.equal((await pedir('POST', '/auth/login', { body: credenciales, conToken: null })).status, 200);
+  });
+});
+
 // Siempre queda un Administrador activo, también cuando dos cambios llegan a la
 // vez: el chequeo y el cambio van en la misma transacción, con un advisory lock
 // de Postgres (utils/administradoresActivos.js). Sin el lock, cada transacción

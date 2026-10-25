@@ -20,5 +20,11 @@ router.patch(
   autorizar('ADMINISTRADOR', 'ENCARGADO'),
   personaController.darDeBaja
 );
+router.patch(
+  '/:id/reactivar',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
+  personaController.reactivar
+);
 
 module.exports = router;

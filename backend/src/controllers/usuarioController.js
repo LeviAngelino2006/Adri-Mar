@@ -106,9 +106,32 @@ async function darDeBaja(req, res) {
   }
 }
 
+async function reactivar(req, res) {
+  try {
+    const usuario = await usuarioService.reactivarUsuario(req.params.id, {
+      perfilSolicitante: req.usuario.perfil,
+    });
+    return res.json({ usuario });
+  } catch (err) {
+    if (err instanceof usuarioService.NoEncontradoError) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    if (err instanceof usuarioService.PermisoDenegadoError) {
+      return res.status(403).json({ error: 'No tiene permisos para reactivar este usuario' });
+    }
+    if (err instanceof usuarioService.PersonaDadaDeBajaError) {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err instanceof usuarioService.YaActivoError) {
+      return res.status(409).json({ error: 'La cuenta ya está activa' });
+    }
+    throw err;
+  }
+}
+
 async function listarDisponiblesParaConducir(req, res) {
   const usuarios = await usuarioService.listarDisponiblesParaConducir();
   return res.json({ usuarios });
 }
 
-module.exports = { crear, listar, obtener, actualizar, darDeBaja, listarDisponiblesParaConducir };
+module.exports = { crear, listar, obtener, actualizar, darDeBaja, reactivar, listarDisponiblesParaConducir };

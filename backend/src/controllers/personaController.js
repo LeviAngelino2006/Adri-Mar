@@ -123,6 +123,26 @@ async function darDeBaja(req, res) {
   }
 }
 
+async function reactivar(req, res) {
+  try {
+    const persona = await personaService.reactivarPersona(req.params.id, {
+      perfilSolicitante: req.usuario.perfil,
+    });
+    return res.json({ persona });
+  } catch (err) {
+    if (err instanceof personaService.NoEncontradoError) {
+      return res.status(404).json({ error: 'Persona no encontrada' });
+    }
+    if (err instanceof personaService.PermisoDenegadoError) {
+      return res.status(403).json({ error: 'No tiene permisos para reactivar a esta persona' });
+    }
+    if (err instanceof personaService.YaActivaError) {
+      return res.status(409).json({ error: 'La persona ya está activa' });
+    }
+    throw err;
+  }
+}
+
 async function listarDisponiblesParaConducir(req, res) {
   const personas = await personaService.listarDisponiblesParaConducir();
   return res.json({ personas });
@@ -134,5 +154,6 @@ module.exports = {
   obtener,
   actualizar,
   darDeBaja,
+  reactivar,
   listarDisponiblesParaConducir,
 };

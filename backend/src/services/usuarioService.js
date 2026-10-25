@@ -19,6 +19,7 @@ class ValidacionError extends Error {
 class PermisoDenegadoError extends Error {}
 class NoEncontradoError extends Error {}
 class YaInactivoError extends Error {}
+class YaActivoError extends Error {}
 
 const { PersonaDadaDeBajaError } = personaService;
 
@@ -308,6 +309,32 @@ async function darDeBajaUsuario(id, { perfilSolicitante, personaIdSolicitante } 
   return serializarUsuario(usuario);
 }
 
+// Desbloquear una cuenta (H9): la contracara de darDeBajaUsuario. Solo si la
+// persona está activa; si se dio de baja, primero se la reactiva
+// (personaService.reactivarPersona), que a propósito no toca la cuenta. Hace lo
+// mismo que PUT /usuarios/:id { activo: true }, con su propio endpoint.
+async function reactivarUsuario(id, { perfilSolicitante } = {}) {
+  const actual = await obtenerUsuario(id);
+
+  if (perfilSolicitante === 'ENCARGADO' && actual.persona.perfil.descripcion === 'ADMINISTRADOR') {
+    throw new PermisoDenegadoError();
+  }
+  if (!actual.persona.activo) {
+    throw new PersonaDadaDeBajaError();
+  }
+  if (actual.estadoUsuario.descripcion === 'ACTIVO') {
+    throw new YaActivoError();
+  }
+
+  const estadoActivo = await obtenerEstadoUsuarioPorDescripcion('ACTIVO');
+  const usuario = await prisma.usuario.update({
+    where: { id: actual.id },
+    data: { estadoUsuarioId: estadoActivo.id },
+    include: INCLUDE_USUARIO,
+  });
+  return serializarUsuario(usuario);
+}
+
 const ORDEN_PERFILES = ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER', 'CHOFER'];
 
 async function listarUsuarios({ busqueda } = {}, { perfilSolicitante } = {}) {
@@ -350,6 +377,7 @@ module.exports = {
   listarUsuarios,
   actualizarUsuario,
   darDeBajaUsuario,
+  reactivarUsuario,
   obtenerUsuario,
   consultarUsuario,
   listarDisponiblesParaConducir,
@@ -357,6 +385,7 @@ module.exports = {
   ValidacionError,
   NoEncontradoError,
   YaInactivoError,
+  YaActivoError,
   PermisoDenegadoError,
   UltimoAdministradorError,
   AccionSobreSiMismoError: personaService.AccionSobreSiMismoError,

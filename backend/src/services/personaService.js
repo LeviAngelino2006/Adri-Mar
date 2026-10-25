@@ -26,6 +26,7 @@ class ValidacionError extends Error {
 class PermisoDenegadoError extends Error {}
 class NoEncontradoError extends Error {}
 class YaInactivaError extends Error {}
+class YaActivaError extends Error {}
 
 // Caso borde ya decidido: una persona que es chofer de un viaje En viaje en
 // curso no se puede dar de baja ni deshabilitar para conducir hasta que ese
@@ -362,6 +363,29 @@ async function darDeBajaPersona(id, { perfilSolicitante, personaIdSolicitante } 
   });
 }
 
+// Salida de una baja hecha por error o de un reingreso (H9): la persona vuelve a
+// estar activa, con los mismos datos, viajes y documentos. La cuenta de acceso
+// NO se reactiva: queda inactiva hasta que alguien la reactive aparte
+// (usuarioService.reactivarUsuario), así volver a la empresa no devuelve el
+// acceso sin que nadie lo decida.
+async function reactivarPersona(id, { perfilSolicitante } = {}) {
+  const actual = await obtenerPersonaConRelaciones(id);
+
+  if (perfilSolicitante === 'ENCARGADO' && actual.perfil.descripcion === 'ADMINISTRADOR') {
+    throw new PermisoDenegadoError();
+  }
+  if (actual.activo) {
+    throw new YaActivaError();
+  }
+
+  const persona = await prisma.persona.update({
+    where: { id: actual.id },
+    data: { activo: true, fechaBaja: null },
+    include: INCLUDE_PERSONA,
+  });
+  return serializarPersona(persona);
+}
+
 function valorBooleano(valor) {
   if (valor === true || valor === 'true') return true;
   if (valor === false || valor === 'false') return false;
@@ -428,6 +452,7 @@ module.exports = {
   crearPersona,
   actualizarPersona,
   darDeBajaPersona,
+  reactivarPersona,
   listarPersonas,
   obtenerPersona,
   listarDisponiblesParaConducir,
@@ -436,6 +461,7 @@ module.exports = {
   PermisoDenegadoError,
   NoEncontradoError,
   YaInactivaError,
+  YaActivaError,
   ChoferEnViajeError,
   ChoferConViajesProgramadosError,
   UltimoAdministradorError,
