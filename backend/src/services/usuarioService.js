@@ -1,6 +1,11 @@
 const bcrypt = require('bcrypt');
 const prisma = require('./prismaClient');
 const personaService = require('./personaService');
+const {
+  UltimoAdministradorError,
+  esAdministradorActivo,
+  protegerUltimoAdministrador,
+} = require('../utils/administradoresActivos');
 
 const SALT_ROUNDS = 10;
 
@@ -19,6 +24,12 @@ const INCLUDE_USUARIO = {
   estadoUsuario: true,
   persona: { include: { perfil: true } },
 };
+
+// La persona de la cuenta con la forma que espera esAdministradorActivo
+// (persona.usuario.estadoUsuario).
+function personaConCuenta(usuario) {
+  return { ...usuario.persona, usuario: { estadoUsuario: usuario.estadoUsuario } };
+}
 
 async function obtenerEstadoUsuarioPorDescripcion(descripcion) {
   const estado = await prisma.estadoUsuario.findUnique({ where: { descripcion } });
@@ -205,13 +216,18 @@ async function actualizarUsuario(
     data.estadoUsuarioId = estado.id;
   }
 
+  // Bloquear la cuenta de un Administrador activo: solo si queda otro.
+  const sacaUnAdministrador = activo === false && esAdministradorActivo(personaConCuenta(actual));
+
   let usuario;
   try {
-    usuario = await prisma.usuario.update({
-      where: { id: actual.id },
-      data,
-      include: INCLUDE_USUARIO,
-    });
+    usuario = await protegerUltimoAdministrador(prisma, { personaId: actual.personaId, sacaUnAdministrador }, (cliente) =>
+      cliente.usuario.update({
+        where: { id: actual.id },
+        data,
+        include: INCLUDE_USUARIO,
+      })
+    );
   } catch (err) {
     if (err.code === 'P2002') {
       throw new ValidacionError({ nombreUsuario: 'Ese nombre de usuario ya existe' });
@@ -235,11 +251,15 @@ async function darDeBajaUsuario(id, { perfilSolicitante } = {}) {
 
   const estadoInactivo = await obtenerEstadoUsuarioPorDescripcion('INACTIVO');
 
-  const usuario = await prisma.usuario.update({
-    where: { id: actual.id },
-    data: { estadoUsuarioId: estadoInactivo.id },
-    include: INCLUDE_USUARIO,
-  });
+  // Bloquear la cuenta de un Administrador activo: solo si queda otro.
+  const sacaUnAdministrador = esAdministradorActivo(personaConCuenta(actual));
+  const usuario = await protegerUltimoAdministrador(prisma, { personaId: actual.personaId, sacaUnAdministrador }, (cliente) =>
+    cliente.usuario.update({
+      where: { id: actual.id },
+      data: { estadoUsuarioId: estadoInactivo.id },
+      include: INCLUDE_USUARIO,
+    })
+  );
 
   return serializarUsuario(usuario);
 }
@@ -293,4 +313,5 @@ module.exports = {
   NoEncontradoError,
   YaInactivoError,
   PermisoDenegadoError,
+  UltimoAdministradorError,
 };

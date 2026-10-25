@@ -61,6 +61,9 @@ async function actualizar(req, res) {
     if (err instanceof usuarioService.ValidacionError) {
       return res.status(400).json({ errores: err.errores });
     }
+    if (err instanceof usuarioService.UltimoAdministradorError) {
+      return res.status(409).json({ error: err.message });
+    }
     throw err;
   }
 }
@@ -80,6 +83,9 @@ async function darDeBaja(req, res) {
     }
     if (err instanceof usuarioService.YaInactivoError) {
       return res.status(409).json({ error: 'El usuario ya está inactivo' });
+    }
+    if (err instanceof usuarioService.UltimoAdministradorError) {
+      return res.status(409).json({ error: err.message });
     }
     throw err;
   }

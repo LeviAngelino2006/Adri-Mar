@@ -71,6 +71,9 @@ async function actualizar(req, res) {
     if (err instanceof personaService.ChoferEnViajeError) {
       return res.status(409).json({ error: err.message });
     }
+    if (err instanceof personaService.UltimoAdministradorError) {
+      return res.status(409).json({ error: err.message });
+    }
     if (err instanceof personaService.ValidacionError) {
       return res.status(400).json({ errores: err.errores });
     }
@@ -95,6 +98,9 @@ async function darDeBaja(req, res) {
       return res.status(409).json({ error: 'La persona ya está inactiva' });
     }
     if (err instanceof personaService.ChoferEnViajeError) {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err instanceof personaService.UltimoAdministradorError) {
       return res.status(409).json({ error: err.message });
     }
     throw err;

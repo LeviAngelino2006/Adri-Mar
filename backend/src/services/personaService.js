@@ -1,4 +1,10 @@
 const prisma = require('./prismaClient');
+const {
+  UltimoAdministradorError,
+  esAdministradorActivo,
+  asegurarOtroAdministradorActivo,
+  protegerUltimoAdministrador,
+} = require('../utils/administradoresActivos');
 
 // Persona = quién es alguien en la empresa (empleado/chofer), tenga o no
 // cuenta en el sistema. Dueña de los datos personales, del perfil, de la
@@ -208,16 +214,21 @@ async function actualizarPersona(
   const datos = validarDatos({ nombre, apellido, perfil, dni, email, telefono });
   const perfilRow = await obtenerPerfilPorDescripcion(perfil);
 
+  // Pasar a otro perfil a un Administrador activo: solo si queda otro.
+  const sacaUnAdministrador = esAdministradorActivo(actual) && perfil !== 'ADMINISTRADOR';
+
   try {
-    const persona = await prisma.persona.update({
-      where: { id: actual.id },
-      data: {
-        ...datos,
-        perfilId: perfilRow.id,
-        habilitadoParaConducir: typeof habilitadoParaConducir === 'boolean' ? habilitadoParaConducir : undefined,
-      },
-      include: INCLUDE_PERSONA,
-    });
+    const persona = await protegerUltimoAdministrador(prisma, { personaId: actual.id, sacaUnAdministrador }, (cliente) =>
+      cliente.persona.update({
+        where: { id: actual.id },
+        data: {
+          ...datos,
+          perfilId: perfilRow.id,
+          habilitadoParaConducir: typeof habilitadoParaConducir === 'boolean' ? habilitadoParaConducir : undefined,
+        },
+        include: INCLUDE_PERSONA,
+      })
+    );
     return serializarPersona(persona);
   } catch (err) {
     if (err.code === 'P2002') {
@@ -251,6 +262,11 @@ async function darDeBajaPersona(id, { perfilSolicitante } = {}) {
   }
 
   const persona = await prisma.$transaction(async (tx) => {
+    // Dar de baja a un Administrador activo: solo si queda otro. El chequeo va
+    // en la misma transacción que la baja (ver administradoresActivos).
+    if (esAdministradorActivo(actual)) {
+      await asegurarOtroAdministradorActivo(tx, actual.id);
+    }
     await tx.usuario.updateMany({
       where: { personaId: actual.id },
       data: { estadoUsuarioId: estadoInactivo.id },
@@ -338,5 +354,6 @@ module.exports = {
   NoEncontradoError,
   YaInactivaError,
   ChoferEnViajeError,
+  UltimoAdministradorError,
   PERFILES_VALIDOS,
 };
