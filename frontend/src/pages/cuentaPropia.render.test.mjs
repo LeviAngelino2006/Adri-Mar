@@ -2,7 +2,8 @@
 // docs/auditoria-ux/personal-usuarios.md): nadie se da de baja, se bloquea la
 // cuenta ni se cambia el perfil a sí mismo. En la ficha propia no aparecen "Dar
 // de baja" ni "Desactivar acceso", y al editarse a sí mismo el perfil queda de
-// solo lectura con el motivo. Se corren con `npm test`.
+// solo lectura con el motivo. Y un Encargado no ve "Modificar credenciales" en la
+// cuenta de un Encargado (H4). Se corren con `npm test`.
 //
 // Se montan Personal y Usuarios con react-dom/client sobre jsdom; la API se
 // reemplaza por un doble.
@@ -54,7 +55,14 @@ const persona = (id, nombre, apellido, nombreUsuario) => ({
   creadoEn: '2026-03-02T12:00:00.000Z',
   usuario: { id, nombreUsuario, activo: true },
 });
-const PERSONAS = [persona(3, 'Lucía', 'Romero', 'lromero'), persona(4, 'Diego', 'Sosa', 'dsosa')];
+const ADRIANA = { id: 1, personaId: 1, nombre: 'Adriana', apellido: 'Martínez', nombreUsuario: 'amartinez', perfil: 'ADMINISTRADOR', habilitadoParaConducir: false };
+const PERSONAS = [
+  persona(3, 'Lucía', 'Romero', 'lromero'),
+  persona(4, 'Diego', 'Sosa', 'dsosa'),
+  { ...persona(14, 'Ramiro', 'Acosta', 'racosta'), perfil: 'CHOFER', habilitadoParaConducir: true },
+];
+// Quién está logueado en cada test (Diego salvo que el test diga otra cosa).
+let logueado = DIEGO;
 const USUARIOS = PERSONAS.map((p) => ({
   id: p.id,
   nombreUsuario: p.usuario.nombreUsuario,
@@ -63,7 +71,7 @@ const USUARIOS = PERSONAS.map((p) => ({
   apellido: p.apellido,
   dni: p.dni,
   perfil: p.perfil,
-  habilitadoParaConducir: false,
+  habilitadoParaConducir: p.habilitadoParaConducir,
   activo: true,
   creadoEn: p.creadoEn,
 }));
@@ -72,7 +80,7 @@ before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
   const api = (await vite.ssrLoadModule('/src/services/api.js')).default;
   api.get = async (endpoint) => {
-    if (endpoint === '/auth/me') return { data: { usuario: DIEGO } };
+    if (endpoint === '/auth/me') return { data: { usuario: logueado } };
     if (endpoint === '/personas') return { data: { personas: PERSONAS } };
     if (endpoint === '/usuarios') return { data: { usuarios: USUARIOS } };
     return { data: {} };
@@ -86,6 +94,7 @@ before(async () => {
 after(() => vite.close());
 
 beforeEach(() => {
+  logueado = DIEGO;
   localStorage.setItem('adrimar_token', 'token-de-prueba');
   localStorage.setItem('adrimar_usuario', JSON.stringify(DIEGO));
   contenedor = document.createElement('div');
@@ -141,12 +150,36 @@ describe('Personal: la ficha propia', () => {
 describe('Usuarios: la cuenta propia', () => {
   test('no ofrece "Desactivar acceso"', async () => {
     await montar(Usuarios, '/usuarios?id=4');
-    assert.ok(botones().includes('Modificar credenciales'));
+    assert.ok(contenedor.querySelector('h1')?.textContent.includes('dsosa'), 'está en la ficha de su cuenta');
     assert.ok(!botones().includes('Desactivar acceso'));
   });
 
   test('la cuenta de otra persona sí lo ofrece', async () => {
     await montar(Usuarios, '/usuarios?id=3');
     assert.ok(botones().includes('Desactivar acceso'));
+  });
+});
+
+describe('Usuarios: las credenciales de un Encargado (H4)', () => {
+  test('Diego (Encargado) no ve "Modificar credenciales" en la cuenta de Lucía (Encargada)', async () => {
+    await montar(Usuarios, '/usuarios?id=3');
+    assert.ok(!botones().includes('Modificar credenciales'));
+  });
+
+  test('ni en la suya', async () => {
+    await montar(Usuarios, '/usuarios?id=4');
+    assert.ok(!botones().includes('Modificar credenciales'));
+  });
+
+  test('sí en la cuenta de un Chofer', async () => {
+    await montar(Usuarios, '/usuarios?id=14');
+    assert.ok(botones().includes('Modificar credenciales'));
+  });
+
+  test('una Administradora sí la ve en la cuenta de un Encargado', async () => {
+    logueado = ADRIANA;
+    localStorage.setItem('adrimar_usuario', JSON.stringify(ADRIANA));
+    await montar(Usuarios, '/usuarios?id=3');
+    assert.ok(botones().includes('Modificar credenciales'));
   });
 });

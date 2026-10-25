@@ -56,7 +56,7 @@ async function actualizar(req, res) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
     if (err instanceof usuarioService.PermisoDenegadoError) {
-      return res.status(403).json({ error: 'No tiene permisos para modificar este usuario' });
+      return res.status(403).json({ error: err.message || 'No tiene permisos para modificar este usuario' });
     }
     if (err instanceof usuarioService.ValidacionError) {
       return res.status(400).json({ errores: err.errores });

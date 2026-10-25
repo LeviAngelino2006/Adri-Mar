@@ -21,6 +21,7 @@ class NoEncontradoError extends Error {}
 class YaInactivoError extends Error {}
 
 const BLOQUEAR_PROPIA_CUENTA = 'No podés bloquear tu propia cuenta';
+const CREDENCIALES_DE_ENCARGADO = 'Solo un Administrador puede cambiar el usuario o la contraseña de un Encargado.';
 
 const INCLUDE_USUARIO = {
   estadoUsuario: true,
@@ -200,6 +201,15 @@ async function actualizarUsuario(
 
   if (perfilSolicitante === 'ENCARGADO' && actual.persona?.perfil?.descripcion === 'ADMINISTRADOR') {
     throw new PermisoDenegadoError();
+  }
+  // Un Encargado no toma la cuenta de otro (H4): el nombre de usuario y la
+  // contraseña de una cuenta de Encargado solo los cambia un Administrador. El
+  // resto de lo que un Encargado puede hacer sobre otro queda como estaba.
+  if (perfilSolicitante === 'ENCARGADO' && actual.persona.perfil.descripcion === 'ENCARGADO') {
+    const cambiaNombreUsuario = nombreUsuario !== undefined && String(nombreUsuario).trim() !== actual.nombreUsuario;
+    if (cambiaNombreUsuario || contrasena !== undefined) {
+      throw new PermisoDenegadoError(CREDENCIALES_DE_ENCARGADO);
+    }
   }
   if (activo === false && actual.personaId === personaIdSolicitante) {
     throw new personaService.AccionSobreSiMismoError(BLOQUEAR_PROPIA_CUENTA);

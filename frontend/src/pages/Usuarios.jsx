@@ -420,9 +420,13 @@ function Usuarios() {
 
             {seleccionado.activo && (
               <div className="detalle-acciones">
-                <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                  Modificar credenciales
-                </Button>
+                {/* El usuario y la contraseña de un Encargado solo los cambia un
+                    Administrador (el backend lo rechaza). */}
+                {!(usuarioActual.perfil === 'ENCARGADO' && seleccionado.perfil === 'ENCARGADO') && (
+                  <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                    Modificar credenciales
+                  </Button>
+                )}
                 {/* La cuenta propia no se bloquea (el backend lo rechaza). */}
                 {seleccionado.personaId !== usuarioActual.personaId && (
                   <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>

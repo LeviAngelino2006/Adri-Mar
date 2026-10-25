@@ -1,7 +1,7 @@
 // Tests de seguridad de Personal y Usuarios (tanda 1 de la auditoría,
-// docs/auditoria-ux/personal-usuarios.md): el último Administrador (H2) y las
-// acciones sobre uno mismo (H3). Los escenarios salen de las pruebas contra la
-// API de la auditoría (G1, G2 y G3).
+// docs/auditoria-ux/personal-usuarios.md): el último Administrador (H2), las
+// acciones sobre uno mismo (H3) y las credenciales de un Encargado (H4). Los
+// escenarios salen de las pruebas contra la API de la auditoría (G1, G2 y G3).
 //
 // Levantan la app real con un JWT real, la sesión tomada del token
 // (helpers/sesionDelToken.js) y Prisma en memoria con estado
@@ -195,5 +195,47 @@ describe('H3: nadie actúa sobre sí mismo', () => {
     // La cuenta 14 no existe; la persona 11 tampoco es él: no lo confunde.
     const ajena = await pedir('PATCH', '/personas/14/baja', { como: { id: 14, personaId: 11, perfil: 'ENCARGADO' } });
     assert.equal(ajena.status, 200);
+  });
+});
+
+describe('H4: un Encargado no toma la cuenta de otro Encargado', () => {
+  const DIEGO = { id: 4, personaId: 4, perfil: 'ENCARGADO' };
+  const ADRIANA = { id: 1, personaId: 1, perfil: 'ADMINISTRADOR' };
+  const CREDENCIALES_DE_ENCARGADO = 'Solo un Administrador puede cambiar el usuario o la contraseña de un Encargado.';
+
+  test('G1: Diego no le puede cambiar la contraseña a Lucía', async () => {
+    const { status, json } = await pedir('PUT', '/usuarios/3', { como: DIEGO, body: { nombreUsuario: 'lromero', contrasena: 'TomadaPorDiego1' } });
+    assert.equal(status, 403);
+    assert.equal(json.error, CREDENCIALES_DE_ENCARGADO);
+    assert.equal(cuenta(3).contrasenaHash, 'hash-de-prueba');
+  });
+
+  test('G1: ni el nombre de usuario', async () => {
+    const { status, json } = await pedir('PUT', '/usuarios/3', { como: DIEGO, body: { nombreUsuario: 'lucia.vieja' } });
+    assert.equal(status, 403);
+    assert.equal(json.error, CREDENCIALES_DE_ENCARGADO);
+    assert.equal(cuenta(3).nombreUsuario, 'lromero');
+  });
+
+  test('tampoco los de su propia cuenta: los cambia un Administrador', async () => {
+    const { status } = await pedir('PUT', '/usuarios/4', { como: DIEGO, body: { nombreUsuario: 'dsosa', contrasena: 'OtraClave123' } });
+    assert.equal(status, 403);
+  });
+
+  test('un Administrador sí le cambia la contraseña a un Encargado', async () => {
+    const { status } = await pedir('PUT', '/usuarios/3', { como: ADRIANA, body: { nombreUsuario: 'lromero', contrasena: 'NuevaClave123' } });
+    assert.equal(status, 200);
+    assert.notEqual(cuenta(3).contrasenaHash, 'hash-de-prueba');
+  });
+
+  test('un Encargado sigue gestionando las credenciales de un Chofer', async () => {
+    const { status } = await pedir('PUT', '/usuarios/11', { como: DIEGO, body: { nombreUsuario: 'racosta', contrasena: 'NuevaClave123' } });
+    assert.equal(status, 200);
+  });
+
+  test('lo demás queda como estaba: un Encargado puede bloquear la cuenta de otro (se decide en otra tanda)', async () => {
+    const { status } = await pedir('PATCH', '/usuarios/3/baja', { como: DIEGO });
+    assert.equal(status, 200);
+    assert.equal(estadoDe(3), 'INACTIVO');
   });
 });
