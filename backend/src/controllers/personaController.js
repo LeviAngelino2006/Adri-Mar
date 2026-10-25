@@ -55,12 +55,12 @@ async function actualizar(req, res) {
   const { nombre, apellido, perfil, dni, email, telefono, habilitadoParaConducir } = req.body;
 
   try {
-    const persona = await personaService.actualizarPersona(
+    const { persona, candidaturasQuitadas } = await personaService.actualizarPersona(
       req.params.id,
       { nombre, apellido, perfil, dni, email, telefono, habilitadoParaConducir },
       { perfilSolicitante: req.usuario.perfil, personaIdSolicitante: req.usuario.personaId }
     );
-    return res.json({ persona });
+    return res.json({ persona, candidaturasQuitadas });
   } catch (err) {
     if (err instanceof personaService.NoEncontradoError) {
       return res.status(404).json({ error: 'Persona no encontrada' });
@@ -70,6 +70,9 @@ async function actualizar(req, res) {
     }
     if (err instanceof personaService.ChoferEnViajeError) {
       return res.status(409).json({ error: err.message });
+    }
+    if (err instanceof personaService.ChoferConViajesProgramadosError) {
+      return res.status(409).json({ error: err.message, viajes: err.viajes });
     }
     if (err instanceof personaService.UltimoAdministradorError) {
       return res.status(409).json({ error: err.message });
@@ -86,11 +89,11 @@ async function actualizar(req, res) {
 
 async function darDeBaja(req, res) {
   try {
-    const persona = await personaService.darDeBajaPersona(req.params.id, {
+    const { persona, candidaturasQuitadas } = await personaService.darDeBajaPersona(req.params.id, {
       perfilSolicitante: req.usuario.perfil,
       personaIdSolicitante: req.usuario.personaId,
     });
-    return res.json({ persona });
+    return res.json({ persona, candidaturasQuitadas });
   } catch (err) {
     if (err instanceof personaService.NoEncontradoError) {
       return res.status(404).json({ error: 'Persona no encontrada' });
@@ -103,6 +106,9 @@ async function darDeBaja(req, res) {
     }
     if (err instanceof personaService.ChoferEnViajeError) {
       return res.status(409).json({ error: err.message });
+    }
+    if (err instanceof personaService.ChoferConViajesProgramadosError) {
+      return res.status(409).json({ error: err.message, viajes: err.viajes });
     }
     if (err instanceof personaService.UltimoAdministradorError) {
       return res.status(409).json({ error: err.message });

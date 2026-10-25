@@ -495,6 +495,62 @@ describe('Sesión contra la base', () => {
   });
 });
 
+// Dar de baja o deshabilitar a quien maneja (personaService.liberarComoChofer):
+// la búsqueda de sus Programados, con origen y destino, y el borrado de sus
+// candidaturas filtrado por el estado del viaje, contra el schema real.
+describe('Bajas con viajes contra la base', () => {
+  async function choferNuevo(n) {
+    const { persona } = await esperar(
+      'POST',
+      '/personas',
+      { body: { nombre: 'Baja', apellido: `${n} ${SUFIJO}`, dni: `${n}${String(Date.now()).slice(-7)}`, perfil: 'CHOFER' } },
+      201
+    );
+    return persona;
+  }
+  const estado = async (descripcion) => (await prisma.estadoViaje.findUnique({ where: { descripcion } })).id;
+
+  test('con un Programado: 409 con el viaje; con solo candidaturas: pasa y las borra', async () => {
+    const conViaje = await choferNuevo(3);
+    const viaje = await prisma.viaje.create({
+      data: {
+        estadoViajeId: await estado('PROGRAMADO'),
+        choferId: conViaje.id,
+        vehiculoId: ids.vehiculo,
+        fechaInicio: new Date(`${diaCordoba(40)}T08:00:00-03:00`),
+        fechaFin: new Date(`${diaCordoba(40)}T18:00:00-03:00`),
+        clienteId: ids.cliente,
+        origenId: ids.origen,
+        destinoId: ids.destino,
+      },
+    });
+    const bloqueada = await pedir('PATCH', `/personas/${conViaje.id}/baja`);
+    assert.equal(bloqueada.status, 409, JSON.stringify(bloqueada.json));
+    assert.deepEqual(bloqueada.json.viajes, [
+      { id: viaje.id, fecha: viaje.fechaInicio.toISOString(), origen: `Origen ${SUFIJO}`, destino: `Destino ${SUFIJO}` },
+    ]);
+    const deshabilitar = await pedir('PUT', `/personas/${conViaje.id}`, {
+      body: { ...conViaje, perfil: 'ENCARGADO', habilitadoParaConducir: false },
+    });
+    assert.equal(deshabilitar.status, 409, JSON.stringify(deshabilitar.json));
+
+    const candidato = await choferNuevo(4);
+    const aConfirmar = await prisma.viaje.create({
+      data: {
+        estadoViajeId: await estado('A_CONFIRMAR'),
+        fechaInicio: new Date(`${diaCordoba(41)}T08:00:00-03:00`),
+        origenId: ids.origen,
+        destinoId: ids.destino,
+        choferesCandidatos: { create: [{ personaId: candidato.id }, { personaId: ids.chofer }] },
+      },
+    });
+    const baja = await esperar('PATCH', `/personas/${candidato.id}/baja`);
+    assert.equal(baja.candidaturasQuitadas, 1);
+    const quedan = await prisma.viajeChoferCandidato.findMany({ where: { viajeId: aConfirmar.id } });
+    assert.deepEqual(quedan.map((c) => c.personaId), [ids.chofer]);
+  });
+});
+
 // Siempre queda un Administrador activo, también cuando dos cambios llegan a la
 // vez: el chequeo y el cambio van en la misma transacción, con un advisory lock
 // de Postgres (utils/administradoresActivos.js). Sin el lock, cada transacción

@@ -4,8 +4,9 @@
 // de baja" ni "Desactivar acceso", y al editarse a sí mismo el perfil queda de
 // solo lectura con el motivo. Y un Encargado no ve "Modificar credenciales" en la
 // cuenta de un Encargado (H4). Al editar una cuenta, una contraseña de solo
-// espacios se manda y el error del backend sale en el campo (H12). Se corren con
-// `npm test`.
+// espacios se manda y el error del backend sale en el campo (H12). Y al guardar
+// una persona, un 409 muestra el motivo que da el backend (H7, tanda 2). Se
+// corren con `npm test`.
 //
 // Se montan Personal y Usuarios con react-dom/client sobre jsdom; la API se
 // reemplaza por un doble.
@@ -96,6 +97,18 @@ before(async () => {
       err.response = { status: 400, data: { errores: { contrasena: 'La contraseña no puede tener solo espacios' } } };
       throw err;
     }
+    // Como el backend: Ramiro tiene un viaje Programado y no se lo deshabilita.
+    if (endpoint === '/personas/14' && datos.habilitadoParaConducir === false) {
+      const err = new Error('409');
+      err.response = {
+        status: 409,
+        data: {
+          error: 'Tiene 1 viaje programado. Reasignalo antes de deshabilitarla.',
+          viajes: [{ id: 6, fecha: '2026-10-30T09:30:00.000Z', origen: 'Río Tercero', destino: 'Rosario' }],
+        },
+      };
+      throw err;
+    }
     return { data: {} };
   };
   ({ MemoryRouter } = await import('react-router-dom'));
@@ -158,6 +171,19 @@ describe('Personal: la ficha propia', () => {
     await act(async () => boton('Editar datos').click());
     assert.equal(contenedor.querySelector('select[name="perfil"]').disabled, false);
     assert.equal(contenedor.querySelector('#perfil-hint'), null);
+  });
+});
+
+describe('Personal: el motivo de un 409 al guardar (H7)', () => {
+  test('deshabilitar a quien tiene viajes Programados muestra el mensaje del backend', async () => {
+    await montar(Personal, '/personal?id=14');
+    await act(async () => boton('Editar datos').click());
+    await act(async () => contenedor.querySelector('input[name="habilitadoParaConducir"]').click());
+    await act(async () => boton('Guardar cambios').click());
+
+    assert.equal(enviados.at(-1).endpoint, '/personas/14');
+    const alerta = [...contenedor.querySelectorAll('[role="alert"]')].map((a) => a.textContent).join(' ');
+    assert.ok(alerta.includes('Tiene 1 viaje programado. Reasignalo antes de deshabilitarla.'), alerta);
   });
 });
 

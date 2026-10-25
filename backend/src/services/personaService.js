@@ -3,7 +3,6 @@ const {
   UltimoAdministradorError,
   esAdministradorActivo,
   asegurarOtroAdministradorActivo,
-  protegerUltimoAdministrador,
 } = require('../utils/administradoresActivos');
 
 // Persona = quién es alguien en la empresa (empleado/chofer), tenga o no
@@ -34,6 +33,23 @@ class YaInactivaError extends Error {}
 // en vez de importar viajeService, para no crear una dependencia cruzada.
 class ChoferEnViajeError extends Error {}
 
+// Tampoco se da de baja ni se deshabilita a quien es chofer de viajes
+// Programados, de cualquier fecha, hasta reasignarlos (H6 y H7 de la auditoría
+// de Personal y Usuarios, decisión del cliente): si no, el viaje queda a nombre
+// de alguien que no puede comenzarlo y se descubre el día del viaje. Lleva la
+// lista para que el front la muestre.
+class ChoferConViajesProgramadosError extends Error {
+  constructor(viajes, accion) {
+    const cantidad = viajes.length;
+    super(
+      cantidad === 1
+        ? `Tiene 1 viaje programado. Reasignalo antes de ${accion}.`
+        : `Tiene ${cantidad} viajes programados. Reasignalos antes de ${accion}.`
+    );
+    this.viajes = viajes;
+  }
+}
+
 // Nadie se da de baja, se bloquea la cuenta ni se cambia el perfil a sí mismo
 // (H3 de la auditoría de Personal y Usuarios): es fácil de hacer sin querer y no
 // tiene vuelta atrás desde la pantalla. Lo usa también usuarioService.
@@ -46,6 +62,33 @@ async function esChoferDeViajeEnCurso(personaId) {
     where: { choferId: personaId, estadoViaje: { descripcion: 'EN_VIAJE' } },
   });
   return Boolean(viaje);
+}
+
+// Antes de dar de baja o deshabilitar, dentro de la misma transacción: si es
+// chofer de viajes Programados, corta con la lista; si no, lo saca de los
+// candidatos de los viajes A confirmar (ahí todavía no tiene nada asignado) y
+// devuelve cuántas candidaturas quitó.
+async function liberarComoChofer(tx, personaId, accion) {
+  const programados = await tx.viaje.findMany({
+    where: { choferId: personaId, estadoViaje: { descripcion: 'PROGRAMADO' } },
+    select: { id: true, fechaInicio: true, origen: { select: { nombre: true } }, destino: { select: { nombre: true } } },
+    orderBy: [{ fechaInicio: 'asc' }, { id: 'asc' }],
+  });
+  if (programados.length > 0) {
+    throw new ChoferConViajesProgramadosError(
+      programados.map((v) => ({
+        id: v.id,
+        fecha: v.fechaInicio,
+        origen: v.origen?.nombre ?? null,
+        destino: v.destino?.nombre ?? null,
+      })),
+      accion
+    );
+  }
+  const { count } = await tx.viajeChoferCandidato.deleteMany({
+    where: { personaId, viaje: { estadoViaje: { descripcion: 'A_CONFIRMAR' } } },
+  });
+  return count;
 }
 
 async function obtenerPerfilPorDescripcion(descripcion) {
@@ -219,9 +262,10 @@ async function actualizarPersona(
     }
   }
 
-  // Solo bloquea el intento de pasar habilitadoParaConducir a false. Si no
-  // viene en el payload, o viene en true, no hay nada que validar acá.
-  if (habilitadoParaConducir === false && (await esChoferDeViajeEnCurso(actual.id))) {
+  // Deshabilitar = pasar de habilitada a no habilitada. Si no viene en el
+  // payload, viene en true o ya estaba en false, no hay nada que validar acá.
+  const deshabilita = actual.habilitadoParaConducir && habilitadoParaConducir === false;
+  if (deshabilita && (await esChoferDeViajeEnCurso(actual.id))) {
     throw new ChoferEnViajeError(
       'La persona tiene un viaje En viaje en curso como chofer. Debe finalizarse antes de deshabilitarla para conducir.'
     );
@@ -233,19 +277,25 @@ async function actualizarPersona(
   // Pasar a otro perfil a un Administrador activo: solo si queda otro.
   const sacaUnAdministrador = esAdministradorActivo(actual) && perfil !== 'ADMINISTRADOR';
 
+  // Los chequeos que dependen de otras filas (el último Administrador, los
+  // viajes Programados) van en la misma transacción que el cambio.
+  const cambio = async (cliente) => {
+    if (sacaUnAdministrador) await asegurarOtroAdministradorActivo(cliente, actual.id);
+    const candidaturasQuitadas = deshabilita ? await liberarComoChofer(cliente, actual.id, 'deshabilitarla') : 0;
+    const persona = await cliente.persona.update({
+      where: { id: actual.id },
+      data: {
+        ...datos,
+        perfilId: perfilRow.id,
+        habilitadoParaConducir: typeof habilitadoParaConducir === 'boolean' ? habilitadoParaConducir : undefined,
+      },
+      include: INCLUDE_PERSONA,
+    });
+    return { persona: serializarPersona(persona), candidaturasQuitadas };
+  };
+
   try {
-    const persona = await protegerUltimoAdministrador(prisma, { personaId: actual.id, sacaUnAdministrador }, (cliente) =>
-      cliente.persona.update({
-        where: { id: actual.id },
-        data: {
-          ...datos,
-          perfilId: perfilRow.id,
-          habilitadoParaConducir: typeof habilitadoParaConducir === 'boolean' ? habilitadoParaConducir : undefined,
-        },
-        include: INCLUDE_PERSONA,
-      })
-    );
-    return serializarPersona(persona);
+    return sacaUnAdministrador || deshabilita ? await prisma.$transaction(cambio) : await cambio(prisma);
   } catch (err) {
     if (err.code === 'P2002') {
       throw new ValidacionError(errorDuplicado(err));
@@ -280,24 +330,24 @@ async function darDeBajaPersona(id, { perfilSolicitante, personaIdSolicitante } 
     throw new Error('Estado de usuario "INACTIVO" no configurado');
   }
 
-  const persona = await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     // Dar de baja a un Administrador activo: solo si queda otro. El chequeo va
     // en la misma transacción que la baja (ver administradoresActivos).
     if (esAdministradorActivo(actual)) {
       await asegurarOtroAdministradorActivo(tx, actual.id);
     }
+    const candidaturasQuitadas = await liberarComoChofer(tx, actual.id, 'darla de baja');
     await tx.usuario.updateMany({
       where: { personaId: actual.id },
       data: { estadoUsuarioId: estadoInactivo.id },
     });
-    return tx.persona.update({
+    const persona = await tx.persona.update({
       where: { id: actual.id },
       data: { activo: false, fechaBaja: new Date() },
       include: INCLUDE_PERSONA,
     });
+    return { persona: serializarPersona(persona), candidaturasQuitadas };
   });
-
-  return serializarPersona(persona);
 }
 
 function valorBooleano(valor) {
@@ -375,6 +425,7 @@ module.exports = {
   NoEncontradoError,
   YaInactivaError,
   ChoferEnViajeError,
+  ChoferConViajesProgramadosError,
   UltimoAdministradorError,
   AccionSobreSiMismoError,
   PERFILES_VALIDOS,

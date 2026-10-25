@@ -137,7 +137,9 @@ const prismaFalso = {
       return { count: af.length };
     },
   },
-  viaje: { findFirst: async () => null },
+  // Sin viajes: ni En viaje ni Programados, y ninguna candidatura que quitar.
+  viaje: { findFirst: async () => null, findMany: async () => [] },
+  viajeChoferCandidato: { deleteMany: async () => ({ count: 0 }) },
   $transaction: async (fn) => fn(prismaFalso),
 };
 

@@ -205,7 +205,10 @@ function Personal() {
       if (err.response?.status === 400 && err.response.data.errores) {
         setErrores(err.response.data.errores);
       } else {
-        setErrores({ general: editando ? 'No se pudieron guardar los cambios' : 'No se pudo registrar la persona' });
+        // Un 409 trae el motivo (viajes Programados, En viaje, persona dada de baja).
+        setErrores({
+          general: err.response?.data?.error || (editando ? 'No se pudieron guardar los cambios' : 'No se pudo registrar la persona'),
+        });
       }
     } finally {
       setEnviando(false);
