@@ -143,9 +143,16 @@ const TITULARES = {
         telefono: chofer.telefono,
         nombreUsuario: chofer.usuario?.nombreUsuario ?? null,
         perfil: chofer.perfil,
+        // Lo usaba el front anterior para decidir "solo consulta" (mal: con la
+        // cuenta bloqueada, el legajo de alguien que sigue manejando quedaba
+        // sin "Actualizar"). Queda mientras haya pestañas con ese front abiertas.
         estadoUsuario: chofer.usuario?.estadoUsuario ?? (chofer.activo ? { descripcion: 'ACTIVO' } : { descripcion: 'INACTIVO' }),
         activo: chofer.activo,
         habilitadoParaConducir: chofer.habilitadoParaConducir,
+        // La carpeta es de solo consulta si la PERSONA está dada de baja (H8):
+        // es la misma regla con la que validarParaRegistro rechaza un alta. El
+        // estado de la cuenta habla del acceso al sistema, no del legajo.
+        soloConsulta: !chofer.activo,
       },
     }),
   },

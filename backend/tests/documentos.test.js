@@ -582,6 +582,25 @@ describe('Quién puede recibir documentación', () => {
     assert.equal(alta.status, 201);
   });
 
+  // H8 (tanda 2): el "solo consulta" de la carpeta sale de la persona. Bloquear la
+  // cuenta de alguien que sigue manejando no le congela el legajo.
+  test('soloConsulta: la cuenta bloqueada de una persona activa no la hace de solo consulta', async () => {
+    db.usuarios.find((u) => u.id === 5).estadoUsuario = { id: 2, descripcion: 'INACTIVO' };
+    const { json } = await pedir('GET', '/choferes/5');
+    assert.equal(json.chofer.soloConsulta, false);
+    assert.equal(json.chofer.activo, true);
+
+    const alta = await subir('/choferes/5', { tipoDocumentoId: LICENCIA, fechaVencimiento: VENCE }, { pdf: true });
+    assert.equal(alta.status, 201, 'y el backend le deja registrar documentos');
+  });
+
+  test('soloConsulta: una persona dada de baja sí, tenga o no cuenta', async () => {
+    assert.equal((await pedir('GET', '/choferes/8')).json.chofer.soloConsulta, true);
+
+    db.usuarios.splice(db.usuarios.findIndex((u) => u.personaId === 8), 1);
+    assert.equal((await pedir('GET', '/choferes/8')).json.chofer.soloConsulta, true);
+  });
+
   test('el estado de choferes lista solo los activos', async () => {
     const { json } = await pedir('GET', '/estado-choferes');
     assert.deepEqual(json.choferes.map((c) => c.id).sort((a, b) => a - b), [5, 6, 10]);
