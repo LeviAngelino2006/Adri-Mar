@@ -245,9 +245,10 @@ async function sembrarDatos() {
   });
 }
 
-async function pedir(metodo, ruta, { body, form } = {}) {
+// `conToken` pide con otro token que el del administrador (el de otra cuenta).
+async function pedir(metodo, ruta, { body, form, conToken = token } = {}) {
   const headers = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
+  if (conToken) headers.Authorization = `Bearer ${conToken}`;
   let cuerpo;
   if (form) {
     cuerpo = new FormData();
@@ -264,7 +265,7 @@ async function pedir(metodo, ruta, { body, form } = {}) {
   } catch {
     json = texto;
   }
-  return { status: res.status, json };
+  return { status: res.status, json, renovado: res.headers.get('x-renewed-token') };
 }
 
 // El único criterio: el endpoint responde lo esperado (no un 500).
@@ -463,4 +464,33 @@ describe('Personal y usuarios', () => {
     ['ficha de usuario', () => `/usuarios/${ids.usuario}`],
     ['usuarios disponibles para conducir', () => '/usuarios/disponibles-chofer'],
   ]);
+});
+
+// La sesión de cada pedido sale de la base (sesionService, una consulta SQL con
+// JOIN): acá corre contra las tablas reales, así que un nombre de tabla o de
+// columna mal escrito en esa consulta rompe este test.
+describe('Sesión contra la base', () => {
+  test('el token de una cuenta bloqueada da 401 y no se renueva', async () => {
+    const { persona } = await esperar(
+      'POST',
+      '/personas',
+      { body: { nombre: 'Sesión', apellido: `Integración ${SUFIJO}`, dni: String(Date.now()).slice(-8), perfil: 'CHOFER' } },
+      201
+    );
+    const credenciales = { nombreUsuario: `sesion-${SUFIJO}`, contrasena: 'clave-de-integracion' };
+    const { usuario } = await esperar('POST', '/usuarios', { body: { personaId: persona.id, ...credenciales } }, 201);
+    const { token: tokenChofer } = await esperar('POST', '/auth/login', { body: credenciales });
+
+    const antes = await pedir('GET', '/auth/me', { conToken: tokenChofer });
+    assert.equal(antes.status, 200);
+    assert.equal(antes.json.usuario.perfil, 'CHOFER');
+    assert.ok(antes.renovado, 'con la cuenta activa el token se renueva');
+
+    await esperar('PATCH', `/usuarios/${usuario.id}/baja`);
+
+    const despues = await pedir('GET', '/auth/me', { conToken: tokenChofer });
+    assert.equal(despues.status, 401);
+    assert.equal(despues.json.error, 'Tu sesión ya no es válida. Iniciá sesión de nuevo.');
+    assert.equal(despues.renovado, null);
+  });
 });

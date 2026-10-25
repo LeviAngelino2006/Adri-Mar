@@ -11,7 +11,7 @@ import logo from '../assets/logo-adrimar.png';
 import './Login.css';
 
 function Login() {
-  const { login } = useAuth();
+  const { login, avisoSesion } = useAuth();
   const navigate = useNavigate();
 
   const [nombreUsuario, setNombreUsuario] = useState('');
@@ -67,6 +67,10 @@ function Login() {
               />
             </FormField>
 
+            {/* Volvió al login porque la sesión ya no es válida (cuenta bloqueada,
+                persona dada de baja o token vencido). Un error del intento de
+                ingreso lo reemplaza. */}
+            {avisoSesion && !error && <Alert variant="warning">{avisoSesion}</Alert>}
             {error && <Alert variant="error">{error}</Alert>}
 
             <Button type="submit" variant="primary" loading={enviando} className="login-submit">

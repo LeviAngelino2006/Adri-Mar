@@ -12,6 +12,10 @@ const { prisma: prismaFalso, db, sembrar } = crearEntorno();
 
 instalarEnCache(SRC, prismaFalso);
 
+// La sesión sale del token (ver helpers/sesionDelToken.js).
+const { instalarSesionDelToken } = require('./helpers/sesionDelToken');
+instalarSesionDelToken(SRC);
+
 const app = require(path.join(SRC, 'app.js'));
 const { generarToken } = require(path.join(SRC, 'services', 'tokenService.js'));
 const { calcularEstadoService } = require(path.join(SRC, 'utils', 'estadoService.js'));

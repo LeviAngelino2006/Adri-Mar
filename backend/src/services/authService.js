@@ -27,31 +27,36 @@ async function login(nombreUsuario, contrasena) {
     throw new CredencialesInvalidasError();
   }
 
-  // personaId es obligatorio en Usuario: la persona siempre viene.
-  const perfil = usuario.persona.perfil.descripcion;
-  const habilitadoParaConducir = usuario.persona.habilitadoParaConducir;
-  const personaId = usuario.personaId;
+  const datos = usuarioDeSesion(usuario);
+  const token = generarToken(datos);
 
-  const token = generarToken({
-    id: usuario.id,
-    personaId,
-    nombreUsuario: usuario.nombreUsuario,
-    perfil,
-    habilitadoParaConducir,
-  });
+  return { token, usuario: datos };
+}
 
+// Lo que el front guarda del usuario logueado (sidebar, menú y rutas). Lo
+// devuelven el login y /auth/me, con la misma forma.
+// personaId es obligatorio en Usuario: la persona siempre viene.
+function usuarioDeSesion(usuario) {
   return {
-    token,
-    usuario: {
-      id: usuario.id,
-      personaId,
-      nombre: usuario.persona.nombre,
-      apellido: usuario.persona.apellido,
-      nombreUsuario: usuario.nombreUsuario,
-      perfil,
-      habilitadoParaConducir,
-    },
+    id: usuario.id,
+    personaId: usuario.personaId,
+    nombre: usuario.persona.nombre,
+    apellido: usuario.persona.apellido,
+    nombreUsuario: usuario.nombreUsuario,
+    perfil: usuario.persona.perfil.descripcion,
+    habilitadoParaConducir: usuario.persona.habilitadoParaConducir,
   };
 }
 
-module.exports = { login, CredencialesInvalidasError };
+// El usuario de la sesión actual, leído de la base: el front lo pide al cargar
+// la app y cuando el token renovado trae otro perfil o habilitación. Que la
+// cuenta y la persona estén activas ya lo verificó `autenticar`.
+async function usuarioActual(id) {
+  const usuario = await prisma.usuario.findUnique({
+    where: { id },
+    include: { persona: { include: { perfil: true } } },
+  });
+  return usuario ? usuarioDeSesion(usuario) : null;
+}
+
+module.exports = { login, usuarioActual, CredencialesInvalidasError };
