@@ -1,8 +1,9 @@
 // Tests de seguridad de Personal y Usuarios (tanda 1 de la auditoría,
 // docs/auditoria-ux/personal-usuarios.md): el último Administrador (H2), las
-// acciones sobre uno mismo (H3), las credenciales de un Encargado (H4) y lo que
-// un Encargado ve de un Administrador (H5). Los escenarios salen de las pruebas
-// contra la API de la auditoría (G1, G2 y G3).
+// acciones sobre uno mismo (H3), las credenciales de un Encargado (H4), lo que un
+// Encargado ve de un Administrador (H5) y la cuenta de una persona dada de baja
+// (H10). Los escenarios salen de las pruebas contra la API de la auditoría (G1,
+// G2, G3 y G4).
 //
 // Levantan la app real con un JWT real, la sesión tomada del token
 // (helpers/sesionDelToken.js) y Prisma en memoria con estado
@@ -269,5 +270,33 @@ describe('H5: lo que un Encargado ve de un Administrador', () => {
       assert.deepEqual(adriana, { id: 1, nombre: 'Adriana', apellido: 'Martínez' }, ruta);
       for (const p of lista) assert.deepEqual(Object.keys(p).sort(), ['apellido', 'id', 'nombre'], ruta);
     }
+  });
+});
+
+describe('H10: la cuenta de una persona dada de baja', () => {
+  const REACTIVA_PRIMERO = 'Reactivá primero a la persona.';
+
+  test('G4: no se activa la cuenta de Néstor (dado de baja)', async () => {
+    const { status, json } = await pedir('PUT', '/usuarios/10', { body: { nombreUsuario: 'nvega', activo: true } });
+    assert.equal(status, 409);
+    assert.equal(json.error, REACTIVA_PRIMERO);
+    assert.equal(estadoDe(10), 'INACTIVO');
+  });
+
+  test('G4: ni se le cambia la contraseña ni el nombre de usuario', async () => {
+    const clave = await pedir('PUT', '/usuarios/10', { body: { nombreUsuario: 'nvega', contrasena: 'NuevaClave99' } });
+    const nombre = await pedir('PUT', '/usuarios/10', { body: { nombreUsuario: 'nestor.vega' } });
+    assert.equal(clave.status, 409);
+    assert.equal(clave.json.error, REACTIVA_PRIMERO);
+    assert.equal(nombre.status, 409);
+    assert.equal(cuenta(10).contrasenaHash, 'hash-de-prueba');
+    assert.equal(cuenta(10).nombreUsuario, 'nvega');
+  });
+
+  test('la cuenta bloqueada de una persona activa sí se puede volver a activar', async () => {
+    cuenta(11).estadoUsuarioId = 2;
+    const { status } = await pedir('PUT', '/usuarios/11', { body: { nombreUsuario: 'racosta', activo: true } });
+    assert.equal(status, 200);
+    assert.equal(estadoDe(11), 'ACTIVO');
   });
 });

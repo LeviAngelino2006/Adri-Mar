@@ -20,6 +20,12 @@ class PermisoDenegadoError extends Error {}
 class NoEncontradoError extends Error {}
 class YaInactivoError extends Error {}
 
+class PersonaDadaDeBajaError extends Error {
+  constructor() {
+    super('Reactivá primero a la persona.');
+  }
+}
+
 const BLOQUEAR_PROPIA_CUENTA = 'No podés bloquear tu propia cuenta';
 const CREDENCIALES_DE_ENCARGADO = 'Solo un Administrador puede cambiar el usuario o la contraseña de un Encargado.';
 
@@ -224,6 +230,14 @@ async function actualizarUsuario(
   if (activo === false && actual.personaId === personaIdSolicitante) {
     throw new personaService.AccionSobreSiMismoError(BLOQUEAR_PROPIA_CUENTA);
   }
+  // La cuenta de una persona dada de baja queda inactiva (H10): ni se activa ni
+  // se le cambian las credenciales. Antes había que reactivar a la persona.
+  if (!actual.persona.activo) {
+    const cambiaNombreUsuario = nombreUsuario !== undefined && String(nombreUsuario).trim() !== actual.nombreUsuario;
+    if (activo === true || cambiaNombreUsuario || contrasena !== undefined) {
+      throw new PersonaDadaDeBajaError();
+    }
+  }
 
   const creds = validarCredenciales({ nombreUsuario, contrasena }, { requireContrasena: false });
 
@@ -344,4 +358,5 @@ module.exports = {
   PermisoDenegadoError,
   UltimoAdministradorError,
   AccionSobreSiMismoError: personaService.AccionSobreSiMismoError,
+  PersonaDadaDeBajaError,
 };

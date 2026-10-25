@@ -72,6 +72,9 @@ async function actualizar(req, res) {
     if (err instanceof usuarioService.AccionSobreSiMismoError) {
       return res.status(409).json({ error: err.message });
     }
+    if (err instanceof usuarioService.PersonaDadaDeBajaError) {
+      return res.status(409).json({ error: err.message });
+    }
     throw err;
   }
 }
