@@ -117,15 +117,15 @@ const TITULARES = {
     campo: 'choferId',
     carpetaStorage: 'choferes',
     noEncontrado: 'Chofer no encontrado',
-    // Solo se le carga documentación a una persona ACTIVA que conduce (perfil
-    // CHOFER o habilitada para conducir). Consultar su carpeta sigue permitido
-    // para conservar el historial.
+    // Solo se le carga documentación a una persona ACTIVA que conduce, es decir,
+    // habilitada para conducir (el perfil Chofer lo implica, ver personaService).
+    // Consultar su carpeta sigue permitido para conservar el historial.
     validarParaRegistro: (persona) => {
       if (persona.activo === false) {
         throw errorHttp(400, 'No se puede registrar documentación de una persona inactiva.');
       }
-      if (persona.perfil?.descripcion !== 'CHOFER' && !persona.habilitadoParaConducir) {
-        throw errorHttp(400, 'La persona no es chofer ni está habilitada para conducir.');
+      if (!persona.habilitadoParaConducir) {
+        throw errorHttp(400, 'La persona no está habilitada para conducir.');
       }
     },
     buscar: (id) =>
@@ -571,10 +571,9 @@ const LISTADOS = {
   CHOFER: {
     listar: () =>
       prisma.persona.findMany({
-        where: {
-          activo: true,
-          OR: [{ perfil: { descripcion: 'CHOFER' } }, { habilitadoParaConducir: true }],
-        },
+        // Los que manejan: el perfil Chofer implica estar habilitado, así que
+        // no hace falta pedirlo aparte (antes, "perfil Chofer o habilitado").
+        where: { activo: true, habilitadoParaConducir: true },
         include: { perfil: true, usuario: { include: { estadoUsuario: true } }, documentos: DOCUMENTOS_VIGENTES },
         orderBy: [{ apellido: 'asc' }, { nombre: 'asc' }],
       }),

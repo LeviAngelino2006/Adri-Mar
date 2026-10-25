@@ -135,11 +135,13 @@ function serializarPersona(persona) {
   };
 }
 
-function calcularHabilitadoParaConducir(habilitadoParaConducir, perfil) {
-  if (typeof habilitadoParaConducir === 'boolean') {
-    return habilitadoParaConducir;
-  }
-  return perfil === 'CHOFER';
+// "Habilitado para conducir" = aparece entre los choferes para asignar. El
+// perfil Chofer implica estarlo, siempre (H17, decisión del cliente): acá se
+// fuerza, sin importar lo que mande el front. Para los otros perfiles vale lo
+// que venga; si no viene, `siNoViene` (false en el alta, sin cambios al editar).
+function calcularHabilitadoParaConducir(habilitadoParaConducir, perfil, siNoViene) {
+  if (perfil === 'CHOFER') return true;
+  return typeof habilitadoParaConducir === 'boolean' ? habilitadoParaConducir : siNoViene;
 }
 
 function validarDatos({ nombre, apellido, perfil, dni, email, telefono }) {
@@ -235,7 +237,7 @@ async function crearPersona(
       data: {
         ...datos,
         perfilId: perfilRow.id,
-        habilitadoParaConducir: calcularHabilitadoParaConducir(habilitadoParaConducir, perfil),
+        habilitadoParaConducir: calcularHabilitadoParaConducir(habilitadoParaConducir, perfil, false),
       },
       include: INCLUDE_PERSONA,
     });
@@ -264,12 +266,16 @@ async function actualizarPersona(
     throw new PersonaDadaDeBajaError();
   }
 
+  // Con perfil Chofer, true siempre. Pasar de Chofer a otro perfil conserva la
+  // habilitación como esté (si no viene) o toma la que venga: quitarla es
+  // deshabilitar, con sus chequeos de abajo.
+  const habilitado = calcularHabilitadoParaConducir(habilitadoParaConducir, perfil, actual.habilitadoParaConducir);
+
   // Sus propios datos sí, pero el perfil y la habilitación de uno los cambia
   // otro. El front manda el formulario entero: solo es un cambio si difiere.
   if (actual.id === personaIdSolicitante) {
     const cambiaPerfil = perfil !== actual.perfil.descripcion;
-    const cambiaHabilitacion =
-      typeof habilitadoParaConducir === 'boolean' && habilitadoParaConducir !== actual.habilitadoParaConducir;
+    const cambiaHabilitacion = habilitado !== actual.habilitadoParaConducir;
     if (cambiaPerfil || cambiaHabilitacion) {
       throw new AccionSobreSiMismoError('No podés cambiar tu propio perfil');
     }
@@ -277,7 +283,7 @@ async function actualizarPersona(
 
   // Deshabilitar = pasar de habilitada a no habilitada. Si no viene en el
   // payload, viene en true o ya estaba en false, no hay nada que validar acá.
-  const deshabilita = actual.habilitadoParaConducir && habilitadoParaConducir === false;
+  const deshabilita = actual.habilitadoParaConducir && !habilitado;
   if (deshabilita && (await esChoferDeViajeEnCurso(actual.id))) {
     throw new ChoferEnViajeError(
       'La persona tiene un viaje En viaje en curso como chofer. Debe finalizarse antes de deshabilitarla para conducir.'
@@ -300,7 +306,7 @@ async function actualizarPersona(
       data: {
         ...datos,
         perfilId: perfilRow.id,
-        habilitadoParaConducir: typeof habilitadoParaConducir === 'boolean' ? habilitadoParaConducir : undefined,
+        habilitadoParaConducir: habilitado,
       },
       include: INCLUDE_PERSONA,
     });

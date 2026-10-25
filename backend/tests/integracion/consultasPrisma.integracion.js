@@ -551,6 +551,44 @@ describe('Bajas con viajes contra la base', () => {
   });
 });
 
+// La migración de datos 20261027120000 (perfil Chofer → habilitado para
+// conducir), corrida otra vez sobre personas cargadas como antes de la regla. En
+// el deploy corre una vez, antes de que haya personas en una base nueva: acá se
+// prueba con datos. Es idempotente, así que repetirla no cambia nada más.
+describe('Migración: el perfil Chofer queda habilitado para conducir', () => {
+  test('habilita a los Choferes sin habilitar, activos o no, y no toca a los demás perfiles', async () => {
+    const fs = require('node:fs');
+    const sql = fs.readFileSync(
+      path.join(BACKEND, 'prisma', 'migrations', '20261027120000_perfil_chofer_habilitado_para_conducir', 'migration.sql'),
+      'utf8'
+    );
+    const perfil = async (descripcion) => (await prisma.perfil.findUnique({ where: { descripcion } })).id;
+    // Directo con Prisma: el alta de personaService ya no deja crearlos así.
+    const crear = (n, perfilId, extra = {}) =>
+      prisma.persona.create({
+        data: { nombre: 'Migración', apellido: `${n} ${SUFIJO}`, dni: `M${n}-${SUFIJO}`, perfilId, habilitadoParaConducir: false, ...extra },
+      });
+    const choferSinHabilitar = await crear(1, await perfil('CHOFER'));
+    const choferDadoDeBaja = await crear(2, await perfil('CHOFER'), { activo: false, fechaBaja: new Date() });
+    const encargado = await crear(3, await perfil('ENCARGADO'));
+    const tallerQueManeja = await crear(4, await perfil('PERSONAL_TALLER'), { habilitadoParaConducir: true });
+
+    const actualizadas = await prisma.$executeRawUnsafe(sql);
+
+    const habilitado = async (p) => (await prisma.persona.findUnique({ where: { id: p.id } })).habilitadoParaConducir;
+    assert.equal(await habilitado(choferSinHabilitar), true);
+    assert.equal(await habilitado(choferDadoDeBaja), true);
+    assert.equal(await habilitado(encargado), false);
+    assert.equal(await habilitado(tallerQueManeja), true);
+    assert.equal(actualizadas, 2, 'solo las dos con perfil Chofer');
+    // Y ahora el Chofer aparece entre los choferes para asignar.
+    const { personas } = await esperar('GET', '/personas/disponibles-chofer');
+    assert.ok(personas.some((p) => p.id === choferSinHabilitar.id));
+
+    assert.equal(await prisma.$executeRawUnsafe(sql), 0, 'repetirla no cambia nada');
+  });
+});
+
 // Dar de baja, reactivar a la persona y después la cuenta, y volver a entrar.
 describe('Reactivar contra la base', () => {
   test('la persona vuelve sin la cuenta; con la cuenta reactivada, inicia sesión', async () => {

@@ -168,14 +168,16 @@ function Personal() {
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
 
-    if (name === 'perfil' && !editando) {
+    // El perfil Chofer implica estar habilitado (el backend lo fuerza). En el
+    // alta, salir de Chofer lo apaga; al editar se conserva como esté.
+    if (name === 'perfil') {
       setForm((f) => {
         const eraChofer = f.perfil === 'CHOFER';
         const esChofer = value === 'CHOFER';
         let habilitadoParaConducir = f.habilitadoParaConducir;
         if (esChofer) {
           habilitadoParaConducir = true;
-        } else if (eraChofer) {
+        } else if (eraChofer && !editando) {
           habilitadoParaConducir = false;
         }
         return { ...f, perfil: value, habilitadoParaConducir };
@@ -220,7 +222,7 @@ function Personal() {
   // dos campos quedan de solo lectura.
   const fichaPropia = seleccionado?.id === usuarioActual.personaId;
   const editandoPropia = editando?.id === usuarioActual.personaId;
-  const switchBloqueado = (!editando && form.perfil === 'CHOFER') || editandoPropia;
+  const switchBloqueado = form.perfil === 'CHOFER' || editandoPropia;
 
   return (
     <Layout>

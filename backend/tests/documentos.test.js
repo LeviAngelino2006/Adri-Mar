@@ -576,10 +576,24 @@ describe('Quién puede recibir documentación', () => {
     assert.equal((await pedir('GET', '/choferes/8')).status, 200);
   });
 
-  test('un usuario activo con perfil CHOFER sí, aunque no esté habilitado para conducir', async () => {
-    db.usuarios.find((u) => u.id === 7).perfil = { descripcion: 'CHOFER' };
+  // El perfil Chofer implica estar habilitado (H17, tanda 2): lo que decide es la
+  // habilitación, sea cual sea el perfil.
+  test('una persona activa habilitada para conducir sí, aunque sea Encargada', async () => {
+    db.personas.find((p) => p.id === 7).habilitadoParaConducir = true;
     const alta = await subir('/choferes/7', { tipoDocumentoId: LICENCIA, fechaVencimiento: VENCE }, { pdf: true });
     assert.equal(alta.status, 201);
+  });
+
+  test('una no habilitada no, con el motivo', async () => {
+    const alta = await subir('/choferes/7', { tipoDocumentoId: LICENCIA, fechaVencimiento: VENCE }, { pdf: true });
+    assert.equal(alta.status, 400);
+    assert.equal(alta.json.error, 'La persona no está habilitada para conducir.');
+  });
+
+  test('el listado de choferes son los activos habilitados, sea cual sea el perfil', async () => {
+    db.personas.find((p) => p.id === 7).habilitadoParaConducir = true;
+    const { json } = await pedir('GET', '/estado-choferes');
+    assert.deepEqual(json.choferes.map((c) => c.id).sort((a, b) => a - b), [5, 6, 7, 10]);
   });
 
   // H8 (tanda 2): el "solo consulta" de la carpeta sale de la persona. Bloquear la
