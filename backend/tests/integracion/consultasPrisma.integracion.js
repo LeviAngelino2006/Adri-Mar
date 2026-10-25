@@ -245,9 +245,10 @@ async function sembrarDatos() {
   });
 }
 
-async function pedir(metodo, ruta, { body, form } = {}) {
+// `conToken` pide con otro token que el del administrador (el de otra cuenta).
+async function pedir(metodo, ruta, { body, form, conToken = token } = {}) {
   const headers = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
+  if (conToken) headers.Authorization = `Bearer ${conToken}`;
   let cuerpo;
   if (form) {
     cuerpo = new FormData();
@@ -264,7 +265,7 @@ async function pedir(metodo, ruta, { body, form } = {}) {
   } catch {
     json = texto;
   }
-  return { status: res.status, json };
+  return { status: res.status, json, renovado: res.headers.get('x-renewed-token') };
 }
 
 // El único criterio: el endpoint responde lo esperado (no un 500).
@@ -463,4 +464,114 @@ describe('Personal y usuarios', () => {
     ['ficha de usuario', () => `/usuarios/${ids.usuario}`],
     ['usuarios disponibles para conducir', () => '/usuarios/disponibles-chofer'],
   ]);
+});
+
+// La sesión de cada pedido sale de la base (sesionService, una consulta SQL con
+// JOIN): acá corre contra las tablas reales, así que un nombre de tabla o de
+// columna mal escrito en esa consulta rompe este test.
+describe('Sesión contra la base', () => {
+  test('el token de una cuenta bloqueada da 401 y no se renueva', async () => {
+    const { persona } = await esperar(
+      'POST',
+      '/personas',
+      { body: { nombre: 'Sesión', apellido: `Integración ${SUFIJO}`, dni: String(Date.now()).slice(-8), perfil: 'CHOFER' } },
+      201
+    );
+    const credenciales = { nombreUsuario: `sesion-${SUFIJO}`, contrasena: 'clave-de-integracion' };
+    const { usuario } = await esperar('POST', '/usuarios', { body: { personaId: persona.id, ...credenciales } }, 201);
+    const { token: tokenChofer } = await esperar('POST', '/auth/login', { body: credenciales });
+
+    const antes = await pedir('GET', '/auth/me', { conToken: tokenChofer });
+    assert.equal(antes.status, 200);
+    assert.equal(antes.json.usuario.perfil, 'CHOFER');
+    assert.ok(antes.renovado, 'con la cuenta activa el token se renueva');
+
+    await esperar('PATCH', `/usuarios/${usuario.id}/baja`);
+
+    const despues = await pedir('GET', '/auth/me', { conToken: tokenChofer });
+    assert.equal(despues.status, 401);
+    assert.equal(despues.json.error, 'Tu sesión ya no es válida. Iniciá sesión de nuevo.');
+    assert.equal(despues.renovado, null);
+  });
+});
+
+// Siempre queda un Administrador activo, también cuando dos cambios llegan a la
+// vez: el chequeo y el cambio van en la misma transacción, con un advisory lock
+// de Postgres (utils/administradoresActivos.js). Sin el lock, cada transacción
+// vería al otro Administrador todavía activo y pasarían las dos. Va último
+// porque bloquea un rato a los demás Administradores (y los restaura al final).
+describe('Último Administrador contra la base', () => {
+  test('dos Administradores que se pasan a Chofer al mismo tiempo: pasa uno solo', async () => {
+    const { asegurarOtroAdministradorActivo, UltimoAdministradorError } = require(
+      path.join(SRC, 'utils', 'administradoresActivos.js')
+    );
+    const perfilAdmin = await prisma.perfil.findUnique({ where: { descripcion: 'ADMINISTRADOR' } });
+    const perfilChofer = await prisma.perfil.findUnique({ where: { descripcion: 'CHOFER' } });
+    const activo = await prisma.estadoUsuario.findUnique({ where: { descripcion: 'ACTIVO' } });
+    const inactivo = await prisma.estadoUsuario.findUnique({ where: { descripcion: 'INACTIVO' } });
+    const filtroAdminsActivos = {
+      activo: true,
+      perfil: { descripcion: 'ADMINISTRADOR' },
+      usuario: { is: { estadoUsuario: { descripcion: 'ACTIVO' } } },
+    };
+
+    const crearAdmin = (n) =>
+      prisma.persona.create({
+        data: {
+          nombre: 'Admin',
+          apellido: `Carrera ${n} ${SUFIJO}`,
+          dni: `${n}${String(Date.now()).slice(-7)}`,
+          perfilId: perfilAdmin.id,
+          usuario: { create: { nombreUsuario: `carrera-${n}-${SUFIJO}`, contrasenaHash: 'sin-uso', estadoUsuarioId: activo.id } },
+        },
+      });
+    const a = await crearAdmin(1);
+    const b = await crearAdmin(2);
+
+    // Que a y b sean los únicos Administradores activos mientras dura la prueba.
+    const otros = await prisma.persona.findMany({
+      where: { ...filtroAdminsActivos, id: { notIn: [a.id, b.id] } },
+      select: { id: true },
+    });
+    const idsOtros = otros.map((o) => o.id);
+    await prisma.usuario.updateMany({ where: { personaId: { in: idsOtros } }, data: { estadoUsuarioId: inactivo.id } });
+
+    try {
+      // El mismo chequeo y el mismo cambio que hace personaService al pasar a un
+      // Administrador a otro perfil, en dos transacciones que se pisan a
+      // propósito: la primera cuenta y queda abierta 300 ms; la segunda arranca
+      // mientras tanto. Sin el lock, la segunda contaría a `a` todavía activo
+      // (el cambio de la primera no está confirmado) y pasarían las dos.
+      const pasarAChofer = (tx, p) => tx.persona.update({ where: { id: p.id }, data: { perfilId: perfilChofer.id } });
+      let avisarQueConto;
+      const primeraConto = new Promise((resolver) => {
+        avisarQueConto = resolver;
+      });
+      const primera = prisma.$transaction(
+        async (tx) => {
+          await asegurarOtroAdministradorActivo(tx, a.id);
+          avisarQueConto();
+          await new Promise((resolver) => setTimeout(resolver, 300));
+          await pasarAChofer(tx, a);
+        },
+        { timeout: 10000 }
+      );
+      await primeraConto;
+      const segunda = prisma.$transaction(
+        async (tx) => {
+          await asegurarOtroAdministradorActivo(tx, b.id);
+          await pasarAChofer(tx, b);
+        },
+        { timeout: 10000 }
+      );
+      const [r1, r2] = await Promise.allSettled([primera, segunda]);
+
+      assert.equal(r1.status, 'fulfilled', String(r1.reason));
+      assert.equal(r2.status, 'rejected', 'la segunda no puede dejar al sistema sin Administradores');
+      assert.ok(r2.reason instanceof UltimoAdministradorError, String(r2.reason));
+      assert.equal(await prisma.persona.count({ where: filtroAdminsActivos }), 1);
+    } finally {
+      await prisma.usuario.updateMany({ where: { personaId: { in: idsOtros } }, data: { estadoUsuarioId: activo.id } });
+    }
+  });
 });

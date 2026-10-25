@@ -1,9 +1,10 @@
 const authService = require('../services/authService');
 
 async function login(req, res) {
-  const { nombreUsuario, contrasena } = req.body;
+  // Sin cuerpo JSON, Express 5 deja req.body en undefined.
+  const { nombreUsuario, contrasena } = req.body ?? {};
 
-  if (!nombreUsuario || !contrasena) {
+  if (!nombreUsuario || !contrasena || typeof nombreUsuario !== 'string' || typeof contrasena !== 'string') {
     return res.status(400).json({ error: 'Usuario y contraseña son obligatorios' });
   }
 
@@ -18,8 +19,9 @@ async function login(req, res) {
   }
 }
 
-function me(req, res) {
-  res.json({ usuario: req.usuario });
+async function me(req, res) {
+  const usuario = await authService.usuarioActual(req.usuario.id);
+  res.json({ usuario });
 }
 
 module.exports = { login, me };

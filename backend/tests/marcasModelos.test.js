@@ -82,6 +82,10 @@ const prismaFalso = {
 const rutaPrisma = require.resolve(path.join(SRC, 'services', 'prismaClient.js'));
 require.cache[rutaPrisma] = { id: rutaPrisma, filename: rutaPrisma, loaded: true, exports: prismaFalso };
 
+// La sesión sale del token (ver helpers/sesionDelToken.js).
+const { instalarSesionDelToken } = require('./helpers/sesionDelToken');
+instalarSesionDelToken(SRC);
+
 const app = require(path.join(SRC, 'app.js'));
 const { generarToken } = require(path.join(SRC, 'services', 'tokenService.js'));
 

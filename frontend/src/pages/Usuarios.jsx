@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -50,6 +51,7 @@ function Usuarios() {
   const idDesdeQuery = searchParams.get('id');
   const crearConPersonaId = searchParams.get('crearConPersonaId');
   const nombreSugerido = searchParams.get('nombre');
+  const { usuario: usuarioActual } = useAuth();
 
   const [usuarios, setUsuarios] = useState([]);
   const [personasSinUsuario, setPersonasSinUsuario] = useState([]);
@@ -190,7 +192,10 @@ function Usuarios() {
         const payload = {
           nombreUsuario: form.nombreUsuario,
         };
-        if (form.contrasena && form.contrasena.trim()) {
+        // Vacío es "no cambiarla". Cualquier otra cosa se manda tal cual: si son
+        // solo espacios, el backend lo rechaza y el error sale en el campo (antes
+        // se descartaba en silencio y parecía guardada).
+        if (form.contrasena !== '') {
           payload.contrasena = form.contrasena;
         }
         await api.put(`/usuarios/${editando.id}`, payload);
@@ -418,12 +423,19 @@ function Usuarios() {
 
             {seleccionado.activo && (
               <div className="detalle-acciones">
-                <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                  Modificar credenciales
-                </Button>
-                <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
-                  Desactivar acceso
-                </Button>
+                {/* El usuario y la contraseña de un Encargado solo los cambia un
+                    Administrador (el backend lo rechaza). */}
+                {!(usuarioActual.perfil === 'ENCARGADO' && seleccionado.perfil === 'ENCARGADO') && (
+                  <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                    Modificar credenciales
+                  </Button>
+                )}
+                {/* La cuenta propia no se bloquea (el backend lo rechaza). */}
+                {seleccionado.personaId !== usuarioActual.personaId && (
+                  <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
+                    Desactivar acceso
+                  </Button>
+                )}
               </div>
             )}
           </Card>
