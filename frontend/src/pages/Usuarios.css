@@ -27,3 +27,9 @@
 .usuarios-detalle-header h1 {
   margin: 0;
 }
+
+/* Aviso del modal de desactivar: la persona sigue en Personal. */
+.usuarios-aviso-persona {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-secondary);
+}
