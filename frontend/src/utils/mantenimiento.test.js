@@ -7,16 +7,15 @@ import assert from 'node:assert/strict';
 import {
   contarAlertas,
   detalleEstadoService,
-  detalleRegistro,
   filtrarEstadoService,
   nombreTipoArreglo,
   ordenarEstadoService,
-  pieRegistro,
   textoAdvertenciaViaje,
   textoIncluyeService,
   textoIntervalo,
   textoRegistro,
   textoTiposArreglo,
+  textoTrabajos,
   validarRegistroMantenimiento,
   esKmAnterior,
 } from './mantenimiento.js';
@@ -145,7 +144,7 @@ describe('textos del historial', () => {
     assert.equal(textoRegistro({ ...arreglo, descripcion: null }), 'Revisar en 5.000 km');
   });
 
-  test('línea principal: el "¿Qué trabajo?" de "Otro" no se repite (va en "Trabajos: …")', () => {
+  test('línea principal: el "¿Qué trabajo?" de "Otro" no se repite (va en "Trabajos realizados")', () => {
     const soloOtro = {
       tipo: 'ARREGLO',
       descripcion: null,
@@ -156,26 +155,14 @@ describe('textos del historial', () => {
     assert.equal(textoRegistro({ ...soloOtro, descripcion: 'Con tornillos nuevos' }), 'Con tornillos nuevos');
   });
 
-  test('detalle: repuestos y la observación que no entró arriba', () => {
-    assert.equal(detalleRegistro(arreglo), 'Repuestos: Pastillas Frasle · Observaciones: Revisar en 5.000 km');
-    assert.equal(detalleRegistro(service), '');
-  });
-
-  test('detalle: la lista de tipos adelante, aunque sea uno solo', () => {
+  test('trabajos: los tipos en el orden del catálogo, aunque sea uno solo', () => {
     const tipos = [
       { id: 1, nombre: 'Engrase' },
       { id: 4, nombre: 'Frenos' },
     ];
-    assert.equal(
-      detalleRegistro({ ...arreglo, tiposArreglo: tipos }),
-      'Trabajos: Engrase, Frenos · Repuestos: Pastillas Frasle · Observaciones: Revisar en 5.000 km'
-    );
-    assert.match(detalleRegistro({ ...arreglo, tiposArreglo: [tipos[0]] }), /^Trabajos: Engrase · /);
-  });
-
-  test('pie: km y quién hizo el trabajo', () => {
-    assert.equal(pieRegistro(service), '57.345 km');
-    assert.equal(pieRegistro(arreglo), '57.345 km · Hizo: Taller Gómez');
+    assert.equal(textoTrabajos({ ...arreglo, tiposArreglo: tipos }), 'Engrase, Frenos');
+    assert.equal(textoTrabajos({ ...arreglo, tiposArreglo: [tipos[0]] }), 'Engrase');
+    assert.equal(textoTrabajos(service), '');
   });
 });
 
@@ -268,7 +255,7 @@ describe('validarRegistroMantenimiento', () => {
     const engrase = { id: 1, nombre: 'Engrase', detalle: null };
     assert.equal(nombreTipoArreglo(otro), 'Cambio de espejo');
     assert.equal(nombreTipoArreglo({ ...otro, detalle: null }), 'Otro');
-    assert.match(detalleRegistro({ tipo: 'ARREGLO', tiposArreglo: [engrase, otro] }), /^Trabajos: Engrase, Cambio de espejo$/);
+    assert.equal(textoTrabajos({ tipo: 'ARREGLO', tiposArreglo: [engrase, otro] }), 'Engrase, Cambio de espejo');
   });
 });
 

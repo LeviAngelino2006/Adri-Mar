@@ -48,15 +48,25 @@ Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento
 - Filtrado, orden y paginado en el backend (`GET /mantenimientos/historial`): el historial crece sin límite.
 - Con `?vehiculoId=`, arriba de la lista: el vehículo ("12 - AB123CD"), el badge del estado de su service (o "Dado de baja") y la línea del próximo service, con el botón "Ver toda la flota" que quita el filtro.
 - Resumen en gris: "N registros".
-- Tarjeta (`ListadoCard` de solo lectura, sin `onClick`: un `div` sin hover ni foco):
-  - Marca: el bloque de fecha (`fecha-tile`). Como es decorativo, el título lleva la fecha completa en `.sr-only`.
+- Tarjeta (`ListadoCard` con `onClick`: un resumen; al tocarla se abre el modal de detalle):
+  - Marca: el bloque de fecha (`fecha-tile`), con el día del trabajo. Como es decorativo, el título lleva la fecha completa en `.sr-only`.
   - Título "12 - AB123CD".
   - Badge sm: "Service" (brand) o, en un arreglo, cuántos trabajos tiene (neutral): "1 trabajo", "2 trabajos", "N trabajos", igual en todas las tarjetas. La lista va en el `title`.
   - Sub: la descripción o la observación ("Service completo" si un service no tiene observación; "Sin descripción" si un arreglo no tiene ninguna). El "¿Qué trabajo?" de "Otro" no va acá.
-  - Detalle: primero "Trabajos: Engrase, Cambio de cubiertas, Cambio de espejo" (todos los tipos, aunque sea uno, en el orden del catálogo; "Otro" con su "¿Qué trabajo?", o "Otro" si se cargó antes del detalle); después "Repuestos: …" y la observación si no entró en el sub.
-  - Pie: "57.345 km · Hizo: Taller Gómez" (el "Hizo" solo si se cargó) a la izquierda y "Registró: Nombre Apellido" a la derecha.
+  - Sin detalle: los trabajos, los repuestos, las observaciones y quién lo hizo van en el modal.
+  - Pie: "57.345 km" a la izquierda y "Registró: Nombre Apellido" a la derecha (si se cargó).
 - Paginado de a 30, con el botón secondary "Ver más" al final (mismo estilo que "Ver N más" del Dashboard).
 - Vacío: "No hay registros con esos filtros." (o "Todavía no hay services ni arreglos registrados." sin filtros).
+
+## Modal de detalle del registro (`ModalDetalleRegistro`)
+- Se abre al tocar una tarjeta del historial. De solo lectura: `ModalMarco` sin pie de acciones; se cierra con la ✕, Escape o tocando afuera.
+- Título "Service" o "Arreglo"; subtítulo "12 - AB123CD · Mercedes O500" (dominio con `.patente`).
+- Un `<dl class="detalle-grid">` con el patrón de `FichaDetalle` (pares, "No registrado" si falta un dato):
+  - Fecha del trabajo | Km del odómetro.
+  - Service: Incluye (ancho, `textoIncluyeService`). Arreglo: Trabajos realizados (ancho, "Engrase, Cambio de espejo", con el "¿Qué trabajo?" de "Otro"), Descripción (ancho) y Repuestos (ancho).
+  - Observaciones (ancho).
+  - Arreglo: Hizo | Registró · Cargado el (con su hueco). Service (no pide quién lo hizo): Registró | Cargado el.
+- "Cargado el" es el día en que se cargó en el sistema (`creadoEn`), que puede ser posterior a la fecha del trabajo.
 
 ## Textos
 - Siempre "Historial" (no "Ficha médica").
