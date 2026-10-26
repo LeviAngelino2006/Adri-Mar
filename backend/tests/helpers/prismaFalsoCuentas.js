@@ -194,6 +194,7 @@ function crearCuentas() {
     },
     // personaService pregunta si la persona maneja un viaje En viaje: acá nunca.
     viaje: { findFirst: async () => null },
+    documento: { findMany: async () => [] },
     $executeRaw: async (partes, ...valores) => {
       db.locks.push({ sql: partes.join('?'), valores });
       return 1;
