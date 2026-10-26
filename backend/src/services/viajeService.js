@@ -1,5 +1,6 @@
 const prisma = require('./prismaClient');
 const lecturaOdometroService = require('./lecturaOdometroService');
+const documentoService = require('./documentoService');
 const {
   campoAusente,
   validarExtremosRecorrido,
@@ -436,6 +437,21 @@ async function existeSolapamiento(parametros) {
 async function validarDisponibilidadOperativa({ choferId, vehiculoId, fechaInicio, fechaFin }, { excluirViajeId } = {}) {
   await validarChofer(choferId);
   await validarVehiculo(vehiculoId);
+
+  const [docChofer, docVehiculo] = await Promise.all([
+    documentoService.evaluarDocumentacionChofer(choferId, { fechaInicio, fechaFin }),
+    documentoService.evaluarDocumentacionVehiculo(vehiculoId, { fechaInicio, fechaFin }),
+  ]);
+  const erroresDocs = {};
+  if (docChofer?.tieneVencidos) {
+    erroresDocs.choferId = `No se puede asignar el chofer: tiene documentación vencida (${docChofer.vencidos.join(', ')})`;
+  }
+  if (docVehiculo?.tieneVencidos) {
+    erroresDocs.vehiculoId = `No se puede asignar el vehículo: tiene documentación vencida (${docVehiculo.vencidos.join(', ')})`;
+  }
+  if (Object.keys(erroresDocs).length > 0) {
+    throw new ValidacionError(erroresDocs);
+  }
 
   // TODO: validar umbral de mantenimiento preventivo cuando exista la tabla de planes (SCRUM-34)
 
@@ -1194,20 +1210,40 @@ async function calcularDisponibilidad({ fechaInicio, fechaFin, choferIds, vehicu
   const ventana = fechaFin ? { inicio: fechaInicio, fin: fechaFin } : rangoDelDiaCordoba(fechaInicio);
   const estadoProgramado = await obtenerEstadoViajePorDescripcion('PROGRAMADO');
 
-  const [personas, vehiculos] = await Promise.all([
+  const [personas, vehiculos, docsChoferes, docsVehiculos] = await Promise.all([
     choferIds.length > 0
       ? prisma.persona.findMany({ where: { id: { in: choferIds } } })
       : [],
     vehiculoIds.length > 0
       ? prisma.vehiculo.findMany({ where: { id: { in: vehiculoIds } }, include: { estadoVehiculo: true } })
       : [],
+    choferIds.length > 0
+      ? documentoService.evaluarDocumentacionTitulares({
+          categoria: 'CHOFER',
+          ids: choferIds,
+          fechaInicio: ventana.inicio,
+          fechaFin: ventana.fin,
+        })
+      : {},
+    vehiculoIds.length > 0
+      ? documentoService.evaluarDocumentacionTitulares({
+          categoria: 'VEHICULO',
+          ids: vehiculoIds,
+          fechaInicio: ventana.inicio,
+          fechaFin: ventana.fin,
+        })
+      : {},
   ]);
 
-  async function evaluar({ id, entidad, campo, motivoDeHabilitacion }) {
+  async function evaluar({ id, entidad, campo, motivoDeHabilitacion, estadoDoc }) {
     if (!entidad) return { id, disponible: false, motivo: 'No encontrado' };
 
     const motivoHabilitacion = motivoDeHabilitacion(entidad);
     if (motivoHabilitacion) return { id, disponible: false, motivo: motivoHabilitacion };
+
+    if (estadoDoc?.tieneVencidos) {
+      return { id, disponible: false, motivo: estadoDoc.motivo };
+    }
 
     const conflicto = await buscarSolapamiento({
       campo,
@@ -1231,12 +1267,24 @@ async function calcularDisponibilidad({ fechaInicio, fechaFin, choferIds, vehicu
   const [choferes, resultadoVehiculos] = await Promise.all([
     Promise.all(
       choferIds.map((id) =>
-        evaluar({ id, entidad: personasPorId.get(id), campo: 'choferId', motivoDeHabilitacion: motivoDeChofer })
+        evaluar({
+          id,
+          entidad: personasPorId.get(id),
+          campo: 'choferId',
+          motivoDeHabilitacion: motivoDeChofer,
+          estadoDoc: docsChoferes[id],
+        })
       )
     ),
     Promise.all(
       vehiculoIds.map((id) =>
-        evaluar({ id, entidad: vehiculosPorId.get(id), campo: 'vehiculoId', motivoDeHabilitacion: motivoDeVehiculo })
+        evaluar({
+          id,
+          entidad: vehiculosPorId.get(id),
+          campo: 'vehiculoId',
+          motivoDeHabilitacion: motivoDeVehiculo,
+          estadoDoc: docsVehiculos[id],
+        })
       )
     ),
   ]);

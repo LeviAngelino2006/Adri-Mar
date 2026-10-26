@@ -221,17 +221,41 @@ function ViajeForm({
   // Opciones de los selectores múltiples: los elegibles, más los candidatos que
   // el viaje ya tenía y no figuren en esa lista.
   const opcionesChoferes = useMemo(() => {
-    const opciones = choferes.map((c) => ({ id: c.id, etiqueta: nombreChofer(c) }));
+    const opciones = choferes.map((c) => ({
+      id: c.id,
+      etiqueta: nombreChofer(c),
+      disponible: c.disponible,
+      motivo: c.motivo,
+    }));
     for (const c of candidatosActuales?.choferes ?? []) {
-      if (!opciones.some((o) => o.id === c.id)) opciones.push({ id: c.id, etiqueta: nombreChofer(c) });
+      if (!opciones.some((o) => o.id === c.id)) {
+        opciones.push({
+          id: c.id,
+          etiqueta: nombreChofer(c),
+          disponible: c.disponible,
+          motivo: c.motivo,
+        });
+      }
     }
     return opciones;
   }, [choferes, candidatosActuales]);
 
   const opcionesVehiculos = useMemo(() => {
-    const opciones = vehiculos.map((v) => ({ id: v.id, etiqueta: nombreVehiculo(v) }));
+    const opciones = vehiculos.map((v) => ({
+      id: v.id,
+      etiqueta: nombreVehiculo(v),
+      disponible: v.disponible,
+      motivo: v.motivo,
+    }));
     for (const v of candidatosActuales?.vehiculos ?? []) {
-      if (!opciones.some((o) => o.id === v.id)) opciones.push({ id: v.id, etiqueta: nombreVehiculo(v) });
+      if (!opciones.some((o) => o.id === v.id)) {
+        opciones.push({
+          id: v.id,
+          etiqueta: nombreVehiculo(v),
+          disponible: v.disponible,
+          motivo: v.motivo,
+        });
+      }
     }
     return opciones;
   }, [vehiculos, candidatosActuales]);
@@ -429,8 +453,8 @@ function ViajeForm({
               <select name="choferId" value={form.choferId} onChange={handleChange}>
                 <OpcionVacia obligatorio>Elegí el chofer</OpcionVacia>
                 {choferes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre} {c.apellido}
+                  <option key={c.id} value={c.id} disabled={c.disponible === false}>
+                    {c.nombre} {c.apellido}{c.disponible === false ? ` — ${c.motivo}` : ''}
                   </option>
                 ))}
               </select>
@@ -440,8 +464,8 @@ function ViajeForm({
               <select name="vehiculoId" value={form.vehiculoId} onChange={handleChange}>
                 <OpcionVacia obligatorio>Elegí el vehículo</OpcionVacia>
                 {vehiculos.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.numeroInterno} - {v.dominio}
+                  <option key={v.id} value={v.id} disabled={v.disponible === false}>
+                    {v.numeroInterno} - {v.dominio}{v.disponible === false ? ` — ${v.motivo}` : ''}
                   </option>
                 ))}
               </select>

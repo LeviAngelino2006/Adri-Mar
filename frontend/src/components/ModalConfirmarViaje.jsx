@@ -111,10 +111,10 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
   // arriba como candidatos.
   const otrosChoferes = choferes
     .filter((c) => !candidatosChofer.some((cand) => cand.id === c.id))
-    .map((c) => ({ id: c.id, etiqueta: nombreChofer(c) }));
+    .map((c) => ({ id: c.id, etiqueta: nombreChofer(c), disponible: c.disponible, motivo: c.motivo }));
   const otrosVehiculos = vehiculos
     .filter((v) => !candidatosVehiculo.some((cand) => cand.id === v.id))
-    .map((v) => ({ id: v.id, etiqueta: nombreVehiculo(v) }));
+    .map((v) => ({ id: v.id, etiqueta: nombreVehiculo(v), disponible: v.disponible, motivo: v.motivo }));
 
   function handleChange(e) {
     const { name, value } = e.target;
