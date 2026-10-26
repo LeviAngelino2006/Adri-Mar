@@ -33,7 +33,6 @@ const formVacio = () => ({
   responsableId: '',
   responsableNombre: '',
   repuestos: '',
-  observaciones: '',
 });
 
 // "0/500" junto al label de los textos largos.
@@ -170,7 +169,6 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
         descripcion: texto('descripcion'),
         responsableId: form.responsableId ? Number(form.responsableId) : undefined,
         repuestos: texto('repuestos'),
-        observaciones: texto('observaciones'),
       });
       limpiar();
       onSuccess(data.registro);
@@ -315,23 +313,6 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
               </FormField>
             </div>
 
-            <div className="form-field-ancho">
-              <FormField
-                id="arreglo-observaciones"
-                label={
-                  <>
-                    Observaciones <Contador texto={form.observaciones} maximo={MAX_TEXTO_MANTENIMIENTO} />
-                  </>
-                }
-                error={errores.observaciones}
-              >
-                <textarea
-                  rows={2}
-                  value={form.observaciones}
-                  onChange={(e) => cambiar('observaciones', e.target.value)}
-                />
-              </FormField>
-            </div>
           </div>
 
           {error && <Alert variant="error">{error}</Alert>}

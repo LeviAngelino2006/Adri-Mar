@@ -77,8 +77,7 @@ export function ListadoToolbar({ busqueda, filtros, vistas, accion }) {
 // la tarjeta de viaje de gestión), dato principal, detalle opcional y pie (lista
 // de datos, separados a los lados). `marcaClassName` suma una clase a la marca (la tarjeta
 // de viaje usa `fecha-tile`) y `className`, a la tarjeta (`listado-card-viaje`).
-// Sin `onClick` es una tarjeta de solo lectura (un `div`, sin hover ni foco: el
-// historial de Mantenimiento no abre ninguna ficha).
+// Sin `onClick` es una tarjeta de solo lectura (un `div`, sin hover ni foco).
 export function ListadoCard({
   className,
   marca,

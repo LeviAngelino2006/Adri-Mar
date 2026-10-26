@@ -24,7 +24,7 @@ Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento
 ## Modal "Registrar service"
 - `ModalMarco` con título "Registrar service" y, si el vehículo viene elegido, el subtítulo "12 - AB123CD · Mercedes-Benz O500".
 - Campos: Vehículo (solo si no vino elegido; `select` ordenado por interno), Fecha (hoy por defecto, no puede ser futura) | Km del odómetro (hint "Odómetro actual: 57.345 km"), Observación (textarea con contador "0/500").
-- Lo que incluye el service va como hint de Observación (texto gris de ayuda, `caption`, enlazado al textarea con `aria-describedby`), en una sola oración: "Incluye cambio de aceite, filtros de gasoil, aceite y habitáculo (aire acondicionado), alineado y balanceado y revisión general del motor.". La arma `textoIncluyeService` (`utils/mantenimiento.js`) con las tareas de la plantilla, `TAREAS_SERVICE` (`constants/mantenimiento.js`): si la plantilla cambia, la oración cambia sola. Nada de caja de color ni viñetas: es informativa, no se tilda, el service siempre es completo. Sin costo ni responsable.
+- Lo que incluye el service va como hint de Observación (texto gris de ayuda, `caption`, enlazado al textarea con `aria-describedby`), en una sola oración: "Incluye: Cambio de aceite + Filtros de gasoil, aceite y habitáculo (aire acondicionado) + Alineado y balanceado + Revisión general del motor." (tareas separadas por "+": con comas e "y" se mezclaban con las de cada tarea). La arma `textoIncluyeService` (`utils/mantenimiento.js`) con las tareas de la plantilla, `TAREAS_SERVICE` (`constants/mantenimiento.js`): si la plantilla cambia, la oración cambia sola. Nada de caja de color ni viñetas: es informativa, no se tilda, el service siempre es completo. Sin costo ni responsable.
 - Botones "Cancelar" y "Registrar service" ("Registrando…"). Éxito: toast "Service registrado." con la acción "Ver en el historial".
 
 ## Modal "Asignar plan de service"
@@ -33,8 +33,8 @@ Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento
 
 ## Arreglos
 - Solo el formulario, sin listado: `Card .form-card` con un `.form-grid`, como `FormularioVehiculo`. La barra tiene solo el `ControlSegmentado`, a la derecha.
-- El formulario ocupa **todo el ancho** del contenido (no los 720px de `.form-card`, clase `arreglos-form-card`), para que sus bordes queden alineados con la barra y con las listas de Service e Historial; vive dentro de una pestaña junto a listas, no en una página propia. Sigue en dos columnas desde 640px, con Trabajos realizados, Descripción, Repuestos y Observaciones a ancho completo.
-- Pares: Vehículo | Km del odómetro; Fecha | Responsable (`SelectorBuscarOCrear` sobre `/mantenimientos/responsables`, sin hint); Trabajos realizados (ancho); Descripción (ancho); Repuestos (ancho); Observaciones (ancho). Los textos largos llevan contador "0/500".
+- El formulario ocupa **todo el ancho** del contenido (no los 720px de `.form-card`, clase `arreglos-form-card`), para que sus bordes queden alineados con la barra y con las listas de Service e Historial; vive dentro de una pestaña junto a listas, no en una página propia. Sigue en dos columnas desde 640px, con Trabajos realizados, Descripción y Repuestos a ancho completo.
+- Pares: Vehículo | Km del odómetro; Fecha | Responsable (`SelectorBuscarOCrear` sobre `/mantenimientos/responsables`, sin hint); Trabajos realizados (ancho); Descripción (ancho); Repuestos (ancho). Sin Observaciones: se repetía con Descripción (el backend todavía la acepta). Los textos largos llevan contador "0/500".
 - Trabajos realizados es un `GrupoCasillas` con los tipos activos de `GET /mantenimientos/tipos-arreglo`, solo con el nombre. Se puede marcar más de uno (por ejemplo, Engrase + Cambio de cubiertas): se guardan en un solo registro. Sin ninguno marcado: "Elegí al menos un tipo de trabajo".
 - "Otro" se puede combinar con los demás. Al marcarlo aparece debajo de su casilla (`contenidoMarcada`) el campo obligatorio "¿Qué trabajo?" (placeholder "Por ejemplo, cambio de espejo", hasta 60 caracteres). Si queda vacío: `Contá qué trabajo se hizo (obligatorio para "Otro")`. Al desmarcarlo, el campo y lo escrito se descartan. La Descripción es siempre opcional.
 - El km no puede ser menor al odómetro actual: "Cargá un kilometraje válido: no puede ser menor al odómetro actual (57.345 km). Si es un arreglo anterior, marcalo abajo." Mientras el km es menor (con debounce: recién 700 ms después de dejar de escribir, o al enviar), debajo del par Vehículo | Km aparece (ancho) un `Switch` "Es un arreglo anterior, hecho con menos km que el odómetro actual"; marcado, se acepta y se manda `esAnterior: true` (el odómetro no cambia). Si el km vuelve a ser igual o mayor, el switch se va y no se manda. El backend también rechaza un `esAnterior` con km igual o mayor al odómetro.
@@ -48,15 +48,25 @@ Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento
 - Filtrado, orden y paginado en el backend (`GET /mantenimientos/historial`): el historial crece sin límite.
 - Con `?vehiculoId=`, arriba de la lista: el vehículo ("12 - AB123CD"), el badge del estado de su service (o "Dado de baja") y la línea del próximo service, con el botón "Ver toda la flota" que quita el filtro.
 - Resumen en gris: "N registros".
-- Tarjeta (`ListadoCard` de solo lectura, sin `onClick`: un `div` sin hover ni foco):
-  - Marca: el bloque de fecha (`fecha-tile`). Como es decorativo, el título lleva la fecha completa en `.sr-only`.
+- Tarjeta (`ListadoCard` con `onClick`: un resumen; al tocarla se abre el modal de detalle):
+  - Marca: el bloque de fecha (`fecha-tile`), con el día del trabajo. Como es decorativo, el título lleva la fecha completa en `.sr-only`.
   - Título "12 - AB123CD".
   - Badge sm: "Service" (brand) o, en un arreglo, cuántos trabajos tiene (neutral): "1 trabajo", "2 trabajos", "N trabajos", igual en todas las tarjetas. La lista va en el `title`.
   - Sub: la descripción o la observación ("Service completo" si un service no tiene observación; "Sin descripción" si un arreglo no tiene ninguna). El "¿Qué trabajo?" de "Otro" no va acá.
-  - Detalle: primero "Trabajos: Engrase, Cambio de cubiertas, Cambio de espejo" (todos los tipos, aunque sea uno, en el orden del catálogo; "Otro" con su "¿Qué trabajo?", o "Otro" si se cargó antes del detalle); después "Repuestos: …" y la observación si no entró en el sub.
-  - Pie: "57.345 km · Hizo: Taller Gómez" (el "Hizo" solo si se cargó) a la izquierda y "Registró: Nombre Apellido" a la derecha.
+  - Sin detalle: los trabajos, los repuestos, la observación del service y quién lo hizo van en el modal.
+  - Pie: "57.345 km" a la izquierda y "Registró: Nombre Apellido" a la derecha (si se cargó).
 - Paginado de a 30, con el botón secondary "Ver más" al final (mismo estilo que "Ver N más" del Dashboard).
 - Vacío: "No hay registros con esos filtros." (o "Todavía no hay services ni arreglos registrados." sin filtros).
+
+## Modal de detalle del registro (`ModalDetalleRegistro`)
+- Se abre al tocar una tarjeta del historial. De solo lectura: `ModalMarco` sin pie de acciones; se cierra con la ✕, Escape o tocando afuera.
+- Título "Service" o "Arreglo"; subtítulo "12 - AB123CD · Mercedes O500" (dominio con `.patente`).
+- Un `<dl class="detalle-grid">` con el patrón de `FichaDetalle` (pares, "No registrado" si falta un dato):
+  - Fecha del trabajo | Km del odómetro.
+  - Service: Incluye (ancho, `textoIncluyeService`). Arreglo: Trabajos realizados (ancho, "Engrase, Cambio de espejo", con el "¿Qué trabajo?" de "Otro"), Descripción (ancho) y Repuestos (ancho).
+  - Service: Observaciones (ancho). El arreglo no la tiene: si uno viejo solo tiene observación, se muestra como Descripción.
+  - Arreglo: Hizo | Registró · Cargado el (con su hueco). Service (no pide quién lo hizo): Registró | Cargado el.
+- "Cargado el" es el día en que se cargó en el sistema (`creadoEn`), que puede ser posterior a la fecha del trabajo.
 
 ## Textos
 - Siempre "Historial" (no "Ficha médica").

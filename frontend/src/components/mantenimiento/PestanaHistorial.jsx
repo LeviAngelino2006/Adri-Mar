@@ -10,21 +10,16 @@ import { listarHistorial, listarTiposArreglo } from '../../services/mantenimient
 import { ESTADOS_SERVICE, ORDENES_HISTORIAL, POR_PAGINA_HISTORIAL, TIPOS_REGISTRO } from '../../constants/mantenimiento';
 import { ESTADOS_VEHICULO } from '../../constants/estadosVehiculo';
 import { mensajeErrorCarga } from '../../utils/errorCarga';
-import { formatearFechaCorta } from '../../utils/viajeFormato';
-import {
-  detalleEstadoService,
-  detalleRegistro,
-  nombreTipoArreglo,
-  pieRegistro,
-  textoRegistro,
-  textoTiposArreglo,
-} from '../../utils/mantenimiento';
+import { formatearFechaCorta, formatearKm } from '../../utils/viajeFormato';
+import { detalleEstadoService, textoRegistro, textoTiposArreglo, textoTrabajos } from '../../utils/mantenimiento';
+import ModalDetalleRegistro from './ModalDetalleRegistro';
 
 const DEMORA_BUSQUEDA_MS = 300;
 const FILTROS_VACIOS = { tipo: '', tipoArregloId: '', tipoVehiculoId: '', desde: '', hasta: '' };
 
-// Un service o un arreglo. Es de solo lectura: no abre ninguna ficha.
-export function TarjetaRegistro({ registro }) {
+// Resumen de un service o un arreglo: al tocarlo se abre ModalDetalleRegistro
+// con todos los datos.
+export function TarjetaRegistro({ registro, onAbrir }) {
   const { vehiculo } = registro;
   return (
     <ListadoCard
@@ -47,7 +42,7 @@ export function TarjetaRegistro({ registro }) {
             {/* Con tope de ancho: un "¿Qué trabajo?" largo no aprieta el título. */}
             <span
               className="historial-badge-tipos"
-              title={(registro.tiposArreglo ?? []).map(nombreTipoArreglo).join(', ') || undefined}
+              title={textoTrabajos(registro) || undefined}
             >
               {textoTiposArreglo(registro)}
             </span>
@@ -55,8 +50,8 @@ export function TarjetaRegistro({ registro }) {
         )
       }
       sub={textoRegistro(registro)}
-      detalle={detalleRegistro(registro) || undefined}
-      pie={[pieRegistro(registro), registro.usuario ? `Registró: ${registro.usuario}` : null].filter(Boolean)}
+      pie={[`${formatearKm(registro.kilometraje)} km`, registro.usuario ? `Registró: ${registro.usuario}` : null].filter(Boolean)}
+      onClick={onAbrir ? () => onAbrir(registro) : undefined}
     />
   );
 }
@@ -99,6 +94,7 @@ function PestanaHistorial({ vehiculoId, onQuitarVehiculo, tiposVehiculo, vistas 
   const [filtros, setFiltros] = useState(FILTROS_VACIOS);
   const [orden, setOrden] = useState('fecha_desc');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [abierto, setAbierto] = useState(null);
   // Páginas siguientes de la consulta actual. Se guardan junto con el pedido al
   // que pertenecen: si cambian los filtros, quedan descartadas solas.
   const [mas, setMas] = useState({ pedir: null, items: [], pagina: 1, cargando: false, error: null });
@@ -234,7 +230,7 @@ function PestanaHistorial({ vehiculoId, onQuitarVehiculo, tiposVehiculo, vistas 
         <p className="historial-resumen">{total === 1 ? '1 registro' : `${total} registros`}</p>
         <div className="listado-cards">
           {items.map((registro) => (
-            <TarjetaRegistro key={registro.id} registro={registro} />
+            <TarjetaRegistro key={registro.id} registro={registro} onAbrir={setAbierto} />
           ))}
         </div>
         {extra.error && <ErrorCarga mensaje={mensajeErrorCarga(extra.error, 'más registros')} onReintentar={cargarMas} />}
@@ -244,6 +240,8 @@ function PestanaHistorial({ vehiculoId, onQuitarVehiculo, tiposVehiculo, vistas 
           </Button>
         )}
       </EstadoCarga>
+
+      {abierto && <ModalDetalleRegistro registro={abierto} onClose={() => setAbierto(null)} />}
     </>
   );
 }

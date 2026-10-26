@@ -1,5 +1,5 @@
 // Smoke test de render de Mantenimiento: tarjetas de Service y del historial,
-// modal de service y formulario de arreglos. Se corre con `npm test`
+// modales de service y de detalle del registro, y formulario de arreglos. Se corre con `npm test`
 // (node:test).
 //
 // Mismo método que documentacion.render.test.mjs: Vite en modo SSR carga los
@@ -25,6 +25,7 @@ let TarjetaService;
 let PestanaService;
 let TarjetaRegistro;
 let ModalRegistrarService;
+let ModalDetalleRegistro;
 let PestanaArreglos;
 
 before(async () => {
@@ -32,6 +33,7 @@ before(async () => {
   ({ TarjetaService, default: PestanaService } = await vite.ssrLoadModule('/src/components/mantenimiento/PestanaService.jsx'));
   ({ TarjetaRegistro } = await vite.ssrLoadModule('/src/components/mantenimiento/PestanaHistorial.jsx'));
   ModalRegistrarService = (await vite.ssrLoadModule('/src/components/mantenimiento/ModalRegistrarService.jsx')).default;
+  ModalDetalleRegistro = (await vite.ssrLoadModule('/src/components/mantenimiento/ModalDetalleRegistro.jsx')).default;
   PestanaArreglos = (await vite.ssrLoadModule('/src/components/mantenimiento/PestanaArreglos.jsx')).default;
 });
 
@@ -118,51 +120,61 @@ describe('PestanaService', () => {
   });
 });
 
-describe('TarjetaRegistro (historial)', () => {
-  const base = {
-    id: 1,
-    fecha: '2026-03-12T15:00:00.000Z',
-    kilometraje: 57345,
-    vehiculo,
-    usuario: 'Ana Pérez',
-    observaciones: null,
-    descripcion: null,
-    repuestos: null,
-    responsable: null,
-  };
+const registroBase = {
+  id: 1,
+  fecha: '2026-03-12T15:00:00.000Z',
+  kilometraje: 57345,
+  vehiculo,
+  usuario: 'Ana Pérez',
+  creadoEn: '2026-03-14T13:00:00.000Z',
+  observaciones: null,
+  descripcion: null,
+  repuestos: null,
+  responsable: null,
+};
 
-  test('un arreglo: tarjeta de solo lectura, con los tipos, quién lo hizo y quién lo registró', () => {
-    const html = renderToStaticMarkup(
-      h(TarjetaRegistro, {
-        registro: {
-          ...base,
-          tipo: 'ARREGLO',
-          tiposArreglo: [
-            { id: 1, nombre: 'Engrase' },
-            { id: 4, nombre: 'Frenos' },
-          ],
-          descripcion: 'Pastillas',
-          responsable: 'Taller Gómez',
-        },
-      })
-    );
-    assert.match(html, /^<div class="listado-card"/);
-    assert.doesNotMatch(html, /<button/);
+describe('TarjetaRegistro (historial)', () => {
+  const base = registroBase;
+
+  test('un arreglo: resumen clickeable, sin la lista de trabajos ni quién lo hizo', () => {
+    let abierto = null;
+    const registro = {
+      ...base,
+      tipo: 'ARREGLO',
+      tiposArreglo: [
+        { id: 1, nombre: 'Engrase' },
+        { id: 4, nombre: 'Frenos' },
+      ],
+      descripcion: 'Pastillas',
+      repuestos: 'Pastillas Bosch',
+      responsable: 'Taller Gómez',
+    };
+    const elemento = h(TarjetaRegistro, { registro, onAbrir: (r) => (abierto = r) });
+    const html = renderToStaticMarkup(elemento);
+    assert.match(html, /^<button type="button" class="listado-card"/);
     assert.match(html, /class="listado-card-marca fecha-tile"/);
     assert.match(html, /<span class="sr-only">12 mar 2026: <\/span>/);
     assert.match(html, /estado-badge[^>]*>.*2 trabajos/);
-    assert.match(texto(html), /Trabajos: Engrase, Frenos/);
-    assert.match(texto(html), /57\.345 km · Hizo: Taller Gómez/);
+    assert.match(texto(html), /Pastillas/);
+    assert.doesNotMatch(texto(html), /Trabajos:|Repuestos|Hizo|Taller Gómez/);
+    assert.match(texto(html), /57\.345 km/);
     assert.match(texto(html), /Registró: Ana Pérez/);
+    assert.doesNotMatch(texto(html), /14 mar 2026/);
+    elemento.type(elemento.props).props.onClick();
+    assert.equal(abierto, registro);
   });
 
-  test('con 1 tipo el badge dice "1 trabajo" y el tipo va en "Trabajos: …"', () => {
+  test('sin usuario, el pie lleva solo el km', () => {
+    const html = renderToStaticMarkup(h(TarjetaRegistro, { registro: { ...base, tipo: 'SERVICE', usuario: null } }));
+    assert.doesNotMatch(texto(html), /Registró/);
+    assert.match(texto(html), /57\.345 km/);
+  });
+
+  test('con 1 tipo el badge dice "1 trabajo"', () => {
     const tiposArreglo = [{ id: 8, nombre: 'Otro', detalle: 'Cambio de espejo' }];
     const html = renderToStaticMarkup(h(TarjetaRegistro, { registro: { ...base, tipo: 'ARREGLO', tiposArreglo } }));
     assert.match(html, /estado-badge[^>]*>.*1 trabajo</);
     assert.match(texto(html), /Sin descripción/);
-    assert.equal(texto(html).match(/Cambio de espejo/g).length, 1);
-    assert.match(texto(html), /Trabajos: Cambio de espejo/);
   });
 
   test('con 3 tipos el badge dice "3 trabajos" y lleva la lista en title', () => {
@@ -175,13 +187,72 @@ describe('TarjetaRegistro (historial)', () => {
     assert.match(html, /estado-badge[^>]*>.*3 trabajos/);
     assert.match(html, /title="Engrase, Frenos, Cambio de espejo"/);
     assert.match(html, /historial-badge-tipos/);
-    assert.match(texto(html), /Trabajos: Engrase, Frenos, Cambio de espejo/);
   });
 
   test('un service lleva el badge de marca "Service"', () => {
     const html = renderToStaticMarkup(h(TarjetaRegistro, { registro: { ...base, tipo: 'SERVICE', tiposArreglo: [] } }));
     assert.match(html, /estado-badge-brand[^>]*>.*Service/);
     assert.match(texto(html), /Service completo/);
+  });
+});
+
+describe('ModalDetalleRegistro', () => {
+  // Pares de la grilla, en orden: [["Fecha del trabajo", "12 mar 2026"], …].
+  const pares = (html) =>
+    [...html.matchAll(/<dt>(.*?)<\/dt><dd>(.*?)<\/dd>/g)].map(([, dt, dd]) => [texto(dt), texto(dd)]);
+
+  test('un arreglo completo: todos los datos de a pares, en orden', () => {
+    const html = renderToStaticMarkup(
+      h(ModalDetalleRegistro, {
+        registro: {
+          ...registroBase,
+          tipo: 'ARREGLO',
+          tiposArreglo: [
+            { id: 1, nombre: 'Engrase', detalle: null },
+            { id: 8, nombre: 'Otro', detalle: 'Cambio de espejo' },
+          ],
+          descripcion: 'Pastillas delanteras',
+          repuestos: 'Pastillas Bosch',
+          observaciones: 'Revisar a los 60.000 km',
+          responsable: 'Taller Gómez',
+        },
+        onClose: () => {},
+      })
+    );
+    assert.match(html, /role="dialog"/);
+    assert.match(html, /<h2[^>]*>Arreglo<\/h2>/);
+    assert.match(html, /<span class="patente">/);
+    assert.deepEqual(pares(html), [
+      ['Fecha del trabajo', '12 mar 2026'],
+      ['Km del odómetro', '57.345 km'],
+      ['Trabajos realizados', 'Engrase, Cambio de espejo'],
+      ['Descripción', 'Pastillas delanteras'],
+      ['Repuestos', 'Pastillas Bosch'],
+      ['Hizo', 'Taller Gómez'],
+      ['Registró', 'Ana Pérez'],
+      ['Cargado el', '14 mar 2026'],
+    ]);
+  });
+
+  test('un service: lo que incluye, sin "Hizo", y los vacíos en "No registrado"', () => {
+    const html = renderToStaticMarkup(
+      h(ModalDetalleRegistro, { registro: { ...registroBase, tipo: 'SERVICE', tiposArreglo: [], usuario: null }, onClose: () => {} })
+    );
+    assert.match(html, /<h2[^>]*>Service<\/h2>/);
+    const datos = Object.fromEntries(pares(html));
+    assert.match(datos.Incluye, /^Incluye: Cambio de aceite \+ /);
+    assert.equal(datos.Observaciones, 'No registrado');
+    assert.equal(datos['Registró'], 'No registrado');
+    assert.ok(!('Hizo' in datos));
+    assert.ok(!('Repuestos' in datos));
+    assert.doesNotMatch(html, /detalle-hueco/);
+  });
+
+  test('un arreglo no muestra observaciones; si uno viejo solo tiene eso, va como descripción', () => {
+    const arreglo = { ...registroBase, tipo: 'ARREGLO', tiposArreglo: [], observaciones: 'Revisar a los 60.000 km' };
+    const datos = Object.fromEntries(pares(renderToStaticMarkup(h(ModalDetalleRegistro, { registro: arreglo, onClose: () => {} }))));
+    assert.ok(!('Observaciones' in datos));
+    assert.equal(datos['Descripción'], 'Revisar a los 60.000 km');
   });
 });
 
@@ -198,7 +269,7 @@ describe('ModalRegistrarService', () => {
     // textarea), en una oración: no una caja celeste con viñetas.
     assert.match(
       html,
-      /<p id="service-observaciones-hint" class="form-field-hint">Incluye cambio de aceite, filtros de gasoil, aceite y habitáculo \(aire acondicionado\), alineado y balanceado y revisión general del motor\.<\/p>/
+      /<p id="service-observaciones-hint" class="form-field-hint">Incluye: Cambio de aceite \+ Filtros de gasoil, aceite y habitáculo \(aire acondicionado\) \+ Alineado y balanceado \+ Revisión general del motor\.<\/p>/
     );
     assert.match(html, /<textarea[^>]*aria-describedby="service-observaciones-hint"/);
     assert.doesNotMatch(html, /class="alert alert-info/);
