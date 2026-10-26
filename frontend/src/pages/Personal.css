@@ -25,25 +25,7 @@
   white-space: nowrap;
 }
 
-/* Ficha de la persona: "Habilitado para conducir". */
-.personal-badge-conduce {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.15rem 0.45rem;
-  border-radius: 9999px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  background-color: var(--color-surface-hover, rgba(59, 130, 246, 0.1));
-  color: var(--color-primary, #3b82f6);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-}
-
-.personal-badge-conduce.grande {
-  padding: 0.3rem 0.65rem;
-  font-size: 0.82rem;
-}
-
+/* Ficha de detalle */
 .personal-detalle {
   margin-top: var(--space-2);
 }
@@ -61,76 +43,8 @@
   margin: 0;
 }
 
-.personal-subtitulo {
-  margin: 0.25rem 0 0;
-  color: var(--color-text-muted, #94a3b8);
-  font-size: 0.95rem;
-}
-
-.personal-badges-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.personal-seccion-cuenta,
-.personal-seccion-documentos {
-  margin-top: var(--space-5, 1.5rem);
-  padding-top: var(--space-4, 1rem);
-  border-top: 1px solid var(--color-border, #334155);
-}
-
-.personal-seccion-cuenta h3,
-.personal-seccion-documentos h3 {
-  margin: 0 0 var(--space-2, 0.5rem);
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-text, #f8fafc);
-}
-
-.personal-seccion-documentos p {
-  margin: 0 0 var(--space-3, 0.75rem);
-  font-size: 0.88rem;
-  color: var(--color-text-muted, #94a3b8);
-}
-
-.personal-cuenta-info {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  background-color: var(--color-surface-card, #1e293b);
-  padding: var(--space-3);
-  border-radius: var(--radius-md, 8px);
-  border: 1px solid var(--color-border, #334155);
-}
-
-.personal-cuenta-datos {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.personal-usuario-tag {
-  font-family: monospace;
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--color-primary-light, #60a5fa);
-}
-
-.personal-cuenta-vacia {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  background-color: var(--color-surface-hover, rgba(148, 163, 184, 0.05));
-  padding: var(--space-3);
-  border-radius: var(--radius-md, 8px);
-  border: 1px dashed var(--color-border, #334155);
-}
-
-.personal-cuenta-vacia p {
-  margin: 0;
-  font-size: 0.88rem;
-  color: var(--color-text-muted, #94a3b8);
+/* Aviso del modal de baja: la cuenta de usuario también se desactiva. */
+.personal-aviso-cuenta {
+  margin: var(--space-2) 0 0;
+  color: var(--state-error-text);
 }
