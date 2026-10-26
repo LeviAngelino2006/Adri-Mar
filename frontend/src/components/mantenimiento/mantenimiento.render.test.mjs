@@ -228,7 +228,6 @@ describe('ModalDetalleRegistro', () => {
       ['Trabajos realizados', 'Engrase, Cambio de espejo'],
       ['Descripción', 'Pastillas delanteras'],
       ['Repuestos', 'Pastillas Bosch'],
-      ['Observaciones', 'Revisar a los 60.000 km'],
       ['Hizo', 'Taller Gómez'],
       ['Registró', 'Ana Pérez'],
       ['Cargado el', '14 mar 2026'],
@@ -241,12 +240,19 @@ describe('ModalDetalleRegistro', () => {
     );
     assert.match(html, /<h2[^>]*>Service<\/h2>/);
     const datos = Object.fromEntries(pares(html));
-    assert.match(datos.Incluye, /^Incluye cambio de aceite/);
+    assert.match(datos.Incluye, /^Incluye: Cambio de aceite \+ /);
     assert.equal(datos.Observaciones, 'No registrado');
     assert.equal(datos['Registró'], 'No registrado');
     assert.ok(!('Hizo' in datos));
     assert.ok(!('Repuestos' in datos));
     assert.doesNotMatch(html, /detalle-hueco/);
+  });
+
+  test('un arreglo no muestra observaciones; si uno viejo solo tiene eso, va como descripción', () => {
+    const arreglo = { ...registroBase, tipo: 'ARREGLO', tiposArreglo: [], observaciones: 'Revisar a los 60.000 km' };
+    const datos = Object.fromEntries(pares(renderToStaticMarkup(h(ModalDetalleRegistro, { registro: arreglo, onClose: () => {} }))));
+    assert.ok(!('Observaciones' in datos));
+    assert.equal(datos['Descripción'], 'Revisar a los 60.000 km');
   });
 });
 
@@ -263,7 +269,7 @@ describe('ModalRegistrarService', () => {
     // textarea), en una oración: no una caja celeste con viñetas.
     assert.match(
       html,
-      /<p id="service-observaciones-hint" class="form-field-hint">Incluye cambio de aceite, filtros de gasoil, aceite y habitáculo \(aire acondicionado\), alineado y balanceado y revisión general del motor\.<\/p>/
+      /<p id="service-observaciones-hint" class="form-field-hint">Incluye: Cambio de aceite \+ Filtros de gasoil, aceite y habitáculo \(aire acondicionado\) \+ Alineado y balanceado \+ Revisión general del motor\.<\/p>/
     );
     assert.match(html, /<textarea[^>]*aria-describedby="service-observaciones-hint"/);
     assert.doesNotMatch(html, /class="alert alert-info/);

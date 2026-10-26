@@ -44,17 +44,21 @@ function ModalDetalleRegistro({ registro, onClose }) {
             <Dato etiqueta="Trabajos realizados" ancho>
               {textoTrabajos(registro)}
             </Dato>
+            {/* Los arreglos ya no piden observaciones: si uno viejo solo tiene
+                eso, se muestra como descripción. */}
             <Dato etiqueta="Descripción" ancho>
-              {registro.descripcion}
+              {registro.descripcion || registro.observaciones}
             </Dato>
             <Dato etiqueta="Repuestos" ancho>
               {registro.repuestos}
             </Dato>
           </>
         )}
-        <Dato etiqueta="Observaciones" ancho>
-          {registro.observaciones}
-        </Dato>
+        {esService && (
+          <Dato etiqueta="Observaciones" ancho>
+            {registro.observaciones}
+          </Dato>
+        )}
         {/* El service no pide quién lo hizo: solo el arreglo lleva "Hizo". */}
         {!esService && <Dato etiqueta="Hizo">{registro.responsable}</Dato>}
         <Dato etiqueta="Registró">{registro.usuario}</Dato>

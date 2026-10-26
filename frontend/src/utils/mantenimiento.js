@@ -1,4 +1,3 @@
-import { listaConY } from './documentacion.js';
 import { formatearKm } from './viajeFormato.js';
 import { ordenarPorInterno } from './vehiculos.js';
 
@@ -78,14 +77,13 @@ export function textoIntervalo(item) {
   return item.plantilla ? `${tipo} · service cada ${formatearKm(item.plantilla.intervaloKm)} km` : tipo;
 }
 
-// Lo que incluye el service, en una sola oración, armada con las tareas de la
-// plantilla (TAREAS_SERVICE): "Incluye cambio de aceite, filtros de gasoil,
-// aceite y habitáculo (aire acondicionado), alineado y balanceado y revisión
-// general del motor.". Cada tarea va tal cual viene de la plantilla, con la
-// inicial en minúscula porque queda en medio de la oración.
+// Lo que incluye el service, armado con las tareas de la plantilla
+// (TAREAS_SERVICE) separadas por "+": "Incluye: Cambio de aceite + Filtros de
+// gasoil, aceite y habitáculo (aire acondicionado) + Alineado y balanceado +
+// Revisión general del motor.". Con comas y "y" se mezclaban con las de cada
+// tarea. Cada tarea va tal cual viene de la plantilla, con su mayúscula inicial.
 export function textoIncluyeService(tareas) {
-  const enMinuscula = tareas.map((tarea) => tarea.charAt(0).toLocaleLowerCase('es') + tarea.slice(1));
-  return `Incluye ${listaConY(enMinuscula)}.`;
+  return `Incluye: ${tareas.join(' + ')}.`;
 }
 
 // "12 - AE452KD · Mercedes O500", para los <option> (el texto no admite `.patente`).
@@ -146,7 +144,7 @@ export function validarRegistroMantenimiento(
     errores.kilometraje = `Cargá un kilometraje válido: no puede ser menor al odómetro actual (${formatearKm(kmMinimo)} km). Si es un arreglo anterior, marcalo abajo.`;
   }
 
-  const textos = esArreglo ? ['descripcion', 'repuestos', 'observaciones'] : ['observaciones'];
+  const textos = esArreglo ? ['descripcion', 'repuestos'] : ['observaciones'];
   for (const campo of textos) {
     if (largo(form[campo]) > maxTexto) errores[campo] = `Hasta ${maxTexto} caracteres`;
   }
