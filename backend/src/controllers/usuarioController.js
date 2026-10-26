@@ -31,11 +31,16 @@ async function listar(req, res) {
 
 async function obtener(req, res) {
   try {
-    const usuario = await usuarioService.obtenerUsuario(req.params.id);
-    return res.json({ usuario: usuarioService.serializarUsuario(usuario) });
+    const usuario = await usuarioService.consultarUsuario(req.params.id, {
+      perfilSolicitante: req.usuario.perfil,
+    });
+    return res.json({ usuario });
   } catch (err) {
     if (err instanceof usuarioService.NoEncontradoError) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    if (err instanceof usuarioService.PermisoDenegadoError) {
+      return res.status(403).json({ error: 'No tiene permisos para consultar este usuario' });
     }
     throw err;
   }
@@ -48,7 +53,7 @@ async function actualizar(req, res) {
     const usuario = await usuarioService.actualizarUsuario(
       req.params.id,
       { nombreUsuario, contrasena, activo },
-      { perfilSolicitante: req.usuario.perfil }
+      { perfilSolicitante: req.usuario.perfil, personaIdSolicitante: req.usuario.personaId }
     );
     return res.json({ usuario });
   } catch (err) {
@@ -56,10 +61,19 @@ async function actualizar(req, res) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
     if (err instanceof usuarioService.PermisoDenegadoError) {
-      return res.status(403).json({ error: 'No tiene permisos para modificar este usuario' });
+      return res.status(403).json({ error: err.message || 'No tiene permisos para modificar este usuario' });
     }
     if (err instanceof usuarioService.ValidacionError) {
       return res.status(400).json({ errores: err.errores });
+    }
+    if (err instanceof usuarioService.UltimoAdministradorError) {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err instanceof usuarioService.AccionSobreSiMismoError) {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err instanceof usuarioService.PersonaDadaDeBajaError) {
+      return res.status(409).json({ error: err.message });
     }
     throw err;
   }
@@ -69,6 +83,7 @@ async function darDeBaja(req, res) {
   try {
     const usuario = await usuarioService.darDeBajaUsuario(req.params.id, {
       perfilSolicitante: req.usuario.perfil,
+      personaIdSolicitante: req.usuario.personaId,
     });
     return res.json({ usuario });
   } catch (err) {
@@ -80,6 +95,12 @@ async function darDeBaja(req, res) {
     }
     if (err instanceof usuarioService.YaInactivoError) {
       return res.status(409).json({ error: 'El usuario ya está inactivo' });
+    }
+    if (err instanceof usuarioService.UltimoAdministradorError) {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err instanceof usuarioService.AccionSobreSiMismoError) {
+      return res.status(409).json({ error: err.message });
     }
     throw err;
   }

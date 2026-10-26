@@ -1,4 +1,11 @@
 const prisma = require('./prismaClient');
+const documentoService = require('./documentoService');
+const {
+  UltimoAdministradorError,
+  esAdministradorActivo,
+  asegurarOtroAdministradorActivo,
+  protegerUltimoAdministrador,
+} = require('../utils/administradoresActivos');
 
 // Persona = quién es alguien en la empresa (empleado/chofer), tenga o no
 // cuenta en el sistema. Dueña de los datos personales, del perfil, de la
@@ -27,6 +34,11 @@ class YaInactivaError extends Error {}
 // viaje finalice — sin importar su perfil. Se consulta viajes directamente acá
 // en vez de importar viajeService, para no crear una dependencia cruzada.
 class ChoferEnViajeError extends Error {}
+
+// Nadie se da de baja, se bloquea la cuenta ni se cambia el perfil a sí mismo
+// (H3 de la auditoría de Personal y Usuarios): es fácil de hacer sin querer y no
+// tiene vuelta atrás desde la pantalla. Lo usa también usuarioService.
+class AccionSobreSiMismoError extends Error {}
 
 const INCLUDE_PERSONA = { perfil: true, usuario: { include: { estadoUsuario: true } } };
 
@@ -187,13 +199,24 @@ async function crearPersona(
 async function actualizarPersona(
   id,
   { nombre, apellido, perfil, dni, email, telefono, habilitadoParaConducir },
-  { perfilSolicitante } = {}
+  { perfilSolicitante, personaIdSolicitante } = {}
 ) {
   const actual = await obtenerPersonaConRelaciones(id);
 
   if (perfilSolicitante === 'ENCARGADO') {
     if (actual.perfil.descripcion === 'ADMINISTRADOR' || perfil === 'ADMINISTRADOR') {
       throw new PermisoDenegadoError();
+    }
+  }
+
+  // Sus propios datos sí, pero el perfil y la habilitación de uno los cambia
+  // otro. El front manda el formulario entero: solo es un cambio si difiere.
+  if (actual.id === personaIdSolicitante) {
+    const cambiaPerfil = perfil !== actual.perfil.descripcion;
+    const cambiaHabilitacion =
+      typeof habilitadoParaConducir === 'boolean' && habilitadoParaConducir !== actual.habilitadoParaConducir;
+    if (cambiaPerfil || cambiaHabilitacion) {
+      throw new AccionSobreSiMismoError('No podés cambiar tu propio perfil');
     }
   }
 
@@ -208,16 +231,21 @@ async function actualizarPersona(
   const datos = validarDatos({ nombre, apellido, perfil, dni, email, telefono });
   const perfilRow = await obtenerPerfilPorDescripcion(perfil);
 
+  // Pasar a otro perfil a un Administrador activo: solo si queda otro.
+  const sacaUnAdministrador = esAdministradorActivo(actual) && perfil !== 'ADMINISTRADOR';
+
   try {
-    const persona = await prisma.persona.update({
-      where: { id: actual.id },
-      data: {
-        ...datos,
-        perfilId: perfilRow.id,
-        habilitadoParaConducir: typeof habilitadoParaConducir === 'boolean' ? habilitadoParaConducir : undefined,
-      },
-      include: INCLUDE_PERSONA,
-    });
+    const persona = await protegerUltimoAdministrador(prisma, { personaId: actual.id, sacaUnAdministrador }, (cliente) =>
+      cliente.persona.update({
+        where: { id: actual.id },
+        data: {
+          ...datos,
+          perfilId: perfilRow.id,
+          habilitadoParaConducir: typeof habilitadoParaConducir === 'boolean' ? habilitadoParaConducir : undefined,
+        },
+        include: INCLUDE_PERSONA,
+      })
+    );
     return serializarPersona(persona);
   } catch (err) {
     if (err.code === 'P2002') {
@@ -230,11 +258,14 @@ async function actualizarPersona(
 // Baja lógica de la persona: conserva sus datos, viajes y documentos. Si tiene
 // cuenta de acceso, se desactiva en la MISMA transacción (una persona que ya
 // no está en la empresa no puede seguir entrando al sistema).
-async function darDeBajaPersona(id, { perfilSolicitante } = {}) {
+async function darDeBajaPersona(id, { perfilSolicitante, personaIdSolicitante } = {}) {
   const actual = await obtenerPersonaConRelaciones(id);
 
   if (perfilSolicitante === 'ENCARGADO' && actual.perfil.descripcion === 'ADMINISTRADOR') {
     throw new PermisoDenegadoError();
+  }
+  if (actual.id === personaIdSolicitante) {
+    throw new AccionSobreSiMismoError('No podés darte de baja a vos mismo');
   }
   if (!actual.activo) {
     throw new YaInactivaError();
@@ -251,6 +282,11 @@ async function darDeBajaPersona(id, { perfilSolicitante } = {}) {
   }
 
   const persona = await prisma.$transaction(async (tx) => {
+    // Dar de baja a un Administrador activo: solo si queda otro. El chequeo va
+    // en la misma transacción que la baja (ver administradoresActivos).
+    if (esAdministradorActivo(actual)) {
+      await asegurarOtroAdministradorActivo(tx, actual.id);
+    }
     await tx.usuario.updateMany({
       where: { personaId: actual.id },
       data: { estadoUsuarioId: estadoInactivo.id },
@@ -314,15 +350,43 @@ async function listarPersonas(
 }
 
 // Choferes asignables: personas activas y habilitadas para conducir, tengan o
-// no cuenta en el sistema.
+// no cuenta en el sistema. Incluye a un Administrador que maneja (se lo tiene
+// que poder asignar), así que, a diferencia de la ficha y el listado de
+// Personal, no se puede ocultar a los Administradores para un Encargado: en
+// cambio, solo viaja lo que hace falta para elegir al chofer (nada de DNI,
+// email, teléfono ni cuenta).
+// Incluye validación de documentación: si tiene al menos un documento vencido,
+// disponible: false y motivo detallado (ej. "Documentación vencida (Licencia de conducir)").
 async function listarDisponiblesParaConducir() {
   const personas = await prisma.persona.findMany({
     where: { habilitadoParaConducir: true, activo: true },
-    include: INCLUDE_PERSONA,
+    select: { id: true, nombre: true, apellido: true },
     orderBy: [{ nombre: 'asc' }, { apellido: 'asc' }],
   });
 
-  return personas.map(serializarPersona);
+  const ids = personas.map((p) => p.id);
+  const estadoDocs = await documentoService.evaluarDocumentacionTitulares({
+    categoria: 'CHOFER',
+    ids,
+  });
+
+  return personas.map((p) => {
+    const estado = estadoDocs[p.id];
+    if (estado?.tieneVencidos) {
+      return {
+        id: p.id,
+        nombre: p.nombre,
+        apellido: p.apellido,
+        disponible: false,
+        motivo: estado.motivo,
+      };
+    }
+    return {
+      id: p.id,
+      nombre: p.nombre,
+      apellido: p.apellido,
+    };
+  });
 }
 
 module.exports = {
@@ -338,5 +402,7 @@ module.exports = {
   NoEncontradoError,
   YaInactivaError,
   ChoferEnViajeError,
+  UltimoAdministradorError,
+  AccionSobreSiMismoError,
   PERFILES_VALIDOS,
 };

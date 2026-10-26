@@ -19,6 +19,10 @@ export function actualizarToken(token) {
   localStorage.setItem(TOKEN_KEY, token);
 }
 
+export function actualizarUsuario(usuario) {
+  localStorage.setItem(USUARIO_KEY, JSON.stringify(usuario));
+}
+
 export function limpiarSesion() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USUARIO_KEY);

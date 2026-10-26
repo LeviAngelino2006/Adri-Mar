@@ -58,7 +58,7 @@ async function actualizar(req, res) {
     const persona = await personaService.actualizarPersona(
       req.params.id,
       { nombre, apellido, perfil, dni, email, telefono, habilitadoParaConducir },
-      { perfilSolicitante: req.usuario.perfil }
+      { perfilSolicitante: req.usuario.perfil, personaIdSolicitante: req.usuario.personaId }
     );
     return res.json({ persona });
   } catch (err) {
@@ -69,6 +69,12 @@ async function actualizar(req, res) {
       return res.status(403).json({ error: 'No tiene permisos para modificar esta persona' });
     }
     if (err instanceof personaService.ChoferEnViajeError) {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err instanceof personaService.UltimoAdministradorError) {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err instanceof personaService.AccionSobreSiMismoError) {
       return res.status(409).json({ error: err.message });
     }
     if (err instanceof personaService.ValidacionError) {
@@ -82,6 +88,7 @@ async function darDeBaja(req, res) {
   try {
     const persona = await personaService.darDeBajaPersona(req.params.id, {
       perfilSolicitante: req.usuario.perfil,
+      personaIdSolicitante: req.usuario.personaId,
     });
     return res.json({ persona });
   } catch (err) {
@@ -95,6 +102,12 @@ async function darDeBaja(req, res) {
       return res.status(409).json({ error: 'La persona ya está inactiva' });
     }
     if (err instanceof personaService.ChoferEnViajeError) {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err instanceof personaService.UltimoAdministradorError) {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err instanceof personaService.AccionSobreSiMismoError) {
       return res.status(409).json({ error: err.message });
     }
     throw err;

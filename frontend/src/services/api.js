@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { getToken, actualizarToken, limpiarSesion } from './authStorage';
+import { getToken, getUsuario, actualizarToken, limpiarSesion } from './authStorage';
+import { payloadDelToken, cambioLaSesion } from '../utils/sesion';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
@@ -13,15 +14,27 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// El backend arma el token renovado con el perfil y la habilitación de la base:
+// si no coinciden con el usuario guardado, AuthContext lo refresca.
+function tomarTokenRenovado(headers) {
+  const nuevoToken = headers?.['x-renewed-token'];
+  if (!nuevoToken) return;
+  actualizarToken(nuevoToken);
+  if (cambioLaSesion(getUsuario(), payloadDelToken(nuevoToken))) {
+    window.dispatchEvent(new Event('adrimar:sesion-cambiada'));
+  }
+}
+
 api.interceptors.response.use(
   (response) => {
-    const nuevoToken = response.headers['x-renewed-token'];
-    if (nuevoToken) {
-      actualizarToken(nuevoToken);
-    }
+    tomarTokenRenovado(response.headers);
     return response;
   },
   (error) => {
+    // También en un error: a quien le sacaron el perfil, su próximo pedido en
+    // una pantalla que ya no le corresponde le da 403, pero trae el token
+    // renovado con el perfil nuevo (autenticar renueva antes de autorizar).
+    tomarTokenRenovado(error.response?.headers);
     if (error.response?.status === 401 && getToken()) {
       limpiarSesion();
       window.dispatchEvent(new Event('adrimar:sesion-expirada'));

@@ -1,6 +1,11 @@
 const bcrypt = require('bcrypt');
 const prisma = require('./prismaClient');
 const personaService = require('./personaService');
+const {
+  UltimoAdministradorError,
+  esAdministradorActivo,
+  protegerUltimoAdministrador,
+} = require('../utils/administradoresActivos');
 
 const SALT_ROUNDS = 10;
 
@@ -15,10 +20,25 @@ class PermisoDenegadoError extends Error {}
 class NoEncontradoError extends Error {}
 class YaInactivoError extends Error {}
 
+class PersonaDadaDeBajaError extends Error {
+  constructor() {
+    super('Reactivá primero a la persona.');
+  }
+}
+
+const BLOQUEAR_PROPIA_CUENTA = 'No podés bloquear tu propia cuenta';
+const CREDENCIALES_DE_ENCARGADO = 'Solo un Administrador puede cambiar el usuario o la contraseña de un Encargado.';
+
 const INCLUDE_USUARIO = {
   estadoUsuario: true,
   persona: { include: { perfil: true } },
 };
+
+// La persona de la cuenta con la forma que espera esAdministradorActivo
+// (persona.usuario.estadoUsuario).
+function personaConCuenta(usuario) {
+  return { ...usuario.persona, usuario: { estadoUsuario: usuario.estadoUsuario } };
+}
 
 async function obtenerEstadoUsuarioPorDescripcion(descripcion) {
   const estado = await prisma.estadoUsuario.findUnique({ where: { descripcion } });
@@ -58,6 +78,13 @@ function serializarUsuario(usuario) {
   };
 }
 
+function validarContrasena(contrasena) {
+  if (typeof contrasena !== 'string' || contrasena === '') return 'La contraseña no puede estar vacía';
+  if (contrasena.trim() === '') return 'La contraseña no puede tener solo espacios';
+  if (contrasena.length < 8) return 'La contraseña debe tener al menos 8 caracteres';
+  return null;
+}
+
 function validarCredenciales({ nombreUsuario, contrasena }, { requireContrasena = true } = {}) {
   const errores = {};
 
@@ -66,14 +93,14 @@ function validarCredenciales({ nombreUsuario, contrasena }, { requireContrasena 
     errores.nombreUsuario = 'El nombre de usuario es obligatorio';
   }
 
-  if (requireContrasena) {
-    if (!contrasena) {
-      errores.contrasena = 'La contraseña es obligatoria';
-    } else if (contrasena.length < 8) {
-      errores.contrasena = 'La contraseña debe tener al menos 8 caracteres';
-    }
-  } else if (contrasena && contrasena.length < 8) {
-    errores.contrasena = 'La contraseña debe tener al menos 8 caracteres';
+  // En el alta la contraseña es obligatoria; al editar, no mandarla (undefined)
+  // es "no cambiarla". Si viene, en los dos casos: no vacía, no solo espacios
+  // (antes "        " pasaba como contraseña de 8 caracteres) y 8 o más.
+  if (requireContrasena && (contrasena === undefined || contrasena === '')) {
+    errores.contrasena = 'La contraseña es obligatoria';
+  } else if (contrasena !== undefined) {
+    const errorContrasena = validarContrasena(contrasena);
+    if (errorContrasena) errores.contrasena = errorContrasena;
   }
 
   if (Object.keys(errores).length > 0) {
@@ -96,6 +123,16 @@ async function obtenerUsuario(id) {
     throw new NoEncontradoError();
   }
   return usuario;
+}
+
+// La ficha de una cuenta (GET /usuarios/:id), con la misma regla que la ficha de
+// una persona: un Encargado no ve la cuenta de un Administrador.
+async function consultarUsuario(id, { perfilSolicitante } = {}) {
+  const usuario = await obtenerUsuario(id);
+  if (perfilSolicitante === 'ENCARGADO' && usuario.persona.perfil.descripcion === 'ADMINISTRADOR') {
+    throw new PermisoDenegadoError();
+  }
+  return serializarUsuario(usuario);
 }
 
 async function crearUsuario(
@@ -181,12 +218,32 @@ async function crearUsuario(
 async function actualizarUsuario(
   id,
   { nombreUsuario, contrasena, activo },
-  { perfilSolicitante } = {}
+  { perfilSolicitante, personaIdSolicitante } = {}
 ) {
   const actual = await obtenerUsuario(id);
 
   if (perfilSolicitante === 'ENCARGADO' && actual.persona?.perfil?.descripcion === 'ADMINISTRADOR') {
     throw new PermisoDenegadoError();
+  }
+  // Un Encargado no toma la cuenta de otro (H4): el nombre de usuario y la
+  // contraseña de una cuenta de Encargado solo los cambia un Administrador. El
+  // resto de lo que un Encargado puede hacer sobre otro queda como estaba.
+  if (perfilSolicitante === 'ENCARGADO' && actual.persona.perfil.descripcion === 'ENCARGADO') {
+    const cambiaNombreUsuario = nombreUsuario !== undefined && String(nombreUsuario).trim() !== actual.nombreUsuario;
+    if (cambiaNombreUsuario || contrasena !== undefined) {
+      throw new PermisoDenegadoError(CREDENCIALES_DE_ENCARGADO);
+    }
+  }
+  if (activo === false && actual.personaId === personaIdSolicitante) {
+    throw new personaService.AccionSobreSiMismoError(BLOQUEAR_PROPIA_CUENTA);
+  }
+  // La cuenta de una persona dada de baja queda inactiva (H10): ni se activa ni
+  // se le cambian las credenciales. Antes había que reactivar a la persona.
+  if (!actual.persona.activo) {
+    const cambiaNombreUsuario = nombreUsuario !== undefined && String(nombreUsuario).trim() !== actual.nombreUsuario;
+    if (activo === true || cambiaNombreUsuario || contrasena !== undefined) {
+      throw new PersonaDadaDeBajaError();
+    }
   }
 
   const creds = validarCredenciales({ nombreUsuario, contrasena }, { requireContrasena: false });
@@ -195,7 +252,8 @@ async function actualizarUsuario(
     nombreUsuario: creds.nombreUsuario,
   };
 
-  if (contrasena && contrasena.trim()) {
+  // Ya validada: si vino, se cambia.
+  if (contrasena !== undefined) {
     data.contrasenaHash = await bcrypt.hash(contrasena, SALT_ROUNDS);
   }
 
@@ -205,13 +263,18 @@ async function actualizarUsuario(
     data.estadoUsuarioId = estado.id;
   }
 
+  // Bloquear la cuenta de un Administrador activo: solo si queda otro.
+  const sacaUnAdministrador = activo === false && esAdministradorActivo(personaConCuenta(actual));
+
   let usuario;
   try {
-    usuario = await prisma.usuario.update({
-      where: { id: actual.id },
-      data,
-      include: INCLUDE_USUARIO,
-    });
+    usuario = await protegerUltimoAdministrador(prisma, { personaId: actual.personaId, sacaUnAdministrador }, (cliente) =>
+      cliente.usuario.update({
+        where: { id: actual.id },
+        data,
+        include: INCLUDE_USUARIO,
+      })
+    );
   } catch (err) {
     if (err.code === 'P2002') {
       throw new ValidacionError({ nombreUsuario: 'Ese nombre de usuario ya existe' });
@@ -222,11 +285,14 @@ async function actualizarUsuario(
   return serializarUsuario(usuario);
 }
 
-async function darDeBajaUsuario(id, { perfilSolicitante } = {}) {
+async function darDeBajaUsuario(id, { perfilSolicitante, personaIdSolicitante } = {}) {
   const actual = await obtenerUsuario(id);
 
   if (perfilSolicitante === 'ENCARGADO' && actual.persona?.perfil?.descripcion === 'ADMINISTRADOR') {
     throw new PermisoDenegadoError();
+  }
+  if (actual.personaId === personaIdSolicitante) {
+    throw new personaService.AccionSobreSiMismoError(BLOQUEAR_PROPIA_CUENTA);
   }
 
   if (actual.estadoUsuario.descripcion !== 'ACTIVO') {
@@ -235,11 +301,15 @@ async function darDeBajaUsuario(id, { perfilSolicitante } = {}) {
 
   const estadoInactivo = await obtenerEstadoUsuarioPorDescripcion('INACTIVO');
 
-  const usuario = await prisma.usuario.update({
-    where: { id: actual.id },
-    data: { estadoUsuarioId: estadoInactivo.id },
-    include: INCLUDE_USUARIO,
-  });
+  // Bloquear la cuenta de un Administrador activo: solo si queda otro.
+  const sacaUnAdministrador = esAdministradorActivo(personaConCuenta(actual));
+  const usuario = await protegerUltimoAdministrador(prisma, { personaId: actual.personaId, sacaUnAdministrador }, (cliente) =>
+    cliente.usuario.update({
+      where: { id: actual.id },
+      data: { estadoUsuarioId: estadoInactivo.id },
+      include: INCLUDE_USUARIO,
+    })
+  );
 
   return serializarUsuario(usuario);
 }
@@ -287,10 +357,14 @@ module.exports = {
   actualizarUsuario,
   darDeBajaUsuario,
   obtenerUsuario,
+  consultarUsuario,
   listarDisponiblesParaConducir,
   serializarUsuario,
   ValidacionError,
   NoEncontradoError,
   YaInactivoError,
   PermisoDenegadoError,
+  UltimoAdministradorError,
+  AccionSobreSiMismoError: personaService.AccionSobreSiMismoError,
+  PersonaDadaDeBajaError,
 };

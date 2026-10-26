@@ -212,7 +212,12 @@ function Personal() {
     }
   }
 
-  const switchBloqueado = !editando && form.perfil === 'CHOFER';
+  // El perfil y la habilitación de uno los cambia otro (el backend lo rechaza):
+  // en la ficha propia no se ofrece "Dar de baja" y al editarse a sí mismo esos
+  // dos campos quedan de solo lectura.
+  const fichaPropia = seleccionado?.id === usuarioActual.personaId;
+  const editandoPropia = editando?.id === usuarioActual.personaId;
+  const switchBloqueado = (!editando && form.perfil === 'CHOFER') || editandoPropia;
 
   return (
     <Layout>
@@ -254,8 +259,14 @@ function Personal() {
                   </FormField>
                 </div>
 
-                <FormField id="perfil" label="Puesto / Perfil" required error={errores.perfil}>
-                  <select name="perfil" value={form.perfil} onChange={handleChange}>
+                <FormField
+                  id="perfil"
+                  label="Puesto / Perfil"
+                  required
+                  hint={editandoPropia ? 'Tu perfil lo cambia un Administrador.' : undefined}
+                  error={errores.perfil}
+                >
+                  <select name="perfil" value={form.perfil} onChange={handleChange} disabled={editandoPropia}>
                     <OpcionVacia obligatorio>Elegí el perfil</OpcionVacia>
                     {perfilesDisponibles.map((p) => (
                       <option key={p.value} value={p.value}>
@@ -460,9 +471,11 @@ function Personal() {
                 <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
                   Editar datos
                 </Button>
-                <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
-                  Dar de baja
-                </Button>
+                {!fichaPropia && (
+                  <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
+                    Dar de baja
+                  </Button>
+                )}
               </div>
             )}
           </Card>

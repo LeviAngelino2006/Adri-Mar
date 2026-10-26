@@ -50,6 +50,10 @@ const storageFalso = {
 const rutaStorage = require.resolve(path.join(SRC, 'services', 'storageService.js'));
 require.cache[rutaStorage] = { id: rutaStorage, filename: rutaStorage, loaded: true, exports: storageFalso };
 
+// La sesión sale del token (ver helpers/sesionDelToken.js).
+const { instalarSesionDelToken } = require('./helpers/sesionDelToken');
+instalarSesionDelToken(SRC);
+
 const app = require(path.join(SRC, 'app.js'));
 const { generarToken } = require(path.join(SRC, 'services', 'tokenService.js'));
 const { calcularEstadoVigencia } = require(path.join(SRC, 'services', 'documentoService.js'));

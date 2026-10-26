@@ -73,6 +73,7 @@ function SelectorMultiple({
   }, []);
 
   function agregar(opcion) {
+    if (opcion.disabled || opcion.disponible === false) return;
     onChange([...valor, opcion.id]);
     setTexto('');
     setActivo(0);
@@ -104,7 +105,10 @@ function SelectorMultiple({
       // Con la lista abierta Enter elige la opción activa; nunca envía el
       // formulario por accidente.
       e.preventDefault();
-      if (disponibles[indiceActivo]) agregar(disponibles[indiceActivo]);
+      const elegible = disponibles[indiceActivo];
+      if (elegible && !elegible.disabled && elegible.disponible !== false) {
+        agregar(elegible);
+      }
     } else if (e.key === 'Escape') {
       setAbierto(false);
     }
@@ -140,25 +144,42 @@ function SelectorMultiple({
 
         {abierto && !disabled && (
           <ul className="selector-multiple-lista" id={listaId} role="listbox" aria-multiselectable="true">
-            {disponibles.map((opcion, indice) => (
-              <li
-                key={opcion.id}
-                id={`${listaId}-${opcion.id}`}
-                role="option"
-                aria-selected="false"
-                className={indice === indiceActivo ? 'selector-multiple-opcion selector-multiple-opcion-activa' : 'selector-multiple-opcion'}
-                // mousedown (y no click) para que el input no pierda el foco antes
-                // de elegir.
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  agregar(opcion);
-                }}
-                onMouseEnter={() => setActivo(indice)}
-              >
-                {opcion.etiqueta}
-                {opcion.detalle && <span className="selector-multiple-detalle"> · {opcion.detalle}</span>}
-              </li>
-            ))}
+            {disponibles.map((opcion, indice) => {
+              const deshabilitada = opcion.disabled || opcion.disponible === false;
+              let claseOpcion = 'selector-multiple-opcion';
+              if (deshabilitada) {
+                claseOpcion += ' selector-multiple-opcion-deshabilitada';
+              } else if (indice === indiceActivo) {
+                claseOpcion += ' selector-multiple-opcion-activa';
+              }
+
+              return (
+                <li
+                  key={opcion.id}
+                  id={`${listaId}-${opcion.id}`}
+                  role="option"
+                  aria-selected="false"
+                  aria-disabled={deshabilitada ? 'true' : undefined}
+                  className={claseOpcion}
+                  // mousedown (y no click) para que el input no pierda el foco antes
+                  // de elegir.
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    if (!deshabilitada) agregar(opcion);
+                  }}
+                  onMouseEnter={() => {
+                    if (!deshabilitada) setActivo(indice);
+                  }}
+                >
+                  {opcion.etiqueta}
+                  {opcion.motivo ? (
+                    <span className="selector-multiple-detalle selector-multiple-motivo"> · {opcion.motivo}</span>
+                  ) : (
+                    opcion.detalle && <span className="selector-multiple-detalle"> · {opcion.detalle}</span>
+                  )}
+                </li>
+              );
+            })}
 
             {disponibles.length === 0 && (
               <li className="selector-multiple-estado" role="presentation">

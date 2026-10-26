@@ -18,6 +18,18 @@ const mantenimientoRoutes = require('./routes/mantenimientoRoutes');
 
 const app = express();
 
+// En Render, un pedido llega así: cliente → Cloudflare → balanceador de Render
+// → la app. Cloudflare agrega la IP del cliente a X-Forwarded-For y el
+// balanceador agrega la del borde de Cloudflare; la conexión que ve la app es
+// la del balanceador (una 10.x). Son DOS saltos de confianza: con 2, req.ip es
+// la IP del cliente. Con `true` se tomaría la primera de la lista, que el
+// cliente puede inventar mandando su propio X-Forwarded-For; con 1 sería la del
+// borde de Cloudflare, que cambia y la comparten muchos clientes. Lo usa el
+// límite de intentos de login (middlewares/limiteLogin.js), que deja en el log
+// la IP que ve cuando responde 429: así se confirma en Render.
+const SALTOS_DE_PROXY = 2;
+app.set('trust proxy', SALTOS_DE_PROXY);
+
 app.use(cors({ exposedHeaders: ['X-Renewed-Token'] }));
 app.use(express.json());
 
