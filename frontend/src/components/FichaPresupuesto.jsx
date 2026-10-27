@@ -1,6 +1,6 @@
 import Card from './ui/Card';
 import { aCentavos } from '../utils/importes';
-import { ACLARACION_IVA, textoPrecioConIva } from '../utils/ivaPresupuesto';
+import { ACLARACION_IVA } from '../utils/ivaPresupuesto';
 import { formatearPesos } from '../utils/moneda';
 import { formatearFechaCorta } from '../utils/viajeFormato';
 import { fechaVencimiento, formatearFechaPresupuesto, textoHorario } from '../utils/presupuestos';
@@ -64,10 +64,7 @@ function FichaPresupuesto({ presupuesto, acciones }) {
 
         <Item etiqueta="Importe" clase="detalle-item-destacado">
           {formatearPesos(importe)}
-          <div className="presupuesto-iva">
-            <p>{ACLARACION_IVA}</p>
-            <p>{textoPrecioConIva(importe)}</p>
-          </div>
+          <p className="presupuesto-aclaracion-iva">{ACLARACION_IVA}</p>
         </Item>
         <Hueco />
 

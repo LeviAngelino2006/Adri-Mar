@@ -8,7 +8,7 @@ import SelectorUbicacion from './SelectorUbicacion';
 import SelectorMultiple from './ui/SelectorMultiple';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import { importeIngresadoACentavos } from '../utils/importes';
-import { ACLARACION_IVA, textoPrecioConIva } from '../utils/ivaPresupuesto';
+import { ACLARACION_IVA } from '../utils/ivaPresupuesto';
 import { formatearPesos } from '../utils/moneda';
 import {
   fechaVencimiento,
@@ -70,8 +70,6 @@ function PresupuestoForm({ valoresIniciales, unidadesOriginales = [], onSubmit, 
   // Siempre debajo del input, para que se note si falta un cero.
   const hintImporte =
     centavosIngresados === null ? 'Por ejemplo 420.000 o 420.000,50' : formatearPesos(centavosIngresados);
-  // null con el importe vacío o inválido: entonces solo se ve la aclaración.
-  const precioConIva = textoPrecioConIva(centavosIngresados);
   const vence = fechaVencimiento(form.fechaEmision, form.diasValidez);
 
   function handleChange(e) {
@@ -174,8 +172,8 @@ function PresupuestoForm({ valoresIniciales, unidadesOriginales = [], onSubmit, 
           </FormField>
         </div>
 
-        {/* La aclaración y el precio con IVA van fuera del FormField: así se
-            siguen viendo cuando el campo muestra un error (que oculta el hint). */}
+        {/* La aclaración del IVA va fuera del FormField: así se sigue viendo
+            cuando el campo muestra un error (que oculta el hint). */}
         <div className="presupuesto-importe">
           <FormField id="importeNeto" label="Importe" error={errores.importeNeto} hint={hintImporte} required>
             <input
@@ -187,10 +185,7 @@ function PresupuestoForm({ valoresIniciales, unidadesOriginales = [], onSubmit, 
               onChange={handleChange}
             />
           </FormField>
-          <div className="presupuesto-iva">
-            <p>{ACLARACION_IVA}</p>
-            <p aria-live="polite">{precioConIva}</p>
-          </div>
+          <p className="presupuesto-aclaracion-iva">{ACLARACION_IVA}</p>
         </div>
         <div className="form-hueco" aria-hidden="true" />
 

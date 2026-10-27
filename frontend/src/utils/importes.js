@@ -1,7 +1,7 @@
 // Importes de los presupuestos en CENTAVOS ENTEROS: nunca se suma ni se
 // multiplica plata con floats (0.1 + 0.2 !== 0.3). La API devuelve los Decimal
 // como string con 2 decimales ("420000.00"); acá se pasan a enteros cortando el
-// string, sin parseFloat. La cuenta del precio con IVA está en ivaPresupuesto.js.
+// string, sin parseFloat.
 
 // Formato de la API: punto decimal y nada más ("420000.00", "1234").
 const IMPORTE_API_REGEX = /^(\d+)(?:\.(\d{1,2}))?$/;

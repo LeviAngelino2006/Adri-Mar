@@ -4,7 +4,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { aCentavos, centavosAImporteIngresado, centavosAString, importeIngresadoACentavos } from './importes.js';
-import { formatearPesos, formatearPesosConCentavos } from './moneda.js';
+import { formatearPesos } from './moneda.js';
 
 // Intl separa "$" del número con un espacio duro (U+00A0).
 const sinEspacioDuro = (texto) => texto.replace(/ /g, ' ');
@@ -95,13 +95,5 @@ describe('formatearPesos', () => {
   test('redondo: sin decimales', () => {
     assert.equal(sinEspacioDuro(formatearPesos(42000000)), '$ 420.000');
     assert.equal(sinEspacioDuro(formatearPesos(0)), '$ 0');
-  });
-});
-
-describe('formatearPesosConCentavos', () => {
-  test('siempre con dos decimales, también si es redondo', () => {
-    assert.equal(sinEspacioDuro(formatearPesosConCentavos(11050000)), '$ 110.500,00');
-    assert.equal(sinEspacioDuro(formatearPesosConCentavos(136419)), '$ 1.364,19');
-    assert.equal(sinEspacioDuro(formatearPesosConCentavos(5)), '$ 0,05');
   });
 });

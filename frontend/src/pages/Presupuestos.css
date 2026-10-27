@@ -15,23 +15,22 @@
   color: var(--color-text-secondary);
 }
 
-/* Importe: el FormField y, debajo, la aclaración del IVA y el precio con IVA
-   en vivo, como texto secundario (mismo estilo que el hint). */
+/* Importe: el FormField y, debajo, la aclaración del IVA como texto
+   secundario (mismo estilo que el hint). */
 .presupuesto-importe {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
 
-.presupuesto-iva p {
+.presupuesto-aclaracion-iva {
   margin: 0;
   font-size: 0.875rem;
   color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
 }
 
 /* En la ficha va dentro del <dd> destacado: sin la negrita del importe. */
-.detalle-grid .presupuesto-iva {
+.detalle-grid .presupuesto-aclaracion-iva {
   margin-top: var(--space-1);
   font-weight: 400;
 }

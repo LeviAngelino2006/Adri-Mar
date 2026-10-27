@@ -6,7 +6,7 @@ import {
   TEXTO_INTRODUCCION,
 } from '../../constants/presupuesto';
 import { aCentavos } from '../../utils/importes';
-import { ACLARACION_IVA, textoPrecioConIva } from '../../utils/ivaPresupuesto';
+import { ACLARACION_IVA } from '../../utils/ivaPresupuesto';
 import { formatearPesos } from '../../utils/moneda';
 import { fechaVencimiento, formatearFechaDocumento, textoHorario } from '../../utils/presupuestos';
 import { fuenteFirma, IMAGEN_ENCABEZADO, IMAGEN_PIE, PROPORCION_ENCABEZADO, PROPORCION_PIE } from './recursos';
@@ -14,8 +14,8 @@ import { fuenteFirma, IMAGEN_ENCABEZADO, IMAGEN_PIE, PROPORCION_ENCABEZADO, PROP
 // PDF del presupuesto, en A4, replicando el Word que se usaba. Se arma SOLO
 // con el objeto de GET /presupuestos/:id (datos guardados, incluida la
 // descripción snapshot de cada unidad), así que generarlo y re-descargarlo da
-// el mismo documento. El precio con IVA no se guarda: sale del importe con la
-// misma cuenta que el formulario (utils/ivaPresupuesto.js).
+// el mismo documento. Debajo del importe va la aclaración del IVA, el mismo
+// texto que el formulario (utils/ivaPresupuesto.js).
 //
 // Una sola familia tipográfica: Helvetica (normal y negrita), una de las 14
 // fuentes estándar de PDF. Muestra bien tildes, ñ, "$", "°" y el espacio duro
@@ -106,7 +106,7 @@ const estilos = StyleSheet.create({
     borderRightWidth: 1,
     borderColor: GRIS_BORDE,
   },
-  // Aclaración del IVA y precio con IVA, debajo del importe (como la cláusula).
+  // Aclaración del IVA, debajo del importe (como la cláusula).
   notaImporte: {
     fontSize: 9.5,
     color: GRIS_TEXTO,
@@ -229,7 +229,6 @@ function PresupuestoPDF({ presupuesto, token }) {
             <Fila etiqueta="Importe">
               <Text style={estilos.negrita}>{formatearPesos(importe)}</Text>
               <Text style={estilos.notaImporte}>{ACLARACION_IVA}</Text>
-              <Text style={estilos.notaImporte}>{textoPrecioConIva(importe)}</Text>
             </Fila>
             <Fila etiqueta="Forma de pago">{presupuesto.formaPago}</Fila>
             <Fila etiqueta="Validez">
