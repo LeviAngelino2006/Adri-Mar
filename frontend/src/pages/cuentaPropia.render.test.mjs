@@ -4,8 +4,9 @@
 // de baja" ni "Desactivar acceso", y al editarse a sí mismo el perfil queda de
 // solo lectura con el motivo. Y un Encargado no ve "Modificar credenciales" en la
 // cuenta de un Encargado (H4). Al editar una cuenta, una contraseña de solo
-// espacios se manda y el error del backend sale en el campo (H12). Se corren con
-// `npm test`.
+// espacios se manda y el error del backend sale en el campo (H12). Y al guardar
+// una persona, un 409 muestra el motivo que da el backend (H7, tanda 2). Se
+// corren con `npm test`.
 //
 // Se montan Personal y Usuarios con react-dom/client sobre jsdom; la API se
 // reemplaza por un doble.
@@ -62,6 +63,8 @@ const PERSONAS = [
   persona(3, 'Lucía', 'Romero', 'lromero'),
   persona(4, 'Diego', 'Sosa', 'dsosa'),
   { ...persona(14, 'Ramiro', 'Acosta', 'racosta'), perfil: 'CHOFER', habilitadoParaConducir: true },
+  // Encargado que maneja: el switch de conducir es editable.
+  { ...persona(15, 'Federico', 'Luna', 'fluna'), habilitadoParaConducir: true },
 ];
 const enviados = [];
 // Quién está logueado en cada test (Diego salvo que el test diga otra cosa).
@@ -94,6 +97,18 @@ before(async () => {
     if (datos.contrasena !== undefined && datos.contrasena.trim() === '') {
       const err = new Error('400');
       err.response = { status: 400, data: { errores: { contrasena: 'La contraseña no puede tener solo espacios' } } };
+      throw err;
+    }
+    // Como el backend: Federico tiene un viaje Programado y no se lo deshabilita.
+    if (endpoint === '/personas/15' && datos.habilitadoParaConducir === false) {
+      const err = new Error('409');
+      err.response = {
+        status: 409,
+        data: {
+          error: 'Tiene 1 viaje programado. Reasignalo antes de deshabilitarla.',
+          viajes: [{ id: 6, fecha: '2026-10-30T09:30:00.000Z', origen: 'Río Tercero', destino: 'Rosario' }],
+        },
+      };
       throw err;
     }
     return { data: {} };
@@ -158,6 +173,52 @@ describe('Personal: la ficha propia', () => {
     await act(async () => boton('Editar datos').click());
     assert.equal(contenedor.querySelector('select[name="perfil"]').disabled, false);
     assert.equal(contenedor.querySelector('#perfil-hint'), null);
+  });
+});
+
+describe('Personal: el motivo de un 409 al guardar (H7)', () => {
+  test('deshabilitar a quien tiene viajes Programados muestra el mensaje del backend', async () => {
+    await montar(Personal, '/personal?id=15');
+    await act(async () => boton('Editar datos').click());
+    await act(async () => contenedor.querySelector('input[name="habilitadoParaConducir"]').click());
+    await act(async () => boton('Guardar cambios').click());
+
+    assert.equal(enviados.at(-1).endpoint, '/personas/15');
+    const alerta = [...contenedor.querySelectorAll('[role="alert"]')].map((a) => a.textContent).join(' ');
+    assert.ok(alerta.includes('Tiene 1 viaje programado. Reasignalo antes de deshabilitarla.'), alerta);
+  });
+});
+
+describe('Personal: el perfil Chofer implica estar habilitado (H17)', () => {
+  function elegirPerfil(valor) {
+    const select = contenedor.querySelector('select[name="perfil"]');
+    const asignarValue = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+    act(() => {
+      asignarValue.call(select, valor);
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+  }
+  const switchConducir = () => contenedor.querySelector('input[name="habilitadoParaConducir"]');
+
+  test('al editar a un Chofer, el switch está encendido y bloqueado', async () => {
+    await montar(Personal, '/personal?id=14');
+    await act(async () => boton('Editar datos').click());
+    assert.equal(switchConducir().checked, true);
+    assert.equal(switchConducir().disabled, true);
+  });
+
+  test('al pasar a alguien a Chofer se enciende; al sacarlo de Chofer, conserva lo que tenga', async () => {
+    await montar(Personal, '/personal?id=3');
+    await act(async () => boton('Editar datos').click());
+    assert.equal(switchConducir().checked, false);
+
+    elegirPerfil('CHOFER');
+    assert.equal(switchConducir().checked, true);
+    assert.equal(switchConducir().disabled, true);
+
+    elegirPerfil('PERSONAL_TALLER');
+    assert.equal(switchConducir().checked, true);
+    assert.equal(switchConducir().disabled, false);
   });
 });
 

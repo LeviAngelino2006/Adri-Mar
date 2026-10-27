@@ -561,7 +561,7 @@ describe('GET /viajes/:id/disponibilidad', () => {
     });
     assert.deepEqual(choferes[6], { id: 6, disponible: true, motivo: null });
     assert.deepEqual(choferes[7], { id: 7, disponible: false, motivo: 'No habilitado para conducir' });
-    assert.deepEqual(choferes[8], { id: 8, disponible: false, motivo: 'Usuario dado de baja' });
+    assert.deepEqual(choferes[8], { id: 8, disponible: false, motivo: 'Dado de baja' });
 
     const vehiculosPorId = porId(json.vehiculos);
     assert.deepEqual(vehiculosPorId[7], { id: 7, disponible: true, motivo: null });

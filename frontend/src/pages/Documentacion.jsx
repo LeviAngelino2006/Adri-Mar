@@ -453,9 +453,11 @@ function EncabezadoFicha({ vista, titular, estadoDocumentacion }) {
 function Ficha({ vista, ficha, onVerPdf, onActualizar, onHistorial }) {
   const esVehiculo = vista === 'vehiculos';
   const titular = esVehiculo ? ficha.vehiculo : ficha.chofer;
+  // El de un chofer lo decide el backend según la persona, no según su cuenta.
+  // Mientras el backend anterior siga desplegado no lo trae: se usa `activo`.
   const soloConsulta = esVehiculo
     ? titular.estadoVehiculo?.descripcion === 'DADO_DE_BAJA'
-    : titular.estadoUsuario?.descripcion !== 'ACTIVO';
+    : (titular.soloConsulta ?? titular.activo === false);
 
   const ordenados = ordenarPorTipoDocumento(ficha.documentos, (item) => item.tipo.descripcion);
   const secciones = [
@@ -480,7 +482,7 @@ function Ficha({ vista, ficha, onVerPdf, onActualizar, onHistorial }) {
         <Alert variant="info">
           {esVehiculo
             ? 'Vehículo dado de baja: la documentación es de solo consulta'
-            : 'Usuario inactivo: la documentación es de solo consulta'}
+            : 'Persona dada de baja: la documentación es de solo consulta'}
         </Alert>
       )}
 

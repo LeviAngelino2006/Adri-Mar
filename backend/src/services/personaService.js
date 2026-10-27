@@ -4,7 +4,6 @@ const {
   UltimoAdministradorError,
   esAdministradorActivo,
   asegurarOtroAdministradorActivo,
-  protegerUltimoAdministrador,
 } = require('../utils/administradoresActivos');
 
 // Persona = quién es alguien en la empresa (empleado/chofer), tenga o no
@@ -28,12 +27,39 @@ class ValidacionError extends Error {
 class PermisoDenegadoError extends Error {}
 class NoEncontradoError extends Error {}
 class YaInactivaError extends Error {}
+class YaActivaError extends Error {}
 
 // Caso borde ya decidido: una persona que es chofer de un viaje En viaje en
 // curso no se puede dar de baja ni deshabilitar para conducir hasta que ese
 // viaje finalice — sin importar su perfil. Se consulta viajes directamente acá
 // en vez de importar viajeService, para no crear una dependencia cruzada.
 class ChoferEnViajeError extends Error {}
+
+// Tampoco se da de baja ni se deshabilita a quien es chofer de viajes
+// Programados, de cualquier fecha, hasta reasignarlos (H6 y H7 de la auditoría
+// de Personal y Usuarios, decisión del cliente): si no, el viaje queda a nombre
+// de alguien que no puede comenzarlo y se descubre el día del viaje. Lleva la
+// lista para que el front la muestre.
+class ChoferConViajesProgramadosError extends Error {
+  constructor(viajes, accion) {
+    const cantidad = viajes.length;
+    super(
+      cantidad === 1
+        ? `Tiene 1 viaje programado. Reasignalo antes de ${accion}.`
+        : `Tiene ${cantidad} viajes programados. Reasignalos antes de ${accion}.`
+    );
+    this.viajes = viajes;
+  }
+}
+
+// Los datos de una persona dada de baja son de solo consulta, como los de un
+// vehículo dado de baja (H12 de la auditoría, decisión del cliente): para
+// corregirlos, primero se la reactiva. Lo usa también usuarioService (H10).
+class PersonaDadaDeBajaError extends Error {
+  constructor() {
+    super('Reactivá primero a la persona.');
+  }
+}
 
 // Nadie se da de baja, se bloquea la cuenta ni se cambia el perfil a sí mismo
 // (H3 de la auditoría de Personal y Usuarios): es fácil de hacer sin querer y no
@@ -47,6 +73,33 @@ async function esChoferDeViajeEnCurso(personaId) {
     where: { choferId: personaId, estadoViaje: { descripcion: 'EN_VIAJE' } },
   });
   return Boolean(viaje);
+}
+
+// Antes de dar de baja o deshabilitar, dentro de la misma transacción: si es
+// chofer de viajes Programados, corta con la lista; si no, lo saca de los
+// candidatos de los viajes A confirmar (ahí todavía no tiene nada asignado) y
+// devuelve cuántas candidaturas quitó.
+async function liberarComoChofer(tx, personaId, accion) {
+  const programados = await tx.viaje.findMany({
+    where: { choferId: personaId, estadoViaje: { descripcion: 'PROGRAMADO' } },
+    select: { id: true, fechaInicio: true, origen: { select: { nombre: true } }, destino: { select: { nombre: true } } },
+    orderBy: [{ fechaInicio: 'asc' }, { id: 'asc' }],
+  });
+  if (programados.length > 0) {
+    throw new ChoferConViajesProgramadosError(
+      programados.map((v) => ({
+        id: v.id,
+        fecha: v.fechaInicio,
+        origen: v.origen?.nombre ?? null,
+        destino: v.destino?.nombre ?? null,
+      })),
+      accion
+    );
+  }
+  const { count } = await tx.viajeChoferCandidato.deleteMany({
+    where: { personaId, viaje: { estadoViaje: { descripcion: 'A_CONFIRMAR' } } },
+  });
+  return count;
 }
 
 async function obtenerPerfilPorDescripcion(descripcion) {
@@ -83,11 +136,13 @@ function serializarPersona(persona) {
   };
 }
 
-function calcularHabilitadoParaConducir(habilitadoParaConducir, perfil) {
-  if (typeof habilitadoParaConducir === 'boolean') {
-    return habilitadoParaConducir;
-  }
-  return perfil === 'CHOFER';
+// "Habilitado para conducir" = aparece entre los choferes para asignar. El
+// perfil Chofer implica estarlo, siempre (H17, decisión del cliente): acá se
+// fuerza, sin importar lo que mande el front. Para los otros perfiles vale lo
+// que venga; si no viene, `siNoViene` (false en el alta, sin cambios al editar).
+function calcularHabilitadoParaConducir(habilitadoParaConducir, perfil, siNoViene) {
+  if (perfil === 'CHOFER') return true;
+  return typeof habilitadoParaConducir === 'boolean' ? habilitadoParaConducir : siNoViene;
 }
 
 function validarDatos({ nombre, apellido, perfil, dni, email, telefono }) {
@@ -183,7 +238,7 @@ async function crearPersona(
       data: {
         ...datos,
         perfilId: perfilRow.id,
-        habilitadoParaConducir: calcularHabilitadoParaConducir(habilitadoParaConducir, perfil),
+        habilitadoParaConducir: calcularHabilitadoParaConducir(habilitadoParaConducir, perfil, false),
       },
       include: INCLUDE_PERSONA,
     });
@@ -208,21 +263,29 @@ async function actualizarPersona(
       throw new PermisoDenegadoError();
     }
   }
+  if (!actual.activo) {
+    throw new PersonaDadaDeBajaError();
+  }
+
+  // Con perfil Chofer, true siempre. Pasar de Chofer a otro perfil conserva la
+  // habilitación como esté (si no viene) o toma la que venga: quitarla es
+  // deshabilitar, con sus chequeos de abajo.
+  const habilitado = calcularHabilitadoParaConducir(habilitadoParaConducir, perfil, actual.habilitadoParaConducir);
 
   // Sus propios datos sí, pero el perfil y la habilitación de uno los cambia
   // otro. El front manda el formulario entero: solo es un cambio si difiere.
   if (actual.id === personaIdSolicitante) {
     const cambiaPerfil = perfil !== actual.perfil.descripcion;
-    const cambiaHabilitacion =
-      typeof habilitadoParaConducir === 'boolean' && habilitadoParaConducir !== actual.habilitadoParaConducir;
+    const cambiaHabilitacion = habilitado !== actual.habilitadoParaConducir;
     if (cambiaPerfil || cambiaHabilitacion) {
       throw new AccionSobreSiMismoError('No podés cambiar tu propio perfil');
     }
   }
 
-  // Solo bloquea el intento de pasar habilitadoParaConducir a false. Si no
-  // viene en el payload, o viene en true, no hay nada que validar acá.
-  if (habilitadoParaConducir === false && (await esChoferDeViajeEnCurso(actual.id))) {
+  // Deshabilitar = pasar de habilitada a no habilitada. Si no viene en el
+  // payload, viene en true o ya estaba en false, no hay nada que validar acá.
+  const deshabilita = actual.habilitadoParaConducir && !habilitado;
+  if (deshabilita && (await esChoferDeViajeEnCurso(actual.id))) {
     throw new ChoferEnViajeError(
       'La persona tiene un viaje En viaje en curso como chofer. Debe finalizarse antes de deshabilitarla para conducir.'
     );
@@ -234,19 +297,25 @@ async function actualizarPersona(
   // Pasar a otro perfil a un Administrador activo: solo si queda otro.
   const sacaUnAdministrador = esAdministradorActivo(actual) && perfil !== 'ADMINISTRADOR';
 
+  // Los chequeos que dependen de otras filas (el último Administrador, los
+  // viajes Programados) van en la misma transacción que el cambio.
+  const cambio = async (cliente) => {
+    if (sacaUnAdministrador) await asegurarOtroAdministradorActivo(cliente, actual.id);
+    const candidaturasQuitadas = deshabilita ? await liberarComoChofer(cliente, actual.id, 'deshabilitarla') : 0;
+    const persona = await cliente.persona.update({
+      where: { id: actual.id },
+      data: {
+        ...datos,
+        perfilId: perfilRow.id,
+        habilitadoParaConducir: habilitado,
+      },
+      include: INCLUDE_PERSONA,
+    });
+    return { persona: serializarPersona(persona), candidaturasQuitadas };
+  };
+
   try {
-    const persona = await protegerUltimoAdministrador(prisma, { personaId: actual.id, sacaUnAdministrador }, (cliente) =>
-      cliente.persona.update({
-        where: { id: actual.id },
-        data: {
-          ...datos,
-          perfilId: perfilRow.id,
-          habilitadoParaConducir: typeof habilitadoParaConducir === 'boolean' ? habilitadoParaConducir : undefined,
-        },
-        include: INCLUDE_PERSONA,
-      })
-    );
-    return serializarPersona(persona);
+    return sacaUnAdministrador || deshabilita ? await prisma.$transaction(cambio) : await cambio(prisma);
   } catch (err) {
     if (err.code === 'P2002') {
       throw new ValidacionError(errorDuplicado(err));
@@ -281,23 +350,46 @@ async function darDeBajaPersona(id, { perfilSolicitante, personaIdSolicitante } 
     throw new Error('Estado de usuario "INACTIVO" no configurado');
   }
 
-  const persona = await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     // Dar de baja a un Administrador activo: solo si queda otro. El chequeo va
     // en la misma transacción que la baja (ver administradoresActivos).
     if (esAdministradorActivo(actual)) {
       await asegurarOtroAdministradorActivo(tx, actual.id);
     }
+    const candidaturasQuitadas = await liberarComoChofer(tx, actual.id, 'darla de baja');
     await tx.usuario.updateMany({
       where: { personaId: actual.id },
       data: { estadoUsuarioId: estadoInactivo.id },
     });
-    return tx.persona.update({
+    const persona = await tx.persona.update({
       where: { id: actual.id },
       data: { activo: false, fechaBaja: new Date() },
       include: INCLUDE_PERSONA,
     });
+    return { persona: serializarPersona(persona), candidaturasQuitadas };
   });
+}
 
+// Salida de una baja hecha por error o de un reingreso (H9): la persona vuelve a
+// estar activa, con los mismos datos, viajes y documentos. La cuenta de acceso
+// NO se reactiva: queda inactiva hasta que alguien la reactive aparte
+// (usuarioService.reactivarUsuario), así volver a la empresa no devuelve el
+// acceso sin que nadie lo decida.
+async function reactivarPersona(id, { perfilSolicitante } = {}) {
+  const actual = await obtenerPersonaConRelaciones(id);
+
+  if (perfilSolicitante === 'ENCARGADO' && actual.perfil.descripcion === 'ADMINISTRADOR') {
+    throw new PermisoDenegadoError();
+  }
+  if (actual.activo) {
+    throw new YaActivaError();
+  }
+
+  const persona = await prisma.persona.update({
+    where: { id: actual.id },
+    data: { activo: true, fechaBaja: null },
+    include: INCLUDE_PERSONA,
+  });
   return serializarPersona(persona);
 }
 
@@ -393,6 +485,7 @@ module.exports = {
   crearPersona,
   actualizarPersona,
   darDeBajaPersona,
+  reactivarPersona,
   listarPersonas,
   obtenerPersona,
   listarDisponiblesParaConducir,
@@ -401,8 +494,11 @@ module.exports = {
   PermisoDenegadoError,
   NoEncontradoError,
   YaInactivaError,
+  YaActivaError,
   ChoferEnViajeError,
+  ChoferConViajesProgramadosError,
   UltimoAdministradorError,
   AccionSobreSiMismoError,
+  PersonaDadaDeBajaError,
   PERFILES_VALIDOS,
 };

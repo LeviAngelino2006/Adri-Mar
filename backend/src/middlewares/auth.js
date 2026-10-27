@@ -3,6 +3,14 @@ const { buscarSesion } = require('../services/sesionService');
 
 const SESION_NO_VALIDA = 'Tu sesión ya no es válida. Iniciá sesión de nuevo.';
 
+// Contraseña provisoria (H11): la cuenta tiene una contraseña que definió un
+// gestor y su dueño todavía no la cambió. Hasta entonces solo puede leer su
+// sesión y cambiar la contraseña; todo lo demás responde 403 con este código,
+// que el front reconoce para llevarla a "Cambiar contraseña". Se decide acá y en
+// ningún otro lado: cualquier ruta nueva que use autenticar queda bloqueada.
+const DEBE_CAMBIAR_CONTRASENA = 'DEBE_CAMBIAR_CONTRASENA';
+const PERMITIDAS_CON_CONTRASENA_PROVISORIA = new Set(['GET /api/auth/me', 'PUT /api/auth/contrasena']);
+
 async function autenticar(req, res, next) {
   const authHeader = req.headers.authorization || '';
   const [tipo, token] = authHeader.split(' ');
@@ -43,6 +51,14 @@ async function autenticar(req, res, next) {
   // se entera si cambió el perfil o la habilitación.
   res.setHeader('X-Renewed-Token', generarToken(sesion));
 
+  // Después de renovar: la sesión sigue viva mientras cambia la contraseña.
+  if (sesion.debeCambiarContrasena && !PERMITIDAS_CON_CONTRASENA_PROVISORIA.has(`${req.method} ${req.baseUrl}${req.path}`)) {
+    return res.status(403).json({
+      error: 'Tenés que cambiar tu contraseña antes de seguir.',
+      codigo: DEBE_CAMBIAR_CONTRASENA,
+    });
+  }
+
   next();
 }
 
@@ -56,4 +72,4 @@ function autorizar(...perfilesPermitidos) {
   };
 }
 
-module.exports = { autenticar, autorizar, SESION_NO_VALIDA };
+module.exports = { autenticar, autorizar, SESION_NO_VALIDA, DEBE_CAMBIAR_CONTRASENA, PERMITIDAS_CON_CONTRASENA_PROVISORIA };

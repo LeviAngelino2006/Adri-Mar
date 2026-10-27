@@ -4,6 +4,7 @@ Sidebar con el logo, la navegación principal y el usuario. Patrón de layout (`
 - `<aside class="layout-sidebar">` con `.layout-sidebar-brand` (el logo, `.layout-logo`, 36px de alto), `<nav class="layout-nav">` con un `.layout-nav-link` por sección y `.layout-sidebar-footer` (ver `Avatar`).
 - Ítems: Dashboard, Mis viajes, Viajes, Flota de vehículos, Documentación y Usuarios, con sus íconos de `assets/Icons`. Se muestran según el perfil: Documentación, solo para Administrador y Encargado (Personal de Taller no entra, ni a la pantalla ni a las alertas del Dashboard).
 - El ítem actual lleva `.is-active`.
+- En `.layout-sidebar-footer`, el usuario (avatar, nombre y perfil) es un botón `.layout-user` que abre su menú (`aria-expanded`, `aria-controls="layout-menu-usuario"`), con un chevron que mira hacia arriba cuando está abierto. El menú, `#layout-menu-usuario.layout-user-menu`, va arriba del pie con ítems `.layout-nav-link` (ícono de 20px): "Cambiar mi contraseña". "Cerrar sesión" sigue siendo el botón aparte, a la derecha. Navegar cierra el menú.
 
 ## Reglas
 - 232px de ancho, `color-surface`, borde derecho `color-border`, padding `space-6` × `space-4`.

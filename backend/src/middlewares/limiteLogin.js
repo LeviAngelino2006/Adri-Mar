@@ -30,11 +30,17 @@ function claveDeUsuario(nombreUsuario) {
   return typeof nombreUsuario === 'string' ? nombreUsuario.trim().toLowerCase() : '';
 }
 
+// `claveDe` y `esFallo` permiten usar el mismo límite en otra ruta: el cambio de
+// la propia contraseña (authRoutes) cuenta por cuenta de la sesión y toma como
+// fallo una contraseña actual incorrecta.
 function crearLimiteLogin({
   ahora = Date.now,
   ventanaMs = VENTANA_MS,
   maxPorUsuario = MAX_FALLOS_POR_USUARIO,
   maxPorIp = MAX_FALLOS_POR_IP,
+  claveDe = (req) => claveDeUsuario(req.body?.nombreUsuario),
+  esFallo = (res) => res.statusCode === 401,
+  etiqueta = 'login',
 } = {}) {
   // clave → instantes de los fallos dentro de la ventana, del más viejo al más nuevo.
   const fallosPorUsuario = new Map();
@@ -60,7 +66,7 @@ function crearLimiteLogin({
   }
 
   function middleware(req, res, next) {
-    const usuario = claveDeUsuario(req.body?.nombreUsuario);
+    const usuario = claveDe(req);
     const ip = req.ip;
 
     const porUsuario = vigentes(fallosPorUsuario, usuario);
@@ -68,13 +74,13 @@ function crearLimiteLogin({
     const llenas = [porUsuario.length >= maxPorUsuario && porUsuario, porIp.length >= maxPorIp && porIp].filter(Boolean);
     if (llenas.length > 0) {
       // Para el log de Render: deja ver qué IP ve el backend (ver trust proxy).
-      console.warn(`[login] 429 ip=${ip} usuario=${JSON.stringify(usuario)} fallos usuario=${porUsuario.length} ip=${porIp.length}`);
+      console.warn(`[${etiqueta}] 429 ip=${ip} usuario=${JSON.stringify(usuario)} fallos usuario=${porUsuario.length} ip=${porIp.length}`);
       res.setHeader('Retry-After', String(Math.max(...llenas.map(segundosHastaLiberar))));
       return res.status(429).json({ error: MENSAJE_DEMASIADOS_INTENTOS });
     }
 
     res.on('finish', () => {
-      if (res.statusCode === 401) {
+      if (esFallo(res)) {
         registrar(fallosPorUsuario, usuario);
         registrar(fallosPorIp, ip);
       } else if (res.statusCode === 200) {
@@ -100,12 +106,21 @@ function crearLimiteLogin({
   return { middleware, limpiar, reiniciar, tamanio: () => fallosPorUsuario.size + fallosPorIp.size };
 }
 
-// La instancia de la app. La limpieza corre cada 5 minutos sin retener el proceso.
+// Las instancias de la app. La limpieza corre cada 5 minutos sin retener el proceso.
 const limiteLogin = crearLimiteLogin();
-setInterval(limiteLogin.limpiar, 5 * 60 * 1000).unref();
+// PUT /auth/contrasena (H11): quien tiene una sesión abierta ajena no puede
+// probar contraseñas actuales sin fin. Va después de autenticar (req.usuario).
+// El controller marca res.locals.contrasenaActualIncorrecta.
+const limiteCambioContrasena = crearLimiteLogin({
+  claveDe: (req) => `cuenta:${req.usuario?.id}`,
+  esFallo: (res) => res.locals.contrasenaActualIncorrecta === true,
+  etiqueta: 'cambio de contraseña',
+});
+for (const limite of [limiteLogin, limiteCambioContrasena]) setInterval(limite.limpiar, 5 * 60 * 1000).unref();
 
 module.exports = {
   limiteLogin,
+  limiteCambioContrasena,
   crearLimiteLogin,
   MENSAJE_DEMASIADOS_INTENTOS,
   VENTANA_MS,

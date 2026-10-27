@@ -63,6 +63,10 @@ model Usuario {
   estadoUsuario             EstadoUsuario            @relation(fields: [estadoUsuarioId], references: [id])
   personaId                 Int                      @unique @map("persona_id")
   persona                   Persona                  @relation(fields: [personaId], references: [id])
+  // true = la contraseña la definió un gestor (al crear la cuenta o al
+  // cambiársela): es provisoria. Hasta que la cambie, la cuenta solo puede
+  // pedir /auth/me y cambiar su contraseña (middlewares/auth.js).
+  debeCambiarContrasena     Boolean                  @default(false) @map("debe_cambiar_contrasena")
   creadoEn                  DateTime                 @default(now()) @map("creado_en")
   lecturasOdometro          LecturaOdometro[]
   documentosRegistrados     Documento[]              @relation("DocumentosRegistradosPor")

@@ -18,6 +18,7 @@ async function buscarSesion(payload) {
     SELECT u.id,
            u.nombre_usuario           AS "nombreUsuario",
            u.persona_id               AS "personaId",
+           u.debe_cambiar_contrasena  AS "debeCambiarContrasena",
            e.descripcion              AS "estadoCuenta",
            p.activo                   AS "personaActiva",
            p.habilitado_para_conducir AS "habilitadoParaConducir",
@@ -37,6 +38,8 @@ async function buscarSesion(payload) {
     nombreUsuario: fila.nombreUsuario,
     perfil: fila.perfil,
     habilitadoParaConducir: fila.habilitadoParaConducir,
+    // Contraseña provisoria: autenticar deja pasar solo /auth/me y el cambio.
+    debeCambiarContrasena: fila.debeCambiarContrasena === true,
   };
 }
 

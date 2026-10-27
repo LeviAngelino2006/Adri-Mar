@@ -1,7 +1,9 @@
 // Doble de Prisma CON ESTADO para los tests de seguridad de Personal y Usuarios
 // (cuentas.test.js): personas y cuentas en memoria, un $transaction con rollback
 // real y el registro de los advisory locks ($executeRaw). Cubre lo que usan
-// personaService, usuarioService y authService. NO toca la base ni lee el .env.
+// personaService, usuarioService, authService y la consulta de sesionService
+// ($queryRaw), más los viajes y candidaturas de quien maneja. NO toca la base ni
+// lee el .env.
 //
 //   const { crearCuentas } = require('./helpers/prismaFalsoCuentas');
 //   const { prisma, db, sembrar } = crearCuentas();
@@ -32,6 +34,12 @@ function crearCuentas() {
   const db = {
     personas: [],
     usuarios: [],
+    // Viajes en los que alguien es chofer: { id, estado, choferId, fechaInicio,
+    // origen, destino } (origen y destino, el nombre de la ubicación). Los
+    // carga cada test; sembrar() los vacía.
+    viajes: [],
+    // Candidaturas de los viajes A confirmar: { viajeId, personaId }.
+    candidatos: [],
     // Cada $executeRaw (el advisory lock de administradoresActivos).
     locks: [],
     siguienteId: 100,
@@ -67,6 +75,7 @@ function crearCuentas() {
       nombreUsuario,
       contrasenaHash: 'hash-de-prueba',
       estadoUsuarioId: ESTADOS_USUARIO.find((e) => e.descripcion === estado).id,
+      debeCambiarContrasena: false,
       creadoEn: new Date('2026-03-02T12:00:00Z'),
     });
     db.usuarios.splice(0, db.usuarios.length,
@@ -77,7 +86,17 @@ function crearCuentas() {
       cuenta(10, 13, 'nvega', 'INACTIVO'),
       cuenta(11, 14, 'racosta')
     );
+    db.viajes.length = 0;
+    db.candidatos.length = 0;
     db.locks.length = 0;
+  }
+
+  // Lo que entiende de los `where` de viaje: choferId y estadoViaje.descripcion.
+  function cumpleViaje(v, where = {}) {
+    if (where.choferId !== undefined && v.choferId !== where.choferId) return false;
+    const estado = where.estadoViaje?.descripcion;
+    if (estado !== undefined && v.estado !== estado) return false;
+    return true;
   }
 
   const usuarioDe = (personaId) => db.usuarios.find((u) => u.personaId === personaId) ?? null;
@@ -157,6 +176,7 @@ function crearCuentas() {
       update: async ({ where, data, include }) => {
         const p = db.personas.find((x) => x.id === where.id);
         if (!p) throw new Error('Record not found');
+        if (data.dni && db.personas.some((x) => x.id !== p.id && x.dni === data.dni)) throw errorUnico('dni');
         for (const [clave, valor] of Object.entries(data)) if (valor !== undefined) p[clave] = valor;
         return conIncludePersona(p, include);
       },
@@ -192,24 +212,76 @@ function crearCuentas() {
         return { count: filas.length };
       },
     },
-    // personaService pregunta si la persona maneja un viaje En viaje: acá nunca.
-    viaje: { findFirst: async () => null },
+    // personaService pregunta si la persona maneja un viaje En viaje y cuáles
+    // Programados tiene a su nombre (con el select de liberarComoChofer).
+    viaje: {
+      findFirst: async ({ where }) => db.viajes.find((v) => cumpleViaje(v, where)) ?? null,
+      findMany: async ({ where }) =>
+        db.viajes
+          .filter((v) => cumpleViaje(v, where))
+          .sort((a, b) => a.fechaInicio - b.fechaInicio || a.id - b.id)
+          .map((v) => ({
+            id: v.id,
+            fechaInicio: v.fechaInicio,
+            origen: v.origen ? { nombre: v.origen } : null,
+            destino: v.destino ? { nombre: v.destino } : null,
+          })),
+    },
+    // listarDisponiblesParaConducir mira la documentación vencida de cada
+    // chofer (documentoService): acá nadie tiene documentos cargados.
     documento: { findMany: async () => [] },
+    // Las candidaturas de una persona en los viajes en el estado pedido.
+    viajeChoferCandidato: {
+      deleteMany: async ({ where }) => {
+        const estado = where.viaje?.estadoViaje?.descripcion;
+        const borra = (c) =>
+          c.personaId === where.personaId &&
+          (estado === undefined || db.viajes.find((v) => v.id === c.viajeId)?.estado === estado);
+        const quedan = db.candidatos.filter((c) => !borra(c));
+        const count = db.candidatos.length - quedan.length;
+        db.candidatos.splice(0, db.candidatos.length, ...quedan);
+        return { count };
+      },
+    },
+    // La consulta de services/sesionService.js (la sesión de cada pedido, por id
+    // de cuenta), con las mismas columnas y alias. Para los tests que usan la
+    // sesión real en vez de helpers/sesionDelToken.js.
+    $queryRaw: async (partes, usuarioId) => {
+      if (!partes.join('?').includes('FROM usuarios u')) throw new Error(`$queryRaw no esperado: ${partes.join('?')}`);
+      const u = db.usuarios.find((x) => x.id === usuarioId);
+      if (!u) return [];
+      const p = db.personas.find((x) => x.id === u.personaId);
+      return [
+        {
+          id: u.id,
+          nombreUsuario: u.nombreUsuario,
+          personaId: u.personaId,
+          debeCambiarContrasena: u.debeCambiarContrasena,
+          estadoCuenta: estadoPorId(u.estadoUsuarioId).descripcion,
+          personaActiva: p.activo,
+          habilitadoParaConducir: p.habilitadoParaConducir,
+          perfil: perfilPorId(p.perfilId).descripcion,
+        },
+      ];
+    },
     $executeRaw: async (partes, ...valores) => {
       db.locks.push({ sql: partes.join('?'), valores });
       return 1;
     },
-    // Rollback real: si la función tira, personas y cuentas vuelven a como estaban.
+    // Rollback real: si la función tira, personas, cuentas y candidaturas
+    // vuelven a como estaban.
     $transaction: async (fn) => {
       const copia = {
         personas: db.personas.map((p) => ({ ...p })),
         usuarios: db.usuarios.map((u) => ({ ...u })),
+        candidatos: db.candidatos.map((c) => ({ ...c })),
       };
       try {
         return await fn(prisma);
       } catch (err) {
         db.personas.splice(0, db.personas.length, ...copia.personas);
         db.usuarios.splice(0, db.usuarios.length, ...copia.usuarios);
+        db.candidatos.splice(0, db.candidatos.length, ...copia.candidatos);
         throw err;
       }
     },

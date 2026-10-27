@@ -495,6 +495,168 @@ describe('Sesión contra la base', () => {
   });
 });
 
+// La contraseña provisoria (H11) contra la base: la columna
+// debe_cambiar_contrasena en la consulta de la sesión, el bloqueo de autenticar y
+// el cambio de la propia contraseña.
+describe('Contraseña provisoria contra la base', () => {
+  test('la cuenta que crea un gestor solo usa /auth/me y el cambio hasta cambiarla', async () => {
+    const { persona } = await esperar(
+      'POST',
+      '/personas',
+      { body: { nombre: 'Provisoria', apellido: `Integración ${SUFIJO}`, dni: `6${String(Date.now()).slice(-7)}`, perfil: 'CHOFER' } },
+      201
+    );
+    const credenciales = { nombreUsuario: `provisoria-${SUFIJO}`, contrasena: 'provisoria-de-integracion' };
+    const { usuario } = await esperar('POST', '/usuarios', { body: { personaId: persona.id, ...credenciales } }, 201);
+    assert.equal(usuario.debeCambiarContrasena, true);
+
+    const login = await esperar('POST', '/auth/login', { body: credenciales, conToken: null });
+    assert.equal(login.usuario.debeCambiarContrasena, true);
+    const conToken = login.token;
+
+    const me = await pedir('GET', '/auth/me', { conToken });
+    assert.equal(me.status, 200);
+    assert.equal(me.json.usuario.debeCambiarContrasena, true);
+    const bloqueado = await pedir('GET', '/viajes/mis-viajes', { conToken });
+    assert.equal(bloqueado.status, 403);
+    assert.equal(bloqueado.json.codigo, 'DEBE_CAMBIAR_CONTRASENA');
+
+    const incorrecta = await pedir('PUT', '/auth/contrasena', {
+      conToken,
+      body: { contrasenaActual: 'no-es-esta', contrasenaNueva: 'definitiva-de-integracion' },
+    });
+    assert.equal(incorrecta.status, 400);
+    const cambio = await pedir('PUT', '/auth/contrasena', {
+      conToken,
+      body: { contrasenaActual: credenciales.contrasena, contrasenaNueva: 'definitiva-de-integracion' },
+    });
+    assert.equal(cambio.status, 200, JSON.stringify(cambio.json));
+    assert.equal(cambio.json.usuario.debeCambiarContrasena, false);
+
+    assert.equal((await pedir('GET', '/viajes/mis-viajes', { conToken })).status, 200);
+    const enLaBase = await prisma.usuario.findUnique({ where: { id: usuario.id } });
+    assert.equal(enLaBase.debeCambiarContrasena, false);
+  });
+});
+
+// Dar de baja o deshabilitar a quien maneja (personaService.liberarComoChofer):
+// la búsqueda de sus Programados, con origen y destino, y el borrado de sus
+// candidaturas filtrado por el estado del viaje, contra el schema real.
+describe('Bajas con viajes contra la base', () => {
+  async function choferNuevo(n) {
+    const { persona } = await esperar(
+      'POST',
+      '/personas',
+      { body: { nombre: 'Baja', apellido: `${n} ${SUFIJO}`, dni: `${n}${String(Date.now()).slice(-7)}`, perfil: 'CHOFER' } },
+      201
+    );
+    return persona;
+  }
+  const estado = async (descripcion) => (await prisma.estadoViaje.findUnique({ where: { descripcion } })).id;
+
+  test('con un Programado: 409 con el viaje; con solo candidaturas: pasa y las borra', async () => {
+    const conViaje = await choferNuevo(3);
+    const viaje = await prisma.viaje.create({
+      data: {
+        estadoViajeId: await estado('PROGRAMADO'),
+        choferId: conViaje.id,
+        vehiculoId: ids.vehiculo,
+        fechaInicio: new Date(`${diaCordoba(40)}T08:00:00-03:00`),
+        fechaFin: new Date(`${diaCordoba(40)}T18:00:00-03:00`),
+        clienteId: ids.cliente,
+        origenId: ids.origen,
+        destinoId: ids.destino,
+      },
+    });
+    const bloqueada = await pedir('PATCH', `/personas/${conViaje.id}/baja`);
+    assert.equal(bloqueada.status, 409, JSON.stringify(bloqueada.json));
+    assert.deepEqual(bloqueada.json.viajes, [
+      { id: viaje.id, fecha: viaje.fechaInicio.toISOString(), origen: `Origen ${SUFIJO}`, destino: `Destino ${SUFIJO}` },
+    ]);
+    const deshabilitar = await pedir('PUT', `/personas/${conViaje.id}`, {
+      body: { ...conViaje, perfil: 'ENCARGADO', habilitadoParaConducir: false },
+    });
+    assert.equal(deshabilitar.status, 409, JSON.stringify(deshabilitar.json));
+
+    const candidato = await choferNuevo(4);
+    const aConfirmar = await prisma.viaje.create({
+      data: {
+        estadoViajeId: await estado('A_CONFIRMAR'),
+        fechaInicio: new Date(`${diaCordoba(41)}T08:00:00-03:00`),
+        origenId: ids.origen,
+        destinoId: ids.destino,
+        choferesCandidatos: { create: [{ personaId: candidato.id }, { personaId: ids.chofer }] },
+      },
+    });
+    const baja = await esperar('PATCH', `/personas/${candidato.id}/baja`);
+    assert.equal(baja.candidaturasQuitadas, 1);
+    const quedan = await prisma.viajeChoferCandidato.findMany({ where: { viajeId: aConfirmar.id } });
+    assert.deepEqual(quedan.map((c) => c.personaId), [ids.chofer]);
+  });
+});
+
+// La migración de datos 20261027120000 (perfil Chofer → habilitado para
+// conducir), corrida otra vez sobre personas cargadas como antes de la regla. En
+// el deploy corre una vez, antes de que haya personas en una base nueva: acá se
+// prueba con datos. Es idempotente, así que repetirla no cambia nada más.
+describe('Migración: el perfil Chofer queda habilitado para conducir', () => {
+  test('habilita a los Choferes sin habilitar, activos o no, y no toca a los demás perfiles', async () => {
+    const fs = require('node:fs');
+    const sql = fs.readFileSync(
+      path.join(BACKEND, 'prisma', 'migrations', '20261027120000_perfil_chofer_habilitado_para_conducir', 'migration.sql'),
+      'utf8'
+    );
+    const perfil = async (descripcion) => (await prisma.perfil.findUnique({ where: { descripcion } })).id;
+    // Directo con Prisma: el alta de personaService ya no deja crearlos así.
+    const crear = (n, perfilId, extra = {}) =>
+      prisma.persona.create({
+        data: { nombre: 'Migración', apellido: `${n} ${SUFIJO}`, dni: `M${n}-${SUFIJO}`, perfilId, habilitadoParaConducir: false, ...extra },
+      });
+    const choferSinHabilitar = await crear(1, await perfil('CHOFER'));
+    const choferDadoDeBaja = await crear(2, await perfil('CHOFER'), { activo: false, fechaBaja: new Date() });
+    const encargado = await crear(3, await perfil('ENCARGADO'));
+    const tallerQueManeja = await crear(4, await perfil('PERSONAL_TALLER'), { habilitadoParaConducir: true });
+
+    const actualizadas = await prisma.$executeRawUnsafe(sql);
+
+    const habilitado = async (p) => (await prisma.persona.findUnique({ where: { id: p.id } })).habilitadoParaConducir;
+    assert.equal(await habilitado(choferSinHabilitar), true);
+    assert.equal(await habilitado(choferDadoDeBaja), true);
+    assert.equal(await habilitado(encargado), false);
+    assert.equal(await habilitado(tallerQueManeja), true);
+    assert.equal(actualizadas, 2, 'solo las dos con perfil Chofer');
+    // Y ahora el Chofer aparece entre los choferes para asignar.
+    const { personas } = await esperar('GET', '/personas/disponibles-chofer');
+    assert.ok(personas.some((p) => p.id === choferSinHabilitar.id));
+
+    assert.equal(await prisma.$executeRawUnsafe(sql), 0, 'repetirla no cambia nada');
+  });
+});
+
+// Dar de baja, reactivar a la persona y después la cuenta, y volver a entrar.
+describe('Reactivar contra la base', () => {
+  test('la persona vuelve sin la cuenta; con la cuenta reactivada, inicia sesión', async () => {
+    const { persona } = await esperar(
+      'POST',
+      '/personas',
+      { body: { nombre: 'Reingreso', apellido: `Integración ${SUFIJO}`, dni: `5${String(Date.now()).slice(-7)}`, perfil: 'PERSONAL_TALLER' } },
+      201
+    );
+    const credenciales = { nombreUsuario: `reingreso-${SUFIJO}`, contrasena: 'clave-de-integracion' };
+    const { usuario } = await esperar('POST', '/usuarios', { body: { personaId: persona.id, ...credenciales } }, 201);
+    await esperar('PATCH', `/personas/${persona.id}/baja`);
+
+    const reactivada = await esperar('PATCH', `/personas/${persona.id}/reactivar`);
+    assert.equal(reactivada.persona.activo, true);
+    assert.equal(reactivada.persona.fechaBaja, null);
+    assert.equal(reactivada.persona.usuario.activo, false, 'la cuenta no se reactiva sola');
+    assert.equal((await pedir('POST', '/auth/login', { body: credenciales, conToken: null })).status, 401);
+
+    await esperar('PATCH', `/usuarios/${usuario.id}/reactivar`);
+    assert.equal((await pedir('POST', '/auth/login', { body: credenciales, conToken: null })).status, 200);
+  });
+});
+
 // Siempre queda un Administrador activo, también cuando dos cambios llegan a la
 // vez: el chequeo y el cambio van en la misma transacción, con un advisory lock
 // de Postgres (utils/administradoresActivos.js). Sin el lock, cada transacción

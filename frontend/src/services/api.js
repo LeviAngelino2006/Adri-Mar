@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { getToken, getUsuario, actualizarToken, limpiarSesion } from './authStorage';
-import { payloadDelToken, cambioLaSesion } from '../utils/sesion';
+import { payloadDelToken, cambioLaSesion, CODIGO_DEBE_CAMBIAR_CONTRASENA } from '../utils/sesion';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
@@ -38,6 +38,11 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && getToken()) {
       limpiarSesion();
       window.dispatchEvent(new Event('adrimar:sesion-expirada'));
+    }
+    // Un gestor le definió una contraseña provisoria (también con la sesión ya
+    // abierta): AuthContext lo marca y las rutas llevan a "Cambiar contraseña".
+    if (error.response?.status === 403 && error.response.data?.codigo === CODIGO_DEBE_CAMBIAR_CONTRASENA) {
+      window.dispatchEvent(new Event('adrimar:debe-cambiar-contrasena'));
     }
     return Promise.reject(error);
   }

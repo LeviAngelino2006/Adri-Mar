@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const prisma = require('./prismaClient');
 const { generarToken } = require('./tokenService');
+const { validarContrasena, SALT_ROUNDS, ValidacionError } = require('./usuarioService');
 
 class CredencialesInvalidasError extends Error {}
 
@@ -44,6 +45,8 @@ function usuarioDeSesion(usuario) {
     nombreUsuario: usuario.nombreUsuario,
     perfil: usuario.persona.perfil.descripcion,
     habilitadoParaConducir: usuario.persona.habilitadoParaConducir,
+    // Con true, el front lleva a "Cambiar contraseña" y no deja ir a otro lado.
+    debeCambiarContrasena: Boolean(usuario.debeCambiarContrasena),
   };
 }
 
@@ -58,4 +61,50 @@ async function usuarioActual(id) {
   return usuario ? usuarioDeSesion(usuario) : null;
 }
 
-module.exports = { login, usuarioActual, CredencialesInvalidasError };
+// Cambiar la propia contraseña (H11), para todos los perfiles: pide la actual y
+// la nueva, con las mismas reglas que el alta. Deja la contraseña como definitiva
+// (debeCambiarContrasena=false). `intentoFallido` del error marca que la actual
+// no era la correcta: lo cuenta el límite de intentos de la ruta.
+async function cambiarContrasenaPropia(usuarioId, { contrasenaActual, contrasenaNueva }) {
+  const errores = {};
+  if (typeof contrasenaActual !== 'string' || contrasenaActual === '') {
+    errores.contrasenaActual = 'Ingresá tu contraseña actual';
+  }
+  if (contrasenaNueva === undefined || contrasenaNueva === '') {
+    errores.contrasenaNueva = 'La contraseña nueva es obligatoria';
+  } else {
+    const error = validarContrasena(contrasenaNueva);
+    if (error) errores.contrasenaNueva = error;
+  }
+
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: usuarioId },
+    include: { persona: { include: { perfil: true } } },
+  });
+  // autenticar ya verificó que la cuenta existe y está activa.
+  if (!usuario) throw new Error(`La cuenta ${usuarioId} de la sesión no existe`);
+
+  let intentoFallido = false;
+  if (!errores.contrasenaActual) {
+    intentoFallido = !(await bcrypt.compare(contrasenaActual, usuario.contrasenaHash));
+    if (intentoFallido) {
+      errores.contrasenaActual = 'La contraseña actual no es correcta';
+    } else if (!errores.contrasenaNueva && contrasenaNueva === contrasenaActual) {
+      errores.contrasenaNueva = 'Tiene que ser distinta de la actual';
+    }
+  }
+  if (Object.keys(errores).length > 0) {
+    const err = new ValidacionError(errores);
+    err.intentoFallido = intentoFallido;
+    throw err;
+  }
+
+  const actualizado = await prisma.usuario.update({
+    where: { id: usuario.id },
+    data: { contrasenaHash: await bcrypt.hash(contrasenaNueva, SALT_ROUNDS), debeCambiarContrasena: false },
+    include: { persona: { include: { perfil: true } } },
+  });
+  return usuarioDeSesion(actualizado);
+}
+
+module.exports = { login, usuarioActual, cambiarContrasenaPropia, CredencialesInvalidasError, ValidacionError };

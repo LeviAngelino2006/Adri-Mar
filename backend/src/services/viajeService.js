@@ -1193,7 +1193,7 @@ function rangoDelDiaCordoba(fecha) {
 
 function motivoDeChofer(chofer) {
   const problema = problemaDeChofer(chofer);
-  if (problema === PROBLEMA_CHOFER.INACTIVO) return 'Usuario dado de baja';
+  if (problema === PROBLEMA_CHOFER.INACTIVO) return 'Dado de baja';
   if (problema === PROBLEMA_CHOFER.NO_HABILITADO) return 'No habilitado para conducir';
   return null;
 }

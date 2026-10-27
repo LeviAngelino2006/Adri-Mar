@@ -19,12 +19,9 @@ class ValidacionError extends Error {
 class PermisoDenegadoError extends Error {}
 class NoEncontradoError extends Error {}
 class YaInactivoError extends Error {}
+class YaActivoError extends Error {}
 
-class PersonaDadaDeBajaError extends Error {
-  constructor() {
-    super('Reactivá primero a la persona.');
-  }
-}
+const { PersonaDadaDeBajaError } = personaService;
 
 const BLOQUEAR_PROPIA_CUENTA = 'No podés bloquear tu propia cuenta';
 const CREDENCIALES_DE_ENCARGADO = 'Solo un Administrador puede cambiar el usuario o la contraseña de un Encargado.';
@@ -63,6 +60,8 @@ function serializarUsuario(usuario) {
     perfil: p.perfil.descripcion,
     habilitadoParaConducir: p.habilitadoParaConducir,
     activo: usuario.estadoUsuario?.descripcion === 'ACTIVO',
+    // La contraseña actual la puso un gestor y todavía no la cambió su dueño.
+    debeCambiarContrasena: Boolean(usuario.debeCambiarContrasena),
     creadoEn: usuario.creadoEn,
     persona: {
       id: p.id,
@@ -197,6 +196,8 @@ async function crearUsuario(
         nombreUsuario: creds.nombreUsuario,
         contrasenaHash,
         estadoUsuarioId: estadoActivo.id,
+        // La eligió el gestor: es provisoria y se cambia al entrar (H11).
+        debeCambiarContrasena: true,
       },
       include: INCLUDE_USUARIO,
     });
@@ -237,13 +238,11 @@ async function actualizarUsuario(
   if (activo === false && actual.personaId === personaIdSolicitante) {
     throw new personaService.AccionSobreSiMismoError(BLOQUEAR_PROPIA_CUENTA);
   }
-  // La cuenta de una persona dada de baja queda inactiva (H10): ni se activa ni
-  // se le cambian las credenciales. Antes había que reactivar a la persona.
+  // La cuenta de una persona dada de baja es de solo consulta, como la persona
+  // (H10, H12): ni se activa ni se le cambian las credenciales. Primero hay que
+  // reactivar a la persona.
   if (!actual.persona.activo) {
-    const cambiaNombreUsuario = nombreUsuario !== undefined && String(nombreUsuario).trim() !== actual.nombreUsuario;
-    if (activo === true || cambiaNombreUsuario || contrasena !== undefined) {
-      throw new PersonaDadaDeBajaError();
-    }
+    throw new PersonaDadaDeBajaError();
   }
 
   const creds = validarCredenciales({ nombreUsuario, contrasena }, { requireContrasena: false });
@@ -252,9 +251,12 @@ async function actualizarUsuario(
     nombreUsuario: creds.nombreUsuario,
   };
 
-  // Ya validada: si vino, se cambia.
+  // Ya validada: si vino, se cambia. Si se la cambia un gestor a otra persona,
+  // es provisoria (H11): la sabe quien la escribió, así que su dueño la tiene
+  // que cambiar en su próximo pedido. La propia, no.
   if (contrasena !== undefined) {
     data.contrasenaHash = await bcrypt.hash(contrasena, SALT_ROUNDS);
+    data.debeCambiarContrasena = actual.personaId !== personaIdSolicitante;
   }
 
   if (typeof activo === 'boolean') {
@@ -314,6 +316,32 @@ async function darDeBajaUsuario(id, { perfilSolicitante, personaIdSolicitante } 
   return serializarUsuario(usuario);
 }
 
+// Desbloquear una cuenta (H9): la contracara de darDeBajaUsuario. Solo si la
+// persona está activa; si se dio de baja, primero se la reactiva
+// (personaService.reactivarPersona), que a propósito no toca la cuenta. Hace lo
+// mismo que PUT /usuarios/:id { activo: true }, con su propio endpoint.
+async function reactivarUsuario(id, { perfilSolicitante } = {}) {
+  const actual = await obtenerUsuario(id);
+
+  if (perfilSolicitante === 'ENCARGADO' && actual.persona.perfil.descripcion === 'ADMINISTRADOR') {
+    throw new PermisoDenegadoError();
+  }
+  if (!actual.persona.activo) {
+    throw new PersonaDadaDeBajaError();
+  }
+  if (actual.estadoUsuario.descripcion === 'ACTIVO') {
+    throw new YaActivoError();
+  }
+
+  const estadoActivo = await obtenerEstadoUsuarioPorDescripcion('ACTIVO');
+  const usuario = await prisma.usuario.update({
+    where: { id: actual.id },
+    data: { estadoUsuarioId: estadoActivo.id },
+    include: INCLUDE_USUARIO,
+  });
+  return serializarUsuario(usuario);
+}
+
 const ORDEN_PERFILES = ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER', 'CHOFER'];
 
 async function listarUsuarios({ busqueda } = {}, { perfilSolicitante } = {}) {
@@ -356,13 +384,17 @@ module.exports = {
   listarUsuarios,
   actualizarUsuario,
   darDeBajaUsuario,
+  reactivarUsuario,
   obtenerUsuario,
   consultarUsuario,
   listarDisponiblesParaConducir,
   serializarUsuario,
+  validarContrasena,
+  SALT_ROUNDS,
   ValidacionError,
   NoEncontradoError,
   YaInactivoError,
+  YaActivoError,
   PermisoDenegadoError,
   UltimoAdministradorError,
   AccionSobreSiMismoError: personaService.AccionSobreSiMismoError,
