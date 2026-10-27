@@ -1,4 +1,5 @@
 const prisma = require('./prismaClient');
+const documentoService = require('./documentoService');
 const {
   UltimoAdministradorError,
   esAdministradorActivo,
@@ -446,11 +447,37 @@ async function listarPersonas(
 // Personal, no se puede ocultar a los Administradores para un Encargado: en
 // cambio, solo viaja lo que hace falta para elegir al chofer (nada de DNI,
 // email, teléfono ni cuenta).
+// Incluye validación de documentación: si tiene al menos un documento vencido,
+// disponible: false y motivo detallado (ej. "Documentación vencida (Licencia de conducir)").
 async function listarDisponiblesParaConducir() {
-  return prisma.persona.findMany({
+  const personas = await prisma.persona.findMany({
     where: { habilitadoParaConducir: true, activo: true },
     select: { id: true, nombre: true, apellido: true },
     orderBy: [{ nombre: 'asc' }, { apellido: 'asc' }],
+  });
+
+  const ids = personas.map((p) => p.id);
+  const estadoDocs = await documentoService.evaluarDocumentacionTitulares({
+    categoria: 'CHOFER',
+    ids,
+  });
+
+  return personas.map((p) => {
+    const estado = estadoDocs[p.id];
+    if (estado?.tieneVencidos) {
+      return {
+        id: p.id,
+        nombre: p.nombre,
+        apellido: p.apellido,
+        disponible: false,
+        motivo: estado.motivo,
+      };
+    }
+    return {
+      id: p.id,
+      nombre: p.nombre,
+      apellido: p.apellido,
+    };
   });
 }
 

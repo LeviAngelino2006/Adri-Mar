@@ -371,22 +371,12 @@ function Personal() {
           </button>
 
           <div className="personal-detalle-header">
-            <div>
-              <h1>
-                {seleccionado.nombre} {seleccionado.apellido}
-              </h1>
-              <p className="personal-subtitulo">{perfilLabel(seleccionado.perfil)}</p>
-            </div>
-            <div className="personal-badges-header">
-              {seleccionado.habilitadoParaConducir && (
-                <span className="personal-badge-conduce grande">
-                  🚗 Habilitado para conducir
-                </span>
-              )}
-              <EstadoBadge tono={seleccionado.activo ? 'success' : 'neutral'}>
-                {seleccionado.activo ? 'Activo' : 'Baja'}
-              </EstadoBadge>
-            </div>
+            <h1>
+              {seleccionado.nombre} {seleccionado.apellido}
+            </h1>
+            <EstadoBadge tono={seleccionado.activo ? 'success' : 'neutral'}>
+              {seleccionado.activo ? 'Activo' : 'Baja'}
+            </EstadoBadge>
           </div>
 
           <Card className="detalle-card personal-detalle" role="region" aria-label="Ficha de personal">
@@ -412,77 +402,60 @@ function Personal() {
                 <dd>{seleccionado.habilitadoParaConducir ? 'Sí' : 'No'}</dd>
               </div>
               <div className="detalle-item">
-                <dt>Fecha de registro</dt>
+                <dt>Cuenta de acceso</dt>
+                <dd>
+                  {seleccionado.usuario
+                    ? `@${seleccionado.usuario.nombreUsuario} · ${seleccionado.usuario.activo ? 'activa' : 'inactiva'}`
+                    : 'Sin acceso al sistema'}
+                </dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Registrado el</dt>
                 <dd>{formatearFechaCorta(seleccionado.creadoEn)}</dd>
               </div>
             </dl>
 
-            <div className="personal-seccion-cuenta">
-              <h3>Cuenta de acceso al sistema</h3>
-              {seleccionado.usuario ? (
-                <div className="personal-cuenta-info">
-                  <div className="personal-cuenta-datos">
-                    <span className="personal-usuario-tag">@{seleccionado.usuario.nombreUsuario}</span>
-                    <EstadoBadge tono={seleccionado.usuario.activo ? 'success' : 'neutral'} size="sm">
-                      {seleccionado.usuario.activo ? 'Cuenta activa' : 'Cuenta inactiva'}
-                    </EstadoBadge>
-                  </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => navigate(`/usuarios?id=${seleccionado.usuario.id}`)}
-                  >
-                    Administrar cuenta
-                  </Button>
-                </div>
-              ) : (
-                <div className="personal-cuenta-vacia">
-                  <p>Esta persona no tiene usuario para iniciar sesión en la plataforma.</p>
-                  {seleccionado.activo && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() =>
-                        navigate(
-                          `/usuarios?crearConPersonaId=${seleccionado.id}&nombre=${encodeURIComponent(
-                            `${seleccionado.nombre} ${seleccionado.apellido}`
-                          )}`
-                        )
-                      }
-                    >
-                      + Crear acceso al sistema
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {(seleccionado.perfil === 'CHOFER' || seleccionado.habilitadoParaConducir) && (
-              <div className="personal-seccion-documentos">
-                <h3>Documentación y licencias</h3>
-                <p>Gestione licencias de conducir y documentación habilitante de esta persona.</p>
+            <div className="detalle-acciones">
+              {(seleccionado.perfil === 'CHOFER' || seleccionado.habilitadoParaConducir) && (
                 <Button
                   variant="secondary"
-                  size="sm"
-                  onClick={() => navigate('/documentacion')}
+                  onClick={() => navigate(`/documentacion?tab=choferes&choferId=${seleccionado.id}`)}
                 >
-                  Ver legajo en Documentación →
+                  Ver documentación
                 </Button>
-              </div>
-            )}
-
-            {seleccionado.activo && (
-              <div className="detalle-acciones">
-                <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                  Editar datos
+              )}
+              {seleccionado.usuario && (
+                <Button variant="secondary" onClick={() => navigate(`/usuarios?id=${seleccionado.usuario.id}`)}>
+                  Administrar cuenta
                 </Button>
-                {!fichaPropia && (
-                  <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
-                    Dar de baja
+              )}
+              {!seleccionado.usuario && seleccionado.activo && (
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    navigate(
+                      `/usuarios?crearConPersonaId=${seleccionado.id}&nombre=${encodeURIComponent(
+                        `${seleccionado.nombre} ${seleccionado.apellido}`
+                      )}`
+                    )
+                  }
+                >
+                  Crear acceso al sistema
+                </Button>
+              )}
+              {seleccionado.activo && (
+                <>
+                  <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                    Editar datos
                   </Button>
-                )}
-              </div>
-            )}
+                  {!fichaPropia && (
+                    <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
+                      Dar de baja
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
           </Card>
         </>
       )}
@@ -498,8 +471,8 @@ function Personal() {
               Vas a dar de baja a <strong>{seleccionado.nombre} {seleccionado.apellido}</strong> (DNI{' '}
               <strong>{formatearDni(seleccionado.dni)}</strong>).
               {seleccionado.usuario && (
-                <p style={{ marginTop: '0.5rem', color: 'var(--color-danger, #ef4444)' }}>
-                  ⚠️ Esta persona tiene la cuenta de usuario <strong>@{seleccionado.usuario.nombreUsuario}</strong>, que también será desactivada.
+                <p className="personal-aviso-cuenta">
+                  Esta persona tiene la cuenta de usuario <strong>@{seleccionado.usuario.nombreUsuario}</strong>, que también será desactivada.
                 </p>
               )}
             </>

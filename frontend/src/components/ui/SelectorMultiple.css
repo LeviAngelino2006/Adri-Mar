@@ -103,10 +103,19 @@
   cursor: pointer;
 }
 
+.selector-multiple-opcion-deshabilitada {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 /* La opción activa sigue al teclado y al mouse; el :active da la respuesta al toque. */
-.selector-multiple-opcion-activa,
-.selector-multiple-opcion:active {
+.selector-multiple-opcion-activa:not(.selector-multiple-opcion-deshabilitada),
+.selector-multiple-opcion:not(.selector-multiple-opcion-deshabilitada):active {
   background-color: var(--brand-50);
+}
+
+.selector-multiple-opcion-deshabilitada:hover {
+  background-color: transparent;
 }
 
 /* Texto secundario de una opción (`detalle`): gris en la lista; en el chip
@@ -114,6 +123,11 @@
 .selector-multiple-detalle {
   font-weight: 400;
   color: var(--color-text-secondary);
+}
+
+.selector-multiple-motivo {
+  color: var(--state-warning-text);
+  font-weight: 500;
 }
 
 .selector-multiple-chip .selector-multiple-detalle {

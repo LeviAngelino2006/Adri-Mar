@@ -225,7 +225,7 @@ describe('Personal: el perfil Chofer implica estar habilitado (H17)', () => {
 describe('Usuarios: la cuenta propia', () => {
   test('no ofrece "Desactivar acceso"', async () => {
     await montar(Usuarios, '/usuarios?id=4');
-    assert.ok(contenedor.querySelector('h1')?.textContent.includes('dsosa'), 'está en la ficha de su cuenta');
+    assert.equal(contenedor.querySelector('h1')?.textContent.trim(), 'Diego Sosa', 'está en la ficha de su cuenta');
     assert.ok(!botones().includes('Desactivar acceso'));
   });
 

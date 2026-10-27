@@ -1,4 +1,3 @@
-import { listaConY } from './documentacion.js';
 import { formatearKm } from './viajeFormato.js';
 import { ordenarPorInterno } from './vehiculos.js';
 
@@ -78,14 +77,13 @@ export function textoIntervalo(item) {
   return item.plantilla ? `${tipo} · service cada ${formatearKm(item.plantilla.intervaloKm)} km` : tipo;
 }
 
-// Lo que incluye el service, en una sola oración, armada con las tareas de la
-// plantilla (TAREAS_SERVICE): "Incluye cambio de aceite, filtros de gasoil,
-// aceite y habitáculo (aire acondicionado), alineado y balanceado y revisión
-// general del motor.". Cada tarea va tal cual viene de la plantilla, con la
-// inicial en minúscula porque queda en medio de la oración.
+// Lo que incluye el service, armado con las tareas de la plantilla
+// (TAREAS_SERVICE) separadas por "+": "Incluye: Cambio de aceite + Filtros de
+// gasoil, aceite y habitáculo (aire acondicionado) + Alineado y balanceado +
+// Revisión general del motor.". Con comas y "y" se mezclaban con las de cada
+// tarea. Cada tarea va tal cual viene de la plantilla, con su mayúscula inicial.
 export function textoIncluyeService(tareas) {
-  const enMinuscula = tareas.map((tarea) => tarea.charAt(0).toLocaleLowerCase('es') + tarea.slice(1));
-  return `Incluye ${listaConY(enMinuscula)}.`;
+  return `Incluye: ${tareas.join(' + ')}.`;
 }
 
 // "12 - AE452KD · Mercedes O500", para los <option> (el texto no admite `.patente`).
@@ -96,7 +94,7 @@ export function etiquetaVehiculo(vehiculo) {
 // Línea principal de un registro del historial: la descripción o la observación.
 export function textoRegistro(registro) {
   if (registro.tipo === 'SERVICE') return registro.observaciones || 'Service completo';
-  // El "¿Qué trabajo?" de "Otro" no va acá: ya está en "Trabajos: …".
+  // El "¿Qué trabajo?" de "Otro" no va acá: ya está en "Trabajos realizados".
   return registro.descripcion || registro.observaciones || 'Sin descripción';
 }
 
@@ -107,23 +105,10 @@ export function nombreTipoArreglo(tipo) {
   return tipo.detalle || tipo.nombre;
 }
 
-// Datos secundarios de un registro que no entraron en la línea principal.
-// Primero la lista de tipos ("Trabajos: …"): el badge solo dice cuántos son.
-export function detalleRegistro(registro) {
-  const partes = [];
-  const tipos = registro.tiposArreglo ?? [];
-  if (tipos.length > 0) partes.push(`Trabajos: ${tipos.map(nombreTipoArreglo).join(', ')}`);
-  if (registro.repuestos) partes.push(`Repuestos: ${registro.repuestos}`);
-  if (registro.tipo === 'ARREGLO' && registro.descripcion && registro.observaciones) {
-    partes.push(`Observaciones: ${registro.observaciones}`);
-  }
-  return partes.join(' · ');
-}
-
-// "57.345 km · Hizo: Taller Gómez".
-export function pieRegistro(registro) {
-  const km = `${formatearKm(registro.kilometraje)} km`;
-  return registro.responsable ? `${km} · Hizo: ${registro.responsable}` : km;
+// Los trabajos de un arreglo, en el orden del catálogo: "Engrase, Frenos,
+// Cambio de espejo". Va en el title del badge y en el detalle del registro.
+export function textoTrabajos(registro) {
+  return (registro.tiposArreglo ?? []).map(nombreTipoArreglo).join(', ');
 }
 
 const largo = (texto) => [...String(texto ?? '')].length;
@@ -159,7 +144,7 @@ export function validarRegistroMantenimiento(
     errores.kilometraje = `Cargá un kilometraje válido: no puede ser menor al odómetro actual (${formatearKm(kmMinimo)} km). Si es un arreglo anterior, marcalo abajo.`;
   }
 
-  const textos = esArreglo ? ['descripcion', 'repuestos', 'observaciones'] : ['observaciones'];
+  const textos = esArreglo ? ['descripcion', 'repuestos'] : ['observaciones'];
   for (const campo of textos) {
     if (largo(form[campo]) > maxTexto) errores[campo] = `Hasta ${maxTexto} caracteres`;
   }

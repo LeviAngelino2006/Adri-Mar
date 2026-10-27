@@ -25,7 +25,12 @@ const OPCION_OTRO = 'otro';
 // (string, por ser el value de un radio) o 'otro'.
 function SeleccionCandidato({ id, etiqueta, placeholder, candidatos, otros, estados, valor, onChange, error }) {
   const estadoDe = (itemId) => estados?.[itemId];
-  const noDisponible = (itemId) => estadoDe(itemId)?.disponible === false;
+  const motivoDe = (item) => estadoDe(item?.id)?.motivo || item?.motivo;
+  const noDisponible = (item) => {
+    const estado = estadoDe(item?.id);
+    if (estado !== undefined && estado !== null) return estado.disponible === false;
+    return item?.disponible === false;
+  };
 
   const hayCandidatos = candidatos.length > 0;
   const mostrarSelect = !hayCandidatos || valor.opcion === OPCION_OTRO;
@@ -34,11 +39,15 @@ function SeleccionCandidato({ id, etiqueta, placeholder, candidatos, otros, esta
     <FormField id={`${id}-otro`} label={hayCandidatos ? `${etiqueta} (otro)` : etiqueta} error={hayCandidatos ? undefined : error}>
       <select value={valor.otroId} onChange={(e) => onChange({ opcion: OPCION_OTRO, otroId: e.target.value })}>
         <OpcionVacia obligatorio>{placeholder}</OpcionVacia>
-        {otros.map((o) => (
-          <option key={o.id} value={o.id} disabled={noDisponible(o.id)}>
-            {noDisponible(o.id) ? `${o.etiqueta} — ${estadoDe(o.id).motivo}` : o.etiqueta}
-          </option>
-        ))}
+        {otros.map((o) => {
+          const deshabilitado = noDisponible(o);
+          const motivo = motivoDe(o);
+          return (
+            <option key={o.id} value={o.id} disabled={deshabilitado}>
+              {deshabilitado ? `${o.etiqueta} — ${motivo}` : o.etiqueta}
+            </option>
+          );
+        })}
       </select>
     </FormField>
   );
@@ -50,7 +59,8 @@ function SeleccionCandidato({ id, etiqueta, placeholder, candidatos, otros, esta
       <legend>{etiqueta}</legend>
 
       {candidatos.map((c) => {
-        const deshabilitado = noDisponible(c.id);
+        const deshabilitado = noDisponible(c);
+        const motivo = motivoDe(c);
         return (
           <label
             key={c.id}
@@ -65,7 +75,7 @@ function SeleccionCandidato({ id, etiqueta, placeholder, candidatos, otros, esta
               onChange={() => onChange({ opcion: String(c.id), otroId: '' })}
             />
             <span className="seleccion-candidato-nombre">{c.etiqueta}</span>
-            {deshabilitado && <span className="seleccion-candidato-motivo">{estadoDe(c.id).motivo}</span>}
+            {deshabilitado && <span className="seleccion-candidato-motivo">{motivo}</span>}
           </label>
         );
       })}

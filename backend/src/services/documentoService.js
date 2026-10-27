@@ -677,6 +677,120 @@ async function obtenerAlertasVencimiento() {
   };
 }
 
+// --- Vigencia para viajes y disponibilidades --------------------------------
+
+const NOMBRES_TIPO_DOCUMENTO = {
+  POLIZA_SEGURO: 'Póliza de seguro',
+  CERT_COBERTURA: 'Certificado de cobertura',
+  PAGO_SEGURO: 'Comprobante de pago de seguro',
+  ITV: 'ITV',
+  MATAFUEGOS: 'Control de Matafuegos',
+  TITULO_VEHICULO: 'Título del automotor',
+  CEDULA_IDENTIFICACION: 'Cédula de identificación',
+  ALTA_TRANSPORTE: 'Certificado de alta de transporte',
+  LICENCIA_CONDUCIR: 'Licencia de conducir',
+  DNI_CHOFER: 'DNI',
+};
+
+function etiquetaTipo(tipo) {
+  if (!tipo) return 'Documento';
+  return NOMBRES_TIPO_DOCUMENTO[tipo.descripcion] || tipo.descripcion;
+}
+
+/**
+ * Evalúa si uno o más titulares tienen documentación vencida en base a la
+ * versión más reciente de cada tipo de documento (regla de última versión).
+ * No considera vencidos los documentos con fechaVencimiento = null ni los
+ * tipos de documento que no tengan ninguna versión cargada.
+ */
+async function evaluarDocumentacionTitulares({
+  categoria,
+  id,
+  ids,
+  fechaReferencia,
+  fechaInicio,
+  fechaFin,
+}) {
+  descriptorDe(categoria);
+  const campo = categoria === 'VEHICULO' ? 'vehiculoId' : 'choferId';
+  const listaIds =
+    id != null
+      ? [parsearId(id, 'El identificador del titular no es válido.')]
+      : (ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+
+  const ahora = new Date();
+  let ref = fechaReferencia
+    ? (fechaReferencia instanceof Date ? fechaReferencia : new Date(fechaReferencia))
+    : null;
+  if (!ref || isNaN(ref.getTime())) {
+    const fechaViaje = fechaFin || fechaInicio;
+    if (fechaViaje) {
+      const d = fechaViaje instanceof Date ? fechaViaje : new Date(fechaViaje);
+      ref = !isNaN(d.getTime()) && d > ahora ? d : ahora;
+    } else {
+      ref = ahora;
+    }
+  }
+
+  if (listaIds.length === 0) {
+    return id != null ? { tieneVencidos: false, vencidos: [], motivo: null } : {};
+  }
+
+  const vigentes = prisma.documento?.findMany
+    ? await prisma.documento.findMany({
+        where: { [campo]: { in: listaIds } },
+        distinct: [campo, 'tipoDocumentoId'],
+        orderBy: ORDEN_RECIENTE,
+        include: { tipoDocumento: true },
+      })
+    : [];
+
+  const docsPorTitular = new Map();
+  for (const tid of listaIds) {
+    docsPorTitular.set(tid, []);
+  }
+  for (const doc of vigentes) {
+    const tid = doc[campo];
+    if (docsPorTitular.has(tid)) {
+      docsPorTitular.get(tid).push(doc);
+    }
+  }
+
+  const resultados = {};
+  for (const tid of listaIds) {
+    const docs = docsPorTitular.get(tid) || [];
+    const vencidos = [];
+    for (const doc of docs) {
+      if (doc.fechaVencimiento) {
+        const dias = diasHastaVencimiento(doc.fechaVencimiento, ref);
+        if (dias !== null && dias < 0) {
+          vencidos.push(etiquetaTipo(doc.tipoDocumento));
+        }
+      }
+    }
+    const tieneVencidos = vencidos.length > 0;
+    const detalleTipos = vencidos.join(', ');
+    resultados[tid] = {
+      tieneVencidos,
+      vencidos,
+      motivo: tieneVencidos ? `Documentación vencida (${detalleTipos})` : null,
+    };
+  }
+
+  if (id != null) {
+    return resultados[listaIds[0]];
+  }
+  return resultados;
+}
+
+async function evaluarDocumentacionVehiculo(vehiculoId, opciones = {}) {
+  return evaluarDocumentacionTitulares({ categoria: 'VEHICULO', id: vehiculoId, ...opciones });
+}
+
+async function evaluarDocumentacionChofer(choferPersonaId, opciones = {}) {
+  return evaluarDocumentacionTitulares({ categoria: 'CHOFER', id: choferPersonaId, ...opciones });
+}
+
 module.exports = {
   ValidacionError,
   calcularEstadoVigencia,
@@ -689,4 +803,7 @@ module.exports = {
   eliminarDocumento,
   obtenerEstado,
   obtenerAlertasVencimiento,
+  evaluarDocumentacionTitulares,
+  evaluarDocumentacionVehiculo,
+  evaluarDocumentacionChofer,
 };

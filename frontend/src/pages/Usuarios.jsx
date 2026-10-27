@@ -370,74 +370,70 @@ function Usuarios() {
           </button>
 
           <div className="usuarios-detalle-header">
-            <div>
-              <h1>@{seleccionado.nombreUsuario}</h1>
-              <p style={{ margin: '0.25rem 0 0', color: 'var(--color-text-muted)' }}>
-                Cuenta asignada a <strong>{seleccionado.nombre} {seleccionado.apellido}</strong>
-              </p>
-            </div>
+            <h1>
+              {seleccionado.nombre} {seleccionado.apellido}
+            </h1>
             <EstadoBadge tono={seleccionado.activo ? 'success' : 'neutral'}>
-              {seleccionado.activo ? 'Cuenta activa' : 'Cuenta inactiva'}
+              {seleccionado.activo ? 'Activo' : 'Inactivo'}
             </EstadoBadge>
           </div>
 
-          <Card className="detalle-card usuarios-detalle" role="region" aria-label="Ficha de la cuenta">
+          <Card className="detalle-card usuarios-detalle" role="region" aria-label="Ficha del usuario">
             <dl className="detalle-grid">
-              <div className="detalle-item">
-                <dt>Nombre y apellido</dt>
-                <dd>{seleccionado.nombre} {seleccionado.apellido}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Puesto / Perfil</dt>
-                <dd>{perfilLabel(seleccionado.perfil)}</dd>
-              </div>
               <div className="detalle-item">
                 <dt>DNI</dt>
                 <dd>{seleccionado.dni ? formatearDni(seleccionado.dni) : 'No registrado'}</dd>
               </div>
               <div className="detalle-item">
-                <dt>Nombre de usuario (Login)</dt>
+                <dt>Teléfono</dt>
+                <dd>{seleccionado.telefono || 'No registrado'}</dd>
+              </div>
+              <div className="detalle-item detalle-item-ancho">
+                <dt>Email</dt>
+                <dd>{seleccionado.email || 'No registrado'}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Nombre de usuario</dt>
                 <dd>@{seleccionado.nombreUsuario}</dd>
+              </div>
+              <div className="detalle-item">
+                <dt>Perfil</dt>
+                <dd>{perfilLabel(seleccionado.perfil)}</dd>
               </div>
               <div className="detalle-item">
                 <dt>Habilitado para conducir</dt>
                 <dd>{seleccionado.habilitadoParaConducir ? 'Sí' : 'No'}</dd>
               </div>
               <div className="detalle-item">
-                <dt>Cuenta creada el</dt>
+                <dt>Registrado el</dt>
                 <dd>{formatearFechaCorta(seleccionado.creadoEn)}</dd>
               </div>
             </dl>
 
-            <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div className="detalle-acciones">
               {seleccionado.personaId && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => navigate(`/personal?id=${seleccionado.personaId}`)}
-                >
-                  Ver ficha de personal completa →
+                <Button variant="secondary" onClick={() => navigate(`/personal?id=${seleccionado.personaId}`)}>
+                  Ver ficha de personal
                 </Button>
               )}
+              {seleccionado.activo && (
+                <>
+                  {/* El usuario y la contraseña de un Encargado solo los cambia un
+                      Administrador (el backend lo rechaza). */}
+                  {!(usuarioActual.perfil === 'ENCARGADO' && seleccionado.perfil === 'ENCARGADO') && (
+                    <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                      Modificar credenciales
+                    </Button>
+                  )}
+                  {/* La cuenta propia no se bloquea (el backend lo rechaza). */}
+                  {seleccionado.personaId !== usuarioActual.personaId && (
+                    <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
+                      Desactivar acceso
+                    </Button>
+                  )}
+                </>
+              )}
             </div>
-
-            {seleccionado.activo && (
-              <div className="detalle-acciones">
-                {/* El usuario y la contraseña de un Encargado solo los cambia un
-                    Administrador (el backend lo rechaza). */}
-                {!(usuarioActual.perfil === 'ENCARGADO' && seleccionado.perfil === 'ENCARGADO') && (
-                  <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                    Modificar credenciales
-                  </Button>
-                )}
-                {/* La cuenta propia no se bloquea (el backend lo rechaza). */}
-                {seleccionado.personaId !== usuarioActual.personaId && (
-                  <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
-                    Desactivar acceso
-                  </Button>
-                )}
-              </div>
-            )}
           </Card>
         </>
       )}
@@ -452,8 +448,8 @@ function Usuarios() {
             <>
               Vas a desactivar el acceso del usuario <strong>@{seleccionado.nombreUsuario}</strong>.
               No podrá iniciar sesión en el sistema.
-              <p style={{ marginTop: '0.5rem', color: 'var(--color-text-muted)' }}>
-                ℹ️ La persona <strong>{seleccionado.nombre} {seleccionado.apellido}</strong> seguirá registrada en el personal de la empresa con sus datos intactos.
+              <p className="usuarios-aviso-persona">
+                La persona <strong>{seleccionado.nombre} {seleccionado.apellido}</strong> seguirá registrada en el personal de la empresa con sus datos intactos.
               </p>
             </>
           )

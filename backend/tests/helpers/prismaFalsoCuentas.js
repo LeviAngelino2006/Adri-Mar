@@ -227,6 +227,9 @@ function crearCuentas() {
             destino: v.destino ? { nombre: v.destino } : null,
           })),
     },
+    // listarDisponiblesParaConducir mira la documentación vencida de cada
+    // chofer (documentoService): acá nadie tiene documentos cargados.
+    documento: { findMany: async () => [] },
     // Las candidaturas de una persona en los viajes en el estado pedido.
     viajeChoferCandidato: {
       deleteMany: async ({ where }) => {

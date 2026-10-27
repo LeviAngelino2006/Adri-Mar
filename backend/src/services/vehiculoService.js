@@ -1,6 +1,7 @@
 const prisma = require('./prismaClient');
 const lecturaOdometroService = require('./lecturaOdometroService');
 const mantenimientoService = require('./mantenimientoService');
+const documentoService = require('./documentoService');
 const { normalizarNombre } = require('../utils/normalizarNombre');
 const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../utils/marcaModeloVehiculo');
 
@@ -258,7 +259,28 @@ async function listarVehiculos({ estado, busqueda } = {}) {
     include: INCLUDE_VEHICULO,
   });
 
-  return vehiculos.map(serializarVehiculo);
+  const serializados = vehiculos.map(serializarVehiculo);
+  const ids = serializados.map((v) => v.id);
+  const estadoDocs = await documentoService.evaluarDocumentacionTitulares({
+    categoria: 'VEHICULO',
+    ids,
+  });
+
+  return serializados.map((v) => {
+    const estado = estadoDocs[v.id];
+    if (estado?.tieneVencidos) {
+      return {
+        ...v,
+        disponible: false,
+        motivo: estado.motivo,
+      };
+    }
+    return {
+      ...v,
+      disponible: true,
+      motivo: null,
+    };
+  });
 }
 
 async function listarTiposVehiculo() {
