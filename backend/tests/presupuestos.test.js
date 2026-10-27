@@ -113,7 +113,6 @@ const prismaFalso = {
         id,
         ...campos,
         importeNeto: new Prisma.Decimal(campos.importeNeto),
-        alicuotaIva: new Prisma.Decimal(campos.alicuotaIva),
         creadoEn: new Date(Date.parse('2026-10-12T12:00:00Z') + id * 1000),
       };
       db.presupuestos.push(fila);
@@ -197,7 +196,6 @@ function payloadValido(cambios = {}) {
     horaSalida: '07:30',
     cantidadPasajeros: 40,
     importeNeto: 420000,
-    conFactura: true,
     formaPago: 'EFECTIVO / TRANSFERENCIA BANCARIA Y/O VALORES A 30 Y 60 DÍAS',
     diasValidez: 15,
     vehiculoIds: [1, 2],
@@ -258,11 +256,9 @@ describe('POST /presupuestos', () => {
     const p = json.presupuesto;
 
     assert.equal(p.importeNeto, '1234.50');
-    assert.equal(p.alicuotaIva, '10.50');
     assert.equal(p.fechaEmision, '2026-10-12');
     assert.equal(p.fechaServicio, '2026-11-05');
     assert.equal(p.horaSalida, '07:30');
-    assert.equal(p.conFactura, true);
     assert.equal(p.diasValidez, 15);
     assert.deepEqual(p.cliente, { id: 1, nombre: 'Río Tercero SA' });
     assert.deepEqual(p.origen, { id: 1, nombre: 'Río Tercero' });
@@ -270,17 +266,20 @@ describe('POST /presupuestos', () => {
     assert.deepEqual(p.creadoPor, { id: 10, nombre: 'Ana', apellido: 'Gestora' });
   });
 
-  test('la alícuota la pone el backend aunque el cliente mande otra', async () => {
-    const { json } = await pedir('POST', '/presupuestos', { body: { ...payloadValido(), alicuotaIva: 21 } });
-    assert.equal(json.presupuesto.alicuotaIva, '10.50');
+  test('ya no hay tipo de comprobante: conFactura y alicuotaIva se ignoran (un front viejo todavía puede mandarlos)', async () => {
+    const { status, json } = await crear({ conFactura: true, alicuotaIva: 21 });
+    assert.equal(status, 201);
+    assert.equal('conFactura' in db.presupuestos[0], false, 'no tiene que llegar a Prisma');
+    assert.equal('alicuotaIva' in db.presupuestos[0], false, 'no tiene que llegar a Prisma');
+    assert.equal('conFactura' in json.presupuesto, false);
+    assert.equal('alicuotaIva' in json.presupuesto, false);
   });
 
-  test('sin horaSalida queda en null (A confirmar) y sin conFactura queda con recibo', async () => {
-    const { conFactura, horaSalida, ...resto } = payloadValido();
+  test('sin horaSalida queda en null (A confirmar)', async () => {
+    const { horaSalida, ...resto } = payloadValido();
     const { status, json } = await pedir('POST', '/presupuestos', { body: resto });
     assert.equal(status, 201);
     assert.equal(json.presupuesto.horaSalida, null);
-    assert.equal(json.presupuesto.conFactura, false);
   });
 
   for (const horaSalida of ['', '   ', null]) {
@@ -393,7 +392,6 @@ describe('POST /presupuestos', () => {
     ['cantidadPasajeros', 2.5],
     ['fechaEmision', '2026-02-30'],
     ['fechaServicio', '12/11/2026'],
-    ['conFactura', 'si'],
     ['formaPago', '   '],
   ]) {
     test(`${campo} ${JSON.stringify(valor)}: 400`, async () => {
@@ -445,7 +443,7 @@ describe('snapshot de las unidades (CA9)', () => {
 describe('GET /presupuestos', () => {
   test('lista del más nuevo al más viejo, con los campos del listado', async () => {
     await crear({ clienteId: 1 });
-    await crear({ clienteId: 2, conFactura: false, importeNeto: '1234.56' });
+    await crear({ clienteId: 2, importeNeto: '1234.56' });
 
     const { status, json } = await pedir('GET', '/presupuestos');
     assert.equal(status, 200);
@@ -457,9 +455,7 @@ describe('GET /presupuestos', () => {
     assert.deepEqual(
       Object.keys(primero).sort(),
       [
-        'alicuotaIva',
         'cliente',
-        'conFactura',
         'creadoEn',
         'destino',
         'fechaEmision',
@@ -470,8 +466,6 @@ describe('GET /presupuestos', () => {
       ]
     );
     assert.equal(primero.importeNeto, '1234.56');
-    assert.equal(primero.conFactura, false);
-    assert.equal(primero.alicuotaIva, '10.50');
     assert.deepEqual(primero.origen, { id: 1, nombre: 'Río Tercero' });
     assert.deepEqual(primero.destino, { id: 2, nombre: 'Córdoba' });
   });

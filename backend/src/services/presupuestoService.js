@@ -7,10 +7,6 @@ const { SELECT_USUARIO_CON_NOMBRE, nombreDeUsuario } = require('../utils/usuario
 // Vehiculo. No se editan ni se eliminan (no hay PUT ni DELETE): para cambiar
 // algo se duplica desde el front, que crea uno nuevo.
 
-// Alícuota que se guarda en cada presupuesto nuevo. No la manda el cliente: si
-// algún día cambia, se cambia acá y los presupuestos viejos conservan la suya.
-const ALICUOTA_IVA_VIGENTE = '10.50';
-
 const DIAS_VALIDEZ_MIN = 1;
 const DIAS_VALIDEZ_MAX = 365;
 const LARGO_MAXIMO_FORMA_PAGO = 500;
@@ -158,14 +154,6 @@ function validarFormato(payload) {
     datos.importeNeto = importe;
   }
 
-  if (payload.conFactura === undefined) {
-    datos.conFactura = false;
-  } else if (typeof payload.conFactura !== 'boolean') {
-    errores.conFactura = 'Indicá si el presupuesto es con factura o con recibo';
-  } else {
-    datos.conFactura = payload.conFactura;
-  }
-
   const formaPago = typeof payload.formaPago === 'string' ? payload.formaPago.trim() : '';
   if (typeof payload.formaPago !== 'string' && !campoAusente(payload.formaPago)) {
     errores.formaPago = 'La forma de pago no es válida';
@@ -250,8 +238,8 @@ function serializarFecha(fecha) {
 }
 
 // Los Decimal de Prisma se devuelven como string con 2 decimales fijos
-// ("420000.00", "10.50"): el front los convierte de forma explícita a
-// centavos enteros (ver calcularImportes), nunca con parseFloat suelto.
+// ("420000.00"): el front los convierte de forma explícita a centavos enteros
+// (ver aCentavos en utils/importes.js), nunca con parseFloat suelto.
 function serializarDecimal(valor) {
   return valor == null ? null : valor.toFixed(2);
 }
@@ -265,8 +253,6 @@ function serializarListado(p) {
     destino: p.destino,
     fechaServicio: serializarFecha(p.fechaServicio),
     importeNeto: serializarDecimal(p.importeNeto),
-    conFactura: p.conFactura,
-    alicuotaIva: serializarDecimal(p.alicuotaIva),
     creadoEn: p.creadoEn,
   };
 }
@@ -306,7 +292,6 @@ async function crearPresupuesto(payload = {}, usuarioSolicitante) {
     const creado = await tx.presupuesto.create({
       data: {
         ...campos,
-        alicuotaIva: ALICUOTA_IVA_VIGENTE,
         creadoPorId: usuarioSolicitante.id,
         unidades: {
           create: vehiculos.map((vehiculo, indice) => ({
@@ -353,7 +338,6 @@ module.exports = {
   listarPresupuestos,
   obtenerPresupuesto,
   describirUnidad,
-  ALICUOTA_IVA_VIGENTE,
   ValidacionError,
   NoEncontradoError,
 };

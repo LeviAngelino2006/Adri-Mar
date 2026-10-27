@@ -5,15 +5,17 @@ import {
   FIRMANTES,
   TEXTO_INTRODUCCION,
 } from '../../constants/presupuesto';
-import { calcularImportes, formatearAlicuota } from '../../utils/importes';
+import { aCentavos } from '../../utils/importes';
+import { ACLARACION_IVA } from '../../utils/ivaPresupuesto';
 import { formatearPesos } from '../../utils/moneda';
 import { fechaVencimiento, formatearFechaDocumento, textoHorario } from '../../utils/presupuestos';
 import { fuenteFirma, IMAGEN_ENCABEZADO, IMAGEN_PIE, PROPORCION_ENCABEZADO, PROPORCION_PIE } from './recursos';
 
 // PDF del presupuesto, en A4, replicando el Word que se usaba. Se arma SOLO
 // con el objeto de GET /presupuestos/:id (datos guardados, incluida la
-// descripción snapshot de cada unidad y la alícuota de ese presupuesto), así
-// que generarlo y re-descargarlo da el mismo documento.
+// descripción snapshot de cada unidad), así que generarlo y re-descargarlo da
+// el mismo documento. Debajo del importe va la aclaración del IVA, el mismo
+// texto que el formulario (utils/ivaPresupuesto.js).
 //
 // Una sola familia tipográfica: Helvetica (normal y negrita), una de las 14
 // fuentes estándar de PDF. Muestra bien tildes, ñ, "$", "°" y el espacio duro
@@ -104,6 +106,12 @@ const estilos = StyleSheet.create({
     borderRightWidth: 1,
     borderColor: GRIS_BORDE,
   },
+  // Aclaración del IVA, debajo del importe (como la cláusula).
+  notaImporte: {
+    fontSize: 9.5,
+    color: GRIS_TEXTO,
+    marginTop: 2,
+  },
   clausula: {
     fontSize: 9.5,
     color: GRIS_TEXTO,
@@ -155,13 +163,13 @@ const estilos = StyleSheet.create({
   },
 });
 
-function Fila({ etiqueta, children, destacada = false }) {
+function Fila({ etiqueta, children }) {
   return (
     <View style={estilos.fila} wrap={false}>
       <Text style={estilos.celdaEtiqueta}>{etiqueta}</Text>
       <View style={estilos.celdaValor}>
         {typeof children === 'string' ? (
-          <Text style={destacada ? estilos.negrita : undefined}>{children}</Text>
+          <Text>{children}</Text>
         ) : (
           children
         )}
@@ -171,7 +179,7 @@ function Fila({ etiqueta, children, destacada = false }) {
 }
 
 function PresupuestoPDF({ presupuesto, token }) {
-  const { neto, iva, total } = calcularImportes(presupuesto);
+  const importe = aCentavos(presupuesto.importeNeto);
   const vence = fechaVencimiento(presupuesto.fechaEmision, presupuesto.diasValidez);
   const unidades = presupuesto.unidades.length === 1 ? 'Unidad asignada' : 'Unidades asignadas';
   // Fecha fija del documento (la de creación del presupuesto): sin esto
@@ -218,19 +226,10 @@ function PresupuestoPDF({ presupuesto, token }) {
 
           <Text style={estilos.tituloSeccion}>VALOR DEL SERVICIO</Text>
           <View style={estilos.tabla}>
-            {presupuesto.conFactura ? (
-              <>
-                <Fila etiqueta="Importe neto">{formatearPesos(neto)}</Fila>
-                <Fila etiqueta={`IVA ${formatearAlicuota(presupuesto.alicuotaIva)}`}>{formatearPesos(iva)}</Fila>
-                <Fila etiqueta="Total con factura" destacada>
-                  {formatearPesos(total)}
-                </Fila>
-              </>
-            ) : (
-              <Fila etiqueta="Importe total" destacada>
-                {`${formatearPesos(total)} (con recibo)`}
-              </Fila>
-            )}
+            <Fila etiqueta="Importe">
+              <Text style={estilos.negrita}>{formatearPesos(importe)}</Text>
+              <Text style={estilos.notaImporte}>{ACLARACION_IVA}</Text>
+            </Fila>
             <Fila etiqueta="Forma de pago">{presupuesto.formaPago}</Fila>
             <Fila etiqueta="Validez">
               {`${presupuesto.diasValidez} ${presupuesto.diasValidez === 1 ? 'día' : 'días'} a partir de la fecha de emisión (hasta el ${formatearFechaDocumento(vence)})`}

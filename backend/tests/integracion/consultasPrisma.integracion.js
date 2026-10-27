@@ -347,7 +347,6 @@ describe('Presupuestos', () => {
           horaSalida: '08:00',
           cantidadPasajeros: 30,
           importeNeto: '300000',
-          conFactura: true,
           formaPago: 'EFECTIVO',
           diasValidez: 15,
           vehiculoIds: [ids.vehiculo],
