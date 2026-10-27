@@ -357,4 +357,48 @@ describe('Regla de negocio: Bloqueo de documentación vencida en viajes', () => 
       assert.notEqual(chofer6.disponible, false);
     });
   });
+
+  // La baja y la falta de habilitación se informan antes que la documentación:
+  // es lo primero que hay que resolver, y renovar la licencia no las arregla.
+  describe('Baja, habilitación y documentación vencida juntas', () => {
+    test('en la disponibilidad, "Dado de baja" y "No habilitado para conducir" ganan a la documentación vencida', async () => {
+      for (const choferId of [7, 8]) {
+        agregarDoc({ choferId, tipoDocumentoId: 4, fechaVencimiento: '2026-01-01' });
+      }
+
+      const { status, json } = await pedir('POST', '/viajes/disponibilidad', {
+        body: { fechaInicio: '2026-10-20T08:00', fechaFin: '2026-10-20T12:00', choferIds: [7, 8], vehiculoIds: [] },
+      });
+
+      assert.equal(status, 200);
+      const choferes = Object.fromEntries(json.choferes.map((c) => [c.id, c]));
+      assert.deepEqual(choferes[8], { id: 8, disponible: false, motivo: 'Dado de baja' });
+      assert.deepEqual(choferes[7], { id: 7, disponible: false, motivo: 'No habilitado para conducir' });
+    });
+
+    test('al confirmar, un chofer dado de baja con documentación vencida se rechaza por la baja', async () => {
+      const viaje = agregarViaje({ choferesCandidatos: [8], vehiculosCandidatos: [9] });
+      agregarDoc({ choferId: 8, tipoDocumentoId: 4, fechaVencimiento: '2026-01-01' });
+
+      const { status, json } = await pedir('PATCH', `/viajes/${viaje.id}/confirmar`, {
+        body: { ...CONFIRMACION, choferId: 8, vehiculoId: 9 },
+      });
+
+      assert.equal(status, 400);
+      assert.equal(json.errores.choferId, 'El chofer elegido está inactivo');
+    });
+
+    test('los choferes para elegir son los mismos que los de Documentación › Choferes', async () => {
+      agregarDoc({ choferId: 5, tipoDocumentoId: 4, fechaVencimiento: '2026-01-01' });
+
+      const disponibles = await pedir('GET', '/personas/disponibles-chofer');
+      const documentacion = await pedir('GET', '/documentos/estado-choferes');
+
+      const ids = (lista) => lista.map((p) => p.id).sort((a, b) => a - b);
+      assert.deepEqual(ids(disponibles.json.personas), [5, 6, 10]);
+      assert.deepEqual(ids(documentacion.json.choferes), ids(disponibles.json.personas));
+      // El vencido sigue en la lista (con su motivo); la baja (8) y el no habilitado (7), no.
+      assert.equal(disponibles.json.personas.find((p) => p.id === 5).disponible, false);
+    });
+  });
 });
