@@ -461,9 +461,9 @@ model ViajeParada {
 // gestión de viajes: no crea ni modifica viajes, solo reusa los catálogos de
 // Cliente, Ubicacion y Vehiculo. No se edita ni se elimina: para cambiar algo
 // se duplica. Todo lo que sale en el PDF se arma con datos guardados acá, así
-// re-descargarlo da siempre el mismo documento. No hay tipo de comprobante: el
-// PDF aclara que con factura se suma el IVA y el precio con IVA lo calcula el
-// front a partir de importeNeto (no se guarda).
+// re-descargarlo da siempre el mismo documento. No hay tipo de comprobante:
+// debajo del importe se muestra solo la aclaración de que, con factura, se
+// suma el IVA del 10,5%.
 model Presupuesto {
   id                Int                 @id @default(autoincrement())
   fechaEmision      DateTime            @map("fecha_emision") @db.Date

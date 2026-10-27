@@ -1,7 +1,6 @@
 -- Los presupuestos ya no eligen tipo de comprobante (con factura / con recibo).
--- La pantalla y el PDF muestran siempre, debajo del importe, la aclaración "Si
--- es con factura, el precio es más IVA del 10,5%." y el precio con IVA, que el
--- front calcula a partir de importe_neto cada vez que lo muestra (no se guarda).
+-- La pantalla y el PDF muestran siempre, debajo del importe, solo la aclaración
+-- "Si es con factura, el precio es más IVA del 10,5%.".
 --
 -- - con_factura: el tipo de comprobante elegido.
 -- - alicuota_iva: solo servía para el desglose con factura. El backend la fijaba
