@@ -13,7 +13,7 @@ import FichaPresupuesto from '../components/FichaPresupuesto';
 import { ListadoCard, ListadoHeader, ListadoToolbar } from '../components/Listado';
 import { crearPresupuesto, listarPresupuestos, obtenerPresupuesto } from '../services/presupuestosApi';
 import { DURACION_TOAST_MS } from '../constants/toast';
-import { calcularImportes } from '../utils/importes';
+import { aCentavos } from '../utils/importes';
 import { formatearPesos } from '../utils/moneda';
 import { formatearFechaPresupuesto, valoresDuplicado, valoresNuevoPresupuesto } from '../utils/presupuestos';
 import './Presupuestos.css';
@@ -26,7 +26,6 @@ function idDeUrl(valor) {
 }
 
 function TarjetaPresupuesto({ presupuesto, onClick }) {
-  const { total } = calcularImportes(presupuesto);
   return (
     <ListadoCard
       marca={<IconoPresupuesto />}
@@ -35,7 +34,7 @@ function TarjetaPresupuesto({ presupuesto, onClick }) {
       detalle={`Servicio el ${formatearFechaPresupuesto(presupuesto.fechaServicio)}`}
       pie={[
         `Emitido el ${formatearFechaPresupuesto(presupuesto.fechaEmision)}`,
-        `${formatearPesos(total)} ${presupuesto.conFactura ? 'con factura' : 'con recibo'}`,
+        formatearPesos(aCentavos(presupuesto.importeNeto)),
       ]}
       onClick={onClick}
     />

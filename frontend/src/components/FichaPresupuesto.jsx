@@ -1,5 +1,6 @@
 import Card from './ui/Card';
-import { calcularImportes, formatearAlicuota } from '../utils/importes';
+import { aCentavos } from '../utils/importes';
+import { ACLARACION_IVA, textoPrecioConIva } from '../utils/ivaPresupuesto';
 import { formatearPesos } from '../utils/moneda';
 import { formatearFechaCorta } from '../utils/viajeFormato';
 import { fechaVencimiento, formatearFechaPresupuesto, textoHorario } from '../utils/presupuestos';
@@ -20,7 +21,7 @@ const Hueco = () => <div className="detalle-hueco" aria-hidden="true" />;
 // del objeto de GET /presupuestos/:id, igual que el PDF. Las acciones las pasa
 // la página (`acciones`) y van dentro de la Card, debajo de la grilla.
 function FichaPresupuesto({ presupuesto, acciones }) {
-  const { neto, iva, total } = calcularImportes(presupuesto);
+  const importe = aCentavos(presupuesto.importeNeto);
   const vence = fechaVencimiento(presupuesto.fechaEmision, presupuesto.diasValidez);
   const dias = presupuesto.diasValidez === 1 ? 'día' : 'días';
 
@@ -61,23 +62,14 @@ function FichaPresupuesto({ presupuesto, acciones }) {
           </ul>
         </Item>
 
-        {presupuesto.conFactura ? (
-          <>
-            <Item etiqueta="Importe neto">{formatearPesos(neto)}</Item>
-            <Item etiqueta={`IVA ${formatearAlicuota(presupuesto.alicuotaIva)}`}>{formatearPesos(iva)}</Item>
-            <Item etiqueta="Total con factura" clase="detalle-item-destacado">
-              {formatearPesos(total)}
-            </Item>
-            <Hueco />
-          </>
-        ) : (
-          <>
-            <Item etiqueta="Importe total" clase="detalle-item-destacado">
-              {formatearPesos(total)}
-            </Item>
-            <Item etiqueta="Comprobante">Con recibo</Item>
-          </>
-        )}
+        <Item etiqueta="Importe" clase="detalle-item-destacado">
+          {formatearPesos(importe)}
+          <div className="presupuesto-iva">
+            <p>{ACLARACION_IVA}</p>
+            <p>{textoPrecioConIva(importe)}</p>
+          </div>
+        </Item>
+        <Hueco />
 
         <Item etiqueta="Forma de pago" clase="detalle-item-ancho">
           {presupuesto.formaPago}

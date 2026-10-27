@@ -28,8 +28,6 @@ const PRESUPUESTO = {
   horaSalida: null,
   cantidadPasajeros: 30,
   importeNeto: '1234.50',
-  conFactura: true,
-  alicuotaIva: '10.50',
   formaPago: 'EFECTIVO',
   diasValidez: 20,
   unidades: [
@@ -91,7 +89,7 @@ describe('valores del formulario', () => {
     assert.equal(valores.fechaEmision, '2026-10-12');
     assert.equal(valores.diasValidez, '15');
     assert.equal(valores.formaPago, 'EFECTIVO / TRANSFERENCIA BANCARIA Y/O VALORES A 30 Y 60 DÍAS');
-    assert.equal(valores.conFactura, false);
+    assert.equal('conFactura' in valores, false);
   });
 
   test('duplicar: todo igual al original salvo la emisión, que es hoy', () => {
@@ -108,6 +106,7 @@ describe('valores del formulario', () => {
   test('payload: el importe en formato argentino viaja como "420000.50"', () => {
     const form = { ...valoresNuevoPresupuesto(AHORA_NOCHE), importeNeto: '420.000,5' };
     assert.equal(valoresAPayload(form).importeNeto, '420000.50');
+    assert.equal('conFactura' in valoresAPayload(form), false, 'ya no se elige comprobante');
   });
 
   test('error local del importe: inválido sí, vacío o válido no', () => {

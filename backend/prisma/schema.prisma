@@ -461,7 +461,9 @@ model ViajeParada {
 // gestión de viajes: no crea ni modifica viajes, solo reusa los catálogos de
 // Cliente, Ubicacion y Vehiculo. No se edita ni se elimina: para cambiar algo
 // se duplica. Todo lo que sale en el PDF se arma con datos guardados acá, así
-// re-descargarlo da siempre el mismo documento.
+// re-descargarlo da siempre el mismo documento. No hay tipo de comprobante: el
+// PDF aclara que con factura se suma el IVA y el precio con IVA lo calcula el
+// front a partir de importeNeto (no se guarda).
 model Presupuesto {
   id                Int                 @id @default(autoincrement())
   fechaEmision      DateTime            @map("fecha_emision") @db.Date
@@ -476,10 +478,6 @@ model Presupuesto {
   horaSalida        String?             @map("hora_salida")
   cantidadPasajeros Int                 @map("cantidad_pasajeros")
   importeNeto       Decimal             @map("importe_neto") @db.Decimal(12, 2)
-  conFactura        Boolean             @default(false) @map("con_factura")
-  // Se guarda en cada presupuesto (no se lee de una constante al regenerar)
-  // para que, si cambia la alícuota, los presupuestos viejos salgan igual.
-  alicuotaIva       Decimal             @default(10.50) @map("alicuota_iva") @db.Decimal(4, 2)
   formaPago         String              @map("forma_pago")
   // Días de validez a partir de fechaEmision (1..365).
   diasValidez       Int                 @map("dias_validez")

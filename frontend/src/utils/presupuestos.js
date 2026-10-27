@@ -95,7 +95,6 @@ export const FORM_PRESUPUESTO_INICIAL = {
   cantidadPasajeros: '',
   vehiculoIds: [],
   importeNeto: '',
-  conFactura: false,
   formaPago: FORMA_PAGO_POR_DEFECTO,
   diasValidez: String(DIAS_VALIDEZ_POR_DEFECTO),
 };
@@ -128,7 +127,6 @@ export function valoresDuplicado(presupuesto, ahora = Date.now()) {
     cantidadPasajeros: String(presupuesto.cantidadPasajeros),
     vehiculoIds: presupuesto.unidades.map((u) => u.vehiculoId),
     importeNeto: importeParaInput(presupuesto.importeNeto),
-    conFactura: presupuesto.conFactura,
     formaPago: presupuesto.formaPago,
     diasValidez: String(presupuesto.diasValidez),
   };
@@ -158,7 +156,6 @@ export function valoresAPayload(form) {
     cantidadPasajeros: form.cantidadPasajeros,
     vehiculoIds: form.vehiculoIds,
     importeNeto: centavos === null ? form.importeNeto : centavosAString(centavos),
-    conFactura: form.conFactura,
     formaPago: form.formaPago,
     diasValidez: form.diasValidez,
   };

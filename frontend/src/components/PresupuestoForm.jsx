@@ -3,12 +3,12 @@ import api from '../services/api';
 import Button from './ui/Button';
 import FormField from './ui/FormField';
 import Alert from './ui/Alert';
-import ControlSegmentado from './ui/ControlSegmentado';
 import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
 import SelectorUbicacion from './SelectorUbicacion';
 import SelectorMultiple from './ui/SelectorMultiple';
 import { ordenarPorInterno } from '../utils/vehiculos';
-import { calcularImportes, centavosAString, formatearAlicuota, importeIngresadoACentavos } from '../utils/importes';
+import { importeIngresadoACentavos } from '../utils/importes';
+import { ACLARACION_IVA, textoPrecioConIva } from '../utils/ivaPresupuesto';
 import { formatearPesos } from '../utils/moneda';
 import {
   fechaVencimiento,
@@ -18,16 +18,6 @@ import {
   valoresAPayload,
 } from '../utils/presupuestos';
 import { DIAS_VALIDEZ_MAX, DIAS_VALIDEZ_MIN } from '../constants/presupuesto';
-
-// La alícuota la pone el backend en cada presupuesto nuevo; acá solo se usa
-// para el desglose en vivo. Es la misma que ALICUOTA_IVA_VIGENTE en
-// presupuestoService.
-const ALICUOTA_IVA_VIGENTE = '10.50';
-
-const OPCIONES_COMPROBANTE = [
-  { valor: 'recibo', etiqueta: 'Con recibo' },
-  { valor: 'factura', etiqueta: 'Con factura' },
-];
 
 const AVISO_DADO_DE_BAJA = 'Dada de baja: quitala para poder guardar.';
 
@@ -75,17 +65,13 @@ function PresupuestoForm({ valoresIniciales, unidadesOriginales = [], onSubmit, 
     return { opcionesUnidades: opciones, avisosUnidades: avisos };
   }, [vehiculos, unidadesOriginales]);
 
-  // El texto del usuario ("420.000,50") se pasa a centavos y de ahí al formato
-  // de la API, que es el que entiende calcularImportes.
+  // El texto del usuario ("420.000,50") se pasa a centavos.
   const centavosIngresados = importeIngresadoACentavos(form.importeNeto);
-  const importes = calcularImportes({
-    importeNeto: centavosIngresados === null ? null : centavosAString(centavosIngresados),
-    conFactura: form.conFactura,
-    alicuotaIva: ALICUOTA_IVA_VIGENTE,
-  });
-  // Siempre debajo del input (también con recibo), para que se note si falta un cero.
+  // Siempre debajo del input, para que se note si falta un cero.
   const hintImporte =
     centavosIngresados === null ? 'Por ejemplo 420.000 o 420.000,50' : formatearPesos(centavosIngresados);
+  // null con el importe vacío o inválido: entonces solo se ve la aclaración.
+  const precioConIva = textoPrecioConIva(centavosIngresados);
   const vence = fechaVencimiento(form.fechaEmision, form.diasValidez);
 
   function handleChange(e) {
@@ -188,57 +174,26 @@ function PresupuestoForm({ valoresIniciales, unidadesOriginales = [], onSubmit, 
           </FormField>
         </div>
 
-        <FormField
-          id="importeNeto"
-          label={form.conFactura ? 'Importe neto' : 'Importe total'}
-          error={errores.importeNeto}
-          hint={hintImporte}
-          required
-        >
-          <input
-            type="text"
-            name="importeNeto"
-            inputMode="decimal"
-            autoComplete="off"
-            value={form.importeNeto}
-            onChange={handleChange}
-          />
-        </FormField>
-
-        <div className="form-field">
-          <span className="presupuesto-label" aria-hidden="true">
-            Comprobante
-          </span>
-          <ControlSegmentado
-            ariaLabel="Comprobante"
-            opciones={OPCIONES_COMPROBANTE}
-            valor={form.conFactura ? 'factura' : 'recibo'}
-            onChange={(valor) => setForm((f) => ({ ...f, conFactura: valor === 'factura' }))}
-          />
-        </div>
-
-        {form.conFactura && (
-          <div className="form-field-ancho" aria-live="polite">
-            {importes.neto === null ? (
-              <p className="presupuesto-desglose-vacio">Cargá el importe neto para ver el IVA y el total.</p>
-            ) : (
-              <dl className="presupuesto-desglose" aria-label="Desglose con factura">
-                <div>
-                  <dt>Importe neto</dt>
-                  <dd>{formatearPesos(importes.neto)}</dd>
-                </div>
-                <div>
-                  <dt>IVA {formatearAlicuota(ALICUOTA_IVA_VIGENTE)}</dt>
-                  <dd>{formatearPesos(importes.iva)}</dd>
-                </div>
-                <div className="presupuesto-desglose-total">
-                  <dt>Total con factura</dt>
-                  <dd>{formatearPesos(importes.total)}</dd>
-                </div>
-              </dl>
-            )}
+        {/* La aclaración y el precio con IVA van fuera del FormField: así se
+            siguen viendo cuando el campo muestra un error (que oculta el hint). */}
+        <div className="presupuesto-importe">
+          <FormField id="importeNeto" label="Importe" error={errores.importeNeto} hint={hintImporte} required>
+            <input
+              type="text"
+              name="importeNeto"
+              inputMode="decimal"
+              autoComplete="off"
+              value={form.importeNeto}
+              onChange={handleChange}
+            />
+          </FormField>
+          <div className="presupuesto-iva">
+            <p>{ACLARACION_IVA}</p>
+            <p aria-live="polite">{precioConIva}</p>
           </div>
-        )}
+        </div>
+        <div className="form-hueco" aria-hidden="true" />
+
 
         <div className="form-field-ancho">
           <FormField id="formaPago" label="Forma de pago" error={errores.formaPago} required>

@@ -11,3 +11,9 @@ export function formatearPesos(centavos) {
   const formato = centavos % 100 === 0 ? PESOS_REDONDOS : PESOS_CON_CENTAVOS;
   return formato.format(centavos / 100);
 }
+
+// Siempre con dos decimales, aunque sea redondo ("$ 110.500,00"): el precio
+// con IVA de los presupuestos (ver ivaPresupuesto.js).
+export function formatearPesosConCentavos(centavos) {
+  return PESOS_CON_CENTAVOS.format(centavos / 100);
+}
