@@ -16,6 +16,7 @@ import { PERFILES, PERFIL_COLORS } from '../constants/perfiles';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import { ListadoCard, ListadoHeader, ListadoToolbar } from '../components/Listado';
 import { formatearDni, formatearFechaCorta } from '../utils/viajeFormato';
+import { useOrigenEdicion } from '../hooks/useOrigenEdicion';
 import './Personal.css';
 
 const ICONO_ALERTA = (
@@ -76,6 +77,7 @@ function Personal() {
   const [form, setForm] = useState(FORM_INICIAL);
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
+  const origen = useOrigenEdicion(setSeleccionado);
 
   const cargarPersonas = useCallback(() => {
     setCargando(true);
@@ -140,10 +142,11 @@ function Personal() {
     setEditando(null);
     setForm(FORM_INICIAL);
     setErrores({});
-    setSeleccionado(null);
+    origen.abrir();
     setMostrarForm(true);
   }
 
+  // Se abre desde la ficha: cancelar o guardar vuelve a ella (useOrigenEdicion).
   function abrirEditar(p) {
     setEditando(p);
     setForm({
@@ -156,11 +159,12 @@ function Personal() {
       habilitadoParaConducir: p.habilitadoParaConducir,
     });
     setErrores({});
-    setSeleccionado(null);
+    origen.abrir(p);
     setMostrarForm(true);
   }
 
   function cerrarForm() {
+    origen.cancelar();
     setMostrarForm(false);
     setEditando(null);
   }
@@ -193,13 +197,13 @@ function Personal() {
     setErrores({});
     setEnviando(true);
     try {
-      if (editando) {
-        await api.put(`/personas/${editando.id}`, form);
-        setMensaje('Datos actualizados correctamente.');
-      } else {
-        await api.post('/personas', form);
-        setMensaje('Personal registrado correctamente.');
-      }
+      // PUT y POST devuelven la persona serializada igual que el listado: con
+      // eso se muestra la ficha actualizada (o la de la persona nueva).
+      const { data } = editando
+        ? await api.put(`/personas/${editando.id}`, form)
+        : await api.post('/personas', form);
+      setMensaje(editando ? 'Datos actualizados correctamente.' : 'Personal registrado correctamente.');
+      origen.guardado(data.persona, { esAlta: !editando });
       setMostrarForm(false);
       setEditando(null);
       cargarPersonas();
@@ -236,7 +240,7 @@ function Personal() {
       {mostrarForm && (
         <>
           <button type="button" className="back-link" onClick={cerrarForm}>
-            ← Volver al listado
+            {origen.textoVolver}
           </button>
           <h1>{editando ? 'Editar datos de personal' : 'Registrar personal'}</h1>
           <Card className="form-card">

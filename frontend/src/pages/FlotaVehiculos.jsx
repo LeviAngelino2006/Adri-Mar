@@ -24,6 +24,7 @@ import { useCarga } from '../hooks/useCarga';
 import { avisosDeRespuesta } from '../utils/avisosRespuesta';
 import { ANIO_MINIMO, ASIENTOS_MAXIMO, ASIENTOS_MINIMO, validarVehiculo } from '../utils/validacionVehiculo';
 import { useFocoEnPrimerError } from '../hooks/useFocoEnPrimerError';
+import { useOrigenEdicion } from '../hooks/useOrigenEdicion';
 import './FlotaVehiculos.css';
 
 const ICONO_ALERTA = (
@@ -85,6 +86,7 @@ function FlotaVehiculos() {
   const [erroresForm, setErroresForm] = useState({});
   const [enviandoForm, setEnviandoForm] = useState(false);
   const [refForm, enfocarPrimerError] = useFocoEnPrimerError();
+  const origen = useOrigenEdicion(setSeleccionado);
 
   // useCarga lleva los estados de cargando y error (un error no es un listado vacío).
   const pedirVehiculos = useCallback(() => {
@@ -156,10 +158,11 @@ function FlotaVehiculos() {
     setEditando(null);
     setForm(FORM_INICIAL);
     setErroresForm({});
-    setSeleccionado(null);
+    origen.abrir();
     setMostrarForm(true);
   }
 
+  // Se abre desde la ficha: cancelar o guardar vuelve a ella (useOrigenEdicion).
   function abrirEditar(v) {
     setAvisosGuardado([]);
     setEditando(v);
@@ -176,11 +179,12 @@ function FlotaVehiculos() {
       tipoVehiculoId: v.tipoVehiculoId,
     });
     setErroresForm({});
-    setSeleccionado(null);
+    origen.abrir(v);
     setMostrarForm(true);
   }
 
   function cerrarForm() {
+    origen.cancelar();
     setMostrarForm(false);
     setEditando(null);
   }
@@ -236,15 +240,14 @@ function FlotaVehiculos() {
       ...(editando ? {} : { kilometraje: form.kilometraje, kmUltimoService: form.kmUltimoService }),
     };
     try {
-      if (editando) {
-        const { data } = await api.put(`/vehiculos/${editando.id}`, datos);
-        setMensaje('Cambios guardados correctamente.');
-        setAvisosGuardado(avisosDeRespuesta(data));
-      } else {
-        const { data } = await api.post('/vehiculos', datos);
-        setMensaje('Vehículo registrado correctamente.');
-        setAvisosGuardado(avisosDeRespuesta(data));
-      }
+      // PUT y POST devuelven el vehículo serializado igual que el listado: con
+      // eso se muestra la ficha actualizada (o la del vehículo nuevo).
+      const { data } = editando
+        ? await api.put(`/vehiculos/${editando.id}`, datos)
+        : await api.post('/vehiculos', datos);
+      setMensaje(editando ? 'Cambios guardados correctamente.' : 'Vehículo registrado correctamente.');
+      setAvisosGuardado(avisosDeRespuesta(data));
+      origen.guardado(data.vehiculo, { esAlta: !editando });
       setMostrarForm(false);
       setEditando(null);
       cargarVehiculos();
@@ -275,7 +278,7 @@ function FlotaVehiculos() {
       {mostrarForm && (
         <>
           <button type="button" className="back-link" onClick={cerrarForm}>
-            ← Volver al listado
+            {origen.textoVolver}
           </button>
           <h1>{editando ? 'Editar vehículo' : 'Crear vehículo'}</h1>
           <Card className="form-card">
