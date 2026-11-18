@@ -9,7 +9,7 @@ import { CargaLentaContext } from './ui/CargaLentaContext';
 import IconoPresupuesto from './IconoPresupuesto';
 import { contarCargasLentas } from '../utils/etapaCarga';
 import { RUTA_CAMBIAR_CONTRASENA } from '../utils/sesion';
-import logo from '../assets/logo-adrimar.png';
+import Logo from './ui/Logo';
 import './Layout.css';
 
 const ICONO_LOGOUT = (
@@ -141,7 +141,7 @@ function Layout({ children }) {
           <span className="sr-only">{menuAbierto ? 'Cerrar menú' : 'Abrir menú'}</span>
           <span aria-hidden="true">☰</span>
         </button>
-        <img src={logo} alt="Adri-Mar Gestión Online" className="layout-topbar-logo" />
+        <Logo tamano={32} />
         {seccionActual && <span className="layout-topbar-seccion">{seccionActual}</span>}
       </header>
 
@@ -151,7 +151,7 @@ function Layout({ children }) {
 
       <aside id="layout-sidebar" className={`layout-sidebar${menuAbierto ? ' layout-sidebar-open' : ''}`}>
         <div className="layout-sidebar-brand">
-          <img src={logo} alt="Adri-Mar Gestión Online" className="layout-logo" />
+          <Logo tamano={36} />
         </div>
 
         <nav className="layout-nav" aria-label="Principal">

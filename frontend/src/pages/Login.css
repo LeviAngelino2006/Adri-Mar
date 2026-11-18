@@ -47,10 +47,10 @@
   box-shadow: var(--shadow-md);
 }
 
+/* El logo va centrado arriba de la tarjeta (sobre fondo blanco: variante "claro"). */
 .login-logo {
-  width: 100%;
-  max-width: 220px;
-  height: auto;
+  display: flex;
+  width: fit-content;
   margin: 0 auto var(--space-6);
 }
 
