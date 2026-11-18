@@ -304,7 +304,8 @@ function Usuarios() {
                   id="contrasena"
                   label={editando ? 'Nueva contraseña (opcional)' : 'Contraseña'}
                   required={!editando}
-                  ayuda={editando ? 'Dejar en blanco para no modificar' : 'Al menos 8 caracteres'}
+                  ayuda={editando ? 'Dejar en blanco para no modificar' : undefined}
+                  hint={editando ? undefined : 'Al menos 8 caracteres'}
                   error={errores.contrasena}
                 >
                   <input

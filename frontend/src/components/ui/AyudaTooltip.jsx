@@ -16,7 +16,8 @@ function hayHover() {
 
 // Ícono "?" que muestra un texto de ayuda en un popover: al pasar el mouse
 // (solo en dispositivos con hover), al llegar con el teclado y al tocarlo
-// (alterna). Se cierra con Escape o tocando afuera.
+// (alterna). Se cierra con Escape, tocando afuera, al scrollear (también
+// dentro de un modal) y al cambiar el tamaño de la ventana.
 //
 // El texto vive siempre en un span visually-hidden con `id`: quien lo usa lo
 // enlaza con `aria-describedby` del control (FormField lo hace solo), así los
@@ -80,15 +81,18 @@ function AyudaTooltip({ id, texto }) {
     }
     document.addEventListener('keydown', alTeclear, true);
     document.addEventListener('pointerdown', alTocarAfuera);
-    window.addEventListener('resize', ubicar);
-    window.addEventListener('scroll', ubicar, true);
+    // Al scrollear o cambiar el tamaño de la ventana se cierra: un popover fijo
+    // quedaría flotando lejos del ícono. El scroll se escucha en captura para
+    // tomar también el del cuerpo de los modales (no burbujea hasta window).
+    window.addEventListener('resize', cerrar);
+    window.addEventListener('scroll', cerrar, true);
     return () => {
       document.removeEventListener('keydown', alTeclear, true);
       document.removeEventListener('pointerdown', alTocarAfuera);
-      window.removeEventListener('resize', ubicar);
-      window.removeEventListener('scroll', ubicar, true);
+      window.removeEventListener('resize', cerrar);
+      window.removeEventListener('scroll', cerrar, true);
     };
-  }, [abierto, cerrar, ubicar]);
+  }, [abierto, cerrar]);
 
   useEffect(() => () => clearTimeout(temporizadorCierre.current), []);
 

@@ -171,12 +171,14 @@ function PresupuestoForm({ valoresIniciales, unidadesOriginales = [], onSubmit, 
           </FormField>
         </div>
 
+        {/* La aclaración del IVA va fuera del FormField: así se sigue viendo
+            cuando el campo muestra un error (que oculta el hint). */}
         <div className="presupuesto-importe">
           <FormField
             id="importeNeto"
             label="Importe"
             error={errores.importeNeto}
-            ayuda={`Por ejemplo 420.000 o 420.000,50. ${ACLARACION_IVA}`}
+            ayuda="Por ejemplo 420.000 o 420.000,50"
             hint={hintImporte}
             required
           >
@@ -189,6 +191,7 @@ function PresupuestoForm({ valoresIniciales, unidadesOriginales = [], onSubmit, 
               onChange={handleChange}
             />
           </FormField>
+          <p className="presupuesto-aclaracion-iva">{ACLARACION_IVA}</p>
         </div>
         <div className="form-hueco" aria-hidden="true" />
 

@@ -98,8 +98,8 @@ function CambiarContrasena() {
     navigate('/login', { replace: true });
   }
 
-  const campo = (id, label, autoComplete, ayuda) => (
-    <FormField id={id} label={label} required ayuda={ayuda} error={errores[id]}>
+  const campo = (id, label, autoComplete, hint) => (
+    <FormField id={id} label={label} required hint={hint} error={errores[id]}>
       <input type="password" name={id} value={form[id]} onChange={handleChange} autoComplete={autoComplete} />
     </FormField>
   );

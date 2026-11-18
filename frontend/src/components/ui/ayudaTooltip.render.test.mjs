@@ -163,6 +163,41 @@ describe('AyudaTooltip: interacción', () => {
     assert.equal(popover(), null);
   });
 
+  test('scrollear la página lo cierra', () => {
+    montar(h(AyudaTooltip, { id: 'a', texto: 'Texto' }));
+    tocar(boton());
+    assert.ok(popover());
+    act(() => {
+      window.dispatchEvent(new window.Event('scroll'));
+    });
+    assert.equal(popover(), null);
+  });
+
+  test('scrollear dentro de un modal también lo cierra (el scroll no burbujea)', () => {
+    montar(h('div', { className: 'doc-modal-cuerpo' }, h(AyudaTooltip, { id: 'a', texto: 'Texto' })));
+    tocar(boton());
+    assert.ok(popover());
+    // Un scroll de un elemento no burbujea: solo llega a window en captura.
+    act(() => {
+      contenedor.querySelector('.doc-modal-cuerpo').dispatchEvent(new window.Event('scroll', { bubbles: false }));
+    });
+    assert.equal(popover(), null);
+  });
+
+  test('cambiar el tamaño de la ventana lo cierra', () => {
+    montar(h(AyudaTooltip, { id: 'a', texto: 'Texto' }));
+    tocar(boton());
+    assert.ok(popover());
+    act(() => {
+      window.dispatchEvent(new window.Event('resize'));
+    });
+    assert.equal(popover(), null);
+    assert.equal(boton().getAttribute('aria-expanded'), 'false');
+    // Cerrado así, el próximo toque lo vuelve a abrir (no queda "fijado").
+    tocar(boton());
+    assert.ok(popover());
+  });
+
   test('al llegar con el teclado se abre; al salir del botón se cierra', () => {
     montar(h('div', null, h(AyudaTooltip, { id: 'a', texto: 'Texto' }), h('input', { id: 'siguiente' })));
     act(() => boton().focus());
