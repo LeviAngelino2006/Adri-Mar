@@ -9,7 +9,7 @@ import Alert from '../components/ui/Alert';
 import Toast from '../components/ui/Toast';
 import { useFocoEnPrimerError } from '../hooks/useFocoEnPrimerError';
 import { DURACION_TOAST_MS } from '../constants/toast';
-import logo from '../assets/logo-adrimar.png';
+import Logo from '../components/ui/Logo';
 import './Login.css';
 import './CambiarContrasena.css';
 
@@ -113,13 +113,12 @@ function CambiarContrasena() {
     return (
       <main className="login-page">
         <div className="login-brand">
-          <p className="login-brand-titulo">Adri-Mar Gestión Online</p>
+          <Logo variante="sobreMarca" tamano={64} />
           <p className="login-brand-sub">Viajes, flota y mantenimiento</p>
         </div>
         <div className="login-main">
           <Card className="login-card">
-            <img src={logo} alt="Adri-Mar Gestión Online" className="login-logo" />
-            <h1 className="cambiar-contrasena-titulo">Cambiá tu contraseña</h1>
+            <h1 className="cambiar-contrasena-titulo">Cambiar contraseña</h1>
             <p className="cambiar-contrasena-texto">
               Hola, {usuario.nombre}. Tu contraseña es provisoria: la definió quien te dio el acceso. Elegí una nueva para
               seguir.

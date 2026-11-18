@@ -40,11 +40,6 @@
   flex: 0 0 auto;
 }
 
-.layout-topbar-logo {
-  height: 32px;
-  width: auto;
-}
-
 /* Sección actual, a la derecha: los listados no tienen título visible. */
 .layout-topbar-seccion {
   margin-left: auto;
@@ -97,11 +92,6 @@
   justify-content: center;
   padding: 0 var(--space-2);
   margin-bottom: var(--space-6);
-}
-
-.layout-logo {
-  height: 36px;
-  width: auto;
 }
 
 .layout-nav {

@@ -1,0 +1,40 @@
+/* Todo se dimensiona a partir de --logo-tamano (el alto del ícono, ver Logo.jsx). */
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--logo-tamano) * 0.28);
+  flex: 0 0 auto;
+}
+
+.logo-icono {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.logo-texto {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.logo-nombre {
+  font-size: calc(var(--logo-tamano) * 0.5);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.logo-bajada {
+  font-size: calc(var(--logo-tamano) * 0.32);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.logo-sobreMarca .logo-nombre {
+  color: var(--color-on-brand);
+}
+
+.logo-sobreMarca .logo-bajada {
+  color: var(--brand-100);
+}

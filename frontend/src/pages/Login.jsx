@@ -7,7 +7,7 @@ import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
 import { CargaColectivo } from '../components/ui/Cargando';
 import useEtapaCarga from '../hooks/useEtapaCarga';
-import logo from '../assets/logo-adrimar.png';
+import Logo from '../components/ui/Logo';
 import './Login.css';
 
 function Login() {
@@ -39,13 +39,12 @@ function Login() {
   return (
     <main className="login-page">
       <div className="login-brand">
-        <p className="login-brand-titulo">Adri-Mar Gestión Online</p>
+        <Logo variante="sobreMarca" tamano={64} />
         <p className="login-brand-sub">Viajes, flota y mantenimiento</p>
       </div>
       <div className="login-main">
         <Card className="login-card">
-          <img src={logo} alt="Adri-Mar Gestión Online" className="login-logo" />
-          <h1 className="sr-only">Iniciar sesión</h1>
+          <h1 className="login-titulo">Iniciar sesión</h1>
           <form onSubmit={handleSubmit} noValidate>
             <FormField id="nombreUsuario" label="Usuario">
               <input

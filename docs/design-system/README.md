@@ -74,7 +74,7 @@ Sin `viewport-fit=cover`, o en Android y escritorio, los insets valen 0 y nada c
 
 ## Logos e íconos
 
-- Usá `assets/Logos/logo-adrimar.png` (el wordmark "Adri Mar Viajes") sobre `color-surface`, nunca sobre `brand-600`. No lo redibujes ni lo recolorees.
+- El logo del sistema es el ícono del odómetro (cuadrado `brand-600`) con el nombre "Adri-Mar / Gestión Online" al lado. En la app se usa el componente `Logo` (`frontend/src/components/ui/Logo.jsx`): `variante="claro"` sobre `color-surface` y `variante="sobreMarca"` sobre `brand-600` (cambia solo el color del texto). No redibujes ni recolorees el ícono; los archivos fuente están en `docs/logo/`. El logo de la empresa (`logo-adrimar.png`) ya no se usa.
 - Íconos de navegación de 20px, de un solo color: en la app toman `currentColor` (`color-text-secondary`, o `brand-700` cuando están activos). Ver `assets/Icons/README.md`.
 
 ## Componentes
