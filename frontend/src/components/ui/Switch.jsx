@@ -1,6 +1,6 @@
 import './Switch.css';
 
-function Switch({ id, name, checked, onChange, disabled = false }) {
+function Switch({ id, name, checked, onChange, disabled = false, 'aria-describedby': describedBy }) {
   return (
     <span className={`switch ${disabled ? 'switch-disabled' : ''}`.trim()}>
       <input
@@ -12,6 +12,7 @@ function Switch({ id, name, checked, onChange, disabled = false }) {
         onChange={onChange}
         disabled={disabled}
         aria-checked={checked}
+        aria-describedby={describedBy}
         className="switch-input"
       />
       <span className="switch-track">

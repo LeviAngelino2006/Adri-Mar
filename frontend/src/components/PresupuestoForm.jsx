@@ -67,9 +67,8 @@ function PresupuestoForm({ valoresIniciales, unidadesOriginales = [], onSubmit, 
 
   // El texto del usuario ("420.000,50") se pasa a centavos.
   const centavosIngresados = importeIngresadoACentavos(form.importeNeto);
-  // Siempre debajo del input, para que se note si falta un cero.
-  const hintImporte =
-    centavosIngresados === null ? 'Por ejemplo 420.000 o 420.000,50' : formatearPesos(centavosIngresados);
+  // El importe leído queda debajo del input, para que se note si falta un cero.
+  const hintImporte = centavosIngresados === null ? undefined : formatearPesos(centavosIngresados);
   const vence = fechaVencimiento(form.fechaEmision, form.diasValidez);
 
   function handleChange(e) {
@@ -142,7 +141,7 @@ function PresupuestoForm({ valoresIniciales, unidadesOriginales = [], onSubmit, 
           <input type="date" name="fechaServicio" value={form.fechaServicio} onChange={handleChange} />
         </FormField>
 
-        <FormField id="horaSalida" label="Horario de salida" error={errores.horaSalida} hint="Vacío = A confirmar">
+        <FormField id="horaSalida" label="Horario de salida" error={errores.horaSalida} ayuda="Vacío = A confirmar">
           <input type="time" name="horaSalida" value={form.horaSalida} onChange={handleChange} />
         </FormField>
 
@@ -175,7 +174,14 @@ function PresupuestoForm({ valoresIniciales, unidadesOriginales = [], onSubmit, 
         {/* La aclaración del IVA va fuera del FormField: así se sigue viendo
             cuando el campo muestra un error (que oculta el hint). */}
         <div className="presupuesto-importe">
-          <FormField id="importeNeto" label="Importe" error={errores.importeNeto} hint={hintImporte} required>
+          <FormField
+            id="importeNeto"
+            label="Importe"
+            error={errores.importeNeto}
+            ayuda="Por ejemplo 420.000 o 420.000,50"
+            hint={hintImporte}
+            required
+          >
             <input
               type="text"
               name="importeNeto"

@@ -254,7 +254,7 @@ function Personal() {
                   <input name="apellido" value={form.apellido} onChange={handleChange} />
                 </FormField>
 
-                <FormField id="dni" label="DNI" required hint="7 u 8 dígitos, sin puntos" error={errores.dni}>
+                <FormField id="dni" label="DNI" required ayuda="7 u 8 dígitos, sin puntos" error={errores.dni}>
                   <input name="dni" inputMode="numeric" value={form.dni} onChange={handleChange} />
                 </FormField>
 

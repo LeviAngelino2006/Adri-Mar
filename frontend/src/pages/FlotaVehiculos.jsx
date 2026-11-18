@@ -15,6 +15,7 @@ import Toast from '../components/ui/Toast';
 import ConfirmModal from '../components/ui/ConfirmModal';
 import SelectorBuscarOCrear from '../components/ui/SelectorBuscarOCrear';
 import Switch from '../components/ui/Switch';
+import AyudaTooltip from '../components/ui/AyudaTooltip';
 import { ESTADOS_VEHICULO } from '../constants/estadosVehiculo';
 import { formatearFechaCorta, formatearKm } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
@@ -292,7 +293,7 @@ function FlotaVehiculos() {
                   id="dominio"
                   label="Dominio"
                   required
-                  hint="Formato AB123CD o ABC123"
+                  ayuda="Formato AB123CD o ABC123"
                   error={erroresForm.dominio}
                 >
                   <input name="dominio" value={form.dominio} onChange={handleFormChange} />
@@ -352,10 +353,15 @@ function FlotaVehiculos() {
                   // Solo lectura: el kilometraje lo actualizan las lecturas del
                   // odómetro (al comenzar y finalizar cada viaje), no este formulario.
                   <div className="form-field">
-                    <span className="flota-dato-etiqueta">Kilometraje actual</span>
-                    <p className="flota-dato-solo-lectura num">{formatearKm(editando.kilometraje)} km</p>
-                    <p className="form-field-hint">
-                      Se actualiza con las lecturas del odómetro, al comenzar y finalizar cada viaje.
+                    <div className="form-field-label-fila">
+                      <span className="flota-dato-etiqueta">Kilometraje actual</span>
+                      <AyudaTooltip
+                        id="kilometraje-ayuda"
+                        texto="Se actualiza con las lecturas del odómetro, al comenzar y finalizar cada viaje."
+                      />
+                    </div>
+                    <p className="flota-dato-solo-lectura num">
+                      {formatearKm(editando.kilometraje)} km
                     </p>
                   </div>
                 ) : (
@@ -364,7 +370,7 @@ function FlotaVehiculos() {
                       id="kilometraje"
                       label="Kilometraje actual"
                       required
-                      hint="En kilómetros"
+                      ayuda="En kilómetros"
                       error={erroresForm.kilometraje}
                     >
                       <input name="kilometraje" type="number" min="0" value={form.kilometraje} onChange={handleFormChange} />
@@ -373,7 +379,7 @@ function FlotaVehiculos() {
                     <FormField
                       id="kmUltimoService"
                       label="Km del último service"
-                      hint="Opcional. Si lo dejás vacío, se toma el kilometraje actual."
+                      ayuda="Si lo dejás vacío, se toma el kilometraje actual."
                       error={erroresForm.kmUltimoService}
                     >
                       <input
@@ -388,22 +394,27 @@ function FlotaVehiculos() {
                 )}
 
                 <div className="form-field switch-field">
-                  <label htmlFor="adquiridoUsado" className="switch-field-label">
-                    <Switch
-                      id="adquiridoUsado"
-                      name="adquiridoUsado"
-                      checked={form.adquiridoUsado}
-                      onChange={handleFormChange}
+                  <div className="form-field-label-fila">
+                    <label htmlFor="adquiridoUsado" className="switch-field-label">
+                      <Switch
+                        id="adquiridoUsado"
+                        name="adquiridoUsado"
+                        checked={form.adquiridoUsado}
+                        onChange={handleFormChange}
+                        aria-describedby={
+                          erroresForm.adquiridoUsado ? 'adquiridoUsado-ayuda adquiridoUsado-error' : 'adquiridoUsado-ayuda'
+                        }
+                      />
+                      Adquirido usado
+                    </label>
+                    <AyudaTooltip
+                      id="adquiridoUsado-ayuda"
+                      texto="Se compró usado: no se conoce su historial de mantenimiento anterior a la incorporación."
                     />
-                    Adquirido usado
-                  </label>
-                  {erroresForm.adquiridoUsado ? (
-                    <p className="form-field-error" role="alert">
+                  </div>
+                  {erroresForm.adquiridoUsado && (
+                    <p id="adquiridoUsado-error" className="form-field-error" role="alert">
                       {erroresForm.adquiridoUsado}
-                    </p>
-                  ) : (
-                    <p className="form-field-hint">
-                      Se compró usado: no se conoce su historial de mantenimiento anterior a la incorporación.
                     </p>
                   )}
                 </div>

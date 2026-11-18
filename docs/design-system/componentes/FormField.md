@@ -5,7 +5,20 @@ Envuelve un control con su label, hint y mensaje de error accesibles.
 - `label`: texto del label (estilo `label`).
 - `children`: UN control (`input`, `select`, `textarea`). Recibe `id`, `aria-invalid` y `aria-describedby` automáticamente.
 - `required` opcional: agrega un asterisco rojo (`.form-field-required`, `state-error-text`, `aria-hidden`) después del label y `aria-required` al control. No usa el atributo nativo `required`: los formularios validan por su cuenta (`noValidate`). Marcá solo lo obligatorio y no escribas "Opcional" en los campos que no lo son.
-- `hint` opcional (estilo `caption`, color `color-text-secondary`). Se oculta cuando hay error.
+- `ayuda` opcional: texto estático de formato o explicación ("Formato AB123CD o ABC123", "7 u 8 dígitos, sin puntos"). Va en un `AyudaTooltip` (ícono "?") junto al label, fuera del `<label>`, y queda en el `aria-describedby` del control aunque el popover esté cerrado. Se mantiene aunque haya error.
+- `hint` opcional (estilo `caption`, color `color-text-secondary`): solo para lo que tiene que quedar a la vista (ver la tabla). Se oculta cuando hay error.
+
+## ¿`ayuda` (tooltip) o `hint` (visible)?
+Va visible si el usuario lo necesita antes de escribir o si equivocarse sale caro (plata, requisitos de contraseña). También va visible lo que muestra datos del registro o un estado. El resto (formato o explicación que se consulta solo si hay dudas) va en tooltip. Un texto que repite el label o dice "Opcional" no va.
+
+| Tipo de texto | Va como | Ejemplos |
+| --- | --- | --- |
+| Datos del registro o del cálculo | `hint` visible | "Odómetro actual: X km", "Vence el …", el importe leído ("$ 420.000,00"), "Se mantiene el PDF actual (X)" |
+| Estado de carga o de la pantalla | `hint` visible | "Cargando…", "Elegí origen y destino para calcularlos", "No hay personas activas sin cuenta de usuario", "Tu perfil lo cambia un Administrador." |
+| Lo necesita antes de escribir, o equivocarse sale caro | visible | "Al menos 8 caracteres" (contraseña nueva, alta de usuario); la aclaración del IVA del presupuesto (fuera del `FormField`, para que el error no la tape) |
+| Formato o ejemplo | `ayuda` (tooltip) | "Formato AB123CD o ABC123", "7 u 8 dígitos, sin puntos", "Por ejemplo 420.000 o 420.000,50", "Máximo 15 MB." |
+| Explicación de cómo se usa el campo | `ayuda` (tooltip) | "Vacío = A confirmar", "Si lo dejás vacío, se toma el kilometraje actual.", "Dejar en blanco para no modificar", "Incluye: Cambio de aceite + …" |
+| Repite el label o dice "Opcional" | se borra | "En kilómetros" en "Km del odómetro" |
 - `error` opcional (estilo `caption`, color `state-error-text`, role="alert"). El borde del control pasa a `state-error-border`.
 
 ## Reglas

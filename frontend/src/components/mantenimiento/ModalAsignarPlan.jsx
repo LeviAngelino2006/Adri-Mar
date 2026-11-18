@@ -79,7 +79,8 @@ function ModalAsignarPlan({ item, onClose, onSuccess }) {
           id="plan-km-ultimo"
           label="Km del último service"
           required
-          hint={`Odómetro actual: ${formatearKm(vehiculo.kilometraje)} km. Si no lo sabés, dejá el odómetro actual.`}
+          ayuda="Si no lo sabés, dejá el odómetro actual."
+          hint={`Odómetro actual: ${formatearKm(vehiculo.kilometraje)} km`}
           error={errorKm}
         >
           <input

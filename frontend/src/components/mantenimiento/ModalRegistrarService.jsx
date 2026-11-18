@@ -120,7 +120,7 @@ function ModalRegistrarService({ vehiculos, vehiculo: elegido = null, onClose, o
             id="service-km"
             label="Km del odómetro"
             required
-            hint={vehiculo ? `Odómetro actual: ${formatearKm(vehiculo.kilometraje)} km` : 'En kilómetros'}
+            hint={vehiculo ? `Odómetro actual: ${formatearKm(vehiculo.kilometraje)} km` : undefined}
             error={errores.kilometraje}
           >
             <input
@@ -149,7 +149,7 @@ function ModalRegistrarService({ vehiculos, vehiculo: elegido = null, onClose, o
               </span>
             </>
           }
-          hint={textoIncluyeService(TAREAS_SERVICE)}
+          ayuda={textoIncluyeService(TAREAS_SERVICE)}
           error={errores.observaciones}
         >
           <textarea

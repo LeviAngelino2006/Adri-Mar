@@ -115,9 +115,7 @@ function ModalSubirDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, docum
 
   const archivoActual = documentoActual?.nombreArchivo ? formatearNombreArchivo(documentoActual.nombreArchivo) : null;
   const hintArchivo =
-    esActualizacion && archivoActual
-      ? `Si no adjuntás uno nuevo, se mantiene el PDF actual (${archivoActual}). Máximo 15 MB.`
-      : 'Máximo 15 MB.';
+    esActualizacion && archivoActual ? `Si no adjuntás uno nuevo, se mantiene el PDF actual (${archivoActual}).` : undefined;
   const vencimientoPasado = Boolean(fechaVencimiento && fechaVencimiento < hoyCordobaISO());
 
   return (
@@ -153,7 +151,7 @@ function ModalSubirDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, docum
         {error && <Alert variant="error">{error}</Alert>}
 
         {tipoDocumento.requiereArchivo && (
-          <FormField id="documento-archivo" label="Archivo PDF" required={!esActualizacion} hint={hintArchivo} error={errores.archivo}>
+          <FormField id="documento-archivo" label="Archivo PDF" required={!esActualizacion} ayuda="Máximo 15 MB." hint={hintArchivo} error={errores.archivo}>
             <input type="file" accept="application/pdf" onChange={handleFileChange} />
           </FormField>
         )}
