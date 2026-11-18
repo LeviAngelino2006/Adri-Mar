@@ -30,6 +30,7 @@ import { esChoferDelViaje } from '../utils/choferDelViaje';
 import { ordenarPorInterno } from '../utils/vehiculos';
 import { useCarga } from '../hooks/useCarga';
 import { useViajesEnCurso } from '../hooks/useViajesEnCurso';
+import { useOrigenEdicion } from '../hooks/useOrigenEdicion';
 import {
   OPCIONES_VISTA,
   VISTAS_VIAJES,
@@ -149,6 +150,9 @@ function Viajes() {
   // "Duplicar viaje": { original, valores, aviso }. El formulario es un alta
   // precargada con `valores`.
   const [duplicando, setDuplicando] = useState(null);
+  // Ficha desde la que se abrió el formulario (editar o duplicar), para volver
+  // a ella al cancelar o guardar (ver useOrigenEdicion).
+  const origen = useOrigenEdicion(setSeleccionado);
 
   const [cancelando, setCancelando] = useState(null);
   const [errorCancelar, setErrorCancelar] = useState('');
@@ -300,14 +304,15 @@ function Viajes() {
   function abrirNuevo() {
     setErrorCancelar('');
     setEditando(null);
-    setSeleccionado(null);
+    origen.abrir();
     setMostrarForm(true);
   }
 
+  // Se abre desde la ficha: cancelar o guardar vuelve a ella, actualizada.
   function abrirEditar(viaje) {
     setErrorCancelar('');
     setEditando(viaje);
-    setSeleccionado(null);
+    origen.abrir(viaje);
     setMostrarForm(true);
   }
 
@@ -322,31 +327,34 @@ function Viajes() {
       valores: valoresParaDuplicar(viaje, ahora),
       aviso: avisoDuplicado(viaje, ahora),
     });
-    setSeleccionado(null);
+    origen.abrir(viaje);
     setMostrarForm(true);
   }
 
-  // Cancelar un duplicado vuelve a la ficha del original, de donde se abrió.
+  // Cancelar vuelve a la ficha de donde se abrió el formulario (editar o
+  // duplicar), o al listado si fue "Crear viaje".
   function cerrarForm() {
-    if (duplicando) setSeleccionado(duplicando.original);
+    origen.cancelar();
     setMostrarForm(false);
     setEditando(null);
     setDuplicando(null);
   }
 
-  // Al crear se abre la ficha del viaje nuevo (no el listado): ahí está la
-  // tarjeta "Datos administrativos" con su botón de editar, así lo
+  // Al crear (o duplicar) se abre la ficha del viaje nuevo (no el listado):
+  // ahí está la tarjeta "Datos administrativos" con su botón de editar, así lo
   // administrativo, que ya no se carga en el alta, queda a un clic. No bloquea
-  // nada: "Volver al listado" sigue como siempre. Editar vuelve al listado.
+  // nada: "Volver al listado" sigue como siempre. Editar vuelve a la ficha del
+  // viaje con lo que devolvió el PUT (el viaje serializado, como el listado).
   async function handleGuardarForm(datos) {
     if (editando) {
-      await api.put(`/viajes/${editando.id}`, datos);
+      const { data } = await api.put(`/viajes/${editando.id}`, datos);
       mostrarMensaje(MENSAJE_EDITADO);
+      origen.guardado(data.viaje);
     } else {
       const { data } = await api.post('/viajes', datos);
       mostrarMensaje(MENSAJE_CREADO);
       irADatosAdministrativos.current = true;
-      setSeleccionado(data.viaje);
+      origen.guardado(data.viaje, { esAlta: true });
     }
     setMostrarForm(false);
     setEditando(null);
@@ -429,7 +437,7 @@ function Viajes() {
       {mostrarForm && (
         <>
           <button type="button" className="back-link" onClick={cerrarForm}>
-            {duplicando ? '← Volver al viaje' : '← Volver al listado'}
+            {duplicando ? '← Volver al viaje' : origen.textoVolver}
           </button>
           <h1>{editando ? 'Editar viaje' : duplicando ? 'Duplicar viaje' : 'Crear viaje'}</h1>
           {duplicando && <p className="viajes-aviso-duplicado">{duplicando.aviso}</p>}

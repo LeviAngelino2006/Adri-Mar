@@ -15,6 +15,7 @@ import { PERFILES, PERFIL_COLORS } from '../constants/perfiles';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import { ListadoCard, ListadoHeader, ListadoToolbar } from '../components/Listado';
 import { formatearDni, formatearFechaCorta } from '../utils/viajeFormato';
+import { useOrigenEdicion } from '../hooks/useOrigenEdicion';
 import './Usuarios.css';
 
 const ICONO_ALERTA = (
@@ -67,6 +68,8 @@ function Usuarios() {
   const [form, setForm] = useState(FORM_INICIAL);
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
+  const origen = useOrigenEdicion(setSeleccionado);
+  const abrirFormulario = origen.abrir;
 
   const cargarUsuarios = useCallback(() => {
     setCargando(true);
@@ -108,11 +111,11 @@ function Usuarios() {
           contrasena: '',
         });
         setErrores({});
-        setSeleccionado(null);
+        abrirFormulario();
         setMostrarForm(true);
       });
     }
-  }, [crearConPersonaId, cargarPersonasSinUsuario]);
+  }, [crearConPersonaId, cargarPersonasSinUsuario, abrirFormulario]);
 
   useEffect(() => {
     if (!mensaje) return;
@@ -156,11 +159,12 @@ function Usuarios() {
     setEditando(null);
     setForm(FORM_INICIAL);
     setErrores({});
-    setSeleccionado(null);
+    origen.abrir();
     cargarPersonasSinUsuario();
     setMostrarForm(true);
   }
 
+  // Se abre desde la ficha: cancelar o guardar vuelve a ella (useOrigenEdicion).
   function abrirEditar(u) {
     setEditando(u);
     setForm({
@@ -169,11 +173,12 @@ function Usuarios() {
       contrasena: '',
     });
     setErrores({});
-    setSeleccionado(null);
+    origen.abrir(u);
     setMostrarForm(true);
   }
 
   function cerrarForm() {
+    origen.cancelar();
     setMostrarForm(false);
     setEditando(null);
   }
@@ -198,15 +203,19 @@ function Usuarios() {
         if (form.contrasena !== '') {
           payload.contrasena = form.contrasena;
         }
-        await api.put(`/usuarios/${editando.id}`, payload);
+        // PUT y POST devuelven el usuario serializado igual que el listado:
+        // con eso se muestra la ficha actualizada (o la de la cuenta nueva).
+        const { data } = await api.put(`/usuarios/${editando.id}`, payload);
         setMensaje('Credenciales actualizadas correctamente.');
+        origen.guardado(data.usuario);
       } else {
-        await api.post('/usuarios', {
+        const { data } = await api.post('/usuarios', {
           personaId: Number(form.personaId),
           nombreUsuario: form.nombreUsuario,
           contrasena: form.contrasena,
         });
         setMensaje('Cuenta de usuario creada correctamente.');
+        origen.guardado(data.usuario, { esAlta: true });
       }
       setMostrarForm(false);
       setEditando(null);
@@ -234,7 +243,7 @@ function Usuarios() {
       {mostrarForm && (
         <>
           <button type="button" className="back-link" onClick={cerrarForm}>
-            ← Volver al listado
+            {origen.textoVolver}
           </button>
           <h1>{editando ? 'Modificar credenciales de acceso' : 'Crear cuenta de acceso al sistema'}</h1>
           <Card className="form-card">
