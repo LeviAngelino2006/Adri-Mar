@@ -166,23 +166,23 @@ describe('Con la contraseña provisoria, la app lleva a cambiarla', () => {
     sesion({ ...RAMIRO, debeCambiarContrasena: true });
   });
 
-  test('después del login, "/" lleva a "Cambiá tu contraseña", sin la navegación', async () => {
+  test('después del login, "/" lleva a "Cambiar contraseña", sin la navegación', async () => {
     await montar('/');
-    assert.equal(titulo(), 'Cambiá tu contraseña');
+    assert.equal(titulo(), 'Cambiar contraseña');
     assert.equal(contenedor.querySelector('nav'), null, 'no hay menú para ir a otro lado');
     assert.ok(boton('Cerrar sesión'));
   });
 
   test('cualquier otra ruta también', async () => {
     await montar('/mis-viajes');
-    assert.equal(titulo(), 'Cambiá tu contraseña');
+    assert.equal(titulo(), 'Cambiar contraseña');
   });
 
   test('con la actual incorrecta, el error del backend sale en el campo y no se sale de ahí', async () => {
     await montar('/');
     await completarYEnviar('no-es-esta', 'clave-nueva-1');
     assert.equal(error('contrasenaActual'), 'La contraseña actual no es correcta');
-    assert.equal(titulo(), 'Cambiá tu contraseña');
+    assert.equal(titulo(), 'Cambiar contraseña');
     assert.equal(guardado().debeCambiarContrasena, true);
   });
 
@@ -205,7 +205,7 @@ describe('Con la contraseña provisoria, la app lleva a cambiarla', () => {
 });
 
 describe('Un gestor la define con la sesión abierta', () => {
-  test('el próximo pedido (403 con el código) lleva a "Cambiá tu contraseña"', async () => {
+  test('el próximo pedido (403 con el código) lleva a "Cambiar contraseña"', async () => {
     sesion({ ...RAMIRO, debeCambiarContrasena: false });
     await montar('/mis-viajes');
     assert.equal(titulo(), 'Mis viajes');
@@ -216,7 +216,7 @@ describe('Un gestor la define con la sesión abierta', () => {
       await api.get('/viajes/mis-viajes').catch(() => {});
     });
 
-    assert.equal(titulo(), 'Cambiá tu contraseña');
+    assert.equal(titulo(), 'Cambiar contraseña');
     assert.equal(guardado().debeCambiarContrasena, true);
   });
 

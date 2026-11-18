@@ -19,14 +19,6 @@
   color: var(--color-on-brand);
 }
 
-.login-brand-titulo {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-  line-height: 1.15;
-  color: var(--color-on-brand);
-}
-
 .login-brand-sub {
   margin: 0;
   font-size: 0.9375rem;
@@ -47,11 +39,10 @@
   box-shadow: var(--shadow-md);
 }
 
-/* El logo va centrado arriba de la tarjeta (sobre fondo blanco: variante "claro"). */
-.login-logo {
-  display: flex;
-  width: fit-content;
-  margin: 0 auto var(--space-6);
+/* Título del formulario: el nombre del sistema ya está en el panel azul. */
+.login-titulo {
+  margin: 0 0 var(--space-6);
+  text-align: center;
 }
 
 .login-submit {
@@ -68,10 +59,6 @@
   .login-brand {
     justify-content: flex-end;
     padding: var(--space-12);
-  }
-
-  .login-brand-titulo {
-    font-size: 2.25rem;
   }
 
   .login-main {

@@ -39,13 +39,12 @@ function Login() {
   return (
     <main className="login-page">
       <div className="login-brand">
-        <p className="login-brand-titulo">Adri-Mar Gestión Online</p>
+        <Logo variante="sobreMarca" tamano={64} />
         <p className="login-brand-sub">Viajes, flota y mantenimiento</p>
       </div>
       <div className="login-main">
         <Card className="login-card">
-          <Logo tamano={48} className="login-logo" />
-          <h1 className="sr-only">Iniciar sesión</h1>
+          <h1 className="login-titulo">Ingresar</h1>
           <form onSubmit={handleSubmit} noValidate>
             <FormField id="nombreUsuario" label="Usuario">
               <input
