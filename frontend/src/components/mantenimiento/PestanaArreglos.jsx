@@ -216,7 +216,7 @@ function PestanaArreglos({ cargaVehiculos, vistas, onSuccess }) {
               id="arreglo-km"
               label="Km del odómetro"
               required
-              hint={vehiculo ? `Odómetro actual: ${formatearKm(vehiculo.kilometraje)} km` : 'En kilómetros'}
+              hint={vehiculo ? `Odómetro actual: ${formatearKm(vehiculo.kilometraje)} km` : undefined}
               error={errores.kilometraje}
             >
               <input

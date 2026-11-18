@@ -265,7 +265,8 @@ function Usuarios() {
                       id="personaId"
                       label="Seleccionar persona en la empresa"
                       required
-                      hint={personasSinUsuario.length === 0 && !crearConPersonaId ? 'No hay personas activas sin cuenta de usuario' : 'Asigna esta cuenta a un miembro del personal'}
+                      ayuda="Asigna esta cuenta a un miembro del personal"
+                      hint={personasSinUsuario.length === 0 && !crearConPersonaId ? 'No hay personas activas sin cuenta de usuario' : undefined}
                       error={errores.personaId}
                     >
                       <select
@@ -303,7 +304,7 @@ function Usuarios() {
                   id="contrasena"
                   label={editando ? 'Nueva contraseña (opcional)' : 'Contraseña'}
                   required={!editando}
-                  hint={editando ? 'Dejar en blanco para no modificar' : 'Al menos 8 caracteres'}
+                  ayuda={editando ? 'Dejar en blanco para no modificar' : 'Al menos 8 caracteres'}
                   error={errores.contrasena}
                 >
                   <input

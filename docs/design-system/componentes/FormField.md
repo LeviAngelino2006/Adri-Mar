@@ -5,7 +5,8 @@ Envuelve un control con su label, hint y mensaje de error accesibles.
 - `label`: texto del label (estilo `label`).
 - `children`: UN control (`input`, `select`, `textarea`). Recibe `id`, `aria-invalid` y `aria-describedby` automáticamente.
 - `required` opcional: agrega un asterisco rojo (`.form-field-required`, `state-error-text`, `aria-hidden`) después del label y `aria-required` al control. No usa el atributo nativo `required`: los formularios validan por su cuenta (`noValidate`). Marcá solo lo obligatorio y no escribas "Opcional" en los campos que no lo son.
-- `hint` opcional (estilo `caption`, color `color-text-secondary`). Se oculta cuando hay error.
+- `ayuda` opcional: texto estático de formato o explicación ("Formato AB123CD o ABC123", "7 u 8 dígitos, sin puntos"). Va en un `AyudaTooltip` (ícono "?") junto al label, fuera del `<label>`, y queda en el `aria-describedby` del control aunque el popover esté cerrado. Se mantiene aunque haya error.
+- `hint` opcional (estilo `caption`, color `color-text-secondary`): solo para lo que tiene que quedar a la vista, como datos del registro ("Odómetro actual: X km", "Vence el …") o estados ("Cargando…"). Se oculta cuando hay error. Un texto que repite el label o dice "Opcional" no va ni como `ayuda` ni como `hint`.
 - `error` opcional (estilo `caption`, color `state-error-text`, role="alert"). El borde del control pasa a `state-error-border`.
 
 ## Reglas

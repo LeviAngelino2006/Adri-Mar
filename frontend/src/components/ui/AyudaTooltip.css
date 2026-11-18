@@ -1,0 +1,58 @@
+.ayuda-tooltip {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+/* Ícono de 16px con un área de toque de 28px (el margen negativo
+   evita que agrande la fila del label). */
+.ayuda-tooltip-boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: -6px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .ayuda-tooltip-boton:hover {
+    color: var(--color-text);
+  }
+}
+
+.ayuda-tooltip-boton[aria-expanded='true'] {
+  color: var(--color-text);
+}
+
+.ayuda-tooltip-boton:focus-visible {
+  outline: 2px solid var(--brand-600);
+  outline-offset: -4px;
+}
+
+/* Fijo a la pantalla: no lo recortan los modales con scroll. La posición
+   la calcula el componente para que no se salga de los bordes. */
+.ayuda-tooltip-popover {
+  position: fixed;
+  z-index: 70;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-inverse-bg);
+  color: var(--color-inverse-text);
+  box-shadow: var(--shadow-md);
+  font-size: 0.9375rem; /* body-sm */
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: break-word;
+  pointer-events: auto;
+}

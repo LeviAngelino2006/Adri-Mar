@@ -265,13 +265,15 @@ describe('ModalRegistrarService', () => {
     assert.doesNotMatch(html, /id="service-vehiculo"/);
     assert.match(html, /id="service-fecha"/);
     assert.match(html, /Odómetro actual: 339\.200 km/);
-    // "Incluye" es el hint de la observación (texto gris de ayuda, enlazado al
-    // textarea), en una oración: no una caja celeste con viñetas.
+    // "Incluye" es la ayuda de la observación: un tooltip junto al label, con el
+    // texto enlazado al textarea; en una oración, no una caja celeste con viñetas.
     assert.match(
       html,
-      /<p id="service-observaciones-hint" class="form-field-hint">Incluye: Cambio de aceite \+ Filtros de gasoil, aceite y habitáculo \(aire acondicionado\) \+ Alineado y balanceado \+ Revisión general del motor\.<\/p>/
+      /<span id="service-observaciones-ayuda" class="sr-only">Incluye: Cambio de aceite \+ Filtros de gasoil, aceite y habitáculo \(aire acondicionado\) \+ Alineado y balanceado \+ Revisión general del motor\.<\/span>/
     );
-    assert.match(html, /<textarea[^>]*aria-describedby="service-observaciones-hint"/);
+    assert.match(html, /<button type="button" class="ayuda-tooltip-boton" aria-label="Más información"/);
+    assert.match(html, /<textarea[^>]*aria-describedby="service-observaciones-ayuda"/);
+    assert.doesNotMatch(html, /service-observaciones-hint/);
     assert.doesNotMatch(html, /class="alert alert-info/);
     assert.doesNotMatch(html, /<ul/);
     // El service no tiene costo ni responsable, ni casillas para tildar.
