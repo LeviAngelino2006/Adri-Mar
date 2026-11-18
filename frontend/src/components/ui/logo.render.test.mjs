@@ -44,12 +44,16 @@ describe('Logo', () => {
     assert.match(html, />Gestión Online</);
   });
 
-  test('"sobreMarca" cambia solo la clase; el ícono es el mismo', () => {
+  test('"sobreMarca" cambia solo el fondo del cuadrado; el odómetro es el mismo', () => {
     const claro = renderToStaticMarkup(h(Logo, {}));
     const sobreMarca = renderToStaticMarkup(h(Logo, { variante: 'sobreMarca' }));
     assert.match(sobreMarca, /class="logo logo-sobreMarca"/);
-    const svg = (html) => html.match(/<svg[\s\S]*<\/svg>/)[0];
-    assert.equal(svg(sobreMarca), svg(claro));
+    const fondo = (html) => html.match(/<rect[^>]*fill="([^"]+)"/)[1];
+    assert.equal(fondo(claro), '#0535a6');
+    assert.equal(fondo(sobreMarca), 'rgba(255, 255, 255, 0.12)');
+    // Sin el <rect>, el resto del ícono (el odómetro) es idéntico.
+    const odometro = (html) => html.match(/<svg[\s\S]*<\/svg>/)[0].replace(/<rect[^>]*>(<\/rect>)?/, '');
+    assert.equal(odometro(sobreMarca), odometro(claro));
   });
 
   test('soloIcono no muestra el nombre', () => {

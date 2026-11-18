@@ -44,7 +44,7 @@ function Login() {
       </div>
       <div className="login-main">
         <Card className="login-card">
-          <h1 className="login-titulo">Ingresar</h1>
+          <h1 className="login-titulo">Iniciar sesión</h1>
           <form onSubmit={handleSubmit} noValidate>
             <FormField id="nombreUsuario" label="Usuario">
               <input
