@@ -1,6 +1,6 @@
 // Smoke test de render de la tarjeta de viaje del listado (agrupado por día,
 // con el pendiente administrativo en texto gris), del formulario de alta (sin datos
-// administrativos, y precargado al duplicar), del botón "Duplicar viaje" y de los
+// administrativos, y precargado al duplicar), del botón "Duplicar viaje", de "Ver recorrido en Google Maps" y de los
 // paneles del Dashboard (Viajes de hoy y estados vacíos). Se corre con `npm test` (node:test).
 //
 // Mismo método que confirmarViaje.render.test.mjs: Vite en modo SSR carga los
@@ -26,6 +26,7 @@ let TarjetaViaje;
 let ListadoViajesPorDia;
 let ViajeForm;
 let DuplicarViaje;
+let FichaViaje;
 let valoresParaDuplicar;
 let ContenidoViajesDeHoy;
 let ContenidoPorConfirmar;
@@ -38,6 +39,7 @@ before(async () => {
   ListadoViajesPorDia = moduloTarjeta.ListadoViajesPorDia;
   ViajeForm = (await vite.ssrLoadModule('/src/components/ViajeForm.jsx')).default;
   DuplicarViaje = (await vite.ssrLoadModule('/src/components/DuplicarViaje.jsx')).default;
+  FichaViaje = (await vite.ssrLoadModule('/src/components/FichaViaje.jsx')).default;
   ({ valoresParaDuplicar } = await vite.ssrLoadModule('/src/utils/valoresFormViaje.js'));
   ({ ContenidoViajesDeHoy } = await vite.ssrLoadModule('/src/components/PanelViajesDeHoy.jsx'));
   ({ ContenidoPorConfirmar } = await vite.ssrLoadModule('/src/components/PanelViajesPorConfirmar.jsx'));
@@ -306,6 +308,23 @@ describe('Duplicar viaje', () => {
     assert.match(html, /name="fechaFin" value=""/);
     assert.match(html, /value="Río Tercero"[\s\S]*value="Almafuerte"[\s\S]*value="Despeñaderos"[\s\S]*value="Córdoba"/);
     assert.match(html, /name="kilometrosEstimados"[^>]*value="110"/);
+  });
+});
+
+describe('Ficha: "Ver recorrido en Google Maps"', () => {
+  test('va junto a la ruta, como Button secondary, y abre en una pestaña nueva', () => {
+    const html = renderToStaticMarkup(h(FichaViaje, { viaje: viaje() }));
+    const recorrido = html.slice(html.indexOf('<span class="detalle-recorrido">'));
+    assert.match(
+      recorrido,
+      /^<span class="detalle-recorrido">.*?<a class="btn btn-secondary" href="https:\/\/www\.google\.com\/maps\/dir\/\?api=1&amp;[^"]+" target="_blank" rel="noopener noreferrer">/
+    );
+  });
+
+  test('sin origen o destino queda un botón deshabilitado, sin enlace', () => {
+    const html = renderToStaticMarkup(h(FichaViaje, { viaje: viaje({ destino: null }) }));
+    assert.ok(!html.includes('google.com/maps'));
+    assert.match(html, /<button type="button" class="btn btn-secondary" disabled="">.*Ver recorrido en Google Maps/);
   });
 });
 
