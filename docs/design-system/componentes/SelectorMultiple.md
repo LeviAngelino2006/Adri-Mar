@@ -1,4 +1,4 @@
-Selector de varias opciones con chips: se escribe para filtrar, se elige de la lista y cada elección queda como un chip que se puede quitar.
+Selector de varias opciones con chips: se escribe para filtrar, se elige de la lista y cada elección queda como un chip que se puede quitar. Lo usan las unidades de un presupuesto; los choferes y vehículos posibles de un viaje pasaron a `TarjetaSeleccionable` (SCRUM-251).
 
 No está en `bundle.js`. A diferencia de `SelectorBuscarOCrear` no depende del cliente HTTP (recibe las opciones ya cargadas); la vista previa es una representación estática con sus clases CSS.
 

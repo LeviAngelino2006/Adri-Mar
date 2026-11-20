@@ -10,7 +10,7 @@ import AvisarPorWhatsApp from './AvisarPorWhatsApp';
 import { DURACION_TOAST_CON_ACCION_MS, DURACION_TOAST_MS } from '../constants/toast';
 import { agruparPorConfirmar, rangoHoyYManana } from '../utils/viajesPorConfirmar';
 import { formatearHora } from '../utils/viajeFormato';
-import { avisoWhatsApp } from '../utils/whatsapp';
+import { puedeAvisarPorWhatsApp } from '../utils/whatsapp';
 import { useCarga } from '../hooks/useCarga';
 import './PanelViajesPorConfirmar.css';
 
@@ -84,7 +84,7 @@ function PanelViajesPorConfirmar() {
   // { texto, viaje } mientras el toast de éxito está en pantalla.
   const [aviso, setAviso] = useState(null);
 
-  const puedeAvisar = Boolean(aviso && avisoWhatsApp(aviso.viaje).url);
+  const puedeAvisar = Boolean(aviso) && puedeAvisarPorWhatsApp(aviso.viaje);
 
   useEffect(() => {
     if (!aviso) return;

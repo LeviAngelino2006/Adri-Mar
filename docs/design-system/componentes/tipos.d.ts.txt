@@ -72,6 +72,8 @@ export interface ConfirmModalProps {
   title: string;
   description?: ReactNode;
   confirmLabel: ReactNode;
+  /** Deshabilita el botón de confirmar. Por defecto false. */
+  confirmDisabled?: boolean;
   /** Por defecto 'Cancelar'. */
   cancelLabel?: ReactNode;
   onConfirm?: () => void;
@@ -116,6 +118,26 @@ export interface SelectorMultipleProps {
 }
 /** No incluido en bundle.js. */
 export declare function SelectorMultiple(props: SelectorMultipleProps): ReactElement;
+
+export interface TarjetaSeleccionableProps {
+  /** 'checkbox' (selección múltiple, por defecto) o 'radio' (selección única). */
+  tipo?: 'checkbox' | 'radio';
+  name?: string;
+  value?: string | number;
+  titulo: string;
+  /** Textos secundarios, uno por línea ("Patente AE452KD", "45 asientos"). */
+  detalles?: string[];
+  /** Estado de habilitación ("Habilitado" / el motivo). */
+  estado?: { texto: string; tono?: 'ok' | 'error' | 'neutral' };
+  /** Aviso informativo; nunca bloquea. */
+  aviso?: string;
+  seleccionada?: boolean;
+  /** No se puede elegir; si ya estaba elegida, se puede quitar. */
+  deshabilitada?: boolean;
+  onChange?: () => void;
+}
+/** No incluido en bundle.js. */
+export declare function TarjetaSeleccionable(props: TarjetaSeleccionableProps): ReactElement;
 
 export interface RutaViajeProps {
   /** Lugar de origen; sin valor muestra "No registrado" atenuado. */

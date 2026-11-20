@@ -1,5 +1,7 @@
 import FormField from './ui/FormField';
 import OpcionVacia from './ui/OpcionVacia';
+import TarjetaSeleccionable from './ui/TarjetaSeleccionable';
+import { ESTADO_VERIFICANDO, estadoHabilitacion, habilitadosPrimero } from '../utils/tarjetasCandidatos';
 import './SeleccionCandidato.css';
 
 const OPCION_OTRO = 'otro';
@@ -7,23 +9,40 @@ const OPCION_OTRO = 'otro';
 // Elección de UNA persona o vehículo al confirmar un viaje. Se usa dos veces en
 // ModalConfirmarViaje (chofer y vehículo).
 //
-//  - Con candidatos: un radio por cada uno. Los no disponibles van
-//    deshabilitados y con su motivo a la derecha, y al final está "Elegir
-//    otro…", que despliega un select con el resto de los elegibles.
+//  - Con candidatos: una tarjeta con radio (TarjetaSeleccionable) por cada uno.
+//    Las disponibles van primero y las no disponibles al final, deshabilitadas
+//    y con su motivo (dentro de cada grupo, en el orden en que vienen). Después
+//    está la tarjeta "Elegir otro…", que despliega un select con el resto de los
+//    elegibles.
 //  - Sin candidatos: directamente el select.
 //
-// `estados` ({ [id]: { disponible, motivo } }) viene de la disponibilidad; es
-// null mientras se consulta o si la consulta falló, y en ese caso todo queda
-// habilitado (el backend valida igual al confirmar). Los no disponibles del
-// select también van deshabilitados, con el motivo en la etiqueta: no se
-// pueden elegir.
+// `candidatos`: [{ id, titulo, detalles?, etiqueta }] (ver utils/tarjetasCandidatos;
+// `etiqueta` es el texto corto). `estados` ({ [id]: { disponible, motivo } })
+// viene de la disponibilidad. Los no disponibles del select también van
+// deshabilitados, con el motivo en la etiqueta: no se pueden elegir.
+//
+// `verificando`: la disponibilidad todavía no llegó (o la consulta falló y hay
+// que reintentar). Mientras tanto no se puede elegir nada: cada tarjeta dice
+// "Verificando…" y el select queda deshabilitado. Quien lo usa deshabilita
+// también el botón de confirmar.
 //
 // `placeholder` es la primera opción del select ("Elegí el chofer"): no se
 // puede elegir, porque confirmar exige uno (ver OpcionVacia).
 //
 // `valor` es { opcion, otroId }: `opcion` es el id del candidato elegido
 // (string, por ser el value de un radio) o 'otro'.
-function SeleccionCandidato({ id, etiqueta, placeholder, candidatos, otros, estados, valor, onChange, error }) {
+function SeleccionCandidato({
+  id,
+  etiqueta,
+  placeholder,
+  candidatos,
+  otros,
+  estados,
+  verificando = false,
+  valor,
+  onChange,
+  error,
+}) {
   const estadoDe = (itemId) => estados?.[itemId];
   const motivoDe = (item) => estadoDe(item?.id)?.motivo || item?.motivo;
   const noDisponible = (item) => {
@@ -37,8 +56,12 @@ function SeleccionCandidato({ id, etiqueta, placeholder, candidatos, otros, esta
 
   const select = (
     <FormField id={`${id}-otro`} label={hayCandidatos ? `${etiqueta} (otro)` : etiqueta} error={hayCandidatos ? undefined : error}>
-      <select value={valor.otroId} onChange={(e) => onChange({ opcion: OPCION_OTRO, otroId: e.target.value })}>
-        <OpcionVacia obligatorio>{placeholder}</OpcionVacia>
+      <select
+        value={valor.otroId}
+        disabled={verificando}
+        onChange={(e) => onChange({ opcion: OPCION_OTRO, otroId: e.target.value })}
+      >
+        <OpcionVacia obligatorio>{verificando ? ESTADO_VERIFICANDO.texto : placeholder}</OpcionVacia>
         {otros.map((o) => {
           const deshabilitado = noDisponible(o);
           const motivo = motivoDe(o);
@@ -54,42 +77,46 @@ function SeleccionCandidato({ id, etiqueta, placeholder, candidatos, otros, esta
 
   if (!hayCandidatos) return select;
 
+  // Mientras se verifica no se sabe quién está disponible: el orden en que vienen.
+  const ordenados = verificando ? candidatos : habilitadosPrimero(candidatos, noDisponible);
+
   return (
-    <fieldset className="seleccion-candidato" aria-describedby={error ? `${id}-error` : undefined}>
+    <fieldset className="seleccion-candidato" aria-describedby={error ? `${id}-error` : undefined} aria-busy={verificando || undefined}>
       <legend>{etiqueta}</legend>
 
-      {candidatos.map((c) => {
-        const deshabilitado = noDisponible(c);
-        const motivo = motivoDe(c);
-        return (
-          <label
-            key={c.id}
-            className={deshabilitado ? 'seleccion-candidato-opcion seleccion-candidato-opcion-deshabilitada' : 'seleccion-candidato-opcion'}
-          >
-            <input
-              type="radio"
+      <div className="tarjetas-seleccionables">
+        {ordenados.map((c) => {
+          const deshabilitado = verificando || noDisponible(c);
+          let estado = ESTADO_VERIFICANDO;
+          if (!verificando) estado = estadoHabilitacion({ disponible: !noDisponible(c), motivo: motivoDe(c) });
+          return (
+            <TarjetaSeleccionable
+              key={c.id}
+              tipo="radio"
               name={id}
               value={c.id}
-              checked={valor.opcion === String(c.id)}
-              disabled={deshabilitado}
+              titulo={c.titulo ?? c.etiqueta}
+              detalles={c.detalles}
+              estado={estado}
+              seleccionada={valor.opcion === String(c.id)}
+              deshabilitada={deshabilitado}
               onChange={() => onChange({ opcion: String(c.id), otroId: '' })}
             />
-            <span className="seleccion-candidato-nombre">{c.etiqueta}</span>
-            {deshabilitado && <span className="seleccion-candidato-motivo">{motivo}</span>}
-          </label>
-        );
-      })}
+          );
+        })}
 
-      <label className="seleccion-candidato-opcion">
-        <input
-          type="radio"
+        <TarjetaSeleccionable
+          tipo="radio"
           name={id}
           value={OPCION_OTRO}
-          checked={valor.opcion === OPCION_OTRO}
+          titulo="Elegir otro…"
+          detalles={['Del resto de la lista']}
+          estado={verificando ? ESTADO_VERIFICANDO : undefined}
+          seleccionada={valor.opcion === OPCION_OTRO}
+          deshabilitada={verificando}
           onChange={() => onChange({ opcion: OPCION_OTRO, otroId: valor.otroId })}
         />
-        <span className="seleccion-candidato-nombre">Elegir otro…</span>
-      </label>
+      </div>
 
       {mostrarSelect && select}
 

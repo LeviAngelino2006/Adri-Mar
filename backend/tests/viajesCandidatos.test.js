@@ -402,6 +402,24 @@ describe('PATCH /viajes/:id/confirmar', () => {
     assert.deepEqual(idsDe(candChofer, 'personaId', viaje.id), [5]);
   });
 
+  test('vehículo con otro viaje programado que se superpone: 400 y el viaje queda A confirmar', async () => {
+    // Otro chofer (6), mismo vehículo (7): el chofer 5 está libre, el vehículo no.
+    agregarViaje({ estado: 'PROGRAMADO', choferId: 6, vehiculoId: 7, fechaInicio: cba('10:00'), fechaFin: cba('14:00') });
+    const viaje = agregarViaje({ choferesCandidatos: [5], vehiculosCandidatos: [7] });
+
+    const { status, json } = await pedir('PATCH', `/viajes/${viaje.id}/confirmar`, {
+      perfil: 'ENCARGADO',
+      body: CONFIRMACION,
+    });
+
+    assert.equal(status, 400);
+    assert.equal(json.errores.vehiculoId, 'El vehículo ya tiene un viaje programado que se superpone con este horario');
+    assert.ok(!('choferId' in json.errores));
+    assert.equal(filaPorId(viaje.id).estadoViajeId, ESTADOS.A_CONFIRMAR);
+    assert.equal(filaPorId(viaje.id).vehiculoId, null);
+    assert.deepEqual(idsDe(candVeh, 'vehiculoId', viaje.id), [7]);
+  });
+
   test('un viaje que ya está PROGRAMADO: 409 y sus datos quedan intactos', async () => {
     const viaje = agregarViaje({ estado: 'PROGRAMADO', choferId: 5, vehiculoId: 7 });
     // Candidatos "perdidos" a propósito: una segunda confirmación no puede
