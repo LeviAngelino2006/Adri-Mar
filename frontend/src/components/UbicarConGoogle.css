@@ -20,7 +20,7 @@
   gap: var(--space-1);
 }
 
-/* Fila de radio simple (lugares de Google; no es una TarjetaSeleccionable). */
+/* Mismo patrón que .seleccion-candidato-opcion. */
 .ubicar-google-candidato {
   display: flex;
   align-items: center;

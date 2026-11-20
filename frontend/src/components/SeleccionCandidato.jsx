@@ -1,7 +1,6 @@
 import FormField from './ui/FormField';
 import OpcionVacia from './ui/OpcionVacia';
-import TarjetaSeleccionable from './ui/TarjetaSeleccionable';
-import { ESTADO_VERIFICANDO, estadoHabilitacion, habilitadosPrimero } from '../utils/tarjetasCandidatos';
+import { TEXTO_VERIFICANDO, habilitadosPrimero } from '../utils/tarjetasCandidatos';
 import './SeleccionCandidato.css';
 
 const OPCION_OTRO = 'otro';
@@ -9,22 +8,20 @@ const OPCION_OTRO = 'otro';
 // Elección de UNA persona o vehículo al confirmar un viaje. Se usa dos veces en
 // ModalConfirmarViaje (chofer y vehículo).
 //
-//  - Con candidatos: una tarjeta con radio (TarjetaSeleccionable) por cada uno.
-//    Las disponibles van primero y las no disponibles al final, deshabilitadas
-//    y con su motivo (dentro de cada grupo, en el orden en que vienen). Después
-//    está la tarjeta "Elegir otro…", que despliega un select con el resto de los
-//    elegibles.
+//  - Con candidatos: un radio por cada uno, en fila. Los disponibles van
+//    primero y los no disponibles al final, deshabilitados y con su motivo a la
+//    derecha (dentro de cada grupo, en el orden en que vienen). Al final está
+//    "Elegir otro…", que despliega un select con el resto de los elegibles.
 //  - Sin candidatos: directamente el select.
 //
-// `candidatos`: [{ id, titulo, detalles?, etiqueta }] (ver utils/tarjetasCandidatos;
-// `etiqueta` es el texto corto). `estados` ({ [id]: { disponible, motivo } })
-// viene de la disponibilidad. Los no disponibles del select también van
-// deshabilitados, con el motivo en la etiqueta: no se pueden elegir.
+// `estados` ({ [id]: { disponible, motivo } }) viene de la disponibilidad. Los
+// no disponibles del select también van deshabilitados, con el motivo en la
+// etiqueta: no se pueden elegir.
 //
 // `verificando`: la disponibilidad todavía no llegó (o la consulta falló y hay
-// que reintentar). Mientras tanto no se puede elegir nada: cada tarjeta dice
-// "Verificando…" y el select queda deshabilitado. Quien lo usa deshabilita
-// también el botón de confirmar.
+// que reintentar). Mientras tanto no se puede elegir nada: cada radio queda
+// deshabilitado con "Verificando…" a la derecha y el select, deshabilitado.
+// Quien lo usa deshabilita también el botón de confirmar.
 //
 // `placeholder` es la primera opción del select ("Elegí el chofer"): no se
 // puede elegir, porque confirmar exige uno (ver OpcionVacia).
@@ -61,7 +58,7 @@ function SeleccionCandidato({
         disabled={verificando}
         onChange={(e) => onChange({ opcion: OPCION_OTRO, otroId: e.target.value })}
       >
-        <OpcionVacia obligatorio>{verificando ? ESTADO_VERIFICANDO.texto : placeholder}</OpcionVacia>
+        <OpcionVacia obligatorio>{verificando ? TEXTO_VERIFICANDO : placeholder}</OpcionVacia>
         {otros.map((o) => {
           const deshabilitado = noDisponible(o);
           const motivo = motivoDe(o);
@@ -80,43 +77,61 @@ function SeleccionCandidato({
   // Mientras se verifica no se sabe quién está disponible: el orden en que vienen.
   const ordenados = verificando ? candidatos : habilitadosPrimero(candidatos, noDisponible);
 
+  // Una fila de radio: deshabilitada (por la disponibilidad o mientras se
+  // verifica) con el texto de la derecha.
+  const fila = ({ clave, value, texto, deshabilitado, aDerecha, onElegir }) => (
+    <label
+      key={clave}
+      className={deshabilitado ? 'seleccion-candidato-opcion seleccion-candidato-opcion-deshabilitada' : 'seleccion-candidato-opcion'}
+    >
+      <input
+        type="radio"
+        name={id}
+        value={value}
+        checked={valor.opcion === String(value)}
+        disabled={deshabilitado}
+        onChange={onElegir}
+      />
+      <span className="seleccion-candidato-nombre">{texto}</span>
+      {aDerecha && (
+        <span className={verificando ? 'seleccion-candidato-motivo seleccion-candidato-verificando' : 'seleccion-candidato-motivo'}>
+          {aDerecha}
+        </span>
+      )}
+    </label>
+  );
+
   return (
-    <fieldset className="seleccion-candidato" aria-describedby={error ? `${id}-error` : undefined} aria-busy={verificando || undefined}>
+    <fieldset
+      className="seleccion-candidato"
+      aria-describedby={error ? `${id}-error` : undefined}
+      aria-busy={verificando || undefined}
+    >
       <legend>{etiqueta}</legend>
 
-      <div className="tarjetas-seleccionables">
-        {ordenados.map((c) => {
-          const deshabilitado = verificando || noDisponible(c);
-          let estado = ESTADO_VERIFICANDO;
-          if (!verificando) estado = estadoHabilitacion({ disponible: !noDisponible(c), motivo: motivoDe(c) });
-          return (
-            <TarjetaSeleccionable
-              key={c.id}
-              tipo="radio"
-              name={id}
-              value={c.id}
-              titulo={c.titulo ?? c.etiqueta}
-              detalles={c.detalles}
-              estado={estado}
-              seleccionada={valor.opcion === String(c.id)}
-              deshabilitada={deshabilitado}
-              onChange={() => onChange({ opcion: String(c.id), otroId: '' })}
-            />
-          );
-        })}
+      {ordenados.map((c) => {
+        const deshabilitado = verificando || noDisponible(c);
+        let aDerecha = null;
+        if (verificando) aDerecha = TEXTO_VERIFICANDO;
+        else if (deshabilitado) aDerecha = motivoDe(c);
+        return fila({
+          clave: c.id,
+          value: c.id,
+          texto: c.etiqueta,
+          deshabilitado,
+          aDerecha,
+          onElegir: () => onChange({ opcion: String(c.id), otroId: '' }),
+        });
+      })}
 
-        <TarjetaSeleccionable
-          tipo="radio"
-          name={id}
-          value={OPCION_OTRO}
-          titulo="Elegir otro…"
-          detalles={['Del resto de la lista']}
-          estado={verificando ? ESTADO_VERIFICANDO : undefined}
-          seleccionada={valor.opcion === OPCION_OTRO}
-          deshabilitada={verificando}
-          onChange={() => onChange({ opcion: OPCION_OTRO, otroId: valor.otroId })}
-        />
-      </div>
+      {fila({
+        clave: OPCION_OTRO,
+        value: OPCION_OTRO,
+        texto: 'Elegir otro…',
+        deshabilitado: verificando,
+        aDerecha: verificando ? TEXTO_VERIFICANDO : null,
+        onElegir: () => onChange({ opcion: OPCION_OTRO, otroId: valor.otroId }),
+      })}
 
       {mostrarSelect && select}
 
