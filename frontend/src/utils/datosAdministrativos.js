@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import api from '../services/api';
 import { aInputCordoba } from './fechaCordoba';
 
@@ -60,20 +60,40 @@ export function validarMontos(valores) {
 }
 
 // Catálogos de estado y método de pago (los ids que espera el backend). Se
-// piden recién cuando hacen falta (`cargarCatalogos`) y solo la primera vez:
-// quien no abre la edición no los necesita.
+// piden recién cuando hacen falta (`cargarCatalogos`, al abrir el formulario)
+// y una sola vez por montaje: quien no abre la edición no los necesita.
+// `cargarCatalogos` es estable, para poder llamarlo desde un efecto.
+//
+// Si un pedido falla, `errorCatalogos` queda con el error (sin él los selects
+// quedarían vacíos sin ningún aviso) y ese catálogo se puede volver a pedir:
+// `reintentarCatalogos` limpia el error y pide solo los que faltan.
 export function useCatalogosPago() {
   const [estadosPago, setEstadosPago] = useState([]);
   const [metodosPago, setMetodosPago] = useState([]);
+  const [errorCatalogos, setErrorCatalogos] = useState(null);
+  // Catálogos ya pedidos (o cargados); uno que falló vuelve a false.
+  const pedidos = useRef({ estados: false, metodos: false });
 
-  function cargarCatalogos() {
-    if (estadosPago.length === 0) {
-      api.get('/estados-pago').then(({ data }) => setEstadosPago(data.estadosPago));
+  const cargarCatalogos = useCallback(() => {
+    function pedir(clave, endpoint, guardar) {
+      if (pedidos.current[clave]) return;
+      pedidos.current[clave] = true;
+      api
+        .get(endpoint)
+        .then(({ data }) => guardar(data))
+        .catch((err) => {
+          pedidos.current[clave] = false;
+          setErrorCatalogos(err);
+        });
     }
-    if (metodosPago.length === 0) {
-      api.get('/metodos-pago').then(({ data }) => setMetodosPago(data.metodosPago));
-    }
-  }
+    pedir('estados', '/estados-pago', (data) => setEstadosPago(data.estadosPago));
+    pedir('metodos', '/metodos-pago', (data) => setMetodosPago(data.metodosPago));
+  }, []);
 
-  return { estadosPago, metodosPago, cargarCatalogos };
+  const reintentarCatalogos = useCallback(() => {
+    setErrorCatalogos(null);
+    cargarCatalogos();
+  }, [cargarCatalogos]);
+
+  return { estadosPago, metodosPago, cargarCatalogos, errorCatalogos, reintentarCatalogos };
 }

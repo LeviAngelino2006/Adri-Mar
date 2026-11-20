@@ -16,8 +16,3 @@
   margin: 0;
   font-size: 1.125rem;
 }
-
-.datos-admin-pie {
-  padding: var(--space-4) var(--space-6) var(--space-5);
-  border-top: 1px solid var(--color-border);
-}

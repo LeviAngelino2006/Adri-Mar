@@ -1,0 +1,11 @@
+/* Pie del formulario de datos administrativos (error general y botones),
+   separado de la última sección como en la tarjeta de la ficha. */
+.datos-admin-pie {
+  padding: var(--space-4) var(--space-6) var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Aviso de error al cargar los catálogos de pago, arriba del formulario. */
+.datos-admin-error-catalogos {
+  margin-bottom: var(--space-4);
+}

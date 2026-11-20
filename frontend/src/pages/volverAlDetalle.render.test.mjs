@@ -8,6 +8,8 @@
 //    con los datos que devolvió el PUT);
 //  - alta → cancelar vuelve al listado; guardar abre la ficha del registro nuevo;
 //  - el link de arriba del formulario dice a dónde vuelve.
+// SCRUM-248: los datos administrativos del viaje se editan en una pantalla
+// aparte; al volver (guardar, Cancelar o el link) la ficha baja a su tarjeta.
 // Se monta cada página con react-dom/client sobre jsdom y la API se reemplaza
 // por un doble.
 
@@ -27,7 +29,12 @@ globalThis.window = dom.window;
 globalThis.document = dom.window.document;
 globalThis.localStorage = dom.window.localStorage;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-window.scrollTo = () => {};
+// Las llamadas a scrollTo con objeto ({ top, behavior }) son las de
+// llevarADatosAdministrativos; scrollTo(0, 0) es volver arriba.
+const scrollsATarjeta = [];
+window.scrollTo = (destino) => {
+  if (typeof destino === 'object') scrollsATarjeta.push(destino);
+};
 
 const React = require('react');
 const { act } = React;
@@ -103,6 +110,10 @@ before(async () => {
         return { data: { usuarios: [] } };
       case '/documentos/alertas':
         return { data: { totalAlertas: 0, vencidos: 0, porVencer: 0, documentos: [] } };
+      case '/estados-pago':
+        return { data: { estadosPago: [{ id: 1, descripcion: 'PENDIENTE' }, { id: 2, descripcion: 'PAGADO' }] } };
+      case '/metodos-pago':
+        return { data: { metodosPago: [{ id: 1, descripcion: 'EFECTIVO' }] } };
       default:
         return { data: {} };
     }
@@ -110,6 +121,10 @@ before(async () => {
   api.put = async (endpoint, datos) => {
     enviados.push({ metodo: 'PUT', endpoint, datos });
     return { data: respuestas.put };
+  };
+  api.patch = async (endpoint, datos) => {
+    enviados.push({ metodo: 'PATCH', endpoint, datos });
+    return { data: respuestas.patch };
   };
   api.post = async (endpoint, datos) => {
     enviados.push({ metodo: 'POST', endpoint, datos });
@@ -135,6 +150,7 @@ async function montar(nombre, ruta) {
 
 beforeEach(() => {
   enviados.length = 0;
+  scrollsATarjeta.length = 0;
   respuestas = {};
   localStorage.setItem('adrimar_token', 'token-de-prueba');
   localStorage.setItem(
@@ -379,5 +395,100 @@ describe('Viajes: volver de "Editar viaje"', () => {
     await clic(boton('Cancelar'));
     assert.equal(titulo(), 'Viaje a confirmar');
     assert.ok(boton('Duplicar viaje'));
+  });
+});
+
+// --- Viajes: datos administrativos en pantalla propia (SCRUM-248) --------------------
+
+describe('Viajes: pantalla de datos administrativos', () => {
+  // En jsdom todo mide 0 y la tarjeta "ya se ve": se la pone fuera de la
+  // pantalla para que llevarADatosAdministrativos tenga que bajar.
+  const medirOriginal = window.HTMLElement.prototype.getBoundingClientRect;
+  before(() => {
+    window.HTMLElement.prototype.getBoundingClientRect = () => ({ top: 2000, bottom: 2080, left: 0, right: 0, width: 0, height: 80 });
+  });
+  after(() => {
+    window.HTMLElement.prototype.getBoundingClientRect = medirOriginal;
+  });
+
+  beforeEach(() => montar('Viajes', '/viajes'));
+
+  const enPantallaAdmin = () => titulo() === 'Datos administrativos';
+  const tarjetaAdmin = () => contenedor.querySelector('[role="region"][aria-label="Datos administrativos"]');
+
+  async function abrirPantallaAdmin() {
+    await clic(contenedor.querySelector('.listado-card'));
+    scrollsATarjeta.length = 0;
+    await clic(boton('Editar datos administrativos'));
+  }
+
+  test('muestra solo el formulario, con qué viaje se edita y sin listado ni ficha debajo', async () => {
+    await abrirPantallaAdmin();
+    assert.ok(enPantallaAdmin());
+    assert.equal(contenedor.querySelectorAll('h1').length, 1);
+    assert.equal(linkVolver(), '← Volver a la ficha');
+    const linea = contenedor.querySelector('.viajes-admin-viaje').textContent;
+    assert.match(linea, /^Viaje a confirmar · /);
+    assert.match(linea, /Río Tercero/);
+    assert.match(linea, /Córdoba/);
+    assert.ok(!contenedor.querySelector('.listado-card'), 'el listado no tiene que aparecer debajo');
+    assert.ok(!enFicha(), 'la ficha no tiene que aparecer debajo');
+    assert.ok(!tarjetaAdmin(), 'la tarjeta de solo lectura no tiene que aparecer');
+    assert.ok(contenedor.querySelector('select[name="estadoPagoClienteId"]'));
+  });
+
+  test('guardar vuelve a la ficha con los datos del backend, el toast y baja a la tarjeta', async () => {
+    respuestas.patch = { viaje: { ...VIAJE, precio: 54321 } };
+    await abrirPantallaAdmin();
+    await clic(boton('Guardar datos'));
+    assert.equal(enviados[0].metodo, 'PATCH');
+    assert.equal(enviados[0].endpoint, '/viajes/40/datos-administrativos');
+    assert.ok(enFicha());
+    assert.ok(tarjetaAdmin().textContent.includes('54.321'), 'la tarjeta tiene que mostrar el precio actualizado');
+    assert.ok(contenedor.textContent.includes('Datos administrativos guardados correctamente.'));
+    assert.equal(scrollsATarjeta.length, 1, 'tiene que bajar a la tarjeta de datos administrativos');
+  });
+
+  test('Cancelar vuelve a la ficha y baja a la tarjeta, sin guardar', async () => {
+    await abrirPantallaAdmin();
+    await clic(boton('Cancelar'));
+    assert.ok(enFicha());
+    assert.ok(tarjetaAdmin());
+    assert.equal(enviados.length, 0);
+    assert.equal(scrollsATarjeta.length, 1);
+  });
+
+  test('el link "← Volver a la ficha" vuelve a la ficha y baja a la tarjeta', async () => {
+    await abrirPantallaAdmin();
+    await clic(contenedor.querySelector('.back-link'));
+    assert.ok(enFicha());
+    assert.equal(scrollsATarjeta.length, 1);
+  });
+
+  test('abrir la ficha desde el listado no baja a la tarjeta (tampoco después de volver de editar)', async () => {
+    await clic(contenedor.querySelector('.listado-card'));
+    assert.ok(enFicha());
+    assert.equal(scrollsATarjeta.length, 0);
+
+    // Ida y vuelta por la pantalla de datos administrativos: la marca se
+    // consume al volver y no queda pendiente para la próxima ficha.
+    await clic(boton('Editar datos administrativos'));
+    await clic(boton('Cancelar'));
+    await clic(contenedor.querySelector('.back-link'));
+    assert.ok(contenedor.querySelector('.listado-card'));
+    scrollsATarjeta.length = 0;
+    await clic(contenedor.querySelector('.listado-card'));
+    assert.ok(enFicha());
+    assert.equal(scrollsATarjeta.length, 0);
+  });
+
+  test('el alta (duplicado) sigue bajando a la tarjeta de datos administrativos', async () => {
+    respuestas.post = { viaje: VIAJE_NUEVO };
+    await clic(contenedor.querySelector('.listado-card'));
+    await clic(boton('Duplicar viaje'));
+    scrollsATarjeta.length = 0;
+    await clic(boton('Crear viaje'));
+    assert.ok(enFicha());
+    assert.equal(scrollsATarjeta.length, 1);
   });
 });
