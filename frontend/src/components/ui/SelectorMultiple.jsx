@@ -221,7 +221,7 @@ function SelectorMultiple({
             return (
               <li key={valorId} className="selector-multiple-item">
                 <span className={clase}>
-                  <span className="selector-multiple-cuadro-texto">
+                  <span className="selector-multiple-cuadro-texto" title={nombre}>
                     <span className="selector-multiple-cuadro-titulo">{titulo}</span>
                     {subtitulo && <span className="selector-multiple-cuadro-subtitulo">{subtitulo}</span>}
                   </span>

@@ -206,6 +206,8 @@ describe('ViajeForm: choferes y vehículos posibles con buscador y cuadraditos',
       { titulo: 'Interno 12', subtitulo: 'AE452KD', deshabilitado: false, motivo: null },
     ]);
     assert.ok(botonQuitar('vehiculosCandidatos', 'Interno 12, AE452KD'));
+    // Si una línea no entra termina en "…": el nombre completo queda en el title.
+    assert.equal(selector('vehiculosCandidatos').querySelector('.selector-multiple-cuadro-texto').title, 'Interno 12, AE452KD');
   });
 
   test('los elegidos son cuadraditos (radius-md), no píldoras', async () => {
