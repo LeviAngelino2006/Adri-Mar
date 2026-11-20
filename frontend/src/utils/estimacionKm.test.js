@@ -5,7 +5,6 @@ import assert from 'node:assert/strict';
 import {
   aplicarEstimacion,
   firmaRecorrido,
-  formatearDuracion,
   idsDelRecorrido,
   mensajeErrorEstimacion,
   mensajeSinCoordenadas,
@@ -74,15 +73,6 @@ describe('mensajeErrorEstimacion', () => {
 
   test('respuesta sin mensaje: genérico que invita a cargarlos a mano', () => {
     assert.match(mensajeErrorEstimacion({ response: { status: 500, data: {} } }), /Cargalos a mano/);
-  });
-});
-
-describe('formatearDuracion', () => {
-  test('menos de una hora en minutos, más de una hora en horas y minutos', () => {
-    assert.equal(formatearDuracion(45), '45 min');
-    assert.equal(formatearDuracion(91), '1 h 31 min');
-    assert.equal(formatearDuracion(120), '2 h');
-    assert.equal(formatearDuracion(0), '0 min');
   });
 });
 

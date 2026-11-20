@@ -9,6 +9,9 @@
 .campo-km > .form-field {
   flex: 1;
   min-width: 0;
+  /* El margen que separa este campo del siguiente lo pone la franja de la
+     atribución, debajo. */
+  margin-bottom: 0;
 }
 
 .campo-km-boton {
@@ -27,4 +30,28 @@
   color: var(--brand-600);
   text-decoration: underline;
   white-space: nowrap;
+}
+
+/* Franja de la atribución de Google, siempre presente con alto fijo (no hay
+   layout shift cuando aparece el logo). Google pide alrededor del logo al
+   menos 10px libres arriba y a los costados y 5px abajo: 12px arriba
+   (--space-3), 8px abajo (--space-2) y 16px de logo = 36px reservados. El
+   logo arranca en el borde izquierdo del input; el aviso de desactualizado va
+   a su derecha a 12px y, si no entra (mobile), baja de renglón: solo en ese
+   estado la franja crece. */
+.campo-km-atribucion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  box-sizing: border-box;
+  min-height: calc(var(--space-3) + 16px + var(--space-2));
+  padding: var(--space-3) 0 var(--space-2);
+  margin-bottom: var(--space-2);
+  font-size: 0.875rem;
+}
+
+.campo-km-desactualizado {
+  color: var(--state-warning-text);
+  font-weight: 600;
 }

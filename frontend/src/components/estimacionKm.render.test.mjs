@@ -1,6 +1,7 @@
 // Smoke test de render del cálculo de km del formulario de viaje: el botón
-// "Calcular km" (deshabilitado sin origen/destino), el resultado en una línea
-// con la atribución de Google Maps, el aviso de desactualizado, el error en el
+// "Calcular km" (deshabilitado sin origen/destino), la franja fija debajo del
+// campo con la atribución de Google (logo) mientras el valor sea el calculado
+// y el aviso de desactualizado, el error en el
 // campo (con la acción para ubicar una ubicación sin coordenadas), el modal de
 // Google que abre esa acción y el link al recorrido con el placeId.
 //
@@ -25,7 +26,8 @@ const h = React.createElement;
 let vite;
 let ViajeForm;
 let CampoKmEstimados;
-let ResultadoEstimacionKm;
+let AtribucionGoogle;
+let ATRIBUCION_GOOGLE;
 let UbicarConGoogle;
 let EditorRecorrido;
 
@@ -33,14 +35,13 @@ before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
   ViajeForm = (await vite.ssrLoadModule('/src/components/ViajeForm.jsx')).default;
   CampoKmEstimados = (await vite.ssrLoadModule('/src/components/CampoKmEstimados.jsx')).default;
-  ResultadoEstimacionKm = (await vite.ssrLoadModule('/src/components/ResultadoEstimacionKm.jsx')).default;
+  ({ default: AtribucionGoogle, ATRIBUCION_GOOGLE } = await vite.ssrLoadModule('/src/components/AtribucionGoogle.jsx'));
   UbicarConGoogle = (await vite.ssrLoadModule('/src/components/UbicarConGoogle.jsx')).default;
   EditorRecorrido = (await vite.ssrLoadModule('/src/components/EditorRecorrido.jsx')).default;
 });
 
 after(() => vite.close());
 
-const ATRIBUCION = 'Google Maps';
 const sinEtiquetas = (html) => html.replace(/<[^>]+>/g, '');
 // El <button> "Calcular km" (el texto va en un <span> adentro).
 const botonCalcular = (html) => html.match(/<button[^>]*>(?:(?!<\/button>).)*Calcular km(?:(?!<\/button>).)*<\/button>/s)?.[0];
@@ -136,44 +137,75 @@ describe('CampoKmEstimados: error del cálculo', () => {
   });
 });
 
-describe('ResultadoEstimacionKm', () => {
-  const render = (props) => renderToStaticMarkup(h(ResultadoEstimacionKm, props));
-
-  test('sin resultado no muestra nada', () => {
-    assert.equal(render({ resultado: null }), '');
+describe('AtribucionGoogle', () => {
+  test('el logo oficial como <img> con alt "Google Maps"', () => {
+    const html = renderToStaticMarkup(h(AtribucionGoogle));
+    assert.equal(ATRIBUCION_GOOGLE, 'Google Maps');
+    // React 19 en SSR antepone un <link rel="preload"> para la imagen; no es
+    // parte del componente.
+    assert.match(html, /<span class="atribucion-google"><img class="atribucion-google-logo" src="[^"]*google-maps-logo\.svg" alt="Google Maps"\/><\/span>$/);
   });
+});
 
-  test('una sola línea "≈ km · duración" con "Google Maps" en chico al final; nada de ORS ni OpenStreetMap', () => {
-    const html = render({ resultado: RESULTADO });
-    assert.equal(
-      html,
-      '<p class="estimacion-km" aria-live="polite"><span class="estimacion-km-total">≈ 38 km · 41 min</span><span class="estimacion-km-atribucion">Google Maps</span></p>'
+describe('CampoKmEstimados: franja de la atribución de Google', () => {
+  const renderCampo = (props) =>
+    renderToStaticMarkup(
+      h(CampoKmEstimados, { valor: '', onChange() {}, puedeCalcular: true, calculando: false, onCalcular() {}, ...props })
     );
-    assert.doesNotMatch(html, /openrouteservice|OpenStreetMap|HeiGIT|interpret|Revisá|<details/);
+  const hint = (html) => html.match(/<p id="kilometrosEstimados-hint" class="form-field-hint">(.*?)<\/p>/s)?.[1];
+  // Contenido de la franja (va después de la fila input + botón, y siempre está).
+  const franja = (html) => html.match(/<div class="campo-km-atribucion">(.*?)<\/div><\/div>$/s)?.[1];
+  const logo = /<img class="atribucion-google-logo"[^>]*alt="Google Maps"/;
+  const AVISO = '<span class="campo-km-desactualizado" role="status">Cambió el recorrido: recalculá</span>';
+
+  test('sin origen/destino: el hint con la indicación y la franja vacía (pero presente)', () => {
+    const html = renderCampo({ puedeCalcular: false });
+    assert.equal(hint(html), 'Elegí origen y destino para calcularlos');
+    assert.equal(franja(html), '');
   });
 
-  test('más de una hora: "1 h 31 min"', () => {
-    assert.match(sinEtiquetas(render({ resultado: { kilometros: 123, duracionMinutos: 91 } })), /≈ 123 km · 1 h 31 min/);
+  test('sin estimación: la franja está igual, vacía, y no hay hint', () => {
+    const html = renderCampo({ valor: '38' });
+    assert.equal(franja(html), '');
+    assert.equal(hint(html), undefined);
   });
 
-  test('desactualizado: total tachado y aviso corto en la misma línea, sin sacar la atribución', () => {
-    const html = render({ resultado: RESULTADO, desactualizado: true });
-    assert.match(
-      html,
-      /<span class="estimacion-km-total estimacion-km-total-viejo">≈ 38 km · 41 min<\/span><span class="estimacion-km-desactualizado" role="status">Cambió el recorrido: recalculá<\/span><span class="estimacion-km-atribucion">Google Maps<\/span>/
-    );
-    assert.ok(sinEtiquetas(html).includes(ATRIBUCION));
+  test('estimación vigente y el input con el valor calculado: el logo en la franja, no en el hint, sin repetir los km', () => {
+    const html = renderCampo({ valor: '38', estimacion: { resultado: RESULTADO, desactualizado: false } });
+    assert.match(franja(html), new RegExp(`^<span class="atribucion-google">${logo.source}[^>]*/></span>$`));
+    assert.equal(hint(html), undefined);
+    assert.doesNotMatch(html, /recalculá|≈|41 min/);
   });
 
-  test('CampoKmEstimados pasa el resultado y el estado desactualizado', () => {
-    const html = renderToStaticMarkup(
-      h(CampoKmEstimados, {
-        valor: '38', onChange() {}, puedeCalcular: true, calculando: false, onCalcular() {},
-        estimacion: { resultado: RESULTADO, desactualizado: true },
-      })
-    );
-    assert.match(html, /recalculá/);
-    assert.match(sinEtiquetas(html), /≈ 38 km/);
+  test('desactualizada y el valor calculado: el logo y, a su derecha, el aviso', () => {
+    const html = renderCampo({ valor: '38', estimacion: { resultado: RESULTADO, desactualizado: true } });
+    assert.match(franja(html), new RegExp(`^<span class="atribucion-google">${logo.source}[^>]*/></span>${AVISO}$`));
+    assert.equal(hint(html), undefined);
+  });
+
+  test('km editados a mano: franja vacía, sin atribución ni aviso (el dato ya no es de Google)', () => {
+    for (const desactualizado of [false, true]) {
+      const html = renderCampo({ valor: '40', estimacion: { resultado: RESULTADO, desactualizado } });
+      assert.equal(franja(html), '');
+      assert.doesNotMatch(html, logo);
+    }
+  });
+
+  test('input vacío: no cuenta como el valor calculado (ni siquiera si el cálculo dio 0)', () => {
+    for (const kilometros of [38, 0]) {
+      const html = renderCampo({ valor: '', estimacion: { resultado: { kilometros, duracionMinutos: 0 }, desactualizado: false } });
+      assert.equal(franja(html), '');
+    }
+  });
+
+  test('el logo sigue con un error en el campo: el error va en el FormField, la franja aparte', () => {
+    const html = renderCampo({
+      valor: '38',
+      estimacion: { resultado: RESULTADO, desactualizado: false },
+      errorValidacion: 'Obligatorio para un viaje Programado.',
+    });
+    assert.match(html, /role="alert">Obligatorio para un viaje Programado\.</);
+    assert.match(franja(html), logo);
   });
 });
 
