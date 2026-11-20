@@ -7,10 +7,12 @@ import Alert from './ui/Alert';
 import OpcionesCatalogo from './ui/OpcionesCatalogo';
 import OpcionVacia from './ui/OpcionVacia';
 import { useCatalogosPago, valoresAPayload, validarMontos, viajeAValores } from '../utils/datosAdministrativos';
+import { esPagoPendiente, limpiarFechasDePagosPendientes } from '../utils/pagoPendiente';
 import { capitalizarCatalogo, formatearFechaCorta, formatearMonto } from '../utils/viajeFormato';
 import './DatosAdministrativosViaje.css';
 
 const NO_CARGADO = 'No cargado';
+const HINT_FECHA_PENDIENTE = 'Con el pago Pendiente no se carga la fecha de pago.';
 
 function Dato({ etiqueta, ancho = false, children }) {
   return (
@@ -48,10 +50,18 @@ function DatosAdministrativosViaje({ viaje, onGuardado, ref }) {
     setErrores({});
   }
 
+  // Con el pago Pendiente la fecha se vacía (también al pasar de Pagado a
+  // Pendiente). Se limpia antes y después del cambio: así un viaje histórico
+  // que ya estaba Pendiente con fecha no la recupera al cambiar a Pagado.
   function handleChange(e) {
     const { name, value } = e.target;
-    setValores((v) => ({ ...v, [name]: value }));
+    setValores((v) =>
+      limpiarFechasDePagosPendientes({ ...limpiarFechasDePagosPendientes(v, estadosPago), [name]: value }, estadosPago)
+    );
   }
+
+  const fechaClienteBloqueada = esPagoPendiente(valores.estadoPagoClienteId, estadosPago);
+  const fechaChoferBloqueada = esPagoPendiente(valores.estadoPagoChoferId, estadosPago);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -65,7 +75,10 @@ function DatosAdministrativosViaje({ viaje, onGuardado, ref }) {
 
     setEnviando(true);
     try {
-      const { data } = await actualizarDatosAdministrativos(viaje.id, valoresAPayload(valores));
+      const { data } = await actualizarDatosAdministrativos(
+        viaje.id,
+        valoresAPayload(limpiarFechasDePagosPendientes(valores, estadosPago))
+      );
       setEditando(false);
       onGuardado(data.viaje);
     } catch (err) {
@@ -146,8 +159,19 @@ function DatosAdministrativosViaje({ viaje, onGuardado, ref }) {
                   <OpcionesCatalogo items={estadosPago} />
                 </select>
               </FormField>
-              <FormField id="fechaPagoCliente" label="Fecha de pago" error={errores.fechaPagoCliente}>
-                <input type="date" name="fechaPagoCliente" value={valores.fechaPagoCliente} onChange={handleChange} />
+              <FormField
+                id="fechaPagoCliente"
+                label="Fecha de pago"
+                error={errores.fechaPagoCliente}
+                hint={fechaClienteBloqueada ? HINT_FECHA_PENDIENTE : undefined}
+              >
+                <input
+                  type="date"
+                  name="fechaPagoCliente"
+                  value={fechaClienteBloqueada ? '' : valores.fechaPagoCliente}
+                  onChange={handleChange}
+                  disabled={fechaClienteBloqueada}
+                />
               </FormField>
               <FormField id="metodoPagoClienteId" label="Método de pago" error={errores.metodoPagoClienteId}>
                 <select name="metodoPagoClienteId" value={valores.metodoPagoClienteId} onChange={handleChange}>
@@ -170,8 +194,19 @@ function DatosAdministrativosViaje({ viaje, onGuardado, ref }) {
                   <OpcionesCatalogo items={estadosPago} />
                 </select>
               </FormField>
-              <FormField id="fechaPagoChofer" label="Fecha de pago" error={errores.fechaPagoChofer}>
-                <input type="date" name="fechaPagoChofer" value={valores.fechaPagoChofer} onChange={handleChange} />
+              <FormField
+                id="fechaPagoChofer"
+                label="Fecha de pago"
+                error={errores.fechaPagoChofer}
+                hint={fechaChoferBloqueada ? HINT_FECHA_PENDIENTE : undefined}
+              >
+                <input
+                  type="date"
+                  name="fechaPagoChofer"
+                  value={fechaChoferBloqueada ? '' : valores.fechaPagoChofer}
+                  onChange={handleChange}
+                  disabled={fechaChoferBloqueada}
+                />
               </FormField>
               <FormField id="metodoPagoChoferId" label="Método de pago" error={errores.metodoPagoChoferId}>
                 <select name="metodoPagoChoferId" value={valores.metodoPagoChoferId} onChange={handleChange}>

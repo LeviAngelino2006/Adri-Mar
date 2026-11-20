@@ -1499,6 +1499,59 @@ async function validarYArmarDatosAdministrativos(payload) {
   return data;
 }
 
+const ESTADO_PAGO_PENDIENTE = 'PENDIENTE';
+
+// Cada pago (al cliente y al chofer) tiene su estado y su fecha. Un pago
+// Pendiente no puede tener fecha de pago (SCRUM-249).
+const PARES_PAGO = [
+  {
+    estado: 'estadoPagoClienteId',
+    relacion: 'estadoPagoCliente',
+    fecha: 'fechaPagoCliente',
+    mensaje: 'Un pago al cliente Pendiente no puede tener fecha de pago. Borrá la fecha o cambiá el estado del pago.',
+  },
+  {
+    estado: 'estadoPagoChoferId',
+    relacion: 'estadoPagoChofer',
+    fecha: 'fechaPagoChofer',
+    mensaje: 'Un pago al chofer Pendiente no puede tener fecha de pago. Borrá la fecha o cambiá el estado del pago.',
+  },
+];
+
+// Valida contra el estado RESULTANTE (lo que ya está en la base + lo que vino
+// en el body), no solo contra el body: un PATCH con solo la fecha sobre un
+// viaje que ya está Pendiente también se rechaza. Solo se revisan los pares en
+// los que el body trae el estado o la fecha: un PATCH que no toca ese pago no
+// queda bloqueado por un dato histórico inconsistente que no generó él.
+//
+// El caso inverso (Pagado sin fecha) no se valida a propósito.
+async function validarPagosPendientesSinFecha(actual, data) {
+  const errores = {};
+
+  for (const par of PARES_PAGO) {
+    const vinoEstado = par.estado in data;
+    if (!vinoEstado && !(par.fecha in data)) continue;
+
+    const estadoId = vinoEstado ? data[par.estado] : actual[par.estado];
+    const fecha = par.fecha in data ? data[par.fecha] : actual[par.fecha];
+    if (estadoId == null || fecha == null) continue;
+
+    // Si el estado vino en el body ya se validó que existe
+    // (validarYArmarDatosAdministrativos); si no, viene con el viaje.
+    const descripcion = vinoEstado
+      ? (await prisma.estadoPago.findUnique({ where: { id: estadoId } }))?.descripcion
+      : actual[par.relacion]?.descripcion;
+
+    if (descripcion === ESTADO_PAGO_PENDIENTE) {
+      errores[par.fecha] = par.mensaje;
+    }
+  }
+
+  if (Object.keys(errores).length > 0) {
+    throw new ValidacionError(errores);
+  }
+}
+
 // Acción administrativa/financiera, separada por completo del ciclo de vida
 // operativo del viaje: no valida nada contra el estado (funciona igual en
 // Programado, En viaje, Finalizado o Cancelado) y es actualización PARCIAL,
@@ -1517,6 +1570,8 @@ async function actualizarDatosAdministrativos(id, payload = {}, usuarioSolicitan
   if (Object.keys(data).length === 0) {
     return serializarViaje(actual, usuarioSolicitante);
   }
+
+  await validarPagosPendientesSinFecha(actual, data);
 
   const viaje = await prisma.viaje.update({
     where: { id: actual.id },

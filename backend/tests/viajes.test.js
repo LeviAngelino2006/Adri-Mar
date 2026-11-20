@@ -89,7 +89,13 @@ const prismaFalso = {
     findUnique: existe([1, 2]),
     findMany: async ({ where }) => where.id.in.filter((i) => [1, 2].includes(i)).map((id) => ({ id })),
   },
-  estadoPago: { findUnique: existe([1, 2, 3]) },
+  // Mismos ids que el seed: 1 PENDIENTE, 2 PAGADO, 3 PARCIAL.
+  estadoPago: {
+    findUnique: async ({ where: { id } }) => {
+      const descripcion = { 1: 'PENDIENTE', 2: 'PAGADO', 3: 'PARCIAL' }[id];
+      return descripcion ? { id, descripcion } : null;
+    },
+  },
   metodoPago: { findUnique: existe([1, 2, 3]) },
   estadoViaje: {
     findUnique: async ({ where: { descripcion } }) => ({ id: descripcion === 'A_CONFIRMAR' ? 1 : 2, descripcion }),
@@ -206,7 +212,7 @@ const OPERATIVOS_COMPLETOS = {
 
 const DATOS_ADMINISTRATIVOS_VALIDOS = {
   precio: '150000.5',
-  estadoPagoClienteId: 1,
+  estadoPagoClienteId: 2,
   fechaPagoCliente: '2026-10-10T00:00',
   metodoPagoClienteId: 2,
   pagoChofer: 30000,
@@ -493,7 +499,7 @@ describe('PATCH /viajes/:id/datos-administrativos', () => {
       const data = llamadas.update[0];
       assert.equal(data.precio, '150000.50');
       assert.equal(data.pagoChofer, '30000.00');
-      assert.equal(data.estadoPagoClienteId, 1);
+      assert.equal(data.estadoPagoClienteId, 2);
       assert.equal(data.metodoPagoChoferId, 1);
       assert.equal(data.fechaPagoChofer, null);
       // "2026-10-10T00:00" se interpreta como hora de Córdoba (UTC-3).
@@ -556,6 +562,74 @@ describe('PATCH /viajes/:id/datos-administrativos', () => {
     assert.equal(status, 400);
     assert.ok('precio' in json.errores);
     assert.equal(llamadas.update.length, 0);
+  });
+});
+
+// --- SCRUM-249: un pago Pendiente no puede tener fecha de pago --------------
+
+describe('PATCH /viajes/:id/datos-administrativos: pago Pendiente sin fecha', () => {
+  const PENDIENTE = { id: 1, descripcion: 'PENDIENTE' };
+  const PAGADO = { id: 2, descripcion: 'PAGADO' };
+  const FECHA = new Date('2026-10-10T03:00:00Z');
+
+  const patch = (body) => pedir('PATCH', '/viajes/1/datos-administrativos', { perfil: 'ADMINISTRADOR', body });
+
+  for (const [pago, estado, fecha] of [
+    ['cliente', 'estadoPagoClienteId', 'fechaPagoCliente'],
+    ['chofer', 'estadoPagoChoferId', 'fechaPagoChofer'],
+  ]) {
+    test(`${pago}: Pendiente + fecha en el body -> 400 en ${fecha} y no actualiza`, async () => {
+      const { status, json } = await patch({ [estado]: 1, [fecha]: '2026-10-10T00:00' });
+      assert.equal(status, 400);
+      assert.match(json.errores[fecha], /Pendiente no puede tener fecha de pago/);
+      assert.equal(llamadas.update.length, 0);
+    });
+  }
+
+  test('solo la fecha sobre un viaje que ya está Pendiente -> 400 (se valida el estado resultante)', async () => {
+    viajeActual = viajeBase({ estadoPagoClienteId: 1, estadoPagoCliente: PENDIENTE });
+    const { status, json } = await patch({ fechaPagoCliente: '2026-10-10T00:00' });
+    assert.equal(status, 400);
+    assert.ok('fechaPagoCliente' in json.errores);
+    assert.equal(llamadas.update.length, 0);
+  });
+
+  test('solo el estado Pendiente sobre un viaje que ya tiene fecha -> 400', async () => {
+    viajeActual = viajeBase({ estadoPagoChoferId: 2, estadoPagoChofer: PAGADO, fechaPagoChofer: FECHA });
+    const { status, json } = await patch({ estadoPagoChoferId: 1 });
+    assert.equal(status, 400);
+    assert.ok('fechaPagoChofer' in json.errores);
+    assert.equal(llamadas.update.length, 0);
+  });
+
+  test('pasar a Pendiente borrando la fecha en el mismo PATCH -> 200', async () => {
+    viajeActual = viajeBase({ estadoPagoClienteId: 2, estadoPagoCliente: PAGADO, fechaPagoCliente: FECHA });
+    const { status } = await patch({ estadoPagoClienteId: 1, fechaPagoCliente: null });
+    assert.equal(status, 200);
+    assert.deepEqual(llamadas.update, [{ estadoPagoClienteId: 1, fechaPagoCliente: null }]);
+  });
+
+  test('Pagado o Parcial con fecha -> 200', async () => {
+    const { status } = await patch({
+      estadoPagoClienteId: 2,
+      fechaPagoCliente: '2026-10-10T00:00',
+      estadoPagoChoferId: 3,
+      fechaPagoChofer: '2026-10-11T00:00',
+    });
+    assert.equal(status, 200);
+    assert.equal(llamadas.update.length, 1);
+  });
+
+  test('Pagado sin fecha no se valida (caso inverso fuera de alcance) -> 200', async () => {
+    const { status } = await patch({ estadoPagoClienteId: 2, fechaPagoCliente: null });
+    assert.equal(status, 200);
+  });
+
+  test('un PATCH que no toca ese pago no queda bloqueado por un dato histórico inconsistente', async () => {
+    viajeActual = viajeBase({ estadoPagoClienteId: 1, estadoPagoCliente: PENDIENTE, fechaPagoCliente: FECHA });
+    const { status } = await patch({ precio: 10 });
+    assert.equal(status, 200);
+    assert.deepEqual(llamadas.update, [{ precio: '10.00' }]);
   });
 });
 
