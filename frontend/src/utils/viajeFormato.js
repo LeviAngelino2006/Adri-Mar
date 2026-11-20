@@ -119,6 +119,21 @@ export function formatearFechaCorta(valor) {
   return `${diaMesSinPunto(fecha)} ${FORMATO_ANIO.format(fecha)}`;
 }
 
+const FORMATO_FECHA_NUMERICA = new Intl.DateTimeFormat('es-AR', {
+  timeZone: TZ_CORDOBA,
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
+const FORMATO_DIA_SEMANA_LARGO = new Intl.DateTimeFormat('es-AR', { timeZone: TZ_CORDOBA, weekday: 'long' });
+
+// Fecha con el día de la semana en hora de Córdoba, para textos que se leen
+// fuera de la app (el aviso por WhatsApp): "martes 20/10/2026".
+export function formatearFechaConDia(valor) {
+  const fecha = new Date(valor);
+  return `${FORMATO_DIA_SEMANA_LARGO.format(fecha).toLowerCase()} ${FORMATO_FECHA_NUMERICA.format(fecha)}`;
+}
+
 // DNI con separador de miles: "38456789" -> "38.456.789". Si no es solo
 // dígitos (un dato viejo con puntos o letras) se muestra tal cual.
 export function formatearDni(valor) {

@@ -11,13 +11,21 @@ const ICONO_MENSAJE = (
   </svg>
 );
 
-// Abre WhatsApp con el aviso del viaje ya escrito para el chofer (link wa.me:
-// en el celular lo toma la app). Solo para gestores y sobre un viaje confirmado
-// (PROGRAMADO); quien lo monta decide eso.
+// Link wa.me con el mensaje ya escrito. El texto se codifica entero con
+// encodeURIComponent: los acentos, los "&" y los saltos de línea llegan tal cual.
+function linkWhatsApp(telefono, mensaje) {
+  return `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
+}
+
+// Abre WhatsApp con el aviso del viaje ya escrito para el chofer asignado (link
+// wa.me: en el celular lo toma la app). Solo para gestores y sobre un viaje
+// confirmado (PROGRAMADO); quien lo monta decide eso. El texto lo arma
+// armarMensajeWhatsApp (utils/whatsapp); acá solo se arma el link.
 //
 //  - variante "boton" (por defecto): botón secondary. Si no se puede avisar queda
 //    DESHABILITADO con el motivo, tanto en el tooltip como en un texto visible
 //    debajo (un tooltip no se ve en el celular):
+//      · "El viaje no tiene chofer asignado",
 //      · "El chofer no tiene teléfono cargado", o
 //      · "El teléfono del chofer no tiene un formato válido. Corregilo en Usuarios."
 //  - variante "enlace": un enlace de texto para el Toast de éxito al confirmar.
@@ -27,7 +35,8 @@ const ICONO_MENSAJE = (
 // El link es un Button con href (<a target="_blank" rel="noopener noreferrer">) y no window.open.
 function AvisarPorWhatsApp({ viaje, variante = 'boton' }) {
   const idMotivo = useId();
-  const { url, motivo } = avisoWhatsApp(viaje);
+  const { telefono, mensaje, motivo } = avisoWhatsApp(viaje);
+  const url = motivo ? null : linkWhatsApp(telefono, mensaje);
 
   if (variante === 'enlace') {
     if (!url) return null;

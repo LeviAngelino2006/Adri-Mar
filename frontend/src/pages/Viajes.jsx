@@ -25,7 +25,7 @@ import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { DURACION_TOAST_CON_ACCION_MS, DURACION_TOAST_MS } from '../constants/toast';
 import { avisoDuplicado, valoresParaDuplicar, viajeAValoresForm } from '../utils/valoresFormViaje';
-import { avisoWhatsApp } from '../utils/whatsapp';
+import { puedeAvisarPorWhatsApp } from '../utils/whatsapp';
 import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { esChoferDelViaje } from '../utils/choferDelViaje';
 import { ordenarPorInterno } from '../utils/vehiculos';
@@ -251,7 +251,7 @@ function Viajes() {
 
   // El toast ofrece avisar por WhatsApp solo si hay un link posible (chofer con
   // teléfono utilizable); con acción dura más, para dar tiempo a tocarla.
-  const urlAviso = viajeAvisable ? avisoWhatsApp(viajeAvisable).url : null;
+  const puedeAvisar = Boolean(viajeAvisable) && puedeAvisarPorWhatsApp(viajeAvisable);
 
   useEffect(() => {
     if (!mensaje) return;
@@ -260,10 +260,10 @@ function Viajes() {
         setMensaje('');
         setViajeAvisable(null);
       },
-      urlAviso ? DURACION_TOAST_CON_ACCION_MS : DURACION_TOAST_MS
+      puedeAvisar ? DURACION_TOAST_CON_ACCION_MS : DURACION_TOAST_MS
     );
     return () => clearTimeout(t);
-  }, [mensaje, urlAviso]);
+  }, [mensaje, puedeAvisar]);
 
   function mostrarMensaje(texto, viajeParaAvisar = null) {
     setMensaje(texto);
@@ -460,7 +460,7 @@ function Viajes() {
 
       {/* El toast no se muestra dentro de los formularios. */}
       {mensaje && (pantalla === PANTALLAS_VIAJES.listado || pantalla === PANTALLAS_VIAJES.ficha) && (
-        <Toast action={urlAviso ? <AvisarPorWhatsApp viaje={viajeAvisable} variante="enlace" /> : undefined}>
+        <Toast action={puedeAvisar ? <AvisarPorWhatsApp viaje={viajeAvisable} variante="enlace" /> : undefined}>
           {mensaje}
         </Toast>
       )}
