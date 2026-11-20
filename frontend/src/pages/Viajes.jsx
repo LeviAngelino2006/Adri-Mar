@@ -19,6 +19,8 @@ import BotoneraDetalleViaje from '../components/BotoneraDetalleViaje';
 import { ListadoViajesPorDia } from '../components/TarjetaViaje';
 import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
+import FormDatosAdministrativos from '../components/FormDatosAdministrativos';
+import RutaViaje from '../components/RutaViaje';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { DURACION_TOAST_CON_ACCION_MS, DURACION_TOAST_MS } from '../constants/toast';
@@ -27,6 +29,7 @@ import { avisoWhatsApp } from '../utils/whatsapp';
 import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { esChoferDelViaje } from '../utils/choferDelViaje';
 import { ordenarPorInterno } from '../utils/vehiculos';
+import { PANTALLAS_VIAJES, pantallaDeViajes } from '../utils/pantallaViajes';
 import { useCarga } from '../hooks/useCarga';
 import { useViajesEnCurso } from '../hooks/useViajesEnCurso';
 import { useOrigenEdicion } from '../hooks/useOrigenEdicion';
@@ -149,9 +152,16 @@ function Viajes() {
   // "Duplicar viaje": { original, valores, aviso }. El formulario es un alta
   // precargada con `valores`.
   const [duplicando, setDuplicando] = useState(null);
-  // Ficha desde la que se abrió el formulario (editar o duplicar), para volver
-  // a ella al cancelar o guardar (ver useOrigenEdicion).
+  // Viaje cuyos datos administrativos se están editando en su propia pantalla
+  // (SCRUM-248), o null.
+  const [editandoAdmin, setEditandoAdmin] = useState(null);
+  // Ficha desde la que se abrió el formulario (editar, duplicar o datos
+  // administrativos), para volver a ella al cancelar o guardar (ver
+  // useOrigenEdicion).
   const origen = useOrigenEdicion(setSeleccionado);
+  // Listado, ficha, formulario del viaje o datos administrativos: una sola a
+  // la vez (todas las condiciones del render salen de acá).
+  const pantalla = pantallaDeViajes({ mostrarForm, editandoAdmin, seleccionado });
 
   const [cancelando, setCancelando] = useState(null);
   const [errorCancelar, setErrorCancelar] = useState('');
@@ -258,10 +268,10 @@ function Viajes() {
     setViajeAvisable(viajeParaAvisar);
   }
 
-  // La ficha y el formulario reemplazan al listado dentro de la misma ruta: sin
-  // esto conservan el scroll de la vista anterior (la ficha o el formulario
-  // aparecen desplazados hacia abajo, y el listado también al cancelar o
-  // guardar desde los botones del final).
+  // La ficha y los formularios reemplazan al listado dentro de la misma ruta:
+  // sin esto conservan el scroll de la vista anterior (la ficha o el
+  // formulario aparecen desplazados hacia abajo, y el listado también al
+  // cancelar o guardar desde los botones del final).
   // Después de crear, en el mismo efecto (para que corra después de volver
   // arriba) se baja hasta la tarjeta de datos administrativos.
   const seleccionadoId = seleccionado?.id ?? null;
@@ -271,7 +281,7 @@ function Viajes() {
       irADatosAdministrativos.current = false;
       llevarADatosAdministrativos(datosAdministrativosRef.current);
     }
-  }, [seleccionadoId, mostrarForm]);
+  }, [seleccionadoId, pantalla]);
 
   function handleFiltroChange(e) {
     const { name, value } = e.target;
@@ -407,9 +417,24 @@ function Viajes() {
     setPedidoConfirmar(viaje);
   }
 
+  // "Editar datos administrativos" de la ficha: pantalla aparte con solo ese
+  // formulario. Cancelar o guardar vuelve a la ficha de ese viaje.
+  function abrirEditarAdmin(viaje) {
+    setErrorCancelar('');
+    setEditandoAdmin(viaje);
+    origen.abrir(viaje);
+  }
+
+  function cerrarEditarAdmin() {
+    origen.cancelar();
+    setEditandoAdmin(null);
+  }
+
+  // Vuelve a la ficha con el viaje que devolvió el backend (datos actualizados).
   function manejarExitoDatosAdministrativos(viajeActualizado) {
     mostrarMensaje('Datos administrativos guardados correctamente.');
-    setSeleccionado(viajeActualizado);
+    origen.guardado(viajeActualizado);
+    setEditandoAdmin(null);
     cargarViajes();
   }
 
@@ -422,18 +447,19 @@ function Viajes() {
 
   return (
     <Layout>
-      {!mostrarForm && !seleccionado && (
+      {pantalla === PANTALLAS_VIAJES.listado && (
         <ListadoHeader titulo="Viajes" />
       )}
 
-      {mensaje && !mostrarForm && (
+      {/* El toast no se muestra dentro de los formularios. */}
+      {mensaje && (pantalla === PANTALLAS_VIAJES.listado || pantalla === PANTALLAS_VIAJES.ficha) && (
         <Toast action={urlAviso ? <AvisarPorWhatsApp viaje={viajeAvisable} variante="enlace" /> : undefined}>
           {mensaje}
         </Toast>
       )}
       {errorCancelar && <Alert variant="error">{errorCancelar}</Alert>}
 
-      {mostrarForm && (
+      {pantalla === PANTALLAS_VIAJES.form && (
         <>
           <button type="button" className="back-link" onClick={cerrarForm}>
             {duplicando ? '← Volver al viaje' : origen.textoVolver}
@@ -456,7 +482,31 @@ function Viajes() {
         </>
       )}
 
-      {!mostrarForm && !seleccionado && (
+      {/* Datos administrativos en pantalla propia (SCRUM-248). Solo
+          Administrador/Encargado: el botón que la abre está en una tarjeta que
+          solo ven ellos. Debajo del título, qué viaje se está editando. */}
+      {pantalla === PANTALLAS_VIAJES.admin && puedeGestionar && (
+        <>
+          <button type="button" className="back-link" onClick={cerrarEditarAdmin}>
+            {origen.textoVolver}
+          </button>
+          <h1>Datos administrativos</h1>
+          <p className="viajes-admin-viaje">
+            {editandoAdmin.chofer ? `Viaje de ${nombreChofer(editandoAdmin.chofer)}` : 'Viaje a confirmar'}
+            {' · '}
+            <RutaViaje origen={editandoAdmin.origen} destino={editandoAdmin.destino} paradas={editandoAdmin.paradas} />
+            {' · '}
+            {editandoAdmin.fechaInicio ? formatearFechaHora(editandoAdmin.fechaInicio) : 'Fecha a confirmar'}
+          </p>
+          <FormDatosAdministrativos
+            viaje={editandoAdmin}
+            onGuardado={manejarExitoDatosAdministrativos}
+            onCancelar={cerrarEditarAdmin}
+          />
+        </>
+      )}
+
+      {pantalla === PANTALLAS_VIAJES.listado && (
         <>
           <ListadoToolbar
             busqueda={{
@@ -563,7 +613,7 @@ function Viajes() {
         </>
       )}
 
-      {!mostrarForm && seleccionado && (() => {
+      {pantalla === PANTALLAS_VIAJES.ficha && (() => {
         // El chofer del viaje es una persona: se compara con usuario.personaId.
         const puedeOperarEsteViaje = puedeGestionar || esChoferDelViaje(seleccionado, usuario);
 
@@ -602,9 +652,8 @@ function Viajes() {
             {puedeGestionar && (
               <DatosAdministrativosViaje
                 ref={datosAdministrativosRef}
-                key={seleccionado.id}
                 viaje={seleccionado}
-                onGuardado={manejarExitoDatosAdministrativos}
+                onEditar={abrirEditarAdmin}
               />
             )}
           </>

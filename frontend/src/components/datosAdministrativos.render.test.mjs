@@ -1,6 +1,9 @@
-// SCRUM-249: en "Datos administrativos" de la ficha, con el pago Pendiente la
-// fecha de pago se deshabilita y se limpia (también al pasar de Pagado a
-// Pendiente) y no se manda al backend. Se corre con `npm test` (node:test).
+// SCRUM-249: en el formulario de "Datos administrativos", con el pago Pendiente
+// la fecha de pago se deshabilita y se limpia (también al pasar de Pagado a
+// Pendiente) y no se manda al backend.
+// SCRUM-248: la tarjeta de la ficha es solo lectura y "Editar datos
+// administrativos" pide la pantalla aparte (FormDatosAdministrativos).
+// Se corre con `npm test` (node:test).
 //
 // Se monta el componente con react-dom/client sobre jsdom y la API se reemplaza
 // por un doble.
@@ -47,9 +50,12 @@ const VIAJE = {
 
 let vite;
 let DatosAdministrativosViaje;
+let FormDatosAdministrativos;
 let contenedor;
 let raiz;
 const enviados = [];
+// Respuesta del PATCH; un test la cambia por un error.
+let responderPatch;
 
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
@@ -61,15 +67,17 @@ before(async () => {
   };
   api.patch = async (endpoint, datos) => {
     enviados.push({ endpoint, datos });
-    return { data: { viaje: VIAJE } };
+    return responderPatch(endpoint, datos);
   };
   DatosAdministrativosViaje = (await vite.ssrLoadModule('/src/components/DatosAdministrativosViaje.jsx')).default;
+  FormDatosAdministrativos = (await vite.ssrLoadModule('/src/components/FormDatosAdministrativos.jsx')).default;
 });
 
 after(() => vite.close());
 
 beforeEach(() => {
   enviados.length = 0;
+  responderPatch = async (_endpoint, datos) => ({ data: { viaje: { ...VIAJE, ...datos } } });
 });
 
 afterEach(() => {
@@ -77,14 +85,18 @@ afterEach(() => {
   contenedor.remove();
 });
 
-async function montarYEditar(viaje) {
+async function montar(componente, props) {
   contenedor = document.createElement('div');
   document.body.appendChild(contenedor);
   raiz = createRoot(contenedor);
-  await act(async () => raiz.render(h(DatosAdministrativosViaje, { viaje, onGuardado() {} })));
-  const editar = [...contenedor.querySelectorAll('button')].find((b) => b.textContent === 'Editar datos administrativos');
-  await act(async () => editar.click());
+  await act(async () => raiz.render(h(componente, props)));
 }
+
+// El formulario pide los catálogos al montarse.
+const montarYEditar = (viaje, props = {}) =>
+  montar(FormDatosAdministrativos, { viaje, onGuardado() {}, onCancelar() {}, ...props });
+
+const boton = (texto) => [...contenedor.querySelectorAll('button')].find((b) => b.textContent === texto);
 
 function elegir(nombre, valor) {
   const select = contenedor.querySelector(`select[name="${nombre}"]`);
@@ -138,5 +150,63 @@ describe('Datos administrativos: fecha de pago con el pago Pendiente', () => {
     assert.equal(campo('fechaPagoChofer').disabled, false);
     elegir('estadoPagoChoferId', '1');
     assert.equal(campo('fechaPagoChofer').disabled, true);
+  });
+});
+
+describe('Datos administrativos de la ficha (solo lectura)', () => {
+  test('muestra los datos sin inputs ni selects editables', async () => {
+    await montar(DatosAdministrativosViaje, { viaje: VIAJE, onEditar() {} });
+    assert.equal(contenedor.querySelectorAll('input, select, textarea, form').length, 0);
+    assert.match(contenedor.textContent, /Pagado/);
+    assert.match(contenedor.textContent, /No cargado/);
+  });
+
+  test('"Editar datos administrativos" llama a onEditar con el viaje y no abre nada en el lugar', async () => {
+    const pedidos = [];
+    await montar(DatosAdministrativosViaje, { viaje: VIAJE, onEditar: (v) => pedidos.push(v) });
+    await act(async () => boton('Editar datos administrativos').click());
+    assert.deepEqual(pedidos, [VIAJE]);
+    assert.equal(contenedor.querySelectorAll('input, select').length, 0);
+  });
+
+  test('el ref llega a la tarjeta (scroll después del alta)', async () => {
+    const ref = React.createRef();
+    await montar(DatosAdministrativosViaje, { viaje: VIAJE, onEditar() {}, ref });
+    assert.equal(ref.current?.getAttribute('aria-label'), 'Datos administrativos');
+  });
+});
+
+describe('FormDatosAdministrativos: guardar y cancelar', () => {
+  test('al guardar entrega el viaje que devolvió el backend', async () => {
+    const guardados = [];
+    await montarYEditar(VIAJE, { onGuardado: (v) => guardados.push(v) });
+    act(() => {
+      const precio = campo('precio');
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(precio, '2500');
+      precio.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    await guardar();
+    assert.equal(enviados[0].endpoint, `/viajes/${VIAJE.id}/datos-administrativos`);
+    assert.equal(guardados.length, 1);
+    assert.equal(guardados[0].precio, 2500);
+  });
+
+  test('Cancelar llama a onCancelar sin mandar nada', async () => {
+    let cancelado = 0;
+    await montarYEditar(VIAJE, { onCancelar: () => cancelado++ });
+    await act(async () => boton('Cancelar').click());
+    assert.equal(cancelado, 1);
+    assert.equal(enviados.length, 0);
+  });
+
+  test('un 404 muestra el error y no llama a onGuardado', async () => {
+    responderPatch = async () => {
+      throw Object.assign(new Error('404'), { response: { status: 404, data: {} } });
+    };
+    const guardados = [];
+    await montarYEditar(VIAJE, { onGuardado: (v) => guardados.push(v) });
+    await guardar();
+    assert.equal(guardados.length, 0);
+    assert.match(contenedor.textContent, /El viaje ya no existe/);
   });
 });

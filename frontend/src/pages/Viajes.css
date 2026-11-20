@@ -43,3 +43,11 @@
   font-size: 0.875rem;
   color: var(--color-text-secondary);
 }
+
+/* Pantalla de datos administrativos: qué viaje se está editando, entre el
+   título y el formulario (mismo lugar que el aviso de "Duplicar viaje"). */
+.viajes-admin-viaje {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import api from '../services/api';
 import { aInputCordoba } from './fechaCordoba';
 
@@ -60,20 +60,20 @@ export function validarMontos(valores) {
 }
 
 // Catálogos de estado y método de pago (los ids que espera el backend). Se
-// piden recién cuando hacen falta (`cargarCatalogos`) y solo la primera vez:
-// quien no abre la edición no los necesita.
+// piden recién cuando hacen falta (`cargarCatalogos`, al abrir el formulario)
+// y una sola vez por montaje: quien no abre la edición no los necesita.
+// `cargarCatalogos` es estable, para poder llamarlo desde un efecto.
 export function useCatalogosPago() {
   const [estadosPago, setEstadosPago] = useState([]);
   const [metodosPago, setMetodosPago] = useState([]);
+  const pedidos = useRef(false);
 
-  function cargarCatalogos() {
-    if (estadosPago.length === 0) {
-      api.get('/estados-pago').then(({ data }) => setEstadosPago(data.estadosPago));
-    }
-    if (metodosPago.length === 0) {
-      api.get('/metodos-pago').then(({ data }) => setMetodosPago(data.metodosPago));
-    }
-  }
+  const cargarCatalogos = useCallback(() => {
+    if (pedidos.current) return;
+    pedidos.current = true;
+    api.get('/estados-pago').then(({ data }) => setEstadosPago(data.estadosPago));
+    api.get('/metodos-pago').then(({ data }) => setMetodosPago(data.metodosPago));
+  }, []);
 
   return { estadosPago, metodosPago, cargarCatalogos };
 }
