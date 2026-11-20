@@ -34,6 +34,17 @@ const ICONO_QUITAR = (
 // Cada opción puede traer un `detalle` (texto secundario, p. ej. "Minibus de 17
 // pasajeros" en las unidades de un presupuesto): se muestra al lado de la
 // etiqueta en la lista y en el chip, y también se busca por él.
+//
+// `forma` es cómo se ven los elegidos:
+//  - 'pildora' (por defecto): un chip redondo con la etiqueta (y el detalle).
+//  - 'cuadro': un cuadradito compacto (radius-md), con `tituloElegido` arriba y
+//    `subtituloElegido` debajo en texto secundario si la opción los trae (si no,
+//    la etiqueta). Lo usan los choferes y vehículos posibles de un viaje
+//    ("Interno 12" / "AE452KD"). Si un elegido quedó deshabilitado (documentación
+//    vencida después de elegirlo), el cuadradito lo marca y muestra el motivo
+//    debajo: se puede quitar, pero no volver a agregar (la lista no deja elegir
+//    deshabilitados).
+// La lista y la búsqueda son las mismas en las dos formas.
 function SelectorMultiple({
   id,
   opciones,
@@ -42,6 +53,7 @@ function SelectorMultiple({
   avisos = {},
   placeholder = 'Agregar…',
   disabled = false,
+  forma = 'pildora',
   ...resto
 }) {
   const [texto, setTexto] = useState('');
@@ -192,7 +204,47 @@ function SelectorMultiple({
         )}
       </div>
 
-      {valor.length > 0 && (
+      {valor.length > 0 && forma === 'cuadro' && (
+        <ul className="selector-multiple-cuadros">
+          {valor.map((valorId) => {
+            const opcion = opcionPorId.get(valorId);
+            const titulo = opcion?.tituloElegido ?? opcion?.etiqueta ?? `#${valorId}`;
+            const subtitulo = opcion?.subtituloElegido;
+            const deshabilitada = Boolean(opcion && (opcion.disabled || opcion.disponible === false));
+            const motivo = deshabilitada ? opcion.motivo : null;
+            // El aviso de disponibilidad, salvo que repita el motivo.
+            const aviso = avisos[valorId] && avisos[valorId] !== motivo ? avisos[valorId] : null;
+            const nombre = subtitulo ? `${titulo}, ${subtitulo}` : titulo;
+            let clase = 'selector-multiple-cuadro';
+            if (deshabilitada) clase += ' selector-multiple-cuadro-deshabilitado';
+            else if (aviso) clase += ' selector-multiple-cuadro-aviso';
+            return (
+              <li key={valorId} className="selector-multiple-item">
+                <span className={clase}>
+                  <span className="selector-multiple-cuadro-texto">
+                    <span className="selector-multiple-cuadro-titulo">{titulo}</span>
+                    {subtitulo && <span className="selector-multiple-cuadro-subtitulo">{subtitulo}</span>}
+                  </span>
+                  {!disabled && (
+                    <button
+                      type="button"
+                      className="selector-multiple-quitar"
+                      aria-label={`Quitar ${nombre}`}
+                      onClick={() => quitar(valorId)}
+                    >
+                      {ICONO_QUITAR}
+                    </button>
+                  )}
+                </span>
+                {motivo && <p className="selector-multiple-cuadro-motivo">{motivo}</p>}
+                {aviso && <p className="selector-multiple-aviso">{aviso}</p>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {valor.length > 0 && forma !== 'cuadro' && (
         <ul className="selector-multiple-chips">
           {valor.map((valorId) => {
             const etiqueta = opcionPorId.get(valorId)?.etiqueta ?? `#${valorId}`;
