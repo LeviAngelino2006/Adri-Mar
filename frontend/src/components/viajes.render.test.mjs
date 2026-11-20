@@ -1,6 +1,6 @@
 // Smoke test de render de la tarjeta de viaje del listado (agrupado por día,
 // con el pendiente administrativo en texto gris), del formulario de alta (sin datos
-// administrativos, y precargado al duplicar), del botón "Duplicar viaje" y de los
+// administrativos, y precargado al duplicar), del botón "Duplicar viaje", de "Ver recorrido en Google Maps" y de los
 // paneles del Dashboard (Viajes de hoy y estados vacíos). Se corre con `npm test` (node:test).
 //
 // Mismo método que confirmarViaje.render.test.mjs: Vite en modo SSR carga los
@@ -26,6 +26,7 @@ let TarjetaViaje;
 let ListadoViajesPorDia;
 let ViajeForm;
 let DuplicarViaje;
+let FichaViaje;
 let valoresParaDuplicar;
 let ContenidoViajesDeHoy;
 let ContenidoPorConfirmar;
@@ -38,6 +39,7 @@ before(async () => {
   ListadoViajesPorDia = moduloTarjeta.ListadoViajesPorDia;
   ViajeForm = (await vite.ssrLoadModule('/src/components/ViajeForm.jsx')).default;
   DuplicarViaje = (await vite.ssrLoadModule('/src/components/DuplicarViaje.jsx')).default;
+  FichaViaje = (await vite.ssrLoadModule('/src/components/FichaViaje.jsx')).default;
   ({ valoresParaDuplicar } = await vite.ssrLoadModule('/src/utils/valoresFormViaje.js'));
   ({ ContenidoViajesDeHoy } = await vite.ssrLoadModule('/src/components/PanelViajesDeHoy.jsx'));
   ({ ContenidoPorConfirmar } = await vite.ssrLoadModule('/src/components/PanelViajesPorConfirmar.jsx'));
@@ -227,11 +229,11 @@ describe('Duplicar viaje', () => {
     renderToStaticMarkup(h(DuplicarViaje, { viaje: viaje({ estado }), perfil, onDuplicar() {} }));
 
   for (const perfil of ['ADMINISTRADOR', 'ENCARGADO']) {
-    test(`${perfil} ve el botón en todos los estados, en su propia fila`, () => {
+    test(`${perfil} ve el botón en todos los estados (va dentro de la botonera de la ficha)`, () => {
       for (const estado of ESTADOS) {
         assert.equal(
           render(perfil, estado),
-          '<div class="viajes-detalle-actions"><button type="button" class="btn btn-secondary"><span>Duplicar viaje</span></button></div>',
+          '<button type="button" class="btn btn-secondary"><span>Duplicar viaje</span></button>',
           estado
         );
       }
@@ -306,6 +308,36 @@ describe('Duplicar viaje', () => {
     assert.match(html, /name="fechaFin" value=""/);
     assert.match(html, /value="Río Tercero"[\s\S]*value="Almafuerte"[\s\S]*value="Despeñaderos"[\s\S]*value="Córdoba"/);
     assert.match(html, /name="kilometrosEstimados"[^>]*value="110"/);
+  });
+});
+
+describe('Ficha: "Ver recorrido en Google Maps"', () => {
+  test('va debajo de la ruta y arriba de Inicio/Fin, como Button secondary, y abre en una pestaña nueva', () => {
+    const html = renderToStaticMarkup(h(FichaViaje, { viaje: viaje() }));
+    // En el <dd> de Recorrido: primero la ruta (origen → destino) y después el
+    // botón; recién al cerrar ese ítem viene el par Inicio/Fin.
+    assert.match(
+      html,
+      /<dt>Recorrido<\/dt><dd><span class="detalle-recorrido"><ol class="ruta-viaje-completa"[^>]*>.*?<\/ol><a class="btn btn-secondary" href="https:\/\/www\.google\.com\/maps\/dir\/\?api=1&amp;[^"]+" target="_blank" rel="noopener noreferrer">.*?<\/a><\/span><\/dd><\/div><div class="detalle-item"><dt>Inicio<\/dt>/
+    );
+  });
+
+  test('a la izquierda y con su ancho natural, no a todo el ancho', () => {
+    const css = fs.readFileSync(path.join(RAIZ, 'src/index.css'), 'utf8');
+    // El cuerpo de la regla con ese selector exacto ('' si no está).
+    const regla = (selector) => {
+      const inicio = css.indexOf(`${selector} {`);
+      return inicio === -1 ? '' : css.slice(inicio, css.indexOf('}', inicio));
+    };
+    assert.match(regla('.detalle-grid .detalle-recorrido'), /flex-direction:\s*column/);
+    assert.match(regla('.detalle-grid .detalle-recorrido > .btn'), /align-self:\s*flex-start/);
+    assert.doesNotMatch(regla('.detalle-grid .detalle-recorrido > .btn'), /width:\s*100%/);
+  });
+
+  test('sin origen o destino queda un botón deshabilitado, sin enlace', () => {
+    const html = renderToStaticMarkup(h(FichaViaje, { viaje: viaje({ destino: null }) }));
+    assert.ok(!html.includes('google.com/maps'));
+    assert.match(html, /<button type="button" class="btn btn-secondary" disabled="">.*Ver recorrido en Google Maps/);
   });
 });
 

@@ -93,3 +93,15 @@
 .btn-ghost:active:not(:disabled) {
   background-color: var(--brand-50);
 }
+
+/* Button con `href` (un <a>): sin el subrayado global de a:hover / a:active. */
+a.btn,
+a.btn:active {
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  a.btn:hover {
+    text-decoration: none;
+  }
+}

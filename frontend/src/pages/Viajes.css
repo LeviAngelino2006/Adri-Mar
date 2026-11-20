@@ -22,8 +22,12 @@
   margin: 0;
 }
 
+/* Botonera de la ficha: todas las acciones en una sola fila, que en mobile
+   baja de línea. align-items: flex-start para que un botón deshabilitado con
+   su motivo debajo (WhatsApp, Comenzar) no estire la altura de los demás. */
 .viajes-detalle-actions {
   display: flex;
+  align-items: flex-start;
   gap: var(--space-3);
   flex-wrap: wrap;
 }
@@ -31,11 +35,6 @@
 /* Los botones de acción van debajo de la Card de la ficha. */
 .detalle-card + .viajes-detalle-actions {
   margin-top: var(--space-4);
-}
-
-/* "Duplicar viaje" va en su propia fila, debajo de las acciones del estado. */
-.viajes-detalle-actions + .viajes-detalle-actions {
-  margin-top: var(--space-3);
 }
 
 /* Aviso de "Duplicar viaje", entre el título y el formulario. */

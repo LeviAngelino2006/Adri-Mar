@@ -1,0 +1,142 @@
+// SCRUM-249: en "Datos administrativos" de la ficha, con el pago Pendiente la
+// fecha de pago se deshabilita y se limpia (también al pasar de Pagado a
+// Pendiente) y no se manda al backend. Se corre con `npm test` (node:test).
+//
+// Se monta el componente con react-dom/client sobre jsdom y la API se reemplaza
+// por un doble.
+
+import { test, describe, before, after, beforeEach, afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { createServer } from 'vite';
+
+const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const require = createRequire(path.join(RAIZ, 'package.json'));
+const { JSDOM } = require('jsdom');
+
+const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' });
+globalThis.window = dom.window;
+globalThis.document = dom.window.document;
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+const React = require('react');
+const { act } = React;
+const { createRoot } = require('react-dom/client');
+const h = React.createElement;
+
+const ESTADOS_PAGO = [
+  { id: 1, descripcion: 'PENDIENTE' },
+  { id: 2, descripcion: 'PAGADO' },
+  { id: 3, descripcion: 'PARCIAL' },
+];
+
+const VIAJE = {
+  id: 40,
+  precio: 1000,
+  estadoPagoClienteId: 2,
+  estadoPagoCliente: ESTADOS_PAGO[1],
+  fechaPagoCliente: '2026-10-10T03:00:00.000Z',
+  metodoPagoClienteId: null,
+  pagoChofer: null,
+  estadoPagoChoferId: null,
+  fechaPagoChofer: null,
+  metodoPagoChoferId: null,
+};
+
+let vite;
+let DatosAdministrativosViaje;
+let contenedor;
+let raiz;
+const enviados = [];
+
+before(async () => {
+  vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
+  const api = (await vite.ssrLoadModule('/src/services/api.js')).default;
+  api.get = async (endpoint) => {
+    if (endpoint === '/estados-pago') return { data: { estadosPago: ESTADOS_PAGO } };
+    if (endpoint === '/metodos-pago') return { data: { metodosPago: [{ id: 1, descripcion: 'EFECTIVO' }] } };
+    return { data: {} };
+  };
+  api.patch = async (endpoint, datos) => {
+    enviados.push({ endpoint, datos });
+    return { data: { viaje: VIAJE } };
+  };
+  DatosAdministrativosViaje = (await vite.ssrLoadModule('/src/components/DatosAdministrativosViaje.jsx')).default;
+});
+
+after(() => vite.close());
+
+beforeEach(() => {
+  enviados.length = 0;
+});
+
+afterEach(() => {
+  act(() => raiz.unmount());
+  contenedor.remove();
+});
+
+async function montarYEditar(viaje) {
+  contenedor = document.createElement('div');
+  document.body.appendChild(contenedor);
+  raiz = createRoot(contenedor);
+  await act(async () => raiz.render(h(DatosAdministrativosViaje, { viaje, onGuardado() {} })));
+  const editar = [...contenedor.querySelectorAll('button')].find((b) => b.textContent === 'Editar datos administrativos');
+  await act(async () => editar.click());
+}
+
+function elegir(nombre, valor) {
+  const select = contenedor.querySelector(`select[name="${nombre}"]`);
+  act(() => {
+    select.value = valor;
+    select.dispatchEvent(new window.Event('change', { bubbles: true }));
+  });
+}
+
+const campo = (nombre) => contenedor.querySelector(`input[name="${nombre}"]`);
+const guardar = () => act(async () => contenedor.querySelector('form').requestSubmit());
+
+describe('Datos administrativos: fecha de pago con el pago Pendiente', () => {
+  test('Pagado con fecha: el campo está habilitado y con la fecha', async () => {
+    await montarYEditar(VIAJE);
+    assert.equal(campo('fechaPagoCliente').disabled, false);
+    assert.equal(campo('fechaPagoCliente').value, '2026-10-10');
+  });
+
+  test('al pasar de Pagado a Pendiente la fecha se deshabilita, se limpia y se manda null', async () => {
+    await montarYEditar(VIAJE);
+    elegir('estadoPagoClienteId', '1');
+
+    assert.equal(campo('fechaPagoCliente').disabled, true);
+    assert.equal(campo('fechaPagoCliente').value, '');
+    assert.match(contenedor.textContent, /Con el pago Pendiente no se carga la fecha de pago/);
+
+    // Volver a Pagado no recupera la fecha: quedó limpia.
+    elegir('estadoPagoClienteId', '2');
+    assert.equal(campo('fechaPagoCliente').disabled, false);
+    assert.equal(campo('fechaPagoCliente').value, '');
+
+    elegir('estadoPagoClienteId', '1');
+    await guardar();
+    assert.equal(enviados.length, 1);
+    assert.equal(enviados[0].datos.estadoPagoClienteId, 1);
+    assert.equal(enviados[0].datos.fechaPagoCliente, null);
+  });
+
+  test('viaje histórico Pendiente con fecha: el campo aparece vacío y deshabilitado y se guarda sin fecha', async () => {
+    await montarYEditar({ ...VIAJE, estadoPagoClienteId: 1, estadoPagoCliente: ESTADOS_PAGO[0] });
+    assert.equal(campo('fechaPagoCliente').disabled, true);
+    assert.equal(campo('fechaPagoCliente').value, '');
+
+    await guardar();
+    assert.equal(enviados[0].datos.fechaPagoCliente, null);
+  });
+
+  test('el pago al chofer sigue la misma regla', async () => {
+    await montarYEditar(VIAJE);
+    assert.equal(campo('fechaPagoChofer').disabled, false);
+    elegir('estadoPagoChoferId', '1');
+    assert.equal(campo('fechaPagoChofer').disabled, true);
+  });
+});

@@ -15,14 +15,13 @@ import ViajeForm from '../components/ViajeForm';
 import ModalOdometroViaje from '../components/ModalOdometroViaje';
 import ModalConfirmarViaje from '../components/ModalConfirmarViaje';
 import AvisarPorWhatsApp from '../components/AvisarPorWhatsApp';
-import BotonComenzarViaje from '../components/BotonComenzarViaje';
+import BotoneraDetalleViaje from '../components/BotoneraDetalleViaje';
 import { ListadoViajesPorDia } from '../components/TarjetaViaje';
 import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { DURACION_TOAST_CON_ACCION_MS, DURACION_TOAST_MS } from '../constants/toast';
-import DuplicarViaje from '../components/DuplicarViaje';
 import { avisoDuplicado, valoresParaDuplicar, viajeAValoresForm } from '../utils/valoresFormViaje';
 import { avisoWhatsApp } from '../utils/whatsapp';
 import { formatearFechaHora, nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
@@ -585,53 +584,20 @@ function Viajes() {
 
             <FichaViaje viaje={seleccionado} />
 
-            {seleccionado.estado === 'A_CONFIRMAR' && puedeGestionar && (
-              <div className="viajes-detalle-actions">
-                <Button variant="primary" onClick={() => pedirConfirmar(seleccionado)}>
-                  Confirmar viaje
-                </Button>
-                <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                  Editar viaje
-                </Button>
-                <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
-                  Cancelar viaje
-                </Button>
-              </div>
-            )}
-
-            {seleccionado.estado === 'PROGRAMADO' && (puedeOperarEsteViaje || puedeGestionar) && (
-              <div className="viajes-detalle-actions">
-                {puedeOperarEsteViaje && (
-                  <BotonComenzarViaje
-                    viaje={seleccionado}
-                    enCurso={viajesEnCurso}
-                    onComenzar={pedirComenzar}
-                    onVerViajeEnCurso={seleccionar}
-                  />
-                )}
-                {puedeGestionar && (
-                  <>
-                    <AvisarPorWhatsApp viaje={seleccionado} />
-                    <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                      Editar viaje
-                    </Button>
-                    <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
-                      Cancelar viaje
-                    </Button>
-                  </>
-                )}
-              </div>
-            )}
-
-            {seleccionado.estado === 'EN_VIAJE' && puedeOperarEsteViaje && (
-              <div className="viajes-detalle-actions">
-                <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
-                  Finalizar viaje
-                </Button>
-              </div>
-            )}
-
-            <DuplicarViaje viaje={seleccionado} perfil={usuario.perfil} onDuplicar={abrirDuplicar} />
+            <BotoneraDetalleViaje
+              viaje={seleccionado}
+              perfil={usuario.perfil}
+              puedeGestionar={puedeGestionar}
+              puedeOperar={puedeOperarEsteViaje}
+              enCurso={viajesEnCurso}
+              onComenzar={pedirComenzar}
+              onVerViajeEnCurso={seleccionar}
+              onFinalizar={pedirFinalizar}
+              onConfirmar={pedirConfirmar}
+              onEditar={abrirEditar}
+              onDuplicar={abrirDuplicar}
+              onCancelar={pedirCancelacion}
+            />
 
             {puedeGestionar && (
               <DatosAdministrativosViaje
