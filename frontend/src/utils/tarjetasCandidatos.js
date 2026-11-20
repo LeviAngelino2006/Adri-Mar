@@ -13,6 +13,15 @@ export const TEXTO_NO_HABILITADO = 'No habilitado';
 // Estado de una tarjeta mientras se consulta la disponibilidad (modal de confirmar).
 export const ESTADO_VERIFICANDO = { texto: 'Verificando…', tono: 'neutral' };
 
+// Las tarjetas habilitadas primero y las deshabilitadas al final. Dentro de cada
+// grupo se respeta el orden en que vienen (alfabético para choferes, por
+// interno para vehículos): es un reparto estable, no un reordenamiento. Solo
+// cambia cómo se MUESTRAN las tarjetas; los ids elegidos se guardan en el
+// orden en que se eligieron, que vive aparte.
+export function habilitadosPrimero(lista, estaDeshabilitado = (item) => item.deshabilitada) {
+  return [...lista.filter((item) => !estaDeshabilitado(item)), ...lista.filter((item) => estaDeshabilitado(item))];
+}
+
 const hayDato = (valor) => valor !== null && valor !== undefined && String(valor).trim() !== '';
 
 // { texto, tono } del estado de habilitación. `disponible === false` es lo único

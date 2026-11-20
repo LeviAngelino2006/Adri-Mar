@@ -126,6 +126,22 @@ describe('Confirmar viaje: mientras se consulta la disponibilidad', () => {
     assert.deepEqual(confirmaciones, []);
   });
 
+  test('cuando llega: los disponibles primero y los no disponibles al final, antes de "Elegir otro…"', async () => {
+    // Beto (no disponible) viene primero entre los candidatos.
+    const viaje = { ...VIAJE, choferesCandidatos: [VIAJE.choferesCandidatos[1], VIAJE.choferesCandidatos[0]] };
+    responderDisponibilidad = async (respuesta) => respuesta(DISPONIBILIDAD);
+    await act(async () => {
+      raiz.render(h(ModalConfirmarViaje, { viaje, onCerrar() {}, onExito() {} }));
+    });
+    await esperar();
+
+    const choferes = [...contenedor.querySelectorAll('fieldset')][0];
+    assert.deepEqual(
+      [...choferes.querySelectorAll('.tarjeta-seleccionable-titulo')].map((t) => t.textContent),
+      ['Ana Pérez', 'Beto Gómez', 'Elegir otro…']
+    );
+  });
+
   test('cuando llega: estados reales, se puede elegir y confirmar', async () => {
     responderDisponibilidad = async (respuesta) => respuesta(DISPONIBILIDAD);
     await montarModal();

@@ -22,7 +22,7 @@ import {
   quitarFaltante,
   ubicacionesSinCoordenadas,
 } from '../utils/estimacionKm';
-import { tarjetaChofer, tarjetaVehiculo } from '../utils/tarjetasCandidatos';
+import { habilitadosPrimero, tarjetaChofer, tarjetaVehiculo } from '../utils/tarjetasCandidatos';
 import { textoAdvertenciaViaje } from '../utils/mantenimiento';
 import { errorDeSecuencia, paradasAPayload } from '../utils/paradas';
 import { ordenarPorInterno } from '../utils/vehiculos';
@@ -230,13 +230,17 @@ function ViajeForm({
 
   // Tarjetas de choferes y vehículos posibles: los elegibles, más los candidatos
   // que el viaje ya tenía y no figuren en esa lista. Quién es elegible y quién
-  // queda deshabilitado (disponible: false) lo sigue diciendo el backend.
+  // queda deshabilitado (disponible: false) lo sigue diciendo el backend. Se
+  // muestran los habilitados primero y los deshabilitados al final, cada grupo
+  // en el orden de la API (alfabético los choferes, por interno los vehículos).
+  // Es solo el orden de las tarjetas: los ids elegidos se guardan en el orden en
+  // que se eligieron.
   const opcionesChoferes = useMemo(() => {
     const opciones = choferes.map(tarjetaChofer);
     for (const c of candidatosActuales?.choferes ?? []) {
       if (!opciones.some((o) => o.id === c.id)) opciones.push(tarjetaChofer(c));
     }
-    return opciones;
+    return habilitadosPrimero(opciones);
   }, [choferes, candidatosActuales]);
 
   const opcionesVehiculos = useMemo(() => {
@@ -244,7 +248,7 @@ function ViajeForm({
     for (const v of candidatosActuales?.vehiculos ?? []) {
       if (!opciones.some((o) => o.id === v.id)) opciones.push(tarjetaVehiculo(v));
     }
-    return opciones;
+    return habilitadosPrimero(opciones);
   }, [vehiculos, candidatosActuales]);
 
   function handleChange(e) {

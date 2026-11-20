@@ -22,6 +22,7 @@ No está en `bundle.js`. La vista previa es una representación estática con su
 - Deshabilitada: fondo `color-bg`, título y detalles en `color-text-secondary`, cursor `not-allowed`, input `disabled` y el motivo visible. Si ya venía elegida (un dato guardado antes de que venciera el documento) se puede quitar, pero no volver a elegir: si no, quedaría trabada.
 - Base: fondo `color-surface`, borde 1px `color-border`, radio `radius-md`, padding `space-3`, alto mínimo 44px. Hover (solo con mouse) y toque: borde `brand-200`.
 - Título en 600; detalles en 14px y `color-text-secondary`; estado y aviso en 13px.
+- Orden: las habilitadas primero y las deshabilitadas al final; dentro de cada grupo, el orden en que vienen (alfabético los choferes, por interno los vehículos). Lo hace `habilitadosPrimero` (`utils/tarjetasCandidatos`). Es solo el orden en pantalla: los ids elegidos se guardan en el orden en que se eligieron. En el modal de confirmar, mientras dice "Verificando…", van en el orden en que vienen.
 - Grilla (`.tarjetas-seleccionables`): una columna en el celular (390px) y desde 640px tantas columnas como entren con un mínimo de 200px; separación `space-2`.
 
 ## SeleccionTarjetas (selección múltiple)

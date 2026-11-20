@@ -1,7 +1,7 @@
 import FormField from './ui/FormField';
 import OpcionVacia from './ui/OpcionVacia';
 import TarjetaSeleccionable from './ui/TarjetaSeleccionable';
-import { ESTADO_VERIFICANDO, estadoHabilitacion } from '../utils/tarjetasCandidatos';
+import { ESTADO_VERIFICANDO, estadoHabilitacion, habilitadosPrimero } from '../utils/tarjetasCandidatos';
 import './SeleccionCandidato.css';
 
 const OPCION_OTRO = 'otro';
@@ -10,8 +10,9 @@ const OPCION_OTRO = 'otro';
 // ModalConfirmarViaje (chofer y vehículo).
 //
 //  - Con candidatos: una tarjeta con radio (TarjetaSeleccionable) por cada uno.
-//    Las no disponibles van deshabilitadas y con su motivo. Después está la
-//    tarjeta "Elegir otro…", que despliega un select con el resto de los
+//    Las disponibles van primero y las no disponibles al final, deshabilitadas
+//    y con su motivo (dentro de cada grupo, en el orden en que vienen). Después
+//    está la tarjeta "Elegir otro…", que despliega un select con el resto de los
 //    elegibles.
 //  - Sin candidatos: directamente el select.
 //
@@ -76,12 +77,15 @@ function SeleccionCandidato({
 
   if (!hayCandidatos) return select;
 
+  // Mientras se verifica no se sabe quién está disponible: el orden en que vienen.
+  const ordenados = verificando ? candidatos : habilitadosPrimero(candidatos, noDisponible);
+
   return (
     <fieldset className="seleccion-candidato" aria-describedby={error ? `${id}-error` : undefined} aria-busy={verificando || undefined}>
       <legend>{etiqueta}</legend>
 
       <div className="tarjetas-seleccionables">
-        {candidatos.map((c) => {
+        {ordenados.map((c) => {
           const deshabilitado = verificando || noDisponible(c);
           let estado = ESTADO_VERIFICANDO;
           if (!verificando) estado = estadoHabilitacion({ disponible: !noDisponible(c), motivo: motivoDe(c) });

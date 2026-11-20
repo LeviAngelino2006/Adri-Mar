@@ -135,7 +135,8 @@ describe('ViajeForm: choferes y vehículos posibles como tarjetas', () => {
     const choferes = [...contenedor.querySelectorAll('#choferesCandidatos label.tarjeta-seleccionable')];
     assert.deepEqual(
       choferes.map((l) => l.querySelector('.tarjeta-seleccionable-titulo').textContent),
-      ['Ana Pérez', 'Beto Gómez', 'Carla Ruiz']
+      // La API los manda alfabéticos (Ana, Beto, Carla); Beto, vencido, va al final.
+      ['Ana Pérez', 'Carla Ruiz', 'Beto Gómez']
     );
     assert.ok(choferes.every((l) => l.querySelector('input').type === 'checkbox'));
     assert.equal(tarjeta('choferesCandidatos', 'Beto Gómez').querySelector('input').disabled, true);
@@ -168,6 +169,28 @@ describe('ViajeForm: choferes y vehículos posibles como tarjetas', () => {
     assert.deepEqual(enviados[0].vehiculosCandidatos, [7]);
     assert.ok(!('choferId' in enviados[0]));
     assert.ok(!('vehiculoId' in enviados[0]));
+  });
+
+  test('el orden de las tarjetas no cambia el orden en que se guardan los ids', async () => {
+    const enviados = await montarForm({ valoresIniciales: VALORES_ALTA });
+
+    // Se elige de atrás para adelante respecto de cómo se muestran.
+    await act(async () => tarjeta('choferesCandidatos', 'Carla Ruiz').click());
+    await act(async () => tarjeta('choferesCandidatos', 'Ana Pérez').click());
+    await guardar();
+
+    assert.deepEqual(enviados[0].choferesCandidatos, [9, 5]);
+  });
+
+  test('una tarjeta vencida que ya venía elegida va al final pero sigue elegida y se guarda', async () => {
+    const enviados = await montarForm({ valoresIniciales: { ...VALORES_ALTA, choferesCandidatos: [6, 5] } });
+
+    const titulos = [...contenedor.querySelectorAll('#choferesCandidatos .tarjeta-seleccionable-titulo')].map((t) => t.textContent);
+    assert.equal(titulos.at(-1), 'Beto Gómez');
+    assert.equal(tarjeta('choferesCandidatos', 'Beto Gómez').querySelector('input').checked, true);
+
+    await guardar();
+    assert.deepEqual(enviados[0].choferesCandidatos, [6, 5]);
   });
 
   test('alta sin elegir ninguno: listas vacías, como antes (son opcionales)', async () => {

@@ -7,6 +7,7 @@ import {
   TEXTO_HABILITADO,
   TEXTO_NO_HABILITADO,
   estadoHabilitacion,
+  habilitadosPrimero,
   tarjetaChofer,
   tarjetaVehiculo,
   textoAsientos,
@@ -89,5 +90,25 @@ describe('textoAsientos', () => {
 
   test('sin dato: null', () => {
     for (const vacio of [null, undefined, '', 'muchos']) assert.equal(textoAsientos(vacio), null, String(vacio));
+  });
+});
+
+describe('habilitadosPrimero', () => {
+  const t = (id, deshabilitada = false) => ({ id, deshabilitada });
+
+  test('los habilitados primero y los deshabilitados al final, cada grupo en su orden original', () => {
+    const lista = [t(1, true), t(2), t(3, true), t(4), t(5)];
+    assert.deepEqual(habilitadosPrimero(lista).map((x) => x.id), [2, 4, 5, 1, 3]);
+  });
+
+  test('no modifica la lista que recibe', () => {
+    const lista = [t(1, true), t(2)];
+    habilitadosPrimero(lista);
+    assert.deepEqual(lista.map((x) => x.id), [1, 2]);
+  });
+
+  test('acepta otro criterio de deshabilitado (el del modal, con la disponibilidad)', () => {
+    const noDisponibles = new Set([7]);
+    assert.deepEqual(habilitadosPrimero([{ id: 7 }, { id: 8 }], (x) => noDisponibles.has(x.id)).map((x) => x.id), [8, 7]);
   });
 });
