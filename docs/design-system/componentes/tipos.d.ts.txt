@@ -106,7 +106,7 @@ export declare function SelectorBuscarOCrear(props: SelectorBuscarOCrearProps): 
 export interface SelectorMultipleProps {
   id?: string;
   /** Todo lo elegible; quien lo usa arma la etiqueta. */
-  opciones: { id: string | number; etiqueta: string }[];
+  opciones: { id: string | number; etiqueta: string; detalle?: string; tituloElegido?: string; subtituloElegido?: string; disponible?: boolean; motivo?: string }[];
   /** Ids elegidos, en orden de elección. El componente es controlado. */
   valor: (string | number)[];
   onChange: (ids: (string | number)[]) => void;
@@ -115,29 +115,11 @@ export interface SelectorMultipleProps {
   /** Por defecto 'Agregar…'. */
   placeholder?: string;
   disabled?: boolean;
+  /** Cómo se ven los elegidos: 'pildora' (por defecto) o 'cuadro' (choferes y vehículos posibles). */
+  forma?: 'pildora' | 'cuadro';
 }
 /** No incluido en bundle.js. */
 export declare function SelectorMultiple(props: SelectorMultipleProps): ReactElement;
-
-export interface TarjetaSeleccionableProps {
-  /** 'checkbox' (selección múltiple, por defecto) o 'radio' (selección única). */
-  tipo?: 'checkbox' | 'radio';
-  name?: string;
-  value?: string | number;
-  titulo: string;
-  /** Textos secundarios, uno por línea ("Patente AE452KD", "45 asientos"). */
-  detalles?: string[];
-  /** Estado de habilitación ("Habilitado" / el motivo). */
-  estado?: { texto: string; tono?: 'ok' | 'error' | 'neutral' };
-  /** Aviso informativo; nunca bloquea. */
-  aviso?: string;
-  seleccionada?: boolean;
-  /** No se puede elegir; si ya estaba elegida, se puede quitar. */
-  deshabilitada?: boolean;
-  onChange?: () => void;
-}
-/** No incluido en bundle.js. */
-export declare function TarjetaSeleccionable(props: TarjetaSeleccionableProps): ReactElement;
 
 export interface RutaViajeProps {
   /** Lugar de origen; sin valor muestra "No registrado" atenuado. */

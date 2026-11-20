@@ -1,6 +1,6 @@
 Grupo de casillas (checkboxes) para elegir varias opciones de una lista corta y fija, todas a la vista. Cada opción es una tarjeta con la casilla, la etiqueta y, debajo, un detalle opcional. Lo usan los tipos de trabajo de un arreglo (Mantenimiento → Arreglos).
 
-No está en `bundle.js`. Para listas largas o que hay que filtrar (unidades de un presupuesto) se usa `SelectorMultiple`; para los choferes y vehículos posibles de un viaje, `TarjetaSeleccionable`. `GrupoCasillas` es para hasta ~10 opciones donde conviene ver todo de una vez y marcar con un toque.
+No está en `bundle.js`. Para listas largas o que hay que filtrar (choferes, unidades de un presupuesto) se usa `SelectorMultiple`. `GrupoCasillas` es para hasta ~10 opciones donde conviene ver todo de una vez y marcar con un toque.
 
 ## Lo que provee quien lo usa
 - `id`: id del `fieldset`. Cada casilla es `${id}-${opcion.id}` y el error, `${id}-error`.
