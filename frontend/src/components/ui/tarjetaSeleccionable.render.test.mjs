@@ -306,11 +306,31 @@ describe('SeleccionCandidato (selección única al confirmar)', () => {
     ]);
   });
 
-  test('mientras no llega la disponibilidad todo queda habilitado y sin estado (el backend valida igual)', () => {
-    const doc = ssr(h(SeleccionCandidato, props({ estados: null })));
+  test('verificando: cada tarjeta dice "Verificando…" y ninguna se puede elegir', () => {
+    const doc = ssr(h(SeleccionCandidato, props({ estados: null, verificando: true })));
     const labels = [...doc.querySelectorAll('label.tarjeta-seleccionable')];
-    assert.ok(labels.every((l) => !l.querySelector('input').disabled));
-    assert.equal(doc.querySelector('.tarjeta-seleccionable-estado'), null);
+    assert.equal(labels.length, 3);
+    assert.ok(labels.every((l) => l.querySelector('input').disabled));
+    assert.deepEqual(
+      labels.map((l) => l.querySelector('.tarjeta-seleccionable-estado').textContent),
+      ['Verificando…', 'Verificando…', 'Verificando…']
+    );
+    assert.ok(labels.every((l) => l.querySelector('.tarjeta-seleccionable-estado-neutral')));
+    assert.equal(doc.querySelector('fieldset').getAttribute('aria-busy'), 'true');
+  });
+
+  test('verificando: un click no elige nada', () => {
+    const recibidos = [];
+    montar(h(SeleccionCandidato, props({ estados: null, verificando: true, onChange: (v) => recibidos.push(v) })));
+    act(() => tarjetaDe('Interno 12').click());
+    act(() => tarjetaDe('Elegir otro…').click());
+    assert.deepEqual(recibidos, []);
+  });
+
+  test('verificando y sin candidatos: el select queda deshabilitado', () => {
+    const doc = ssr(h(SeleccionCandidato, props({ candidatos: [], estados: null, verificando: true, valor: { opcion: 'otro', otroId: '' } })));
+    assert.equal(doc.querySelector('select').disabled, true);
+    assert.equal(doc.querySelector('select option').textContent, 'Verificando…');
   });
 
   test('sin candidatos sigue siendo directamente el select', () => {

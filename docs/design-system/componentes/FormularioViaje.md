@@ -34,7 +34,8 @@ Dentro de `.form-card` (720px) y `.form-grid` (dos columnas desde 640px, una col
 - Fechas de inicio y fin y kilómetros vienen precargados y son obligatorios (con asterisco).
 - Si el viaje no tiene candidatos (la lista llegó vacía), arriba de los selects va un `Alert` info que lo explica: "Este viaje no tiene choferes ni vehículos posibles cargados. Elegí uno de la lista." Si falta solo uno de los dos, el texto habla solo de ese ("… no tiene choferes posibles cargados…" arriba del select de chofer, o "… vehículos posibles …" arriba del de vehículo). Si el viaje llega sin las claves de candidatos no se afirma nada.
 - Es el mismo modal, con los mismos datos, desde el detalle de Viajes y desde el panel "Viajes por confirmar" del Dashboard: los dos le pasan el viaje tal cual lo devuelve la API.
-- Si no se pudo consultar la disponibilidad, todo queda habilitado: el backend valida igual al confirmar.
+- La disponibilidad se consulta al abrir el modal. Hasta que llega, cada tarjeta dice "Verificando…" y no se puede elegir (tampoco el `select`), y el botón "Confirmar viaje" queda deshabilitado. Si la consulta falla, arriba va el error de `EstadoCarga` ("No pudimos cargar la disponibilidad de choferes y vehículos. …") con "Reintentar", y sigue sin poder confirmarse.
+- El backend valida igual al confirmar: un chofer o vehículo con documentación vencida, no habilitado o con otro viaje programado superpuesto da 400 con el error en su campo.
 
 ## Scroll
 - Al abrir el formulario (alta o edición; igual en los formularios de vehículo y de usuario) la página vuelve arriba, y también al cancelar o guardar y volver al listado, porque los botones están al final del formulario.

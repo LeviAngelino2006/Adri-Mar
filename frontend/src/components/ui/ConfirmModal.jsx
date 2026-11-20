@@ -6,6 +6,8 @@ import './ConfirmModal.css';
 // scrollea por dentro si el modal no entra en la pantalla, con un degradé en su
 // borde de abajo mientras quede contenido por ver. Así los botones siempre están
 // a la vista, también en Confirmar viaje a 390px o a 1280 × 800.
+// `confirmDisabled` deshabilita el botón de confirmar (p. ej. mientras falta un
+// dato que el modal todavía está consultando).
 function ConfirmModal({
   open,
   tone = 'danger',
@@ -14,6 +16,7 @@ function ConfirmModal({
   title,
   description,
   confirmLabel,
+  confirmDisabled = false,
   cancelLabel = 'Cancelar',
   onConfirm,
   onCancel,
@@ -44,7 +47,7 @@ function ConfirmModal({
           <Button variant="secondary" onClick={onCancel}>
             {cancelLabel}
           </Button>
-          <Button variant={tone === 'danger' ? 'danger' : 'primary'} onClick={onConfirm}>
+          <Button variant={tone === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} disabled={confirmDisabled}>
             {confirmLabel}
           </Button>
         </div>

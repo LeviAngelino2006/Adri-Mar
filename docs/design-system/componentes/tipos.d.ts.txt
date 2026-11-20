@@ -72,6 +72,8 @@ export interface ConfirmModalProps {
   title: string;
   description?: ReactNode;
   confirmLabel: ReactNode;
+  /** Deshabilita el botón de confirmar. Por defecto false. */
+  confirmDisabled?: boolean;
   /** Por defecto 'Cancelar'. */
   cancelLabel?: ReactNode;
   onConfirm?: () => void;
@@ -126,7 +128,7 @@ export interface TarjetaSeleccionableProps {
   /** Textos secundarios, uno por línea ("Patente AE452KD", "45 asientos"). */
   detalles?: string[];
   /** Estado de habilitación ("Habilitado" / el motivo). */
-  estado?: { texto: string; tono?: 'ok' | 'error' };
+  estado?: { texto: string; tono?: 'ok' | 'error' | 'neutral' };
   /** Aviso informativo; nunca bloquea. */
   aviso?: string;
   seleccionada?: boolean;

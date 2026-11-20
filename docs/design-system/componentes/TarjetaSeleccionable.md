@@ -4,7 +4,7 @@ No está en `bundle.js`. La vista previa es una representación estática con su
 
 ## Lo que provee quien la usa
 - `tipo`: `checkbox` (por defecto, selección múltiple) o `radio` (selección única; todo el grupo comparte `name`).
-- `titulo`, `detalles` (textos secundarios, uno por línea), `estado` (`{ texto, tono: 'ok' | 'error' }`) y `aviso` (texto informativo, opcional).
+- `titulo`, `detalles` (textos secundarios, uno por línea), `estado` (`{ texto, tono: 'ok' | 'error' | 'neutral' }`) y `aviso` (texto informativo, opcional).
 - `seleccionada` y `onChange()`: es controlada.
 - `deshabilitada`: no se puede elegir.
 - El contenido de choferes y vehículos lo arma `utils/tarjetasCandidatos` (`tarjetaChofer`, `tarjetaVehiculo`): no decide quién es elegible ni valida documentación, solo muestra el `disponible` / `motivo` que ya trae cada item.
@@ -12,7 +12,7 @@ No está en `bundle.js`. La vista previa es una representación estática con su
 ## Contenido
 - Chofer: nombre completo y estado de habilitación.
 - Vehículo: "Interno 12", "Patente AE452KD", la cantidad de asientos si el dato existe ("45 asientos") y el estado de habilitación.
-- Estado: "Habilitado" en `state-success-text`, o el motivo en `state-error-text` ("Documentación vencida (Licencia de conducir)").
+- Estado: "Habilitado" en `state-success-text`, el motivo en `state-error-text` ("Documentación vencida (Licencia de conducir)"), o "Verificando…" en `color-text-secondary` (tono `neutral`) mientras el modal de confirmar consulta la disponibilidad; en ese caso la tarjeta va deshabilitada.
 - Aviso: en `state-warning-text`, debajo del estado (por ejemplo, una superposición de horario). Nunca bloquea. Con aviso, la tarjeta no elegida lleva el borde `state-warning-border`.
 
 ## Reglas

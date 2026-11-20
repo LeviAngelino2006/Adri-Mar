@@ -11,8 +11,9 @@ import './TarjetaSeleccionable.css';
 //  - `tipo`: 'checkbox' (selección múltiple) o 'radio' (selección única, con el
 //    mismo `name` en todo el grupo).
 //  - `seleccionada`: controlada; `onChange()` se llama al marcar o desmarcar.
-//  - `estado`: { texto, tono: 'ok' | 'error' } — la habilitación ("Habilitado",
-//    "Documentación vencida (Licencia de conducir)").
+//  - `estado`: { texto, tono: 'ok' | 'error' | 'neutral' } — la habilitación
+//    ("Habilitado", "Documentación vencida (Licencia de conducir)") o
+//    "Verificando…" mientras se consulta.
 //  - `deshabilitada`: no se puede elegir y se ve apagada; el motivo va en
 //    `estado` (tono 'error'). Si ya venía elegida (un dato guardado antes de que
 //    venciera el documento) se puede QUITAR, pero no volver a elegir: si no, la

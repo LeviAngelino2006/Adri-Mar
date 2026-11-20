@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import api from '../services/api';
 import ConfirmModal from './ui/ConfirmModal';
 import FormField from './ui/FormField';
 import Alert from './ui/Alert';
+import { ErrorCarga } from './ui/EstadoCarga';
 import SeleccionCandidato from './SeleccionCandidato';
 import { confirmarViaje, disponibilidadDeViaje } from '../services/viajesApi';
 import { aInputCordoba } from '../utils/fechaCordoba';
@@ -11,6 +12,7 @@ import { ordenarPorInterno } from '../utils/vehiculos';
 import { tarjetaChofer, tarjetaVehiculo } from '../utils/tarjetasCandidatos';
 import { avisosSinCandidatos } from '../utils/avisosSinCandidatos';
 import { mensajeErrorCarga } from '../utils/errorCarga';
+import { useCarga } from '../hooks/useCarga';
 
 const ICONO_CONFIRMAR = (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -39,14 +41,18 @@ const porId = (lista) => Object.fromEntries(lista.map((item) => [item.id, item])
 // solapamiento), lo pasa a PROGRAMADO y borra los candidatos. Fechas y km se
 // precargan del viaje y son obligatorios.
 //
-// Los candidatos se ofrecen como tarjetas con radio; los que la disponibilidad marca como
-// no disponibles quedan deshabilitados con su motivo. "Elegir otro…" abre el
-// resto de los elegibles. La disponibilidad es solo una ayuda: si no se pudo
-// consultar, todo queda habilitado y el backend valida igual al confirmar.
+// Los candidatos se ofrecen como tarjetas con radio; los que la disponibilidad
+// marca como no disponibles quedan deshabilitados con su motivo, al final.
+// "Elegir otro…" abre el resto de los elegibles.
+//
+// La disponibilidad se consulta al abrir (useCarga). Hasta que llega no se
+// puede elegir ni confirmar: las tarjetas dicen "Verificando…" y el botón de
+// confirmar queda deshabilitado. Si la consulta falla se muestra el error con
+// "Reintentar" (ErrorCarga), y sigue sin poder confirmarse. El backend valida
+// igual al confirmar (documentación vencida y superposición dan 400).
 function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
   const [choferes, setChoferes] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
-  const [disponibilidad, setDisponibilidad] = useState(null);
   // { choferes, vehiculos }: mensaje si no se pudo cargar esa lista de opciones.
   const [errorOpciones, setErrorOpciones] = useState({});
   const [chofer, setChofer] = useState(SELECCION_VACIA);
@@ -56,6 +62,18 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
   const [enviando, setEnviando] = useState(false);
 
   const viajeId = viaje?.id;
+
+  // { choferes, vehiculos } por id. Sin viaje (modal cerrado) no se pide nada.
+  const pedirDisponibilidad = useCallback(() => {
+    if (!viajeId) return Promise.resolve(null);
+    return disponibilidadDeViaje(viajeId, { todos: true }).then(({ data }) => ({
+      choferes: porId(data.choferes),
+      vehiculos: porId(data.vehiculos),
+    }));
+  }, [viajeId]);
+  const cargaDisponibilidad = useCarga(pedirDisponibilidad);
+  const verificando = cargaDisponibilidad.cargando || Boolean(cargaDisponibilidad.error);
+  const disponibilidad = verificando ? null : cargaDisponibilidad.datos;
 
   useEffect(() => {
     if (!viajeId) return;
@@ -73,16 +91,9 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
       .get('/vehiculos')
       .then(({ data }) => vigente && setVehiculos(ordenarPorInterno(data.vehiculos)))
       .catch(avisarError('vehiculos', 'la lista de vehículos'));
-    disponibilidadDeViaje(viajeId, { todos: true })
-      .then(({ data }) => {
-        if (vigente) setDisponibilidad({ choferes: porId(data.choferes), vehiculos: porId(data.vehiculos) });
-      })
-      // Es solo una ayuda: sin ella se puede confirmar igual.
-      .catch(() => {});
 
     return () => {
       vigente = false;
-      setDisponibilidad(null);
       setErrorOpciones({});
     };
   }, [viajeId]);
@@ -134,6 +145,7 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
   }
 
   async function confirmar() {
+    if (verificando) return;
     setErrores({});
     setEnviando(true);
     try {
@@ -165,6 +177,13 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
       title="Confirmar viaje"
       description={
         <>
+          {cargaDisponibilidad.error && (
+            <ErrorCarga
+              mensaje={mensajeErrorCarga(cargaDisponibilidad.error, 'la disponibilidad de choferes y vehículos')}
+              onReintentar={cargaDisponibilidad.recargar}
+            />
+          )}
+
           {antesDeChofer && <Alert variant="info">{antesDeChofer}</Alert>}
 
           <SeleccionCandidato
@@ -174,6 +193,7 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
             candidatos={candidatosChofer}
             otros={otrosChoferes}
             estados={disponibilidad?.choferes}
+            verificando={verificando}
             valor={chofer}
             onChange={setChofer}
             error={errores.choferId || errorOpciones.choferes}
@@ -188,6 +208,7 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
             candidatos={candidatosVehiculo}
             otros={otrosVehiculos}
             estados={disponibilidad?.vehiculos}
+            verificando={verificando}
             valor={vehiculo}
             onChange={setVehiculo}
             error={errores.vehiculoId || errorOpciones.vehiculos}
@@ -219,6 +240,7 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
         </>
       }
       confirmLabel={enviando ? 'Confirmando…' : 'Confirmar viaje'}
+      confirmDisabled={verificando}
       onConfirm={confirmar}
       onCancel={onCerrar}
     />

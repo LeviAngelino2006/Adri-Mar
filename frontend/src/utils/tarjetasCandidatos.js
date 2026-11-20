@@ -10,6 +10,8 @@ import { nombreChofer } from './viajeFormato.js';
 
 export const TEXTO_HABILITADO = 'Habilitado';
 export const TEXTO_NO_HABILITADO = 'No habilitado';
+// Estado de una tarjeta mientras se consulta la disponibilidad (modal de confirmar).
+export const ESTADO_VERIFICANDO = { texto: 'Verificando…', tono: 'neutral' };
 
 const hayDato = (valor) => valor !== null && valor !== undefined && String(valor).trim() !== '';
 

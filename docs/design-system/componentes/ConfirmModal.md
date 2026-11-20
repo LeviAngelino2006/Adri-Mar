@@ -5,6 +5,7 @@ Diálogo de confirmación para acciones importantes o destructivas.
 - `title`: la pregunta ("¿Cancelar este viaje?").
 - `description`: consecuencia en una o dos frases; puede incluir un `FormField` (por ejemplo un motivo).
 - `confirmLabel` (y `cancelLabel`, por defecto "Cancelar").
+- `confirmDisabled` (por defecto `false`): deshabilita el botón de confirmar mientras falta algo que el modal todavía está consultando (la disponibilidad en Confirmar viaje).
 - `icon`: un SVG de 20–24px.
 - `tone`: `danger` (ícono sobre `state-error-bg`, botón danger) o `brand` (ícono sobre `brand-100`, botón primario).
 - `size`: `default` (360px) o `wide` (460px), para modales con opciones largas como Confirmar viaje.

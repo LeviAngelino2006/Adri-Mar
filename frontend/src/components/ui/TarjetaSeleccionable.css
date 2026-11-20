@@ -171,6 +171,11 @@
   color: var(--state-error-text);
 }
 
+/* "Verificando…": todavía no se sabe, ni bien ni mal. */
+.tarjeta-seleccionable-estado-neutral {
+  color: var(--color-text-secondary);
+}
+
 .tarjeta-seleccionable-aviso {
   margin-top: 2px;
   font-size: 0.8125rem;
