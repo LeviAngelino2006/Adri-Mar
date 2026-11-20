@@ -72,9 +72,10 @@ function FichaViaje({ viaje, ocultarChofer = false }) {
     <Card className="detalle-card viajes-detalle" role="region" aria-label="Ficha del viaje">
       <dl className="detalle-grid">
         <Item etiqueta="Cliente" valor={viaje.cliente?.nombre} clase="detalle-item-ancho detalle-item-destacado" />
-        {/* Recorrido completo (origen, paradas, destino) con el botón al lado.
-            Siempre se muestra: un viaje histórico sin origen o destino los dice
-            "No registrado". */}
+        {/* Recorrido completo (origen, paradas, destino) y, debajo, el botón de
+            Maps (arriba de Inicio/Fin). El botón va dentro del <dd>: un <div> de
+            un <dl> solo puede agrupar <dt>/<dd>. Siempre se muestra: un viaje
+            histórico sin origen o destino los dice "No registrado". */}
         <div className="detalle-item detalle-item-ancho">
           <dt>Recorrido</dt>
           <dd>

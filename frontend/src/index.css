@@ -361,13 +361,17 @@ textarea:focus-visible {
   }
 }
 
-/* Recorrido de la ficha de viaje: la secuencia y, al lado, el botón de Maps. */
+/* Recorrido de la ficha de viaje: la secuencia y, debajo, el botón de Maps,
+   alineado a la izquierda y con su ancho natural (no a todo el ancho). */
 .detalle-grid .detalle-recorrido {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
+  flex-direction: column;
+  gap: var(--space-3);
   white-space: normal;
+}
+
+.detalle-grid .detalle-recorrido > .btn {
+  align-self: flex-start;
 }
 
 /* Acciones dentro de la Card, debajo de la grilla (vehículo y usuario). */

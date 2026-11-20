@@ -312,13 +312,26 @@ describe('Duplicar viaje', () => {
 });
 
 describe('Ficha: "Ver recorrido en Google Maps"', () => {
-  test('va junto a la ruta, como Button secondary, y abre en una pestaña nueva', () => {
+  test('va debajo de la ruta y arriba de Inicio/Fin, como Button secondary, y abre en una pestaña nueva', () => {
     const html = renderToStaticMarkup(h(FichaViaje, { viaje: viaje() }));
-    const recorrido = html.slice(html.indexOf('<span class="detalle-recorrido">'));
+    // En el <dd> de Recorrido: primero la ruta (origen → destino) y después el
+    // botón; recién al cerrar ese ítem viene el par Inicio/Fin.
     assert.match(
-      recorrido,
-      /^<span class="detalle-recorrido">.*?<a class="btn btn-secondary" href="https:\/\/www\.google\.com\/maps\/dir\/\?api=1&amp;[^"]+" target="_blank" rel="noopener noreferrer">/
+      html,
+      /<dt>Recorrido<\/dt><dd><span class="detalle-recorrido"><ol class="ruta-viaje-completa"[^>]*>.*?<\/ol><a class="btn btn-secondary" href="https:\/\/www\.google\.com\/maps\/dir\/\?api=1&amp;[^"]+" target="_blank" rel="noopener noreferrer">.*?<\/a><\/span><\/dd><\/div><div class="detalle-item"><dt>Inicio<\/dt>/
     );
+  });
+
+  test('a la izquierda y con su ancho natural, no a todo el ancho', () => {
+    const css = fs.readFileSync(path.join(RAIZ, 'src/index.css'), 'utf8');
+    // El cuerpo de la regla con ese selector exacto ('' si no está).
+    const regla = (selector) => {
+      const inicio = css.indexOf(`${selector} {`);
+      return inicio === -1 ? '' : css.slice(inicio, css.indexOf('}', inicio));
+    };
+    assert.match(regla('.detalle-grid .detalle-recorrido'), /flex-direction:\s*column/);
+    assert.match(regla('.detalle-grid .detalle-recorrido > .btn'), /align-self:\s*flex-start/);
+    assert.doesNotMatch(regla('.detalle-grid .detalle-recorrido > .btn'), /width:\s*100%/);
   });
 
   test('sin origen o destino queda un botón deshabilitado, sin enlace', () => {
