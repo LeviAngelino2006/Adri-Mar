@@ -106,7 +106,9 @@ function UbicarConGoogle({ nombre, onUbicar, onCancelar }) {
                   </li>
                 ))}
               </ul>
-              <AtribucionGoogle />
+              <div className="ubicar-google-atribucion">
+                <AtribucionGoogle />
+              </div>
             </>
           )}
 

@@ -62,10 +62,13 @@
   color: var(--state-error-text);
 }
 
-/* Fila del logo de Google al pie de las sugerencias (AtribucionGoogle lo
-   alinea a la derecha). */
+/* Fila del logo de Google al pie de las sugerencias, a la derecha, con el
+   espacio libre que pide Google (10px arriba y a los costados, 5px abajo;
+   abajo se suma el padding de la lista). */
 .selector-ubicacion-atribucion {
-  padding: var(--space-1) var(--space-3) 0;
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-3) var(--space-3) var(--space-1);
 }
 
 /* Nombre de la frecuente (después de elegir una sugerencia con "Guardar como

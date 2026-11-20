@@ -1,7 +1,7 @@
 // Smoke test de render del cálculo de km del formulario de viaje: el botón
-// "Calcular km" (deshabilitado sin origen/destino), la atribución de Google
-// (logo) en el hint del campo mientras el valor sea el calculado, el aviso de
-// desactualizado, el error en el
+// "Calcular km" (deshabilitado sin origen/destino), la franja fija debajo del
+// campo con la atribución de Google (logo) mientras el valor sea el calculado
+// y el aviso de desactualizado, el error en el
 // campo (con la acción para ubicar una ubicación sin coordenadas), el modal de
 // Google que abre esa acción y el link al recorrido con el placeId.
 //
@@ -147,62 +147,65 @@ describe('AtribucionGoogle', () => {
   });
 });
 
-describe('CampoKmEstimados: atribución de Google en el hint', () => {
+describe('CampoKmEstimados: franja de la atribución de Google', () => {
   const renderCampo = (props) =>
     renderToStaticMarkup(
       h(CampoKmEstimados, { valor: '', onChange() {}, puedeCalcular: true, calculando: false, onCalcular() {}, ...props })
     );
   const hint = (html) => html.match(/<p id="kilometrosEstimados-hint" class="form-field-hint">(.*?)<\/p>/s)?.[1];
+  // Contenido de la franja (va después de la fila input + botón, y siempre está).
+  const franja = (html) => html.match(/<div class="campo-km-atribucion">(.*?)<\/div><\/div>$/s)?.[1];
   const logo = /<img class="atribucion-google-logo"[^>]*alt="Google Maps"/;
+  const AVISO = '<span class="campo-km-desactualizado" role="status">Cambió el recorrido: recalculá</span>';
 
-  test('sin origen/destino: la indicación de qué falta, sin logo', () => {
+  test('sin origen/destino: el hint con la indicación y la franja vacía (pero presente)', () => {
     const html = renderCampo({ puedeCalcular: false });
     assert.equal(hint(html), 'Elegí origen y destino para calcularlos');
-    assert.doesNotMatch(html, logo);
+    assert.equal(franja(html), '');
   });
 
-  test('estimación vigente y el input con el valor calculado: solo el logo, sin repetir los km', () => {
+  test('sin estimación: la franja está igual, vacía, y no hay hint', () => {
+    const html = renderCampo({ valor: '38' });
+    assert.equal(franja(html), '');
+    assert.equal(hint(html), undefined);
+  });
+
+  test('estimación vigente y el input con el valor calculado: el logo en la franja, no en el hint, sin repetir los km', () => {
     const html = renderCampo({ valor: '38', estimacion: { resultado: RESULTADO, desactualizado: false } });
-    assert.match(hint(html), new RegExp(`^<span class="atribucion-google">${logo.source}`));
+    assert.match(franja(html), new RegExp(`^<span class="atribucion-google">${logo.source}[^>]*/></span>$`));
+    assert.equal(hint(html), undefined);
     assert.doesNotMatch(html, /recalculá|≈|41 min/);
-    assert.match(html, /aria-describedby="kilometrosEstimados-hint"/);
   });
 
-  test('desactualizada y el valor calculado: el aviso a la izquierda y el logo a la derecha', () => {
+  test('desactualizada y el valor calculado: el logo y, a su derecha, el aviso', () => {
     const html = renderCampo({ valor: '38', estimacion: { resultado: RESULTADO, desactualizado: true } });
-    assert.match(
-      hint(html),
-      new RegExp(
-        '^<span class="campo-km-hint-fila"><span class="campo-km-desactualizado" role="status">Cambió el recorrido: recalculá</span>' +
-          `<span class="atribucion-google">${logo.source}`
-      )
-    );
+    assert.match(franja(html), new RegExp(`^<span class="atribucion-google">${logo.source}[^>]*/></span>${AVISO}$`));
+    assert.equal(hint(html), undefined);
   });
 
-  test('km editados a mano: sin atribución ni aviso (el dato ya no es de Google)', () => {
+  test('km editados a mano: franja vacía, sin atribución ni aviso (el dato ya no es de Google)', () => {
     for (const desactualizado of [false, true]) {
       const html = renderCampo({ valor: '40', estimacion: { resultado: RESULTADO, desactualizado } });
-      assert.equal(hint(html), undefined);
+      assert.equal(franja(html), '');
       assert.doesNotMatch(html, logo);
-      assert.doesNotMatch(html, /recalculá/);
     }
   });
 
   test('input vacío: no cuenta como el valor calculado (ni siquiera si el cálculo dio 0)', () => {
     for (const kilometros of [38, 0]) {
       const html = renderCampo({ valor: '', estimacion: { resultado: { kilometros, duracionMinutos: 0 }, desactualizado: false } });
-      assert.doesNotMatch(html, logo);
+      assert.equal(franja(html), '');
     }
   });
 
-  test('el error del campo tapa el hint', () => {
+  test('el logo sigue con un error en el campo: el error va en el FormField, la franja aparte', () => {
     const html = renderCampo({
       valor: '38',
       estimacion: { resultado: RESULTADO, desactualizado: false },
       errorValidacion: 'Obligatorio para un viaje Programado.',
     });
-    assert.equal(hint(html), undefined);
-    assert.doesNotMatch(html, logo);
+    assert.match(html, /role="alert">Obligatorio para un viaje Programado\.</);
+    assert.match(franja(html), logo);
   });
 });
 

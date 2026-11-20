@@ -68,11 +68,3 @@ export function quitarFaltante(errorKm, ubicacionId) {
   if (faltantes.length === 0) return null;
   return { ...errorKm, faltantes, mensaje: mensajeSinCoordenadas(faltantes) };
 }
-
-// 45 → "45 min"; 91 → "1 h 31 min"; 120 → "2 h".
-export function formatearDuracion(minutos) {
-  if (!Number.isFinite(minutos) || minutos < 60) return `${Math.max(0, Math.round(minutos || 0))} min`;
-  const horas = Math.floor(minutos / 60);
-  const resto = Math.round(minutos % 60);
-  return resto === 0 ? `${horas} h` : `${horas} h ${resto} min`;
-}
