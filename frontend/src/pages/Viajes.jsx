@@ -175,8 +175,10 @@ function Viajes() {
   const [pedidoConfirmar, setPedidoConfirmar] = useState(null);
 
   // Tarjeta de datos administrativos de la ficha abierta, y si hay que llevar
-  // la vista hasta ella. Esto último lo pide solo el alta (handleGuardarForm):
-  // abrir la ficha desde el listado o después de editar no lo hace.
+  // la vista hasta ella. Esto último lo piden el alta (handleGuardarForm) y la
+  // vuelta desde la pantalla de datos administrativos (guardar, Cancelar o el
+  // link de arriba); abrir la ficha desde el listado o después de editar el
+  // viaje no lo hace.
   const datosAdministrativosRef = useRef(null);
   const irADatosAdministrativos = useRef(false);
 
@@ -272,8 +274,9 @@ function Viajes() {
   // sin esto conservan el scroll de la vista anterior (la ficha o el
   // formulario aparecen desplazados hacia abajo, y el listado también al
   // cancelar o guardar desde los botones del final).
-  // Después de crear, en el mismo efecto (para que corra después de volver
-  // arriba) se baja hasta la tarjeta de datos administrativos.
+  // Después de crear, o al volver de la pantalla de datos administrativos, en
+  // el mismo efecto (para que corra después de volver arriba) se baja hasta la
+  // tarjeta de datos administrativos.
   const seleccionadoId = seleccionado?.id ?? null;
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -425,7 +428,10 @@ function Viajes() {
     origen.abrir(viaje);
   }
 
+  // Al volver (con o sin guardar), la ficha baja a la tarjeta de datos
+  // administrativos: es donde estaba el usuario antes de editar.
   function cerrarEditarAdmin() {
+    irADatosAdministrativos.current = true;
     origen.cancelar();
     setEditandoAdmin(null);
   }
@@ -433,6 +439,7 @@ function Viajes() {
   // Vuelve a la ficha con el viaje que devolvió el backend (datos actualizados).
   function manejarExitoDatosAdministrativos(viajeActualizado) {
     mostrarMensaje('Datos administrativos guardados correctamente.');
+    irADatosAdministrativos.current = true;
     origen.guardado(viajeActualizado);
     setEditandoAdmin(null);
     cargarViajes();

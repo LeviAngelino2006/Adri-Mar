@@ -4,10 +4,12 @@ import Card from './ui/Card';
 import Button from './ui/Button';
 import FormField from './ui/FormField';
 import Alert from './ui/Alert';
+import { ErrorCarga } from './ui/EstadoCarga';
 import OpcionesCatalogo from './ui/OpcionesCatalogo';
 import OpcionVacia from './ui/OpcionVacia';
 import { useCatalogosPago, valoresAPayload, validarMontos, viajeAValores } from '../utils/datosAdministrativos';
 import { esPagoPendiente, limpiarFechasDePagosPendientes } from '../utils/pagoPendiente';
+import { mensajeErrorCarga } from '../utils/errorCarga';
 import './FormDatosAdministrativos.css';
 
 const HINT_FECHA_PENDIENTE = 'Con el pago Pendiente no se carga la fecha de pago.';
@@ -21,7 +23,7 @@ function FormDatosAdministrativos({ viaje, onGuardado, onCancelar }) {
   const [valores, setValores] = useState(() => viajeAValores(viaje));
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
-  const { estadosPago, metodosPago, cargarCatalogos } = useCatalogosPago();
+  const { estadosPago, metodosPago, cargarCatalogos, errorCatalogos, reintentarCatalogos } = useCatalogosPago();
 
   // Los catálogos se piden al abrir el formulario (y solo la primera vez):
   // quien solo mira la ficha no necesita ninguno de los dos.
@@ -73,92 +75,104 @@ function FormDatosAdministrativos({ viaje, onGuardado, onCancelar }) {
   }
 
   return (
-    <Card className="form-card detalle-card datos-admin-form">
-      <form onSubmit={handleSubmit} noValidate>
-        <section className="detalle-seccion">
-          <h2 className="detalle-seccion-titulo">Cobro al cliente</h2>
-          <div className="form-grid">
-            <FormField id="precio" label="Precio ($)" error={errores.precio}>
-              <input type="number" name="precio" min="0" step="0.01" value={valores.precio} onChange={handleChange} />
-            </FormField>
-            <FormField id="estadoPagoClienteId" label="Estado del pago" error={errores.estadoPagoClienteId}>
-              <select name="estadoPagoClienteId" value={valores.estadoPagoClienteId} onChange={handleChange}>
-                <OpcionVacia>Sin definir</OpcionVacia>
-                <OpcionesCatalogo items={estadosPago} />
-              </select>
-            </FormField>
-            <FormField
-              id="fechaPagoCliente"
-              label="Fecha de pago"
-              error={errores.fechaPagoCliente}
-              hint={fechaClienteBloqueada ? HINT_FECHA_PENDIENTE : undefined}
-            >
-              <input
-                type="date"
-                name="fechaPagoCliente"
-                value={fechaClienteBloqueada ? '' : valores.fechaPagoCliente}
-                onChange={handleChange}
-                disabled={fechaClienteBloqueada}
-              />
-            </FormField>
-            <FormField id="metodoPagoClienteId" label="Método de pago" error={errores.metodoPagoClienteId}>
-              <select name="metodoPagoClienteId" value={valores.metodoPagoClienteId} onChange={handleChange}>
-                <OpcionVacia>Sin definir</OpcionVacia>
-                <OpcionesCatalogo items={metodosPago} />
-              </select>
-            </FormField>
-          </div>
-        </section>
-
-        <section className="detalle-seccion">
-          <h2 className="detalle-seccion-titulo">Pago al chofer</h2>
-          <div className="form-grid">
-            <FormField id="pagoChofer" label="Monto ($)" error={errores.pagoChofer}>
-              <input type="number" name="pagoChofer" min="0" step="0.01" value={valores.pagoChofer} onChange={handleChange} />
-            </FormField>
-            <FormField id="estadoPagoChoferId" label="Estado del pago" error={errores.estadoPagoChoferId}>
-              <select name="estadoPagoChoferId" value={valores.estadoPagoChoferId} onChange={handleChange}>
-                <OpcionVacia>Sin definir</OpcionVacia>
-                <OpcionesCatalogo items={estadosPago} />
-              </select>
-            </FormField>
-            <FormField
-              id="fechaPagoChofer"
-              label="Fecha de pago"
-              error={errores.fechaPagoChofer}
-              hint={fechaChoferBloqueada ? HINT_FECHA_PENDIENTE : undefined}
-            >
-              <input
-                type="date"
-                name="fechaPagoChofer"
-                value={fechaChoferBloqueada ? '' : valores.fechaPagoChofer}
-                onChange={handleChange}
-                disabled={fechaChoferBloqueada}
-              />
-            </FormField>
-            <FormField id="metodoPagoChoferId" label="Método de pago" error={errores.metodoPagoChoferId}>
-              <select name="metodoPagoChoferId" value={valores.metodoPagoChoferId} onChange={handleChange}>
-                <OpcionVacia>Sin definir</OpcionVacia>
-                <OpcionesCatalogo items={metodosPago} />
-              </select>
-            </FormField>
-          </div>
-        </section>
-
-        <div className="datos-admin-pie">
-          {errores.general && <Alert variant="error">{errores.general}</Alert>}
-
-          <div className="form-actions">
-            <Button type="submit" variant="primary" loading={enviando}>
-              {enviando ? 'Guardando…' : 'Guardar datos'}
-            </Button>
-            <Button type="button" variant="secondary" onClick={onCancelar} disabled={enviando}>
-              Cancelar
-            </Button>
-          </div>
+    <>
+      {/* Sin los catálogos, los selects de estado y método quedarían vacíos:
+          se avisa arriba del formulario, con "Reintentar". */}
+      {errorCatalogos && (
+        <div className="form-card datos-admin-error-catalogos">
+          <ErrorCarga
+            mensaje={mensajeErrorCarga(errorCatalogos, 'los estados y métodos de pago')}
+            onReintentar={reintentarCatalogos}
+          />
         </div>
-      </form>
-    </Card>
+      )}
+      <Card className="form-card detalle-card datos-admin-form">
+        <form onSubmit={handleSubmit} noValidate>
+          <section className="detalle-seccion">
+            <h2 className="detalle-seccion-titulo">Cobro al cliente</h2>
+            <div className="form-grid">
+              <FormField id="precio" label="Precio ($)" error={errores.precio}>
+                <input type="number" name="precio" min="0" step="0.01" value={valores.precio} onChange={handleChange} />
+              </FormField>
+              <FormField id="estadoPagoClienteId" label="Estado del pago" error={errores.estadoPagoClienteId}>
+                <select name="estadoPagoClienteId" value={valores.estadoPagoClienteId} onChange={handleChange}>
+                  <OpcionVacia>Sin definir</OpcionVacia>
+                  <OpcionesCatalogo items={estadosPago} />
+                </select>
+              </FormField>
+              <FormField
+                id="fechaPagoCliente"
+                label="Fecha de pago"
+                error={errores.fechaPagoCliente}
+                hint={fechaClienteBloqueada ? HINT_FECHA_PENDIENTE : undefined}
+              >
+                <input
+                  type="date"
+                  name="fechaPagoCliente"
+                  value={fechaClienteBloqueada ? '' : valores.fechaPagoCliente}
+                  onChange={handleChange}
+                  disabled={fechaClienteBloqueada}
+                />
+              </FormField>
+              <FormField id="metodoPagoClienteId" label="Método de pago" error={errores.metodoPagoClienteId}>
+                <select name="metodoPagoClienteId" value={valores.metodoPagoClienteId} onChange={handleChange}>
+                  <OpcionVacia>Sin definir</OpcionVacia>
+                  <OpcionesCatalogo items={metodosPago} />
+                </select>
+              </FormField>
+            </div>
+          </section>
+
+          <section className="detalle-seccion">
+            <h2 className="detalle-seccion-titulo">Pago al chofer</h2>
+            <div className="form-grid">
+              <FormField id="pagoChofer" label="Monto ($)" error={errores.pagoChofer}>
+                <input type="number" name="pagoChofer" min="0" step="0.01" value={valores.pagoChofer} onChange={handleChange} />
+              </FormField>
+              <FormField id="estadoPagoChoferId" label="Estado del pago" error={errores.estadoPagoChoferId}>
+                <select name="estadoPagoChoferId" value={valores.estadoPagoChoferId} onChange={handleChange}>
+                  <OpcionVacia>Sin definir</OpcionVacia>
+                  <OpcionesCatalogo items={estadosPago} />
+                </select>
+              </FormField>
+              <FormField
+                id="fechaPagoChofer"
+                label="Fecha de pago"
+                error={errores.fechaPagoChofer}
+                hint={fechaChoferBloqueada ? HINT_FECHA_PENDIENTE : undefined}
+              >
+                <input
+                  type="date"
+                  name="fechaPagoChofer"
+                  value={fechaChoferBloqueada ? '' : valores.fechaPagoChofer}
+                  onChange={handleChange}
+                  disabled={fechaChoferBloqueada}
+                />
+              </FormField>
+              <FormField id="metodoPagoChoferId" label="Método de pago" error={errores.metodoPagoChoferId}>
+                <select name="metodoPagoChoferId" value={valores.metodoPagoChoferId} onChange={handleChange}>
+                  <OpcionVacia>Sin definir</OpcionVacia>
+                  <OpcionesCatalogo items={metodosPago} />
+                </select>
+              </FormField>
+            </div>
+          </section>
+
+          <div className="datos-admin-pie">
+            {errores.general && <Alert variant="error">{errores.general}</Alert>}
+
+            <div className="form-actions">
+              <Button type="submit" variant="primary" loading={enviando}>
+                {enviando ? 'Guardando…' : 'Guardar datos'}
+              </Button>
+              <Button type="button" variant="secondary" onClick={onCancelar} disabled={enviando}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </form>
+      </Card>
+    </>
   );
 }
 

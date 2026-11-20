@@ -56,11 +56,17 @@ let raiz;
 const enviados = [];
 // Respuesta del PATCH; un test la cambia por un error.
 let responderPatch;
+// Catálogos que fallan en el próximo pedido (un test los hace fallar) y los
+// pedidos de catálogos que llegaron.
+const catalogosQueFallan = new Set();
+const pedidosCatalogo = [];
 
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
   const api = (await vite.ssrLoadModule('/src/services/api.js')).default;
   api.get = async (endpoint) => {
+    pedidosCatalogo.push(endpoint);
+    if (catalogosQueFallan.delete(endpoint)) throw Object.assign(new Error('500'), { response: { status: 500, data: {} } });
     if (endpoint === '/estados-pago') return { data: { estadosPago: ESTADOS_PAGO } };
     if (endpoint === '/metodos-pago') return { data: { metodosPago: [{ id: 1, descripcion: 'EFECTIVO' }] } };
     return { data: {} };
@@ -77,6 +83,8 @@ after(() => vite.close());
 
 beforeEach(() => {
   enviados.length = 0;
+  pedidosCatalogo.length = 0;
+  catalogosQueFallan.clear();
   responderPatch = async (_endpoint, datos) => ({ data: { viaje: { ...VIAJE, ...datos } } });
 });
 
@@ -208,5 +216,42 @@ describe('FormDatosAdministrativos: guardar y cancelar', () => {
     await guardar();
     assert.equal(guardados.length, 0);
     assert.match(contenedor.textContent, /El viaje ya no existe/);
+  });
+});
+
+describe('FormDatosAdministrativos: error al cargar los catálogos', () => {
+  const opciones = (nombre) => contenedor.querySelectorAll(`select[name="${nombre}"] option`).length;
+
+  test('sin error no hay aviso y cada catálogo se pide una sola vez', async () => {
+    await montarYEditar(VIAJE);
+    assert.ok(!contenedor.querySelector('[role="alert"]'));
+    assert.deepEqual([...pedidosCatalogo].sort(), ['/estados-pago', '/metodos-pago']);
+  });
+
+  test('si falla, avisa con "Reintentar", que pide solo lo que faltó y quita el aviso', async () => {
+    catalogosQueFallan.add('/metodos-pago');
+    await montarYEditar(VIAJE);
+
+    const aviso = contenedor.querySelector('[role="alert"]');
+    assert.ok(aviso, 'tiene que avisar que no se cargaron los catálogos');
+    assert.match(aviso.textContent, /No pudimos cargar los estados y métodos de pago/);
+    // Solo "Sin definir": el select quedó vacío, por eso el aviso.
+    assert.equal(opciones('metodoPagoClienteId'), 1);
+    assert.ok(opciones('estadoPagoClienteId') > 1, 'el catálogo que sí cargó se usa');
+
+    pedidosCatalogo.length = 0;
+    await act(async () => boton('Reintentar').click());
+    assert.deepEqual(pedidosCatalogo, ['/metodos-pago']);
+    assert.ok(!contenedor.querySelector('[role="alert"]'));
+    assert.equal(opciones('metodoPagoClienteId'), 2);
+  });
+
+  test('si el reintento también falla, el aviso vuelve', async () => {
+    catalogosQueFallan.add('/estados-pago');
+    await montarYEditar(VIAJE);
+    catalogosQueFallan.add('/estados-pago');
+    await act(async () => boton('Reintentar').click());
+    assert.ok(contenedor.querySelector('[role="alert"]'));
+    assert.ok(boton('Reintentar'));
   });
 });
