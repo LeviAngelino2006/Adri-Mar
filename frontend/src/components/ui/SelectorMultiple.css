@@ -139,3 +139,82 @@
   color: var(--color-text-secondary);
   font-size: 0.875rem;
 }
+
+/* Forma "cuadro" (choferes y vehículos posibles de un viaje): cuadraditos
+   compactos en una fila con wrap. Toman el alto que necesitan: una línea para
+   el chofer y dos legibles para el vehículo (14 y 13px, interlineado normal),
+   con un tope de 44px. Para que el tope se cumpla, cada línea no se parte: si
+   no entra, termina en "…" (el nombre completo queda en el title). */
+.selector-multiple-cuadros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.selector-multiple-cuadro {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  min-height: 32px;
+  max-height: 44px;
+  padding: 2px 2px 2px var(--space-2);
+  color: var(--brand-700);
+  background-color: var(--brand-50);
+  border: 1px solid var(--brand-200);
+  border-radius: var(--radius-md);
+}
+
+.selector-multiple-cuadro-texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: normal;
+}
+
+.selector-multiple-cuadro-titulo,
+.selector-multiple-cuadro-subtitulo {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.selector-multiple-cuadro-titulo {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.selector-multiple-cuadro-subtitulo {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+/* La X del cuadradito: área táctil de 32 × 32px (el ícono sigue de 12px). */
+.selector-multiple-cuadro .selector-multiple-quitar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+}
+
+.selector-multiple-cuadro-aviso {
+  color: var(--state-warning-text);
+  background-color: var(--state-warning-bg);
+  border-color: var(--state-warning-border);
+}
+
+/* Elegido que quedó deshabilitado: se puede quitar, no volver a agregar. */
+.selector-multiple-cuadro-deshabilitado {
+  color: var(--state-error-text);
+  background-color: var(--state-error-bg);
+  border-color: var(--state-error-border);
+}
+
+.selector-multiple-cuadro-motivo {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--state-error-text);
+}

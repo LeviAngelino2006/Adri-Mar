@@ -1,5 +1,5 @@
 // Modal Confirmar viaje mientras se consulta la disponibilidad (SCRUM-251):
-// hasta que llega, cada tarjeta dice "Verificando…", no se puede elegir y el
+// hasta que llega, cada radio dice "Verificando…", no se puede elegir y el
 // botón de confirmar queda deshabilitado; si falla, el error con "Reintentar".
 // Se corre con `npm test`.
 //
@@ -103,25 +103,25 @@ async function montarModal() {
   await esperar();
 }
 
-const tarjetas = () => [...contenedor.querySelectorAll('label.tarjeta-seleccionable')];
-const tarjeta = (titulo) => tarjetas().find((l) => l.querySelector('.tarjeta-seleccionable-titulo').textContent === titulo);
+const filas = () => [...contenedor.querySelectorAll('label.seleccion-candidato-opcion')];
+const fila = (titulo) => filas().find((l) => l.querySelector('.seleccion-candidato-nombre').textContent === titulo);
 const botonConfirmar = () => [...contenedor.querySelectorAll('button')].find((b) => b.textContent === 'Confirmar viaje');
 const botonReintentar = () => [...contenedor.querySelectorAll('button')].find((b) => b.textContent === 'Reintentar');
 
 describe('Confirmar viaje: mientras se consulta la disponibilidad', () => {
-  test('todas las tarjetas dicen "Verificando…", no se pueden elegir y no se puede confirmar', async () => {
+  test('todos los radios dicen "Verificando…", no se pueden elegir y no se puede confirmar', async () => {
     responderDisponibilidad = () => new Promise(() => {}); // nunca contesta
     await montarModal();
 
-    assert.equal(tarjetas().length, 5, 'dos choferes + "Elegir otro…", un vehículo + "Elegir otro…"');
-    for (const l of tarjetas()) {
+    assert.equal(filas().length, 5, 'dos choferes + "Elegir otro…", un vehículo + "Elegir otro…"');
+    for (const l of filas()) {
       assert.equal(l.querySelector('input').disabled, true);
-      assert.equal(l.querySelector('.tarjeta-seleccionable-estado').textContent, 'Verificando…');
+      assert.equal(l.querySelector('.seleccion-candidato-motivo').textContent, 'Verificando…');
     }
     assert.equal(botonConfirmar().disabled, true);
 
-    await act(async () => tarjeta('Ana Pérez').click());
-    assert.equal(tarjeta('Ana Pérez').querySelector('input').checked, false);
+    await act(async () => fila('Ana Pérez').click());
+    assert.equal(fila('Ana Pérez').querySelector('input').checked, false);
     await act(async () => botonConfirmar().click());
     assert.deepEqual(confirmaciones, []);
   });
@@ -137,7 +137,7 @@ describe('Confirmar viaje: mientras se consulta la disponibilidad', () => {
 
     const choferes = [...contenedor.querySelectorAll('fieldset')][0];
     assert.deepEqual(
-      [...choferes.querySelectorAll('.tarjeta-seleccionable-titulo')].map((t) => t.textContent),
+      [...choferes.querySelectorAll('.seleccion-candidato-nombre')].map((t) => t.textContent),
       ['Ana Pérez', 'Beto Gómez', 'Elegir otro…']
     );
   });
@@ -146,18 +146,18 @@ describe('Confirmar viaje: mientras se consulta la disponibilidad', () => {
     responderDisponibilidad = async (respuesta) => respuesta(DISPONIBILIDAD);
     await montarModal();
 
-    assert.equal(tarjeta('Ana Pérez').querySelector('.tarjeta-seleccionable-estado').textContent, 'Habilitado');
-    assert.equal(tarjeta('Ana Pérez').querySelector('input').disabled, false);
-    assert.equal(tarjeta('Beto Gómez').querySelector('input').disabled, true);
+    assert.equal(fila('Ana Pérez').querySelector('.seleccion-candidato-motivo'), null, 'un disponible no lleva texto a la derecha');
+    assert.equal(fila('Ana Pérez').querySelector('input').disabled, false);
+    assert.equal(fila('Beto Gómez').querySelector('input').disabled, true);
     assert.equal(
-      tarjeta('Beto Gómez').querySelector('.tarjeta-seleccionable-estado').textContent,
+      fila('Beto Gómez').querySelector('.seleccion-candidato-motivo').textContent,
       'Documentación vencida (Licencia de conducir)'
     );
     assert.equal(botonConfirmar().disabled, false);
     assert.equal(botonReintentar(), undefined);
 
-    await act(async () => tarjeta('Ana Pérez').click());
-    await act(async () => tarjeta('Interno 12').click());
+    await act(async () => fila('Ana Pérez').click());
+    await act(async () => fila('12 - AE452KD').click());
     await act(async () => botonConfirmar().click());
     await esperar();
 
@@ -179,7 +179,7 @@ describe('Confirmar viaje: mientras se consulta la disponibilidad', () => {
     assert.match(alerta.textContent, /No pudimos cargar la disponibilidad de choferes y vehículos/);
     assert.ok(botonReintentar(), 'con el botón Reintentar');
     assert.equal(botonConfirmar().disabled, true);
-    assert.ok(tarjetas().every((l) => l.querySelector('input').disabled));
+    assert.ok(filas().every((l) => l.querySelector('input').disabled));
 
     responderDisponibilidad = async (respuesta) => respuesta(DISPONIBILIDAD);
     await act(async () => botonReintentar().click());
@@ -188,6 +188,20 @@ describe('Confirmar viaje: mientras se consulta la disponibilidad', () => {
     assert.equal(pedidosDisponibilidad, 2);
     assert.equal(botonReintentar(), undefined);
     assert.equal(botonConfirmar().disabled, false);
-    assert.equal(tarjeta('Ana Pérez').querySelector('input').disabled, false);
+    assert.equal(fila('Ana Pérez').querySelector('input').disabled, false);
+  });
+
+  test('sin candidatos (solo el select): el select queda deshabilitado mientras verifica', async () => {
+    responderDisponibilidad = () => new Promise(() => {});
+    await act(async () => {
+      raiz.render(h(ModalConfirmarViaje, { viaje: { ...VIAJE, choferesCandidatos: [], vehiculosCandidatos: [] }, onCerrar() {}, onExito() {} }));
+    });
+    await esperar();
+
+    const selects = [...contenedor.querySelectorAll('select')];
+    assert.equal(selects.length, 2);
+    assert.ok(selects.every((s) => s.disabled));
+    assert.ok(selects.every((s) => s.options[0].textContent === 'Verificando…'));
+    assert.equal(botonConfirmar().disabled, true);
   });
 });

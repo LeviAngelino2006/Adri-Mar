@@ -1,4 +1,4 @@
-Selector de varias opciones con chips: se escribe para filtrar, se elige de la lista y cada elección queda como un chip que se puede quitar. Lo usan las unidades de un presupuesto; los choferes y vehículos posibles de un viaje pasaron a `TarjetaSeleccionable` (SCRUM-251).
+Selector de varias opciones con chips: se escribe para filtrar, se elige de la lista y cada elección queda como un chip que se puede quitar.
 
 No está en `bundle.js`. A diferencia de `SelectorBuscarOCrear` no depende del cliente HTTP (recibe las opciones ya cargadas); la vista previa es una representación estática con sus clases CSS.
 
@@ -7,6 +7,7 @@ No está en `bundle.js`. A diferencia de `SelectorBuscarOCrear` no depende del c
 - `valor`: la lista de ids elegidos. El componente es controlado y no guarda la selección.
 - `onChange(ids)`: recibe la lista nueva completa, en el orden en que se eligió.
 - `avisos`: `{ [id]: texto }`, opcional. Muestra el texto debajo del chip de ese id y le da tono de advertencia. Es informativo: el componente nunca bloquea.
+- `forma`: cómo se ven los elegidos. `pildora` (por defecto; la usan las unidades de un presupuesto) o `cuadro` (la usan los choferes y vehículos posibles de un viaje). En `cuadro` cada opción puede traer `tituloElegido` y `subtituloElegido` ("Interno 12" / "AE452KD"); si no, va la etiqueta.
 - `placeholder` (por defecto "Agregar…"), `disabled`, y atributos del input (`id`, `aria-*`: `FormField` los inyecta).
 
 ## Reglas
@@ -18,5 +19,6 @@ No está en `bundle.js`. A diferencia de `SelectorBuscarOCrear` no depende del c
 - Accesibilidad: el input es un `combobox` con `aria-expanded`, `aria-controls` y `aria-activedescendant`; la lista es un `listbox` `aria-multiselectable`. Cada chip tiene un botón con `aria-label="Quitar …"`.
 - No se borra el último chip con Backspace: en el celular se quitaría un chip sin querer.
 - Chip: píldora (`radius-full`) con fondo `brand-50`, borde `brand-200` y texto `brand-700`; el botón de quitar es un área táctil de 28px. Con aviso pasa a `state-warning-bg`, `state-warning-border` y `state-warning-text`, y el aviso va debajo en 13px con `state-warning-text`.
+- Cuadradito (`forma="cuadro"`): radio `radius-md`, fondo `brand-50`, borde `brand-200`, texto `brand-700`, en una fila con wrap y separación `space-2`. Título en 14px (500) y subtítulo debajo en 13px `color-text-secondary`, con interlineado normal: toma el alto que necesita (una línea el chofer, dos el vehículo), entre 32 y 44px. Cada línea no se parte: si no entra termina en "…" y el nombre completo queda en el `title`. El botón de quitar tiene un área táctil de 32 × 32px (el ícono sigue de 12px), con `aria-label="Quitar <título>"` (o "Quitar <título>, <subtítulo>"). Con aviso pasa a los tonos `state-warning-*`, como la píldora. Si el elegido quedó deshabilitado (`disponible: false`, p. ej. documentación vencida después de elegirlo) pasa a `state-error-bg` / `state-error-border` / `state-error-text` y el motivo va debajo en 13px `state-error-text`: se puede quitar, pero no volver a agregar (la lista no deja elegir deshabilitados). Un aviso igual al motivo no se repite.
 - Lista: igual que `SelectorBuscarOCrear` (fondo `color-surface`, borde `color-border`, radio `radius-sm`, sombra `shadow-md`, máximo 240px). La opción activa y el toque van en `brand-50`.
 - Un `FormField` lo rodea y le da el label y el error; no se marca `required` salvo que la lista sea obligatoria.

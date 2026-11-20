@@ -5,7 +5,7 @@ import FormField from './ui/FormField';
 import OpcionVacia from './ui/OpcionVacia';
 import Alert from './ui/Alert';
 import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
-import SeleccionTarjetas from './ui/SeleccionTarjetas';
+import SelectorMultiple from './ui/SelectorMultiple';
 import EditorRecorrido from './EditorRecorrido';
 import CampoKmEstimados from './CampoKmEstimados';
 import UbicarConGoogle from './UbicarConGoogle';
@@ -22,7 +22,8 @@ import {
   quitarFaltante,
   ubicacionesSinCoordenadas,
 } from '../utils/estimacionKm';
-import { habilitadosPrimero, tarjetaChofer, tarjetaVehiculo } from '../utils/tarjetasCandidatos';
+import { nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { habilitadosPrimero } from '../utils/tarjetasCandidatos';
 import { textoAdvertenciaViaje } from '../utils/mantenimiento';
 import { errorDeSecuencia, paradasAPayload } from '../utils/paradas';
 import { ordenarPorInterno } from '../utils/vehiculos';
@@ -59,6 +60,23 @@ const ERROR_OBLIGATORIO_PROGRAMADO = 'Obligatorio para un viaje Programado.';
 const DEMORA_AVISOS_MS = 400;
 const SIN_AVISOS = { choferes: {}, vehiculos: {} };
 
+// Una opción que no se puede agregar (documentación vencida): el mismo criterio
+// que usa SelectorMultiple.
+const deshabilitada = (opcion) => opcion.disponible === false;
+
+// Opción de vehículo: en la lista "12 - AE452KD"; elegido, un cuadradito con
+// "Interno 12" y la patente debajo.
+function opcionVehiculo(v) {
+  return {
+    id: v.id,
+    etiqueta: nombreVehiculo(v),
+    tituloElegido: `Interno ${v.numeroInterno}`,
+    subtituloElegido: v.dominio,
+    disponible: v.disponible,
+    motivo: v.motivo,
+  };
+}
+
 // { id: motivo } solo de los que la disponibilidad marca como no disponibles.
 function avisosDe(lista) {
   return Object.fromEntries(lista.filter((item) => !item.disponible).map((item) => [item.id, item.motivo]));
@@ -77,12 +95,12 @@ function avisosDe(lista) {
 // va al primer campo con error.
 //
 // Chofer y vehículo se cargan de una de dos maneras según el estado:
-//  - Alta o edición de un A_CONFIRMAR: choferes y vehículos POSIBLES, como
-//    tarjetas de selección múltiple (SeleccionTarjetas, opcionales). Recién se
-//    elige uno de cada uno al confirmar el viaje. Los que tienen documentación
-//    vencida se ven deshabilitados, con el motivo. En cada tarjeta elegida con
-//    problema (superposición, taller) se muestra el aviso de disponibilidad; los
-//    avisos son informativos y NO bloquean el guardado.
+//  - Alta o edición de un A_CONFIRMAR: listas de choferes y vehículos POSIBLES
+//    (SelectorMultiple con forma "cuadro", opcionales): se buscan y se agregan,
+//    y cada elegido queda como un cuadradito que se puede quitar. Recién se
+//    elige uno de cada uno al confirmar el viaje. Debajo de cada elegido con
+//    problema (superposición, taller, no habilitado) se muestra el aviso de
+//    disponibilidad; los avisos son informativos y NO bloquean el guardado.
 //  - Edición de un PROGRAMADO: un chofer y un vehículo, como siempre.
 // Al enviar solo viaja uno de los dos juegos de campos: el backend rechaza
 // choferId/vehiculoId en un A_CONFIRMAR y candidatos en un PROGRAMADO.
@@ -94,8 +112,8 @@ function avisosDe(lista) {
 //
 // `candidatosActuales` ({ choferes, vehiculos }) son los candidatos que ya tiene
 // el viaje que se edita: se suman a las opciones por si alguno ya no figura en
-// las listas de elegibles (p. ej. un chofer dado de baja), así la tarjeta
-// elegida no desaparece en silencio.
+// las listas de elegibles (p. ej. un chofer dado de baja), así el chip no
+// desaparece en silencio.
 //
 // Solo datos operativos: precio y pagos no se cargan acá sino después, desde la
 // ficha del viaje (DatosAdministrativosViaje), para que el alta se enfoque en
@@ -113,9 +131,6 @@ function ViajeForm({
   const [vehiculos, setVehiculos] = useState([]);
   // { choferes, vehiculos }: mensaje si no se pudo cargar esa lista de opciones.
   const [errorOpciones, setErrorOpciones] = useState({});
-  // { choferes, vehiculos }: true cuando esa lista ya llegó (para no decir "no
-  // hay choferes" mientras carga).
-  const [opcionesCargadas, setOpcionesCargadas] = useState({});
   const [form, setForm] = useState(valoresIniciales || FORM_INICIAL);
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
@@ -148,17 +163,11 @@ function ViajeForm({
       setErrorOpciones((e) => ({ ...e, [lista]: mensajeErrorCarga(err, que) }));
     api
       .get('/usuarios/disponibles-chofer')
-      .then(({ data }) => {
-        setChoferes(data.usuarios);
-        setOpcionesCargadas((c) => ({ ...c, choferes: true }));
-      })
+      .then(({ data }) => setChoferes(data.usuarios))
       .catch(avisarError('choferes', 'la lista de choferes'));
     api
       .get('/vehiculos', { params: { estado: 'OPERATIVO' } })
-      .then(({ data }) => {
-        setVehiculos(ordenarPorInterno(data.vehiculos));
-        setOpcionesCargadas((c) => ({ ...c, vehiculos: true }));
-      })
+      .then(({ data }) => setVehiculos(ordenarPorInterno(data.vehiculos)))
       .catch(avisarError('vehiculos', 'la lista de vehículos'));
   }, []);
 
@@ -228,27 +237,38 @@ function ViajeForm({
   const advertenciaVigente =
     claveAdvertencia && advertenciaMantenimiento?.clave === claveAdvertencia ? advertenciaMantenimiento.advertencia : null;
 
-  // Tarjetas de choferes y vehículos posibles: los elegibles, más los candidatos
-  // que el viaje ya tenía y no figuren en esa lista. Quién es elegible y quién
-  // queda deshabilitado (disponible: false) lo sigue diciendo el backend. Se
-  // muestran los habilitados primero y los deshabilitados al final, cada grupo
-  // en el orden de la API (alfabético los choferes, por interno los vehículos).
-  // Es solo el orden de las tarjetas: los ids elegidos se guardan en el orden en
-  // que se eligieron.
+  // Opciones de los selectores múltiples: los elegibles, más los candidatos que
+  // el viaje ya tenía y no figuren en esa lista. En la lista del buscador van
+  // los habilitados primero y los deshabilitados (disponible: false) al final,
+  // cada grupo en el orden de la API (alfabético los choferes, por interno los
+  // vehículos). Es solo el orden de los resultados: los ids elegidos se guardan
+  // en el orden en que se eligieron.
   const opcionesChoferes = useMemo(() => {
-    const opciones = choferes.map(tarjetaChofer);
+    const opciones = choferes.map((c) => ({
+      id: c.id,
+      etiqueta: nombreChofer(c),
+      disponible: c.disponible,
+      motivo: c.motivo,
+    }));
     for (const c of candidatosActuales?.choferes ?? []) {
-      if (!opciones.some((o) => o.id === c.id)) opciones.push(tarjetaChofer(c));
+      if (!opciones.some((o) => o.id === c.id)) {
+        opciones.push({
+          id: c.id,
+          etiqueta: nombreChofer(c),
+          disponible: c.disponible,
+          motivo: c.motivo,
+        });
+      }
     }
-    return habilitadosPrimero(opciones);
+    return habilitadosPrimero(opciones, deshabilitada);
   }, [choferes, candidatosActuales]);
 
   const opcionesVehiculos = useMemo(() => {
-    const opciones = vehiculos.map(tarjetaVehiculo);
+    const opciones = vehiculos.map(opcionVehiculo);
     for (const v of candidatosActuales?.vehiculos ?? []) {
-      if (!opciones.some((o) => o.id === v.id)) opciones.push(tarjetaVehiculo(v));
+      if (!opciones.some((o) => o.id === v.id)) opciones.push(opcionVehiculo(v));
     }
-    return habilitadosPrimero(opciones);
+    return habilitadosPrimero(opciones, deshabilitada);
   }, [vehiculos, candidatosActuales]);
 
   function handleChange(e) {
@@ -407,29 +427,37 @@ function ViajeForm({
         {usaCandidatos ? (
           <>
             <div className="form-field-ancho">
-              <SeleccionTarjetas
+              <FormField
                 id="choferesCandidatos"
-                legend="Choferes posibles"
-                opciones={opcionesChoferes}
-                valor={form.choferesCandidatos}
-                onChange={(ids) => setForm((f) => ({ ...f, choferesCandidatos: ids }))}
-                avisos={hayConsulta ? avisos.choferes : {}}
+                label="Choferes posibles"
                 error={errores.choferesCandidatos || errores.choferId || errorOpciones.choferes}
-                textoVacio={opcionesCargadas.choferes ? 'No hay choferes para elegir' : 'Cargando choferes…'}
-              />
+              >
+                <SelectorMultiple
+                  opciones={opcionesChoferes}
+                  valor={form.choferesCandidatos}
+                  onChange={(ids) => setForm((f) => ({ ...f, choferesCandidatos: ids }))}
+                  avisos={hayConsulta ? avisos.choferes : {}}
+                  placeholder="Buscar chofer…"
+                  forma="cuadro"
+                />
+              </FormField>
             </div>
 
             <div className="form-field-ancho">
-              <SeleccionTarjetas
+              <FormField
                 id="vehiculosCandidatos"
-                legend="Vehículos posibles"
-                opciones={opcionesVehiculos}
-                valor={form.vehiculosCandidatos}
-                onChange={(ids) => setForm((f) => ({ ...f, vehiculosCandidatos: ids }))}
-                avisos={hayConsulta ? avisos.vehiculos : {}}
+                label="Vehículos posibles"
                 error={errores.vehiculosCandidatos || errores.vehiculoId || errorOpciones.vehiculos}
-                textoVacio={opcionesCargadas.vehiculos ? 'No hay vehículos para elegir' : 'Cargando vehículos…'}
-              />
+              >
+                <SelectorMultiple
+                  opciones={opcionesVehiculos}
+                  valor={form.vehiculosCandidatos}
+                  onChange={(ids) => setForm((f) => ({ ...f, vehiculosCandidatos: ids }))}
+                  avisos={hayConsulta ? avisos.vehiculos : {}}
+                  placeholder="Buscar vehículo…"
+                  forma="cuadro"
+                />
+              </FormField>
             </div>
           </>
         ) : (
