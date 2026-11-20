@@ -3,6 +3,7 @@ import ConfirmModal from './ui/ConfirmModal';
 import FormField from './ui/FormField';
 import Alert from './ui/Alert';
 import useSugerenciasGoogle from './useSugerenciasGoogle';
+import AtribucionGoogle from './AtribucionGoogle';
 import { mensajeErrorGoogle } from '../utils/sugerenciasGoogle';
 import './UbicarConGoogle.css';
 
@@ -105,7 +106,7 @@ function UbicarConGoogle({ nombre, onUbicar, onCancelar }) {
                   </li>
                 ))}
               </ul>
-              <p className="ubicar-google-atribucion">Google Maps</p>
+              <AtribucionGoogle />
             </>
           )}
 

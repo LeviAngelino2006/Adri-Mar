@@ -62,11 +62,10 @@
   color: var(--state-error-text);
 }
 
+/* Fila del logo de Google al pie de las sugerencias (AtribucionGoogle lo
+   alinea a la derecha). */
 .selector-ubicacion-atribucion {
   padding: var(--space-1) var(--space-3) 0;
-  font-size: 0.6875rem;
-  text-align: right;
-  color: var(--color-text-secondary);
 }
 
 /* Nombre de la frecuente (después de elegir una sugerencia con "Guardar como

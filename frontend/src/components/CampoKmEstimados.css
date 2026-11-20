@@ -28,3 +28,17 @@
   text-decoration: underline;
   white-space: nowrap;
 }
+
+/* Hint con el aviso de recorrido cambiado a la izquierda y el logo de Google a
+   la derecha; en pantallas angostas el logo baja de renglón. */
+.campo-km-hint-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-2);
+}
+
+.campo-km-desactualizado {
+  color: var(--state-warning-text);
+  font-weight: 600;
+}

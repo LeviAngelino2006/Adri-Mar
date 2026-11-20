@@ -9,6 +9,7 @@ import {
   ofrecerCrearPorNombre,
 } from '../utils/sugerenciasGoogle';
 import useSugerenciasGoogle from './useSugerenciasGoogle';
+import AtribucionGoogle from './AtribucionGoogle';
 import useTextoDeSeleccion from './ui/useTextoDeSeleccion';
 import { abrirAlEnfocar } from '../utils/focoSinAbrir';
 import './ui/SelectorBuscarOCrear.css';
@@ -336,7 +337,7 @@ function SelectorUbicacion({
               {/* Atribución que piden los términos de Google cuando sus datos
                   se muestran sin un mapa de Google. */}
               <li className="selector-ubicacion-atribucion" role="presentation">
-                Google Maps
+                <AtribucionGoogle />
               </li>
             </>
           )}

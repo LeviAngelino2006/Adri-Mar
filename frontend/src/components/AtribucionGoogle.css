@@ -1,0 +1,18 @@
+/* Logo de Google Maps a la derecha: en un contenedor de bloque ocupa el ancho
+   y empuja el logo al borde; en una fila flex, el margin-left: auto lo manda
+   al final. */
+.atribucion-google {
+  display: flex;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+/* Solo se fija el alto: el ancho sale de las proporciones del SVG (98x18).
+   max-width: none para que el reset global (max-width: 100%) no lo deforme si
+   el contenedor queda angosto. */
+.atribucion-google-logo {
+  height: 16px;
+  width: auto;
+  max-width: none;
+  flex-shrink: 0;
+}
