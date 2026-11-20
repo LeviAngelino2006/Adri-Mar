@@ -1,15 +1,3 @@
-/* Un <a> con el aspecto de .btn-secondary: sin el subrayado global de a:hover. */
-.avisar-whatsapp-enlace,
-.avisar-whatsapp-enlace:active {
-  text-decoration: none;
-}
-
-@media (hover: hover) {
-  .avisar-whatsapp-enlace:hover {
-    text-decoration: none;
-  }
-}
-
 /* Botón deshabilitado + el motivo visible debajo. */
 .avisar-whatsapp {
   display: flex;

@@ -227,11 +227,11 @@ describe('Duplicar viaje', () => {
     renderToStaticMarkup(h(DuplicarViaje, { viaje: viaje({ estado }), perfil, onDuplicar() {} }));
 
   for (const perfil of ['ADMINISTRADOR', 'ENCARGADO']) {
-    test(`${perfil} ve el botón en todos los estados, en su propia fila`, () => {
+    test(`${perfil} ve el botón en todos los estados (va dentro de la botonera de la ficha)`, () => {
       for (const estado of ESTADOS) {
         assert.equal(
           render(perfil, estado),
-          '<div class="viajes-detalle-actions"><button type="button" class="btn btn-secondary"><span>Duplicar viaje</span></button></div>',
+          '<button type="button" class="btn btn-secondary"><span>Duplicar viaje</span></button>',
           estado
         );
       }

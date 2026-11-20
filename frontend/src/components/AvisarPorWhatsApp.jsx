@@ -24,7 +24,7 @@ const ICONO_MENSAJE = (
 //    Si no se puede avisar no muestra nada (un enlace deshabilitado en un toast
 //    es ruido); el botón del detalle sigue estando, con su motivo.
 //
-// El link usa un <a target="_blank" rel="noopener noreferrer"> y no window.open.
+// El link es un Button con href (<a target="_blank" rel="noopener noreferrer">) y no window.open.
 function AvisarPorWhatsApp({ viaje, variante = 'boton' }) {
   const idMotivo = useId();
   const { url, motivo } = avisoWhatsApp(viaje);
@@ -55,11 +55,11 @@ function AvisarPorWhatsApp({ viaje, variante = 'boton' }) {
   }
 
   return (
-    <a className="btn btn-secondary avisar-whatsapp-enlace" href={url} target="_blank" rel="noopener noreferrer">
+    <Button variant="secondary" href={url} target="_blank" rel="noopener noreferrer">
       {ICONO_MENSAJE}
       <span>{TEXTO}</span>
       <span className="sr-only"> (se abre en una pestaña nueva)</span>
-    </a>
+    </Button>
   );
 }
 

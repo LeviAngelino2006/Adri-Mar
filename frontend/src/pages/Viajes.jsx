@@ -21,6 +21,7 @@ import { ListadoHeader, ListadoToolbar } from '../components/Listado';
 import DatosAdministrativosViaje from '../components/DatosAdministrativosViaje';
 import FichaViaje from '../components/FichaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
+import { PERFILES_DUPLICAR_VIAJE } from '../constants/perfiles';
 import { DURACION_TOAST_CON_ACCION_MS, DURACION_TOAST_MS } from '../constants/toast';
 import DuplicarViaje from '../components/DuplicarViaje';
 import { avisoDuplicado, valoresParaDuplicar, viajeAValoresForm } from '../utils/valoresFormViaje';
@@ -567,6 +568,15 @@ function Viajes() {
       {!mostrarForm && seleccionado && (() => {
         // El chofer del viaje es una persona: se compara con usuario.personaId.
         const puedeOperarEsteViaje = puedeGestionar || esChoferDelViaje(seleccionado, usuario);
+        const esAConfirmar = seleccionado.estado === 'A_CONFIRMAR';
+        const esProgramado = seleccionado.estado === 'PROGRAMADO';
+        const esEnViaje = seleccionado.estado === 'EN_VIAJE';
+        // Editar y Cancelar: gestores, sobre un viaje A confirmar o Programado.
+        const accionesDeGestion = puedeGestionar && (esAConfirmar || esProgramado);
+        const hayAcciones =
+          accionesDeGestion ||
+          ((esProgramado || esEnViaje) && puedeOperarEsteViaje) ||
+          PERFILES_DUPLICAR_VIAJE.includes(usuario.perfil);
 
         return (
           <>
@@ -585,23 +595,13 @@ function Viajes() {
 
             <FichaViaje viaje={seleccionado} />
 
-            {seleccionado.estado === 'A_CONFIRMAR' && puedeGestionar && (
+            {hayAcciones && (
+              // Una sola botonera (flex-wrap en mobile). Todas secondary salvo
+              // Cancelar viaje (danger). Comenzar / Finalizar son la acción del
+              // chofer y quedan primary. La visibilidad de cada acción es la misma
+              // de antes: depende del estado y del perfil.
               <div className="viajes-detalle-actions">
-                <Button variant="primary" onClick={() => pedirConfirmar(seleccionado)}>
-                  Confirmar viaje
-                </Button>
-                <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                  Editar viaje
-                </Button>
-                <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
-                  Cancelar viaje
-                </Button>
-              </div>
-            )}
-
-            {seleccionado.estado === 'PROGRAMADO' && (puedeOperarEsteViaje || puedeGestionar) && (
-              <div className="viajes-detalle-actions">
-                {puedeOperarEsteViaje && (
+                {esProgramado && puedeOperarEsteViaje && (
                   <BotonComenzarViaje
                     viaje={seleccionado}
                     enCurso={viajesEnCurso}
@@ -609,29 +609,30 @@ function Viajes() {
                     onVerViajeEnCurso={seleccionar}
                   />
                 )}
-                {puedeGestionar && (
-                  <>
-                    <AvisarPorWhatsApp viaje={seleccionado} />
-                    <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                      Editar viaje
-                    </Button>
-                    <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
-                      Cancelar viaje
-                    </Button>
-                  </>
+                {esEnViaje && puedeOperarEsteViaje && (
+                  <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
+                    Finalizar viaje
+                  </Button>
+                )}
+                {esAConfirmar && puedeGestionar && (
+                  <Button variant="secondary" onClick={() => pedirConfirmar(seleccionado)}>
+                    Confirmar viaje
+                  </Button>
+                )}
+                {esProgramado && puedeGestionar && <AvisarPorWhatsApp viaje={seleccionado} />}
+                {accionesDeGestion && (
+                  <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                    Editar viaje
+                  </Button>
+                )}
+                <DuplicarViaje viaje={seleccionado} perfil={usuario.perfil} onDuplicar={abrirDuplicar} />
+                {accionesDeGestion && (
+                  <Button variant="danger" onClick={() => pedirCancelacion(seleccionado)}>
+                    Cancelar viaje
+                  </Button>
                 )}
               </div>
             )}
-
-            {seleccionado.estado === 'EN_VIAJE' && puedeOperarEsteViaje && (
-              <div className="viajes-detalle-actions">
-                <Button variant="primary" onClick={() => pedirFinalizar(seleccionado)}>
-                  Finalizar viaje
-                </Button>
-              </div>
-            )}
-
-            <DuplicarViaje viaje={seleccionado} perfil={usuario.perfil} onDuplicar={abrirDuplicar} />
 
             {puedeGestionar && (
               <DatosAdministrativosViaje

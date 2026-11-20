@@ -11,3 +11,6 @@ export const PERFIL_COLORS = {
   PERSONAL_TALLER: { bg: 'var(--state-warning-bg)', text: 'var(--state-warning-text)' },
   CHOFER: { bg: 'var(--state-success-bg)', text: 'var(--state-success-text)' },
 };
+
+// Perfiles que pueden duplicar un viaje: los mismos que pueden crear viajes.
+export const PERFILES_DUPLICAR_VIAJE = ['ADMINISTRADOR', 'ENCARGADO'];
