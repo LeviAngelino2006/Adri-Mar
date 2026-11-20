@@ -8,6 +8,7 @@ import { confirmarViaje, disponibilidadDeViaje } from '../services/viajesApi';
 import { aInputCordoba } from '../utils/fechaCordoba';
 import { nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
 import { ordenarPorInterno } from '../utils/vehiculos';
+import { tarjetaChofer, tarjetaVehiculo } from '../utils/tarjetasCandidatos';
 import { avisosSinCandidatos } from '../utils/avisosSinCandidatos';
 import { mensajeErrorCarga } from '../utils/errorCarga';
 
@@ -38,7 +39,7 @@ const porId = (lista) => Object.fromEntries(lista.map((item) => [item.id, item])
 // solapamiento), lo pasa a PROGRAMADO y borra los candidatos. Fechas y km se
 // precargan del viaje y son obligatorios.
 //
-// Los candidatos se ofrecen como radios; los que la disponibilidad marca como
+// Los candidatos se ofrecen como tarjetas con radio; los que la disponibilidad marca como
 // no disponibles quedan deshabilitados con su motivo. "Elegir otro…" abre el
 // resto de los elegibles. La disponibilidad es solo una ayuda: si no se pudo
 // consultar, todo queda habilitado y el backend valida igual al confirmar.
@@ -104,8 +105,19 @@ function ModalConfirmarViaje({ viaje, onCerrar, onExito }) {
   // entienda por qué no aparecen los radios con "Elegir otro…".
   const { antesDeChofer, antesDeVehiculo } = avisosSinCandidatos(viaje);
 
-  const candidatosChofer = (viaje.choferesCandidatos ?? []).map((c) => ({ id: c.id, etiqueta: nombreChofer(c) }));
-  const candidatosVehiculo = (viaje.vehiculosCandidatos ?? []).map((c) => ({ id: c.id, etiqueta: nombreVehiculo(c) }));
+  // Tarjetas de los candidatos: solo el título y los detalles. Si está
+  // disponible o no lo sigue diciendo la disponibilidad (`estados`), como antes;
+  // de la lista de vehículos se toman únicamente los asientos (el candidato no
+  // los trae).
+  const asientosPorId = new Map(vehiculos.map((v) => [v.id, v.asientos]));
+  const candidatosChofer = (viaje.choferesCandidatos ?? []).map((c) => {
+    const { titulo, detalles } = tarjetaChofer(c);
+    return { id: c.id, etiqueta: nombreChofer(c), titulo, detalles };
+  });
+  const candidatosVehiculo = (viaje.vehiculosCandidatos ?? []).map((c) => {
+    const { titulo, detalles } = tarjetaVehiculo({ ...c, asientos: asientosPorId.get(c.id) });
+    return { id: c.id, etiqueta: nombreVehiculo(c), titulo, detalles };
+  });
 
   // El select de "otro" ofrece a todos los elegibles menos a los que ya están
   // arriba como candidatos.

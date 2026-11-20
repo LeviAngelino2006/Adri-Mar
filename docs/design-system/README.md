@@ -79,7 +79,7 @@ Sin `viewport-fit=cover`, o en Android y escritorio, los insets valen 0 y nada c
 
 ## Componentes
 
-`components/bundle.js` expone `window.AdriMar` con Button, Card, Alert, FormField, Switch, Spinner, Toast, ConfirmModal, EstadoDot, EstadoBadge y RutaViaje (React). `components/bundle.css` trae sus estilos, las reglas base y las clases de páginas y layout. Leé el README de cada componente antes de usarlo. `ControlSegmentado` (alternar vistas hermanas dentro de una pantalla), `BarraAccionFija` (la acción principal de una ficha, fija al pie en el celular), `TarjetaDocumento` (un documento en la ficha de Documentación) y `Cargando` (estado de carga de pantallas, paneles y modales) viven en la app (`frontend/src/components`) y todavía no están en el bundle.
+`components/bundle.js` expone `window.AdriMar` con Button, Card, Alert, FormField, Switch, Spinner, Toast, ConfirmModal, EstadoDot, EstadoBadge y RutaViaje (React). `components/bundle.css` trae sus estilos, las reglas base y las clases de páginas y layout. Leé el README de cada componente antes de usarlo. `ControlSegmentado` (alternar vistas hermanas dentro de una pantalla), `BarraAccionFija` (la acción principal de una ficha, fija al pie en el celular), `TarjetaDocumento` (un documento en la ficha de Documentación), `TarjetaSeleccionable` (choferes y vehículos posibles de un viaje, con selección múltiple o única) y `Cargando` (estado de carga de pantallas, paneles y modales) viven en la app (`frontend/src/components`) y todavía no están en el bundle.
 
 ## Patrones de página
 

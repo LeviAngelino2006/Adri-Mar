@@ -5,7 +5,7 @@ import FormField from './ui/FormField';
 import OpcionVacia from './ui/OpcionVacia';
 import Alert from './ui/Alert';
 import SelectorBuscarOCrear from './ui/SelectorBuscarOCrear';
-import SelectorMultiple from './ui/SelectorMultiple';
+import SeleccionTarjetas from './ui/SeleccionTarjetas';
 import EditorRecorrido from './EditorRecorrido';
 import CampoKmEstimados from './CampoKmEstimados';
 import UbicarConGoogle from './UbicarConGoogle';
@@ -22,7 +22,7 @@ import {
   quitarFaltante,
   ubicacionesSinCoordenadas,
 } from '../utils/estimacionKm';
-import { nombreChofer, nombreVehiculo } from '../utils/viajeFormato';
+import { tarjetaChofer, tarjetaVehiculo } from '../utils/tarjetasCandidatos';
 import { textoAdvertenciaViaje } from '../utils/mantenimiento';
 import { errorDeSecuencia, paradasAPayload } from '../utils/paradas';
 import { ordenarPorInterno } from '../utils/vehiculos';
@@ -77,11 +77,12 @@ function avisosDe(lista) {
 // va al primer campo con error.
 //
 // Chofer y vehículo se cargan de una de dos maneras según el estado:
-//  - Alta o edición de un A_CONFIRMAR: listas de choferes y vehículos POSIBLES
-//    (SelectorMultiple, opcionales). Recién se elige uno de cada uno al
-//    confirmar el viaje. Debajo de cada chip con problema (superposición, taller,
-//    no habilitado) se muestra el aviso de disponibilidad; los avisos son
-//    informativos y NO bloquean el guardado.
+//  - Alta o edición de un A_CONFIRMAR: choferes y vehículos POSIBLES, como
+//    tarjetas de selección múltiple (SeleccionTarjetas, opcionales). Recién se
+//    elige uno de cada uno al confirmar el viaje. Los que tienen documentación
+//    vencida se ven deshabilitados, con el motivo. En cada tarjeta elegida con
+//    problema (superposición, taller) se muestra el aviso de disponibilidad; los
+//    avisos son informativos y NO bloquean el guardado.
 //  - Edición de un PROGRAMADO: un chofer y un vehículo, como siempre.
 // Al enviar solo viaja uno de los dos juegos de campos: el backend rechaza
 // choferId/vehiculoId en un A_CONFIRMAR y candidatos en un PROGRAMADO.
@@ -93,8 +94,8 @@ function avisosDe(lista) {
 //
 // `candidatosActuales` ({ choferes, vehiculos }) son los candidatos que ya tiene
 // el viaje que se edita: se suman a las opciones por si alguno ya no figura en
-// las listas de elegibles (p. ej. un chofer dado de baja), así el chip no
-// desaparece en silencio.
+// las listas de elegibles (p. ej. un chofer dado de baja), así la tarjeta
+// elegida no desaparece en silencio.
 //
 // Solo datos operativos: precio y pagos no se cargan acá sino después, desde la
 // ficha del viaje (DatosAdministrativosViaje), para que el alta se enfoque en
@@ -112,6 +113,9 @@ function ViajeForm({
   const [vehiculos, setVehiculos] = useState([]);
   // { choferes, vehiculos }: mensaje si no se pudo cargar esa lista de opciones.
   const [errorOpciones, setErrorOpciones] = useState({});
+  // { choferes, vehiculos }: true cuando esa lista ya llegó (para no decir "no
+  // hay choferes" mientras carga).
+  const [opcionesCargadas, setOpcionesCargadas] = useState({});
   const [form, setForm] = useState(valoresIniciales || FORM_INICIAL);
   const [errores, setErrores] = useState({});
   const [enviando, setEnviando] = useState(false);
@@ -144,11 +148,17 @@ function ViajeForm({
       setErrorOpciones((e) => ({ ...e, [lista]: mensajeErrorCarga(err, que) }));
     api
       .get('/usuarios/disponibles-chofer')
-      .then(({ data }) => setChoferes(data.usuarios))
+      .then(({ data }) => {
+        setChoferes(data.usuarios);
+        setOpcionesCargadas((c) => ({ ...c, choferes: true }));
+      })
       .catch(avisarError('choferes', 'la lista de choferes'));
     api
       .get('/vehiculos', { params: { estado: 'OPERATIVO' } })
-      .then(({ data }) => setVehiculos(ordenarPorInterno(data.vehiculos)))
+      .then(({ data }) => {
+        setVehiculos(ordenarPorInterno(data.vehiculos));
+        setOpcionesCargadas((c) => ({ ...c, vehiculos: true }));
+      })
       .catch(avisarError('vehiculos', 'la lista de vehículos'));
   }, []);
 
@@ -218,44 +228,21 @@ function ViajeForm({
   const advertenciaVigente =
     claveAdvertencia && advertenciaMantenimiento?.clave === claveAdvertencia ? advertenciaMantenimiento.advertencia : null;
 
-  // Opciones de los selectores múltiples: los elegibles, más los candidatos que
-  // el viaje ya tenía y no figuren en esa lista.
+  // Tarjetas de choferes y vehículos posibles: los elegibles, más los candidatos
+  // que el viaje ya tenía y no figuren en esa lista. Quién es elegible y quién
+  // queda deshabilitado (disponible: false) lo sigue diciendo el backend.
   const opcionesChoferes = useMemo(() => {
-    const opciones = choferes.map((c) => ({
-      id: c.id,
-      etiqueta: nombreChofer(c),
-      disponible: c.disponible,
-      motivo: c.motivo,
-    }));
+    const opciones = choferes.map(tarjetaChofer);
     for (const c of candidatosActuales?.choferes ?? []) {
-      if (!opciones.some((o) => o.id === c.id)) {
-        opciones.push({
-          id: c.id,
-          etiqueta: nombreChofer(c),
-          disponible: c.disponible,
-          motivo: c.motivo,
-        });
-      }
+      if (!opciones.some((o) => o.id === c.id)) opciones.push(tarjetaChofer(c));
     }
     return opciones;
   }, [choferes, candidatosActuales]);
 
   const opcionesVehiculos = useMemo(() => {
-    const opciones = vehiculos.map((v) => ({
-      id: v.id,
-      etiqueta: nombreVehiculo(v),
-      disponible: v.disponible,
-      motivo: v.motivo,
-    }));
+    const opciones = vehiculos.map(tarjetaVehiculo);
     for (const v of candidatosActuales?.vehiculos ?? []) {
-      if (!opciones.some((o) => o.id === v.id)) {
-        opciones.push({
-          id: v.id,
-          etiqueta: nombreVehiculo(v),
-          disponible: v.disponible,
-          motivo: v.motivo,
-        });
-      }
+      if (!opciones.some((o) => o.id === v.id)) opciones.push(tarjetaVehiculo(v));
     }
     return opciones;
   }, [vehiculos, candidatosActuales]);
@@ -416,35 +403,29 @@ function ViajeForm({
         {usaCandidatos ? (
           <>
             <div className="form-field-ancho">
-              <FormField
+              <SeleccionTarjetas
                 id="choferesCandidatos"
-                label="Choferes posibles"
+                legend="Choferes posibles"
+                opciones={opcionesChoferes}
+                valor={form.choferesCandidatos}
+                onChange={(ids) => setForm((f) => ({ ...f, choferesCandidatos: ids }))}
+                avisos={hayConsulta ? avisos.choferes : {}}
                 error={errores.choferesCandidatos || errores.choferId || errorOpciones.choferes}
-              >
-                <SelectorMultiple
-                  opciones={opcionesChoferes}
-                  valor={form.choferesCandidatos}
-                  onChange={(ids) => setForm((f) => ({ ...f, choferesCandidatos: ids }))}
-                  avisos={hayConsulta ? avisos.choferes : {}}
-                  placeholder="Buscar chofer…"
-                />
-              </FormField>
+                textoVacio={opcionesCargadas.choferes ? 'No hay choferes para elegir' : 'Cargando choferes…'}
+              />
             </div>
 
             <div className="form-field-ancho">
-              <FormField
+              <SeleccionTarjetas
                 id="vehiculosCandidatos"
-                label="Vehículos posibles"
+                legend="Vehículos posibles"
+                opciones={opcionesVehiculos}
+                valor={form.vehiculosCandidatos}
+                onChange={(ids) => setForm((f) => ({ ...f, vehiculosCandidatos: ids }))}
+                avisos={hayConsulta ? avisos.vehiculos : {}}
                 error={errores.vehiculosCandidatos || errores.vehiculoId || errorOpciones.vehiculos}
-              >
-                <SelectorMultiple
-                  opciones={opcionesVehiculos}
-                  valor={form.vehiculosCandidatos}
-                  onChange={(ids) => setForm((f) => ({ ...f, vehiculosCandidatos: ids }))}
-                  avisos={hayConsulta ? avisos.vehiculos : {}}
-                  placeholder="Buscar vehículo…"
-                />
-              </FormField>
+                textoVacio={opcionesCargadas.vehiculos ? 'No hay vehículos para elegir' : 'Cargando vehículos…'}
+              />
             </div>
           </>
         ) : (

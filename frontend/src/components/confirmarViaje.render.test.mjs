@@ -134,7 +134,7 @@ describe('el modal abierto desde el panel "Viajes por confirmar"', () => {
     assert.equal(entregados[1].vehiculosCandidatos.length, 1);
   });
 
-  test('con candidatos muestra los radios y "Elegir otro…", no los selects', () => {
+  test('con candidatos muestra las tarjetas con radio y "Elegir otro…", no los selects', () => {
     let entregado;
     const contenido = h(ContenidoPorConfirmar, {
       carga: { cargando: false, error: null, recargar() {} },
@@ -150,7 +150,9 @@ describe('el modal abierto desde el panel "Viajes por confirmar"', () => {
     assert.equal(contar(html, /Elegir otro…/g), 2);
     assert.equal(selects(html), 0, 'los selects solo aparecen al elegir "Elegir otro…"');
     assert.ok(html.includes('Ana Pérez'));
-    assert.ok(html.includes('12 - AE452KD'));
+    // Tarjeta del vehículo (SCRUM-251): interno y patente en líneas separadas.
+    assert.ok(html.includes('Interno 12'));
+    assert.ok(html.includes('Patente AE452KD'));
     assert.ok(html.includes('confirm-modal-wide'), 'el modal es el ancho (size="wide")');
     assert.ok(!html.includes('no tiene choferes'), 'con candidatos no hay texto de "sin candidatos"');
   });

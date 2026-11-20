@@ -1,0 +1,215 @@
+/* Grupo de tarjetas con su legend, hint y error (SeleccionTarjetas). */
+.seleccion-tarjetas {
+  min-width: 0;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  border: none;
+}
+
+/* Igual que el label de FormField. */
+.seleccion-tarjetas-legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.seleccion-tarjetas-vacio {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+/* Con error, todas las tarjetas que no están elegidas marcan el borde. */
+.seleccion-tarjetas:has(.tarjeta-seleccionable-input[aria-invalid='true'])
+  .tarjeta-seleccionable:not(.tarjeta-seleccionable-seleccionada) {
+  border-color: var(--state-error-border);
+}
+
+/* Grilla de tarjetas: una columna en el celular (390px) y varias desde 640px,
+   tantas como entren con un mínimo de 200px cada una. */
+.tarjetas-seleccionables {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+}
+
+@media (min-width: 640px) {
+  .tarjetas-seleccionables {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+.tarjeta-seleccionable {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-height: 44px;
+  margin: 0;
+  padding: var(--space-3);
+  font-weight: 400;
+  text-align: left;
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+@media (hover: hover) {
+  .tarjeta-seleccionable:not(.tarjeta-seleccionable-deshabilitada):hover {
+    border-color: var(--brand-200);
+  }
+}
+
+.tarjeta-seleccionable:not(.tarjeta-seleccionable-deshabilitada):active {
+  border-color: var(--brand-200);
+}
+
+/* El input real queda visualmente oculto (como .sr-only) pero sigue en el
+   orden de tabulación; la tarjeta muestra su estado y su foco. */
+.tarjeta-seleccionable-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+}
+
+/* Foco visible en la tarjeta entera: el mismo anillo global (2px brand-600). */
+.tarjeta-seleccionable:has(.tarjeta-seleccionable-input:focus-visible) {
+  outline: 2px solid var(--brand-600);
+  outline-offset: 2px;
+}
+
+/* Elegida: borde de 2px (1px + sombra interior, para que no salte el contenido)
+   y fondo de marca. No depende solo del color del texto. */
+.tarjeta-seleccionable-seleccionada {
+  background-color: var(--brand-50);
+  border-color: var(--brand-600);
+  box-shadow: inset 0 0 0 1px var(--brand-600);
+}
+
+/* La marca visual del checkbox o del radio (el input real está oculto). */
+.tarjeta-seleccionable-marca {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  background-color: var(--color-surface);
+  border: 1.5px solid var(--color-text-secondary);
+}
+
+.tarjeta-seleccionable-marca-checkbox {
+  border-radius: 4px;
+}
+
+.tarjeta-seleccionable-marca-radio {
+  border-radius: var(--radius-full);
+}
+
+.tarjeta-seleccionable-seleccionada .tarjeta-seleccionable-marca {
+  border-color: var(--brand-600);
+  background-color: var(--brand-600);
+}
+
+/* Tilde del checkbox elegido. */
+.tarjeta-seleccionable-seleccionada .tarjeta-seleccionable-marca-checkbox {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 14px;
+}
+
+/* Punto del radio elegido. */
+.tarjeta-seleccionable-seleccionada .tarjeta-seleccionable-marca-radio {
+  background-color: var(--color-surface);
+  box-shadow: inset 0 0 0 3.5px var(--brand-600);
+}
+
+.tarjeta-seleccionable-cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tarjeta-seleccionable-titulo {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.tarjeta-seleccionable-detalle {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.tarjeta-seleccionable-estado {
+  margin-top: 2px;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+
+.tarjeta-seleccionable-estado-ok {
+  color: var(--state-success-text);
+}
+
+.tarjeta-seleccionable-estado-error {
+  color: var(--state-error-text);
+}
+
+.tarjeta-seleccionable-aviso {
+  margin-top: 2px;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  color: var(--state-warning-text);
+}
+
+.tarjeta-seleccionable-con-aviso:not(.tarjeta-seleccionable-seleccionada) {
+  border-color: var(--state-warning-border);
+}
+
+/* Deshabilitada: apagada y sin cursor de mano, pero con el motivo legible. */
+.tarjeta-seleccionable-deshabilitada {
+  cursor: not-allowed;
+  background-color: var(--color-bg);
+}
+
+.tarjeta-seleccionable-deshabilitada .tarjeta-seleccionable-titulo,
+.tarjeta-seleccionable-deshabilitada .tarjeta-seleccionable-detalle {
+  color: var(--color-text-secondary);
+}
+
+.tarjeta-seleccionable-deshabilitada .tarjeta-seleccionable-marca {
+  border-color: var(--color-border);
+  background-color: var(--color-bg);
+}
+
+/* Una deshabilitada que ya venía elegida se puede quitar: vuelve el cursor de mano. */
+.tarjeta-seleccionable-deshabilitada.tarjeta-seleccionable-seleccionada {
+  cursor: pointer;
+}
+
+.tarjeta-seleccionable-deshabilitada.tarjeta-seleccionable-seleccionada .tarjeta-seleccionable-marca {
+  border-color: var(--brand-600);
+  background-color: var(--brand-600);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tarjeta-seleccionable {
+    transition: none;
+  }
+}
