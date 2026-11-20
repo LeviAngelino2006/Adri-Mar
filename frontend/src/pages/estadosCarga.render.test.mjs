@@ -10,7 +10,7 @@
 // responde, devuelve una lista vacía o falla como falla axios sin red (sin
 // `response`).
 
-import { test, describe, before, after, beforeEach, afterEach } from 'node:test';
+import { test, describe, before, after, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -49,6 +49,14 @@ let raiz;
 let modo;
 const pedidos = [];
 
+// Reloj fijo. El doble de la API devuelve el mismo VIAJE para cualquier
+// GET /viajes, sin mirar los filtros, y el panel "Viajes por confirmar" agrupa en
+// el cliente por hoy y mañana de Córdoba con Date.now(). Con el reloj real, el
+// 19 y el 20 de noviembre el VIAJE caía en esos días y el panel dejaba de estar
+// vacío. Se congela solo Date (los timers siguen siendo los reales) cuatro días
+// antes del VIAJE: un viaje próximo, que no es ni de hoy ni de mañana.
+const AHORA = new Date('2026-11-16T12:00:00-03:00');
+
 const VEHICULO = {
   id: 4, numeroInterno: '12', dominio: 'AE452KD', marca: 'Mercedes-Benz', modelo: 'O500',
   kilometraje: 157345, estado: 'OPERATIVO', tipoVehiculo: { id: 1, descripcion: 'Colectivo' },
@@ -83,9 +91,13 @@ before(async () => {
   for (const nombre of ['Viajes', 'FlotaVehiculos', 'MisViajes', 'Dashboard']) {
     paginas[nombre] = (await vite.ssrLoadModule(`/src/pages/${nombre}.jsx`)).default;
   }
+  mock.timers.enable({ apis: ['Date'], now: AHORA });
 });
 
-after(() => vite.close());
+after(() => {
+  mock.timers.reset();
+  return vite.close();
+});
 
 beforeEach(() => {
   pedidos.length = 0;
