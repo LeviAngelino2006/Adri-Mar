@@ -60,7 +60,7 @@ function ModalRestablecerContrasena({ usuario, onClose, onSuccess }) {
 
   return (
     <ModalMarco
-      titulo="Restablecer contraseña"
+      titulo={`Restablecer contraseña de @${usuario.nombreUsuario}`}
       onClose={onClose}
       pie={
         <>
@@ -74,15 +74,12 @@ function ModalRestablecerContrasena({ usuario, onClose, onSuccess }) {
       }
     >
       <form id="form-restablecer-contrasena" ref={refForm} className="doc-modal-form" onSubmit={handleSubmit} noValidate>
-        <p className="usuarios-restablecer-aviso">
-          <strong>@{usuario.nombreUsuario}</strong> va a tener que cambiarla la próxima vez que ingrese.
-        </p>
         {error && <Alert variant="error">{error}</Alert>}
         <FormField
           id="restablecer-contrasena-nueva"
           label="Nueva contraseña"
           required
-          hint="Al menos 8 caracteres"
+          hint="Al menos 8 caracteres. Es provisoria: la va a cambiar al ingresar."
           error={errores.contrasenaNueva}
         >
           <input

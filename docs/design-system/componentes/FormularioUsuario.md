@@ -18,7 +18,7 @@ Formulario para crear o editar un usuario (`Usuarios.jsx`). Patrón de página a
 
 ## Contraseña de una cuenta que ya existe (SCRUM-258)
 - "Editar usuario" (cuentas de acceso) cambia solo el nombre de usuario: no tiene campo de contraseña ni "Dejar en blanco para no modificar". `PUT /usuarios/:id` rechaza `contrasena`.
-- La contraseña de otra cuenta se cambia con la acción **"Restablecer contraseña"** de la ficha: un modal (`ModalRestablecerContrasena`, sobre `ModalMarco`) con "Nueva contraseña" (hint "Al menos 8 caracteres") y "Repetí la contraseña", el aviso "**@usuario** va a tener que cambiarla la próxima vez que ingrese." y los botones "Cancelar" y "Restablecer contraseña" ("Restableciendo…"). Manda `PATCH /usuarios/:id/contrasena` con `{ contrasenaNueva }`; queda provisoria. Éxito: toast "Contraseña restablecida. @usuario la va a cambiar al ingresar."
+- La contraseña de otra cuenta se cambia con la acción **"Restablecer contraseña"** de la ficha: un modal (`ModalRestablecerContrasena`, sobre `ModalMarco`) titulado "Restablecer contraseña de @usuario", con "Nueva contraseña" (hint "Al menos 8 caracteres. Es provisoria: la va a cambiar al ingresar.") y "Repetí la contraseña", sin subtítulo ni párrafo de aviso, y los botones "Cancelar" y "Restablecer contraseña" ("Restableciendo…"). Manda `PATCH /usuarios/:id/contrasena` con `{ contrasenaNueva }`; queda provisoria. Éxito: toast "Contraseña restablecida. @usuario la va a cambiar al ingresar."
 - Quién la ve: un Administrador en cualquier cuenta; un Encargado solo en las de Personal de taller y Choferes (H4). Nunca en la cuenta propia: la propia se cambia con "Cambiar mi contraseña", que pide la actual.
 - Los errores de validación vienen del backend y se muestran en cada campo.
 
