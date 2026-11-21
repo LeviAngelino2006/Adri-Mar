@@ -314,12 +314,12 @@ describe('Personal: volver de "Editar datos"', () => {
 
 // --- Usuarios -------------------------------------------------------------------------
 
-describe('Usuarios: volver de "Modificar credenciales"', () => {
+describe('Usuarios: volver de "Editar usuario"', () => {
   beforeEach(() => montar('Usuarios', '/usuarios'));
 
   test('editar desde la ficha y cancelar vuelve a esa ficha', async () => {
     await clic(contenedor.querySelector('button.listado-card'));
-    await clic(boton('Modificar credenciales'));
+    await clic(boton('Editar usuario'));
     assert.equal(linkVolver(), '← Volver a la ficha');
     await clic(boton('Cancelar'));
     assert.ok(enFicha());
@@ -328,7 +328,7 @@ describe('Usuarios: volver de "Modificar credenciales"', () => {
   test('editar desde la ficha y guardar vuelve a la ficha con los datos del PUT', async () => {
     respuestas.put = { usuario: { ...USUARIO, nombreUsuario: 'martin.gomez' } };
     await clic(contenedor.querySelector('button.listado-card'));
-    await clic(boton('Modificar credenciales'));
+    await clic(boton('Editar usuario'));
     await clic(boton('Guardar cambios'));
     assert.ok(enFicha());
     assert.ok(contenedor.textContent.includes('@martin.gomez'));

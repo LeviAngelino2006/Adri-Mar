@@ -52,8 +52,15 @@ const prismaFalso = {
         persona: { nombre: 'N', apellido: 'A', activo: c.personaActiva, habilitadoParaConducir: false, perfil: { descripcion: 'ADMINISTRADOR' } },
       };
     },
+    // El login exitoso guarda el último ingreso (SCRUM-257).
+    update: async ({ where, data }) => {
+      ingresos.push({ id: where.id, ...data });
+      return {};
+    },
   },
 };
+// Lo que el login mandó a guardar: [{ id, ultimoIngreso }].
+const ingresos = [];
 
 instalarEnCache(SRC, prismaFalso);
 
@@ -118,6 +125,26 @@ describe('el mismo mensaje exista o no la cuenta', () => {
     const { status, json } = await ingresar('amartinez', CLAVE);
     assert.equal(status, 200);
     assert.ok(json.token);
+  });
+});
+
+describe('último ingreso (SCRUM-257)', () => {
+  test('el login exitoso guarda la fecha y hora del ingreso en esa cuenta', async () => {
+    ingresos.length = 0;
+    const antes = Date.now();
+    assert.equal((await ingresar('amartinez', CLAVE)).status, 200);
+    assert.equal(ingresos.length, 1);
+    assert.equal(ingresos[0].id, 1);
+    assert.ok(ingresos[0].ultimoIngreso instanceof Date);
+    assert.ok(ingresos[0].ultimoIngreso.getTime() >= antes);
+  });
+
+  test('un intento fallido o una cuenta bloqueada no lo tocan', async () => {
+    ingresos.length = 0;
+    await ingresar('amartinez', 'mal');
+    await ingresar('pmedina', CLAVE);
+    await ingresar('fantasma', CLAVE);
+    assert.equal(ingresos.length, 0);
   });
 });
 

@@ -1,8 +1,8 @@
 // Tests de la contraseña provisoria y del cambio de la propia contraseña (H11 de
 // docs/auditoria-ux/personal-usuarios.md, tanda 2, decisión del cliente):
 //
-// - Cuando un gestor crea una cuenta o le cambia la contraseña a otro, queda
-//   debeCambiarContrasena=true.
+// - Cuando un gestor crea una cuenta o le restablece la contraseña a otro
+//   (PATCH /usuarios/:id/contrasena, SCRUM-258), queda debeCambiarContrasena=true.
 // - Mientras esté en true, la cuenta solo puede usar GET /auth/me y PUT
 //   /auth/contrasena: todo lo demás responde 403 con el código
 //   DEBE_CAMBIAR_CONTRASENA. Lo decide autenticar, en un solo lugar: el test
@@ -102,8 +102,8 @@ describe('H11: cuándo la contraseña queda provisoria', () => {
     assert.equal(db.usuarios.find((u) => u.nombreUsuario === 'hpaz2').debeCambiarContrasena, true);
   });
 
-  test('un gestor le cambia la contraseña a otro: provisoria', async () => {
-    const { status } = await pedir('PUT', `/usuarios/${RAMIRO}`, { body: { nombreUsuario: 'racosta', contrasena: 'provisoria-1' } });
+  test('un gestor le restablece la contraseña a otro: provisoria', async () => {
+    const { status } = await pedir('PATCH', `/usuarios/${RAMIRO}/contrasena`, { body: { contrasenaNueva: 'provisoria-1' } });
     assert.equal(status, 200);
     assert.equal(cuenta(RAMIRO).debeCambiarContrasena, true);
   });
@@ -113,9 +113,11 @@ describe('H11: cuándo la contraseña queda provisoria', () => {
     assert.equal(cuenta(RAMIRO).debeCambiarContrasena, false);
   });
 
-  test('un Administrador que se cambia la suya desde Usuarios no queda con provisoria', async () => {
-    const { status } = await pedir('PUT', `/usuarios/${ADRIANA}`, { body: { nombreUsuario: 'amartinez', contrasena: 'nueva-clave-1' } });
-    assert.equal(status, 200);
+  test('la propia no se restablece desde Usuarios: se cambia con Cambiar mi contraseña', async () => {
+    const { status, json } = await pedir('PATCH', `/usuarios/${ADRIANA}/contrasena`, { usuarioId: ADRIANA, body: { contrasenaNueva: 'nueva-clave-1' } });
+    assert.equal(status, 409);
+    assert.equal(json.error, 'Para tu propia cuenta usá Cambiar mi contraseña.');
+    assert.equal(cuenta(ADRIANA).contrasenaHash, HASH_CLAVE);
     assert.equal(cuenta(ADRIANA).debeCambiarContrasena, false);
   });
 });
@@ -177,7 +179,7 @@ describe('H11: con la contraseña provisoria, solo /auth/me y el cambio', () => 
     cuenta(CARLOS).debeCambiarContrasena = false;
     assert.equal((await pedir('GET', '/personas', { usuarioId: CARLOS })).status, 200);
 
-    await pedir('PUT', `/usuarios/${CARLOS}`, { usuarioId: ADRIANA, body: { nombreUsuario: 'cferreyra', contrasena: 'provisoria-1' } });
+    await pedir('PATCH', `/usuarios/${CARLOS}/contrasena`, { usuarioId: ADRIANA, body: { contrasenaNueva: 'provisoria-1' } });
 
     const { status, json } = await pedir('GET', '/personas', { usuarioId: CARLOS });
     assert.equal(status, 403);
@@ -245,7 +247,7 @@ describe('H11: cambiar la propia contraseña', () => {
   });
 
   test('un Encargado se cambia la suya (la de Usuarios se la cambia solo un Administrador, H4)', async () => {
-    const usuarios = await pedir('PUT', `/usuarios/${DIEGO}`, { usuarioId: DIEGO, body: { nombreUsuario: 'dsosa', contrasena: 'nueva-clave-1' } });
+    const usuarios = await pedir('PATCH', `/usuarios/${DIEGO}/contrasena`, { usuarioId: DIEGO, body: { contrasenaNueva: 'nueva-clave-1' } });
     assert.equal(usuarios.status, 403);
     assert.equal((await cambiar(DIEGO, CLAVE, 'nueva-clave-1')).status, 200);
   });

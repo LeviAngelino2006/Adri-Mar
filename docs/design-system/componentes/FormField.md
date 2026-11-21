@@ -17,7 +17,7 @@ Va visible si el usuario lo necesita antes de escribir o si equivocarse sale car
 | Estado de carga o de la pantalla | `hint` visible | "Cargando…", "Elegí origen y destino para calcularlos", "No hay personas activas sin cuenta de usuario", "Tu perfil lo cambia un Administrador." |
 | Lo necesita antes de escribir, o equivocarse sale caro | visible | "Al menos 8 caracteres" (contraseña nueva, alta de usuario); la aclaración del IVA del presupuesto (fuera del `FormField`, para que el error no la tape) |
 | Formato o ejemplo | `ayuda` (tooltip) | "Formato AB123CD o ABC123", "7 u 8 dígitos, sin puntos", "Por ejemplo 420.000 o 420.000,50", "Máximo 15 MB." |
-| Explicación de cómo se usa el campo | `ayuda` (tooltip) | "Vacío = A confirmar", "Si lo dejás vacío, se toma el kilometraje actual.", "Dejar en blanco para no modificar", "Incluye: Cambio de aceite + …" |
+| Explicación de cómo se usa el campo | `ayuda` (tooltip) | "Vacío = A confirmar", "Si lo dejás vacío, se toma el kilometraje actual.", "Es provisoria: la persona la va a tener que cambiar la primera vez que ingrese.", "Incluye: Cambio de aceite + …" |
 | Repite el label o dice "Opcional" | se borra | "En kilómetros" en "Km del odómetro" |
 - `error` opcional (estilo `caption`, color `state-error-text`, role="alert"). El borde del control pasa a `state-error-border`.
 

@@ -25,10 +25,12 @@ No se usa `toLocaleDateString()`.
 - Pares: Número de interno | Dominio · Marca | Modelo · Tipo de vehículo | Año · Cantidad de asientos | Kilometraje · Registrado el | Dado de baja el (este último solo si el vehículo está dado de baja).
 - Acciones dentro de la card, debajo de la grilla (`.detalle-acciones`), solo para Administrador y Encargado: "Ver documentación" (secondary); si no está dado de baja, también "Editar vehículo" (secondary) y "Dar de baja" (danger).
 
-## Ficha de usuario
-- `h1`: nombre y apellido.
-- Pares: DNI | Teléfono · Email (ancho completo) · Nombre de usuario | Perfil · Habilitado para conducir ("Sí" o "No") | Registrado el.
-- Acciones dentro de la card (`.detalle-acciones`), solo si el usuario está activo: "Editar usuario" (secondary) y "Dar de baja" (danger).
+## Ficha de usuario (cuenta de acceso)
+- `h1`: nombre y apellido de la persona.
+- Solo lo de acceso (SCRUM-257): los datos personales (DNI, teléfono, email, habilitado para conducir) están en la ficha de Personal.
+- Pares: Nombre de usuario ("@racosta") | Perfil · Estado ("Activo" o "Inactivo") | Último ingreso ("21 nov 2026 17:40" en hora de Córdoba: el último login exitoso; "Sin registro" si no ingresó desde que se registra) · Persona vinculada (ancho completo): un link con el nombre a su ficha en Personal (`/personal?id=…`).
+- Acciones dentro de la card (`.detalle-acciones`), solo si la cuenta está activa: "Editar usuario" (secondary, solo el nombre de usuario; un Encargado no lo ve en una cuenta de Encargado), "Restablecer contraseña" (secondary, ver `FormularioUsuario`) y "Desactivar acceso" (danger, no en la cuenta propia).
+- En las tarjetas del listado de cuentas, el pie lleva solo el perfil (sin DNI).
 
 ## Ficha de viaje (`FichaViaje`)
 Datos, en este orden:

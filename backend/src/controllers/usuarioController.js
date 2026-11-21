@@ -79,6 +79,38 @@ async function actualizar(req, res) {
   }
 }
 
+// PATCH /usuarios/:id/contrasena: un gestor le restablece la contraseña a otra
+// cuenta; queda provisoria (SCRUM-258).
+async function restablecerContrasena(req, res) {
+  const { contrasenaNueva } = req.body ?? {};
+
+  try {
+    const usuario = await usuarioService.restablecerContrasena(
+      req.params.id,
+      { contrasenaNueva },
+      { perfilSolicitante: req.usuario.perfil, personaIdSolicitante: req.usuario.personaId }
+    );
+    return res.json({ usuario });
+  } catch (err) {
+    if (err instanceof usuarioService.NoEncontradoError) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    if (err instanceof usuarioService.PermisoDenegadoError) {
+      return res.status(403).json({ error: err.message || 'No tiene permisos para restablecer la contraseña de este usuario' });
+    }
+    if (err instanceof usuarioService.ValidacionError) {
+      return res.status(400).json({ errores: err.errores });
+    }
+    if (err instanceof usuarioService.AccionSobreSiMismoError) {
+      return res.status(409).json({ error: err.message });
+    }
+    if (err instanceof usuarioService.PersonaDadaDeBajaError) {
+      return res.status(409).json({ error: err.message });
+    }
+    throw err;
+  }
+}
+
 async function darDeBaja(req, res) {
   try {
     const usuario = await usuarioService.darDeBajaUsuario(req.params.id, {
@@ -134,4 +166,13 @@ async function listarDisponiblesParaConducir(req, res) {
   return res.json({ usuarios });
 }
 
-module.exports = { crear, listar, obtener, actualizar, darDeBaja, reactivar, listarDisponiblesParaConducir };
+module.exports = {
+  crear,
+  listar,
+  obtener,
+  actualizar,
+  restablecerContrasena,
+  darDeBaja,
+  reactivar,
+  listarDisponiblesParaConducir,
+};

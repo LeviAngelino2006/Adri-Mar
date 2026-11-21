@@ -206,8 +206,9 @@ describe('H4: un Encargado no toma la cuenta de otro Encargado', () => {
   const ADRIANA = { id: 1, personaId: 1, perfil: 'ADMINISTRADOR' };
   const CREDENCIALES_DE_ENCARGADO = 'Solo un Administrador puede cambiar el usuario o la contraseña de un Encargado.';
 
-  test('G1: Diego no le puede cambiar la contraseña a Lucía', async () => {
-    const { status, json } = await pedir('PUT', '/usuarios/3', { como: DIEGO, body: { nombreUsuario: 'lromero', contrasena: 'TomadaPorDiego1' } });
+  // La contraseña se restablece con PATCH /usuarios/:id/contrasena (SCRUM-258).
+  test('G1: Diego no le puede restablecer la contraseña a Lucía', async () => {
+    const { status, json } = await pedir('PATCH', '/usuarios/3/contrasena', { como: DIEGO, body: { contrasenaNueva: 'TomadaPorDiego1' } });
     assert.equal(status, 403);
     assert.equal(json.error, CREDENCIALES_DE_ENCARGADO);
     assert.equal(cuenta(3).contrasenaHash, 'hash-de-prueba');
@@ -220,20 +221,35 @@ describe('H4: un Encargado no toma la cuenta de otro Encargado', () => {
     assert.equal(cuenta(3).nombreUsuario, 'lromero');
   });
 
-  test('tampoco los de su propia cuenta: los cambia un Administrador', async () => {
-    const { status } = await pedir('PUT', '/usuarios/4', { como: DIEGO, body: { nombreUsuario: 'dsosa', contrasena: 'OtraClave123' } });
+  test('tampoco la de su propia cuenta: la propia se cambia con Cambiar mi contraseña', async () => {
+    const { status } = await pedir('PATCH', '/usuarios/4/contrasena', { como: DIEGO, body: { contrasenaNueva: 'OtraClave123' } });
     assert.equal(status, 403);
+    assert.equal(cuenta(4).contrasenaHash, 'hash-de-prueba');
   });
 
-  test('un Administrador sí le cambia la contraseña a un Encargado', async () => {
-    const { status } = await pedir('PUT', '/usuarios/3', { como: ADRIANA, body: { nombreUsuario: 'lromero', contrasena: 'NuevaClave123' } });
+  test('un Administrador sí le restablece la contraseña a un Encargado, y queda provisoria', async () => {
+    const { status, json } = await pedir('PATCH', '/usuarios/3/contrasena', { como: ADRIANA, body: { contrasenaNueva: 'NuevaClave123' } });
     assert.equal(status, 200);
+    assert.equal(json.usuario.debeCambiarContrasena, true);
     assert.notEqual(cuenta(3).contrasenaHash, 'hash-de-prueba');
   });
 
+  test('un Encargado no le restablece la contraseña a un Administrador', async () => {
+    const { status } = await pedir('PATCH', '/usuarios/1/contrasena', { como: DIEGO, body: { contrasenaNueva: 'NuevaClave123' } });
+    assert.equal(status, 403);
+    assert.equal(cuenta(1).contrasenaHash, 'hash-de-prueba');
+  });
+
+  test('restablecer la de una cuenta que no existe: 404', async () => {
+    const { status } = await pedir('PATCH', '/usuarios/999/contrasena', { body: { contrasenaNueva: 'NuevaClave123' } });
+    assert.equal(status, 404);
+  });
+
   test('un Encargado sigue gestionando las credenciales de un Chofer', async () => {
-    const { status } = await pedir('PUT', '/usuarios/11', { como: DIEGO, body: { nombreUsuario: 'racosta', contrasena: 'NuevaClave123' } });
-    assert.equal(status, 200);
+    const clave = await pedir('PATCH', '/usuarios/11/contrasena', { como: DIEGO, body: { contrasenaNueva: 'NuevaClave123' } });
+    assert.equal(clave.status, 200);
+    const nombre = await pedir('PUT', '/usuarios/11', { como: DIEGO, body: { nombreUsuario: 'ramiro.acosta' } });
+    assert.equal(nombre.status, 200);
   });
 
   test('lo demás queda como estaba: un Encargado puede bloquear la cuenta de otro (se decide en otra tanda)', async () => {
@@ -284,8 +300,8 @@ describe('H10: la cuenta de una persona dada de baja', () => {
     assert.equal(estadoDe(10), 'INACTIVO');
   });
 
-  test('G4: ni se le cambia la contraseña ni el nombre de usuario', async () => {
-    const clave = await pedir('PUT', '/usuarios/10', { body: { nombreUsuario: 'nvega', contrasena: 'NuevaClave99' } });
+  test('G4: ni se le restablece la contraseña ni se le cambia el nombre de usuario', async () => {
+    const clave = await pedir('PATCH', '/usuarios/10/contrasena', { body: { contrasenaNueva: 'NuevaClave99' } });
     const nombre = await pedir('PUT', '/usuarios/10', { body: { nombreUsuario: 'nestor.vega' } });
     assert.equal(clave.status, 409);
     assert.equal(clave.json.error, REACTIVA_PRIMERO);
@@ -316,17 +332,28 @@ describe('G7: contraseñas vacías o con solo espacios', () => {
     assert.equal(json.errores.contrasena, 'La contraseña es obligatoria');
   });
 
-  test('al editar: solo espacios o vacía (mandada) dan error y no se cambia nada', async () => {
-    const espacios = await pedir('PUT', '/usuarios/11', { body: { nombreUsuario: 'racosta', contrasena: '          ' } });
-    const vacia = await pedir('PUT', '/usuarios/11', { body: { nombreUsuario: 'racosta', contrasena: '' } });
+  test('al restablecer: solo espacios o vacía dan error en el campo y no se cambia nada', async () => {
+    const espacios = await pedir('PATCH', '/usuarios/11/contrasena', { body: { contrasenaNueva: '          ' } });
+    const vacia = await pedir('PATCH', '/usuarios/11/contrasena', { body: { contrasenaNueva: '' } });
+    const corta = await pedir('PATCH', '/usuarios/11/contrasena', { body: { contrasenaNueva: 'corta1' } });
     assert.equal(espacios.status, 400);
-    assert.equal(espacios.json.errores.contrasena, 'La contraseña no puede tener solo espacios');
+    assert.equal(espacios.json.errores.contrasenaNueva, 'La contraseña no puede tener solo espacios');
     assert.equal(vacia.status, 400);
-    assert.equal(vacia.json.errores.contrasena, 'La contraseña no puede estar vacía');
+    assert.equal(vacia.json.errores.contrasenaNueva, 'La contraseña nueva es obligatoria');
+    assert.equal(corta.status, 400);
+    assert.equal(corta.json.errores.contrasenaNueva, 'La contraseña debe tener al menos 8 caracteres');
     assert.equal(cuenta(11).contrasenaHash, 'hash-de-prueba');
   });
 
-  test('al editar sin mandar contraseña, no se cambia (y se guarda lo demás)', async () => {
+  test('al editar, la contraseña ya no se acepta: se cambia con Restablecer contraseña (SCRUM-258)', async () => {
+    const { status, json } = await pedir('PUT', '/usuarios/11', { body: { nombreUsuario: 'ramiro.acosta', contrasena: 'NuevaClave123' } });
+    assert.equal(status, 400);
+    assert.equal(json.errores.contrasena, 'La contraseña se cambia con Restablecer contraseña');
+    assert.equal(cuenta(11).contrasenaHash, 'hash-de-prueba');
+    assert.equal(cuenta(11).nombreUsuario, 'racosta');
+  });
+
+  test('al editar sin mandar contraseña, se guarda el nombre de usuario', async () => {
     const { status } = await pedir('PUT', '/usuarios/11', { body: { nombreUsuario: 'ramiro.acosta' } });
     assert.equal(status, 200);
     assert.equal(cuenta(11).nombreUsuario, 'ramiro.acosta');
@@ -334,8 +361,20 @@ describe('G7: contraseñas vacías o con solo espacios', () => {
   });
 
   test('una contraseña con espacios adentro es válida', async () => {
-    const { status } = await pedir('PUT', '/usuarios/11', { body: { nombreUsuario: 'racosta', contrasena: 'mi clave larga' } });
+    const { status } = await pedir('PATCH', '/usuarios/11/contrasena', { body: { contrasenaNueva: 'mi clave larga' } });
     assert.equal(status, 200);
     assert.notEqual(cuenta(11).contrasenaHash, 'hash-de-prueba');
+  });
+});
+
+describe('SCRUM-257: último ingreso en la ficha de la cuenta', () => {
+  test('null si no ingresó desde que se registra; la fecha si ingresó', async () => {
+    const sinIngreso = await pedir('GET', '/usuarios/3');
+    assert.equal(sinIngreso.status, 200);
+    assert.equal(sinIngreso.json.usuario.ultimoIngreso, null);
+
+    cuenta(3).ultimoIngreso = new Date('2026-11-21T20:40:00.000Z');
+    const conIngreso = await pedir('GET', '/usuarios/3');
+    assert.equal(conIngreso.json.usuario.ultimoIngreso, '2026-11-21T20:40:00.000Z');
   });
 });

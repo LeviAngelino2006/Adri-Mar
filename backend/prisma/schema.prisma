@@ -67,6 +67,9 @@ model Usuario {
   // cambiársela): es provisoria. Hasta que la cambie, la cuenta solo puede
   // pedir /auth/me y cambiar su contraseña (middlewares/auth.js).
   debeCambiarContrasena     Boolean                  @default(false) @map("debe_cambiar_contrasena")
+  // Último login exitoso (authService.login). null = no ingresó desde que se
+  // empezó a registrar. La renovación del token no lo actualiza.
+  ultimoIngreso             DateTime?                @map("ultimo_ingreso")
   creadoEn                  DateTime                 @default(now()) @map("creado_en")
   lecturasOdometro          LecturaOdometro[]
   documentosRegistrados     Documento[]              @relation("DocumentosRegistradosPor")
