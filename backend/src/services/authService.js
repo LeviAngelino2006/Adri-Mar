@@ -27,6 +27,10 @@ async function login(nombreUsuario, contrasena) {
     throw new CredencialesInvalidasError();
   }
 
+  // Último ingreso, para la ficha de usuario (SCRUM-257). Solo el login
+  // exitoso: la renovación del token no cuenta.
+  await prisma.usuario.update({ where: { id: usuario.id }, data: { ultimoIngreso: new Date() } });
+
   const datos = usuarioDeSesion(usuario);
   const token = generarToken(datos);
 

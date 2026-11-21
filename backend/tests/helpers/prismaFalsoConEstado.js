@@ -841,6 +841,13 @@ function crearEntorno() {
           return true;
         }) ?? null;
       },
+      // Solo por id y sin include (el login guarda el último ingreso).
+      update: async ({ where, data }) => {
+        const u = db.usuarios.find((x) => x.id === where.id);
+        if (!u) throw Object.assign(new Error('Registro no encontrado'), { code: 'P2025' });
+        Object.assign(u, data);
+        return { ...u };
+      },
       // Usuario no tiene habilitación para conducir ni documentos de chofer
       // (viven en Persona): el doble filtra solo por columnas de la cuenta y
       // revienta con cualquier otro filtro, como Prisma real.
