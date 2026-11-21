@@ -61,7 +61,6 @@ function ModalRestablecerContrasena({ usuario, onClose, onSuccess }) {
   return (
     <ModalMarco
       titulo="Restablecer contraseña"
-      subtitulo={`@${usuario.nombreUsuario} · ${usuario.nombre} ${usuario.apellido}`}
       onClose={onClose}
       pie={
         <>
