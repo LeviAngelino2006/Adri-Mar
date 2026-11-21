@@ -29,7 +29,7 @@ Este documento sintetiza las reglas de negocio, flujos y políticas operativas d
 
 ## 2. Mantenimiento Preventivo y Taller
 
-La pantalla tiene tres pestañas: **Service** (estado de cada vehículo y registrar un service), **Arreglos** (registrar cualquier otro trabajo) e **Historial** (services y arreglos de toda la flota). Los perfiles ADMINISTRADOR, ENCARGADO y PERSONAL_TALLER la usan; el CHOFER no.
+La pantalla es la lista de vehículos con el estado de su service (aviso y barra de km). Primero se elige el vehículo y después qué hacer: al tocarlo se abre su panel lateral con **Registrar service** (o **Asignar plan de service** si no tiene plan), **Registrar arreglo** y su **historial** (services y arreglos juntos). Los perfiles ADMINISTRADOR, ENCARGADO y PERSONAL_TALLER la usan; el CHOFER no.
 
 ### 2.1. Frecuencia y Disparadores de Service
 - **Intervalo por tipo de vehículo** (tabla `plantillas_mantenimiento`, una por tipo):
@@ -45,7 +45,7 @@ La pantalla tiene tres pestañas: **Service** (estado de cada vehículo y regist
   - **Vencido:** recorrió el intervalo completo.
   - **Sin plan:** el vehículo no tiene plan activo (solo pasa si su tipo no tiene plantilla). Se le asigna uno indicando a qué km fue su último service (por defecto, el odómetro actual), o se crea solo al registrarle el primer service.
 - **Urgencia:** la lista se ordena por la fracción del intervalo recorrida, no por km restantes (900 km restantes son el 4,5 % de un colectivo pero el 9 % de un utilitario).
-- **Vehículos dados de baja:** no aparecen en Service ni en los selectores y no generan alertas. Su historial se conserva.
+- **Vehículos dados de baja:** no aparecen en la lista de Mantenimiento y no generan alertas. Su historial se conserva en la base.
 - **Advertencia en viajes:** al planificar un viaje, si con los km estimados el vehículo pasa su service (o ya lo pasó), el formulario lo avisa. Es informativo: no bloquea.
 - **Disparador por fecha:** no aplica; el service se dispara solo por kilometraje. `TODO: completar por el equipo` si se decide sumar un tiempo límite.
 
@@ -64,7 +64,7 @@ La pantalla tiene tres pestañas: **Service** (estado de cada vehículo y regist
 - Service y arreglo se guardan en la misma tabla (`mantenimientos_realizados`): un registro es un service (sin tipos de arreglo) o un arreglo (con al menos un tipo), nunca los dos. Lo valida `mantenimientoService`.
 - La fecha es un día de Córdoba y no puede ser posterior a hoy. El vehículo no puede estar dado de baja.
 - Si el km cargado supera al odómetro del vehículo, se registra una lectura de odómetro con origen `MANTENIMIENTO` (ver §3.1), con la misma regla de "no retroceder".
-- El historial muestra toda la flota (también los dados de baja), del más reciente al más antiguo, con buscador por vehículo, filtros (tipo de registro, tipo de arreglo —trae los arreglos que incluyen ese tipo—, tipo de vehículo, fechas), orden y paginado de a 30.
+- El historial es por vehículo, en su panel: services y arreglos juntos, del más reciente al más antiguo, de a 10 con "Ver más". Cada registro se expande en el mismo panel con todos sus datos. No hay un historial de toda la flota en pantalla; el endpoint `GET /mantenimientos/historial` conserva los filtros (tipo, tipo de arreglo, tipo de vehículo, fechas, orden) por si se vuelve a necesitar.
 - No hay órdenes de trabajo ni estados de una orden: se registra el trabajo ya hecho.
 
 ---

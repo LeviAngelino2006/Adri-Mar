@@ -11,6 +11,7 @@ import {
   nombreTipoArreglo,
   ordenarEstadoService,
   textoAdvertenciaViaje,
+  textoAlertas,
   textoIncluyeService,
   textoIntervalo,
   textoRegistro,
@@ -102,8 +103,18 @@ describe('ordenarEstadoService', () => {
 });
 
 describe('textos de la tarjeta de Service', () => {
-  test('contarAlertas suma vencidos y próximos', () => {
-    assert.equal(contarAlertas([item(1, '1', 'VENCIDO'), item(2, '2', 'PROXIMO'), item(3, '3', 'AL_DIA'), item(4, '4', 'SIN_PLAN')]), 2);
+  test('contarAlertas separa vencidos y próximos', () => {
+    assert.deepEqual(
+      contarAlertas([item(1, '1', 'VENCIDO'), item(2, '2', 'PROXIMO'), item(3, '3', 'AL_DIA'), item(4, '4', 'SIN_PLAN')]),
+      { vencidos: 1, proximos: 1 }
+    );
+  });
+
+  test('textoAlertas: singular, plural, sin los que están en cero y vacío sin alertas', () => {
+    assert.equal(textoAlertas([item(1, '1', 'VENCIDO'), item(2, '2', 'PROXIMO'), item(3, '3', 'PROXIMO')]), '1 vencido · 2 próximos');
+    assert.equal(textoAlertas([item(1, '1', 'VENCIDO'), item(2, '2', 'VENCIDO')]), '2 vencidos');
+    assert.equal(textoAlertas([item(1, '1', 'PROXIMO')]), '1 próximo');
+    assert.equal(textoAlertas([item(1, '1', 'AL_DIA'), item(2, '2', 'SIN_PLAN')]), '');
   });
 
   test('detalle: faltan, pasado por, le toca ahora y sin plan', () => {

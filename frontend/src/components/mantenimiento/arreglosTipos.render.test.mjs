@@ -1,6 +1,6 @@
-// Tests de los campos obligatorios de Arreglos con los tipos ya cargados: los
-// tipos son casillas (no hay un "Elegí el tipo de trabajo" elegible) y el
-// placeholder del select de Vehículo no se puede elegir. Se corren con `npm test` (node:test).
+// Tests de "Registrar arreglo" con los tipos ya cargados: los tipos son
+// casillas (no hay un "Elegí el tipo de trabajo" elegible) y el vehículo no se
+// elige: es el del panel. Se corren con `npm test` (node:test).
 //
 // Mismo método que opcionesFormularios.render.test.mjs: se monta el componente
 // con react-dom/client sobre jsdom y la API se reemplaza por un doble (sin red).
@@ -28,7 +28,7 @@ const { createRoot } = require('react-dom/client');
 const h = React.createElement;
 
 let vite;
-let PestanaArreglos;
+let FormularioArreglo;
 let contenedor;
 let raiz;
 
@@ -45,7 +45,7 @@ before(async () => {
     if (endpoint === '/mantenimientos/tipos-arreglo') return { data: { tiposArreglo: TIPOS } };
     throw new Error(`pedido inesperado: ${endpoint}`);
   };
-  PestanaArreglos = (await vite.ssrLoadModule('/src/components/mantenimiento/PestanaArreglos.jsx')).default;
+  FormularioArreglo = (await vite.ssrLoadModule('/src/components/mantenimiento/FormularioArreglo.jsx')).default;
 });
 
 after(() => vite.close());
@@ -64,9 +64,9 @@ afterEach(() => {
 async function montar() {
   await act(async () =>
     raiz.render(
-      h(PestanaArreglos, {
-        cargaVehiculos: { datos: [{ vehiculo: VEHICULO }], cargando: false, error: null, recargar() {} },
-        vistas: { opciones: [{ valor: 'arreglos', etiqueta: 'Arreglos' }], valor: 'arreglos', onChange() {}, ariaLabel: 'Vista' },
+      h(FormularioArreglo, {
+        vehiculo: VEHICULO,
+        onCancel() {},
         onSuccess() {},
       })
     )
@@ -103,11 +103,10 @@ describe('Arreglos: "Tipo de trabajo" con los tipos cargados', () => {
     );
   });
 
-  test('Vehículo, también obligatorio, sigue el mismo patrón', async () => {
+  test('el vehículo no se elige: es el del panel, con su odómetro de ayuda', async () => {
     await montar();
-    const [placeholder] = contenedor.querySelector('#arreglo-vehiculo').options;
-    assert.equal(placeholder.textContent, 'Elegí el vehículo');
-    assert.equal(placeholder.disabled, true);
-    assert.equal(placeholder.hidden, true);
+    assert.equal(contenedor.querySelector('#arreglo-vehiculo'), null);
+    assert.equal(contenedor.querySelector('select'), null);
+    assert.match(contenedor.querySelector('#arreglo-km-hint').textContent, /Odómetro actual: 339\.200 km/);
   });
 });

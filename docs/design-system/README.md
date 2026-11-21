@@ -69,7 +69,7 @@ El viewport lleva `viewport-fit=cover` (`index.html`) para que `BarraAccionFija`
 - `.layout-content`: abajo, el mayor entre el alto de la `BarraAccionFija` y el inset de abajo (la barra ya lo incluye).
 - `Toast`: lo mismo, encima de la barra o del indicador de inicio.
 - Login (`.login-brand`): arriba.
-- Fondos de los modales (`ConfirmModal` y los de Documentación y Mantenimiento): `max(space-4, inset)` en cada lado; el visor de PDF a pantalla completa, el inset solo.
+- Fondos de los modales (`ConfirmModal` y los de Documentación): `max(space-4, inset)` en cada lado; el visor de PDF a pantalla completa, el inset solo. `PanelLateral` a pantalla completa en el celular: el inset solo, arriba y abajo.
 Sin `viewport-fit=cover`, o en Android y escritorio, los insets valen 0 y nada cambia.
 
 ## Logos e íconos
@@ -90,7 +90,8 @@ Las pantallas se arman con las clases de `bundle.css` y los componentes de arrib
 - Listados: `Listado` (patrón único de Viajes, Mis viajes, Flota, Mantenimiento, Documentación, Presupuestos, Personal y Usuarios), con las tarjetas `TarjetaViaje` y `TarjetaVehiculo`, `FichaDetalle` (ficha de un viaje, vehículo o usuario: una sola card plana con los datos en pares, en dos columnas desde 640px), `Filtros`.
 - Flota y Usuarios: `FormularioVehiculo` y `FormularioUsuario` (alta y edición, en pares, con asteriscos y hints).
 - Documentación: `Listado` con `ControlSegmentado` (Vehículos | Choferes, con ícono y cantidad) en la misma barra que el buscador y Filtros, a la derecha, y, en la ficha, una `TarjetaDocumento` por documento.
-- Mantenimiento: `Mantenimiento` (Service | Arreglos | Historial con `ControlSegmentado` a la derecha de la barra, como en Documentación; tarjetas de estado del service, formulario de arreglos e historial de toda la flota).
+- Mantenimiento: `Mantenimiento` (lista de vehículos con el estado del service; al tocar uno se abre su `PanelLateral` con "Registrar service", "Registrar arreglo" y su historial expandible).
+- Paneles: `PanelLateral` (drawer a la derecha desde 640px, pantalla completa en el celular: el detalle de un elemento de una lista y lo que se puede hacer con él, sin salir de la lista).
 - Usuarios: `Avatar`, con el color según el perfil.
 - Layout: `Navegacion` (sidebar y topbar, con el menú del usuario), `Login` (panel de marca + card) y `CambiarContrasena` (obligatoria, con el panel del login, o por elección, como formulario).
 - Carga: `Cargando` reemplaza al Spinner con "Cargando…" en pantallas y paneles; el Spinner queda para los botones.

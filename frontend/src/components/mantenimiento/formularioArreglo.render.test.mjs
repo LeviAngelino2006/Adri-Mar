@@ -1,4 +1,4 @@
-// Test de la pestaña Arreglos montada (react-dom/client sobre jsdom, como
+// Test del formulario de arreglo montado (react-dom/client sobre jsdom, como
 // selectorBuscarOCrear.render.test.mjs): la carga de los tipos y el detalle
 // obligatorio de "Otro" al marcarlo y desmarcarlo. La API se reemplaza por un
 // doble que no hace pedidos. Se corre con `npm test` (node:test).
@@ -34,7 +34,7 @@ const TIPOS = [
 const VEHICULO = { id: 7, numeroInterno: '12', dominio: 'AE452KD', kilometraje: 1000, marca: 'Mercedes', modelo: 'O500' };
 
 let vite;
-let PestanaArreglos;
+let FormularioArreglo;
 let api;
 let contenedor;
 let raiz;
@@ -45,7 +45,7 @@ const enviados = [];
 
 before(async () => {
   vite = await createServer({ root: RAIZ, server: { middlewareMode: true, ws: false }, appType: 'custom', logLevel: 'error' });
-  PestanaArreglos = (await vite.ssrLoadModule('/src/components/mantenimiento/PestanaArreglos.jsx')).default;
+  FormularioArreglo = (await vite.ssrLoadModule('/src/components/mantenimiento/FormularioArreglo.jsx')).default;
   ({ DEMORA_KM_MS } = await vite.ssrLoadModule('/src/constants/mantenimiento.js'));
   api = (await vite.ssrLoadModule('/src/services/api.js')).default;
   api.get = () =>
@@ -77,9 +77,9 @@ function montar() {
       h(
         MemoryRouter,
         null,
-        h(PestanaArreglos, {
-          cargaVehiculos: { datos: [{ vehiculo: VEHICULO }], cargando: false, error: null, recargar: () => {} },
-          vistas: { opciones: [{ valor: 'arreglos', etiqueta: 'Arreglos' }], valor: 'arreglos', onChange: () => {}, ariaLabel: 'Vista' },
+        h(FormularioArreglo, {
+          vehiculo: VEHICULO,
+          onCancel: () => {},
           onSuccess: () => {},
         })
       )
@@ -108,7 +108,7 @@ function escribir(elemento, valor) {
   });
 }
 
-describe('PestanaArreglos montada', () => {
+describe('FormularioArreglo montado', () => {
   test('mientras cargan los tipos dice "Cargando…"; al llegar, una casilla por tipo, solo con el nombre', async () => {
     montar();
     assert.match(grupo().textContent, /Cargando…/);
@@ -139,7 +139,6 @@ describe('PestanaArreglos montada', () => {
   test('manda el detalle de "Otro" solo si sigue marcado', async () => {
     montar();
     await act(async () => responderTipos());
-    escribir(contenedor.querySelector('#arreglo-vehiculo'), '7');
     escribir(contenedor.querySelector('#arreglo-km'), '1500');
     act(() => casilla(1).click());
     act(() => casilla(8).click());
@@ -151,13 +150,9 @@ describe('PestanaArreglos montada', () => {
     assert.deepEqual(enviados[0].tiposArregloIds, [1, 8]);
     assert.deepEqual(enviados[0].detallesTipos, { 8: 'Cambio de espejo' });
 
-    // Después de registrar el formulario se limpia: se vuelve a cargar sin "Otro".
-    act(() => casilla(1).click());
+    // Al desmarcar "Otro" lo que se escribió se descarta y no se manda.
     act(() => casilla(8).click());
-    escribir(campoDetalle(), 'Algo');
-    act(() => casilla(8).click());
-    escribir(contenedor.querySelector('#arreglo-vehiculo'), '7');
-    escribir(contenedor.querySelector('#arreglo-km'), '1500');
+    assert.ok(!campoDetalle(), 'sigue el campo');
     await enviar();
     assert.equal(enviados.length, 2);
     assert.deepEqual(enviados[1].tiposArregloIds, [1]);
@@ -168,7 +163,6 @@ describe('PestanaArreglos montada', () => {
     montar();
     await act(async () => responderTipos());
     const switchAnterior = () => contenedor.querySelector('#arreglo-anterior');
-    escribir(contenedor.querySelector('#arreglo-vehiculo'), '7');
     escribir(contenedor.querySelector('#arreglo-km'), '1000');
     assert.equal(switchAnterior(), null, 'con el km igual al odómetro no pregunta');
     act(() => casilla(1).click());
@@ -192,7 +186,6 @@ describe('PestanaArreglos montada', () => {
   test('si el km vuelve a ser mayor, el switch se va y no se manda esAnterior', async () => {
     montar();
     await act(async () => responderTipos());
-    escribir(contenedor.querySelector('#arreglo-vehiculo'), '7');
     act(() => casilla(1).click());
     escribir(contenedor.querySelector('#arreglo-km'), '800');
     await esperarDemoraKm();
@@ -211,7 +204,6 @@ describe('PestanaArreglos montada', () => {
     await act(async () => responderTipos());
     const switchAnterior = () => contenedor.querySelector('#arreglo-anterior');
     const km = () => contenedor.querySelector('#arreglo-km');
-    escribir(contenedor.querySelector('#arreglo-vehiculo'), '7');
     escribir(km(), '800');
     await esperarDemoraKm();
     assert.ok(switchAnterior());
@@ -227,7 +219,6 @@ describe('PestanaArreglos montada', () => {
   test('si se envía antes de la demora, el error sale y el switch aparece ya', async () => {
     montar();
     await act(async () => responderTipos());
-    escribir(contenedor.querySelector('#arreglo-vehiculo'), '7');
     act(() => casilla(1).click());
     escribir(contenedor.querySelector('#arreglo-km'), '800');
     enviados.length = 0;
