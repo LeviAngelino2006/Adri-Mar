@@ -393,7 +393,9 @@ function FlotaVehiculos() {
                   </>
                 )}
 
-                <div className="form-field switch-field">
+                {/* En par con el campo de al lado (Km del último service al crear),
+                    como los demás campos de la grilla (SCRUM-253). */}
+                <div className="form-field switch-field switch-field-par">
                   <div className="form-field-label-fila">
                     <label htmlFor="adquiridoUsado" className="switch-field-label">
                       <Switch

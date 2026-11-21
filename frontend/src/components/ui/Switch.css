@@ -87,9 +87,17 @@
   align-self: start;
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
   min-height: 44px;
   margin-bottom: 0;
+}
+
+/* Si el switch lleva un error (o el label con su tooltip en una fila), el
+   error baja a su propia línea en vez de quedar al costado. */
+.form-grid .switch-field.switch-field-par > .form-field-error {
+  flex-basis: 100%;
+  margin-top: var(--space-1);
 }
 
 /* En una columna el switch va debajo del campo vecino: el margen solo hace
