@@ -343,7 +343,7 @@ describe('Usuarios: "Restablecer contraseña" (SCRUM-258)', () => {
     await act(async () => boton('Restablecer contraseña').click());
     const modal = contenedor.querySelector('[role="dialog"]');
     assert.ok(modal);
-    assert.match(modal.textContent, /Restablecer contraseña de @racosta/);
+    assert.match(modal.textContent, /Restablecer contraseña de racosta/);
     assert.match(modal.textContent, /Es provisoria: la va a cambiar al ingresar/);
 
     const escribir = (input, texto) =>
