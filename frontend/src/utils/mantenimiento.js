@@ -57,9 +57,22 @@ export function ordenarEstadoService(items, orden = 'urgencia') {
   return [...items].sort(comparadores[orden] ?? comparadores.urgencia);
 }
 
-// Vencidos + próximos: el contador de la pestaña Service.
+// Cuántos vehículos tienen el service vencido y cuántos próximo.
 export function contarAlertas(items) {
-  return items.filter((item) => item.estado === 'VENCIDO' || item.estado === 'PROXIMO').length;
+  const cuantos = (estado) => items.filter((item) => item.estado === estado).length;
+  return { vencidos: cuantos('VENCIDO'), proximos: cuantos('PROXIMO') };
+}
+
+// Resumen en gris arriba de la lista: "2 vencidos · 3 próximos", sin los que
+// están en cero. '' si no hay alertas (y la línea no se muestra).
+export function textoAlertas(items) {
+  const { vencidos, proximos } = contarAlertas(items);
+  return [
+    vencidos > 0 && `${vencidos} ${vencidos === 1 ? 'vencido' : 'vencidos'}`,
+    proximos > 0 && `${proximos} ${proximos === 1 ? 'próximo' : 'próximos'}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 // "Próximo service a los 340.000 km · faltan 800 km" / "· pasado por 1.200 km".

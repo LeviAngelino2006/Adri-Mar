@@ -1,22 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Toast from '../components/ui/Toast';
 import { ListadoHeader } from '../components/Listado';
-import ModalAsignarPlan from '../components/mantenimiento/ModalAsignarPlan';
-import ModalRegistrarService from '../components/mantenimiento/ModalRegistrarService';
-import PestanaArreglos from '../components/mantenimiento/PestanaArreglos';
-import PestanaHistorial from '../components/mantenimiento/PestanaHistorial';
-import PestanaService from '../components/mantenimiento/PestanaService';
+import ListaService from '../components/mantenimiento/ListaService';
+import PanelVehiculoMantenimiento from '../components/mantenimiento/PanelVehiculoMantenimiento';
 import { useCarga } from '../hooks/useCarga';
 import { listarEstadoService } from '../services/mantenimientoApi';
-import { VISTAS_MANTENIMIENTO } from '../constants/mantenimiento';
-import { DURACION_TOAST_CON_ACCION_MS, DURACION_TOAST_MS } from '../constants/toast';
-import { contarAlertas } from '../utils/mantenimiento';
-import { ordenarPorInterno } from '../utils/vehiculos';
+import { DURACION_TOAST_MS } from '../constants/toast';
 import './Mantenimiento.css';
-
-const VISTAS_VALIDAS = VISTAS_MANTENIMIENTO.map((v) => v.valor);
 
 // Id de la URL (?vehiculoId=) o null si falta o no es válido.
 function idDeUrl(valor) {
@@ -30,132 +22,63 @@ function tiposDeLaFlota(items) {
   return [...porId].map(([id, descripcion]) => ({ id, descripcion })).sort((a, b) => String(a.descripcion).localeCompare(String(b.descripcion), 'es'));
 }
 
-// Mantenimiento: tres vistas hermanas con ControlSegmentado en la barra.
-//  - Service: estado del service de cada vehículo y registrar un service.
-//  - Arreglos: el formulario para registrar un trabajo que no es el service.
-//  - Historial: services y arreglos de toda la flota.
-// La vista y el vehículo del historial viven en la URL (?tab=historial&vehiculoId=7):
-// se pueden compartir y funciona el botón Atrás.
+// Mantenimiento: la lista de vehículos con el estado de su service (aviso y
+// barra de km). Primero se elige el vehículo y después qué hacer: al tocar su
+// tarjeta se abre su panel lateral, con "Registrar service", "Registrar
+// arreglo" (o "Asignar plan de service" si no tiene) y su historial.
+// El panel abierto vive en la URL (?vehiculoId=7): se puede compartir y Atrás
+// lo cierra. Los vehículos dados de baja no están en la lista ni abren panel.
 function Mantenimiento() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = searchParams.get('tab');
-  const vista = VISTAS_VALIDAS.includes(tab) ? tab : 'service';
-  const vehiculoHistorial = vista === 'historial' ? idDeUrl(searchParams.get('vehiculoId')) : null;
+  const location = useLocation();
+  const navigate = useNavigate();
+  const vehiculoAbierto = idDeUrl(searchParams.get('vehiculoId'));
 
-  // El estado del service de la flota: lo usan Service, la lista de vehículos de
-  // los formularios y el contador de alertas.
+  // El estado del service de la flota: lo usan la lista y el panel.
   const cargaService = useCarga(useCallback(() => listarEstadoService().then(({ data }) => data.vehiculos), []));
   const itemsService = useMemo(() => cargaService.datos ?? [], [cargaService.datos]);
   const tiposVehiculo = useMemo(() => tiposDeLaFlota(itemsService), [itemsService]);
-  const vehiculosOrdenados = useMemo(() => {
-    const orden = new Map(ordenarPorInterno(itemsService.map((i) => i.vehiculo)).map((v, indice) => [v.id, indice]));
-    return [...itemsService].sort((a, b) => orden.get(a.vehiculo.id) - orden.get(b.vehiculo.id));
-  }, [itemsService]);
+  const itemAbierto = vehiculoAbierto ? itemsService.find((item) => item.vehiculo.id === vehiculoAbierto) : null;
 
-  const [modalService, setModalService] = useState(null); // { item } (item null = elegir vehículo)
-  const [modalPlan, setModalPlan] = useState(null); // item SIN_PLAN
-  const [toast, setToast] = useState(null); // { mensaje, accion }
+  const [toast, setToast] = useState(null);
 
   // El Toast no se oculta solo: lo hace quien lo monta.
   useEffect(() => {
     if (!toast) return undefined;
-    const t = setTimeout(() => setToast(null), toast.accion ? DURACION_TOAST_CON_ACCION_MS : DURACION_TOAST_MS);
+    const t = setTimeout(() => setToast(null), DURACION_TOAST_MS);
     return () => clearTimeout(t);
   }, [toast]);
 
-  // Cambiar de vista reemplaza el contenido de abajo: la página vuelve arriba.
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [vista]);
-
-  function cambiarVista(nueva) {
-    setSearchParams(nueva === 'service' ? {} : { tab: nueva });
+  // Abrir suma una entrada al historial del navegador (Atrás cierra el panel).
+  function abrirPanel(item) {
+    setSearchParams({ vehiculoId: String(item.vehiculo.id) }, { state: { panelDesdeLista: true } });
   }
 
-  const linkHistorial = (vehiculoId) => `?tab=historial&vehiculoId=${vehiculoId}`;
+  // Si el panel se abrió desde la lista, cerrar es volver atrás (así Atrás no lo
+  // reabre); si se entró directo con ?vehiculoId=, se quita el parámetro.
+  const cerrarPanel = useCallback(() => {
+    if (location.state?.panelDesdeLista) navigate(-1);
+    else setSearchParams({}, { replace: true });
+  }, [location.state, navigate, setSearchParams]);
 
-  function serviceRegistrado(registro) {
-    setModalService(null);
-    setToast({
-      mensaje: 'Service registrado.',
-      accion: (
-        <Link to={linkHistorial(registro.vehiculo.id)} onClick={() => setToast(null)}>
-          Ver en el historial
-        </Link>
-      ),
-    });
+  // Guardar algo puede cambiar el odómetro o el estado del service: la lista
+  // (y el resumen del panel) se actualizan.
+  function guardado(mensaje) {
+    setToast(mensaje);
     cargaService.recargar();
   }
-
-  function planAsignado() {
-    setModalPlan(null);
-    setToast({ mensaje: 'Plan de service asignado.' });
-    cargaService.recargar();
-  }
-
-  function arregloRegistrado(registro) {
-    setToast({
-      mensaje: 'Arreglo registrado.',
-      accion: (
-        <Link to={linkHistorial(registro.vehiculo.id)} onClick={() => setToast(null)}>
-          Ver en el historial
-        </Link>
-      ),
-    });
-    // El odómetro pudo avanzar: la lista de vehículos (y su estado) se actualiza.
-    cargaService.recargar();
-  }
-
-  // La cantidad de Service son las alertas (vencidos y próximos); no se muestra
-  // mientras carga, si falló o si no hay ninguna.
-  const alertas = cargaService.datos && !cargaService.error ? contarAlertas(itemsService) : 0;
-  const vistas = {
-    opciones: VISTAS_MANTENIMIENTO.map((opcion) => ({
-      ...opcion,
-      cantidad: opcion.valor === 'service' && alertas > 0 ? alertas : undefined,
-    })),
-    valor: vista,
-    onChange: cambiarVista,
-    ariaLabel: 'Vista de mantenimiento',
-  };
 
   return (
     <Layout>
       <ListadoHeader titulo="Mantenimiento" />
 
-      {vista === 'service' && (
-        <PestanaService
-          carga={cargaService}
-          tiposVehiculo={tiposVehiculo}
-          vistas={vistas}
-          onRegistrar={(item) => setModalService({ item })}
-          onAsignar={setModalPlan}
-        />
+      <ListaService carga={cargaService} tiposVehiculo={tiposVehiculo} onAbrir={abrirPanel} />
+
+      {itemAbierto && (
+        <PanelVehiculoMantenimiento key={itemAbierto.vehiculo.id} item={itemAbierto} onClose={cerrarPanel} onGuardado={guardado} />
       )}
 
-      {vista === 'arreglos' && <PestanaArreglos cargaVehiculos={cargaService} vistas={vistas} onSuccess={arregloRegistrado} />}
-
-      {vista === 'historial' && (
-        <PestanaHistorial
-          vehiculoId={vehiculoHistorial}
-          onQuitarVehiculo={() => setSearchParams({ tab: 'historial' })}
-          tiposVehiculo={tiposVehiculo}
-          vistas={vistas}
-        />
-      )}
-
-      {modalService && (
-        <ModalRegistrarService
-          vehiculos={vehiculosOrdenados}
-          vehiculo={modalService.item}
-          onClose={() => setModalService(null)}
-          onSuccess={serviceRegistrado}
-        />
-      )}
-
-      {modalPlan && <ModalAsignarPlan item={modalPlan} onClose={() => setModalPlan(null)} onSuccess={planAsignado} />}
-
-      {toast && <Toast action={toast.accion}>{toast.mensaje}</Toast>}
+      {toast && <Toast>{toast}</Toast>}
     </Layout>
   );
 }
