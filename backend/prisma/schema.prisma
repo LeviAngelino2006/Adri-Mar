@@ -406,6 +406,11 @@ model Documento {
   fechaEmision     DateTime?     @map("fecha_emision")
   fechaVencimiento DateTime?     @map("fecha_vencimiento")
   observaciones    String?
+  // Solo en la Licencia de Conducir: D2_MUNICIPAL, D2_PROVINCIAL o
+  // CARNET_NACIONAL (CHECK documentos_tipo_licencia_valido). Va por versión: si
+  // al renovar cambia, el historial muestra cuál tenía antes. null en los demás
+  // tipos y en las licencias cargadas antes (SCRUM-255).
+  tipoLicencia     String?       @map("tipo_licencia")
   usuarioId        Int           @map("usuario_id")
   usuario          Usuario       @relation("DocumentosRegistradosPor", fields: [usuarioId], references: [id])
   creadoEn         DateTime      @default(now()) @map("creado_en")

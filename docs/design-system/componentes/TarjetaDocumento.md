@@ -25,6 +25,11 @@ Los dos tipos del chofer tienen vencimiento y van en la sección "Con vencimient
 - Sin vencimiento: "Cargado el 12 mar 2026".
 - Tipo sin PDF: se suma " · Solo se registra la vigencia".
 - Pendiente: "Todavía no se cargó".
+- Licencia de conducir: el tipo de carnet de la versión vigente va adelante, "D2 Provincial · Vence el 22 dic 2026" ("Tipo de carnet sin especificar · …" en las cargadas antes de SCRUM-255). En el historial, cada versión lleva el suyo después del badge.
+
+## Tipo de carnet al cargar la licencia
+- En "Cargar" o "Actualizar Licencia de conducir profesional", arriba del PDF: "Tipo de carnet" (obligatorio), un `select` con "Elegí el tipo de carnet" (no elegible), D2 Municipal, D2 Provincial y Carnet nacional. Sin elegir: "Elegí el tipo de carnet.".
+- Al actualizar arranca con el de la vigente; cambiar solo el tipo cuenta como cambio (crea una versión nueva con el mismo PDF).
 - Las fechas son días de calendario en hora de Córdoba y llevan siempre el año.
 
 ## Acciones

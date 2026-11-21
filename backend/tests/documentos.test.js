@@ -91,10 +91,13 @@ async function pedir(metodo, ruta, perfil = 'ADMINISTRADOR') {
   return leer(await fetch(`${base}${ruta}`, { method: metodo, headers: { Authorization: `Bearer ${tokenDe(perfil)}` } }));
 }
 
-// POST multipart como el del front: campos de texto + `archivo` opcional.
+// POST multipart como el del front: campos de texto + `archivo` opcional. La
+// licencia lleva tipo de carnet (obligatorio, SCRUM-255): si el test no lo
+// dice, va D2 Provincial; con `tipoLicencia: undefined` no se manda.
 async function subir(ruta, campos, { pdf = false } = {}, perfil = 'ADMINISTRADOR') {
   const form = new FormData();
-  for (const [clave, valor] of Object.entries(campos)) form.append(clave, valor);
+  const conTipo = campos.tipoDocumentoId === LICENCIA && !('tipoLicencia' in campos) ? { ...campos, tipoLicencia: 'D2_PROVINCIAL' } : campos;
+  for (const [clave, valor] of Object.entries(conTipo)) if (valor !== undefined) form.append(clave, valor);
   if (pdf) form.append('archivo', new Blob(['%PDF-1.4 prueba'], { type: 'application/pdf' }), 'poliza.pdf');
   return leer(
     await fetch(`${base}${ruta}`, { method: 'POST', headers: { Authorization: `Bearer ${tokenDe(perfil)}` }, body: form })
@@ -995,5 +998,51 @@ describe('EXAMEN_PSICOFISICO ya no existe', () => {
     const sql = require('node:fs').readFileSync(path.join(migraciones, carpeta, 'migration.sql'), 'utf8');
     assert.ok(sql.indexOf('DELETE FROM "documentos"') < sql.indexOf('DELETE FROM "tipos_documento"'));
     assert.ok(sql.includes("'EXAMEN_PSICOFISICO'"));
+  });
+});
+
+describe('Tipo de carnet de la licencia (SCRUM-255)', () => {
+  const subirLicencia = (campos = {}, opciones = { pdf: true }) =>
+    subir('/choferes/5', { tipoDocumentoId: LICENCIA, fechaVencimiento: VENCE, ...campos }, opciones);
+
+  test('es obligatorio en la licencia: sin tipo, 400 en el campo y no se guarda nada', async () => {
+    const { status, json } = await subirLicencia({ tipoLicencia: undefined });
+    assert.equal(status, 400);
+    assert.equal(json.errores.tipoLicencia, 'Elegí el tipo de carnet.');
+    assert.equal(documentos.length, 0);
+  });
+
+  test('un tipo que no es de la lista: 400', async () => {
+    const { status, json } = await subirLicencia({ tipoLicencia: 'D1' });
+    assert.equal(status, 400);
+    assert.equal(json.errores.tipoLicencia, 'El tipo de carnet no es válido.');
+  });
+
+  test('con un tipo válido se guarda y vuelve en la carpeta y en el historial', async () => {
+    const alta = await subirLicencia({ tipoLicencia: 'D2_MUNICIPAL' });
+    assert.equal(alta.status, 201);
+    assert.equal(alta.json.documento.tipoLicencia, 'D2_MUNICIPAL');
+    assert.equal((await vigenteDeLaCarpeta('/choferes/5', LICENCIA)).tipoLicencia, 'D2_MUNICIPAL');
+    const historial = await pedir('GET', `/choferes/5/tipos/${LICENCIA}/historial`);
+    assert.equal(historial.json.historial[0].tipoLicencia, 'D2_MUNICIPAL');
+  });
+
+  test('en otro tipo de documento se ignora: queda null', async () => {
+    const dni = await subir('/choferes/5', { tipoDocumentoId: 5, fechaVencimiento: VENCE, tipoLicencia: 'D2_MUNICIPAL' }, { pdf: true });
+    assert.equal(dni.status, 201);
+    assert.equal(dni.json.documento.tipoLicencia, null);
+  });
+
+  test('renovar cambiando solo el tipo crea una versión nueva (con el mismo PDF); sin cambios, 400', async () => {
+    await subirLicencia({ tipoLicencia: 'D2_MUNICIPAL' });
+    const igual = await subirLicencia({ tipoLicencia: 'D2_MUNICIPAL' }, {});
+    assert.equal(igual.status, 400);
+    assert.equal(igual.json.error, 'No hay cambios para guardar');
+
+    const otroTipo = await subirLicencia({ tipoLicencia: 'CARNET_NACIONAL' }, {});
+    assert.equal(otroTipo.status, 201);
+    const { json } = await pedir('GET', `/choferes/5/tipos/${LICENCIA}/historial`);
+    assert.deepEqual(json.historial.map((v) => v.tipoLicencia), ['CARNET_NACIONAL', 'D2_MUNICIPAL']);
+    assert.equal(json.historial[0].archivoPath, json.historial[1].archivoPath);
   });
 });

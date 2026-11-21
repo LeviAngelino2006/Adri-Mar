@@ -7,7 +7,9 @@ Formulario para crear o editar un vehículo (`FlotaVehiculos.jsx`). Patrón de p
 1. Número de interno | Dominio
 2. Marca | Modelo
 3. Tipo de vehículo | Año
-4. Cantidad de asientos | Kilometraje actual
+4. Alta: Cantidad de asientos | Kilometraje actual. Al editar: Cantidad de asientos | Adquirido usado.
+5. Alta: Km del último service | Adquirido usado. Al editar (sin Km del último service): Kilometraje actual (solo lectura) solo en su fila, en la columna izquierda.
+   - El switch va en `.form-field.switch-field.switch-field-par` (ver `Switch`): ocupa una celda de la grilla, alineado con el control de al lado, no toda la fila. Su ayuda va en el tooltip junto al label y, si hay error, baja a su propia línea.
 
 ## Obligatorios y hints
 - Todos los campos llevan `required` en `FormField` (asterisco rojo): `vehiculoService` los exige todos.

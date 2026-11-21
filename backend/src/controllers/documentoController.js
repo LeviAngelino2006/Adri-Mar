@@ -38,10 +38,10 @@ function crearHandlers(categoria, param) {
 
     async registrar(req, res, next) {
       try {
-        const { tipoDocumentoId, fechaEmision, fechaVencimiento, observaciones } = req.body ?? {};
+        const { tipoDocumentoId, fechaEmision, fechaVencimiento, observaciones, tipoLicencia } = req.body ?? {};
         const documento = await documentoService.registrarDocumento(
           titularDe(req),
-          { tipoDocumentoId, fechaEmision, fechaVencimiento, observaciones },
+          { tipoDocumentoId, fechaEmision, fechaVencimiento, observaciones, tipoLicencia },
           req.file,
           req.usuario.id
         );

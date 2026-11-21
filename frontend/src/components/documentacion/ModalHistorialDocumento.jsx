@@ -5,7 +5,7 @@ import Button from '../ui/Button';
 import EstadoBadge from '../ui/EstadoBadge';
 import Cargando from '../ui/Cargando';
 import ModalMarco from './ModalMarco';
-import { etiquetaTipoDocumento } from '../../constants/tiposDocumento';
+import { TIPO_LICENCIA_CONDUCIR, etiquetaTipoDocumento, etiquetaTipoLicencia } from '../../constants/tiposDocumento';
 import { formatearFechaCorta } from '../../utils/documentacion';
 
 // Versiones de un documento, de la más nueva a la más vieja (el backend guarda la
@@ -56,6 +56,8 @@ function ModalHistorialDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, o
                   <EstadoBadge tono={version.esVigente ? 'success' : 'neutral'} size="sm">
                     {version.esVigente ? 'Vigente' : 'Anterior'}
                   </EstadoBadge>{' '}
+                  {/* La licencia muestra el carnet de cada versión (SCRUM-255). */}
+                  {tipoDocumento.descripcion === TIPO_LICENCIA_CONDUCIR && `${etiquetaTipoLicencia(version.tipoLicencia)} · `}
                   {version.fechaVencimiento
                     ? `Vence el ${formatearFechaCorta(version.fechaVencimiento)}`
                     : 'Sin vencimiento'}

@@ -36,6 +36,7 @@ let raiz;
 const enviados = [];
 
 const POLIZA = { id: 1, descripcion: 'POLIZA_SEGURO', requiereVencimiento: true, requiereArchivo: true };
+const LICENCIA = { id: 4, descripcion: 'LICENCIA_CONDUCIR', requiereVencimiento: true, requiereArchivo: true };
 const VIGENTE = {
   id: 30, fechaEmision: '2026-03-01T15:00:00.000Z', fechaVencimiento: '2027-03-01T15:00:00.000Z',
   observaciones: null, nombreArchivo: 'poliza.pdf', creadoEn: '2026-03-02T13:00:00.000Z',
@@ -66,13 +67,13 @@ afterEach(() => {
   contenedor.remove();
 });
 
-async function montar(documentoActual) {
+async function montar(documentoActual, tipoDocumento = POLIZA) {
   await act(async () => {
     raiz.render(
       h(ModalSubirDocumento, {
         subtitulo: '12 - AE452KD',
-        vehiculo: { id: 4 },
-        tipoDocumento: POLIZA,
+        ...(tipoDocumento === LICENCIA ? { chofer: { id: 5 } } : { vehiculo: { id: 4 } }),
+        tipoDocumento,
         documentoActual,
         onClose() {},
         onSuccess() {},
@@ -127,6 +128,49 @@ describe('Actualizar un documento', () => {
   });
 });
 
+describe('Tipo de carnet de la licencia (SCRUM-255)', () => {
+  const elegir = (select, valor) =>
+    act(() => {
+      Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set.call(select, valor);
+      select.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+  const selectTipo = () => document.querySelector('#documento-tipo-licencia');
+
+  test('solo la licencia pregunta el tipo de carnet', async () => {
+    await montar(undefined);
+    assert.equal(selectTipo(), null);
+    act(() => raiz.unmount());
+    raiz = createRoot(contenedor);
+    await montar(undefined, LICENCIA);
+    assert.deepEqual(
+      [...selectTipo().options].map((o) => o.textContent),
+      ['Elegí el tipo de carnet', 'D2 Municipal', 'D2 Provincial', 'Carnet nacional']
+    );
+  });
+
+  test('es obligatorio: sin elegirlo no se manda; elegido, va en el pedido', async () => {
+    await montar(undefined, LICENCIA);
+    escribir(document.querySelector('#documento-fecha-vencimiento'), '2028-03-01');
+    await act(async () => guardar().click());
+    assert.equal(enviados.length, 0);
+    assert.equal(document.querySelector('#documento-tipo-licencia-error')?.textContent, 'Elegí el tipo de carnet.');
+
+    elegir(selectTipo(), 'D2_PROVINCIAL');
+    assert.equal(document.querySelector('#documento-tipo-licencia-error'), null);
+  });
+
+  test('al actualizar arranca con el de la vigente, y cambiar solo el tipo habilita "Guardar"', async () => {
+    await montar({ ...VIGENTE, tipoLicencia: 'D2_MUNICIPAL' }, LICENCIA);
+    assert.equal(selectTipo().value, 'D2_MUNICIPAL');
+    assert.equal(guardar().disabled, true);
+    elegir(selectTipo(), 'CARNET_NACIONAL');
+    assert.equal(guardar().disabled, false);
+    await act(async () => guardar().click());
+    assert.equal(enviados[0].endpoint, '/documentos/choferes/5');
+    assert.equal(enviados[0].campos.tipoLicencia, 'CARNET_NACIONAL');
+  });
+});
+
 describe('hayCambiosEnActualizacion', () => {
   const sinTocar = { archivo: null, fechaEmision: '2026-03-01', fechaVencimiento: '2027-03-01', observaciones: '' };
 
@@ -139,6 +183,14 @@ describe('hayCambiosEnActualizacion', () => {
     assert.equal(hayCambiosEnActualizacion(VIGENTE, { ...sinTocar, fechaEmision: '' }, true), true);
     assert.equal(hayCambiosEnActualizacion(VIGENTE, { ...sinTocar, fechaVencimiento: '2027-04-01' }, true), true);
     assert.equal(hayCambiosEnActualizacion(VIGENTE, { ...sinTocar, observaciones: 'Nueva' }, true), true);
+  });
+
+  test('el tipo de carnet cuenta solo si se pasa (licencia); una licencia de antes arranca sin tipo', () => {
+    const licencia = { ...VIGENTE, tipoLicencia: 'D2_MUNICIPAL' };
+    assert.equal(hayCambiosEnActualizacion(licencia, { ...sinTocar, tipoLicencia: 'D2_MUNICIPAL' }, true), false);
+    assert.equal(hayCambiosEnActualizacion(licencia, { ...sinTocar, tipoLicencia: 'D2_PROVINCIAL' }, true), true);
+    assert.equal(hayCambiosEnActualizacion(VIGENTE, { ...sinTocar, tipoLicencia: '' }, true), false);
+    assert.equal(hayCambiosEnActualizacion(VIGENTE, sinTocar, true), false);
   });
 
   test('si el tipo no tiene vencimiento, esa fecha no cuenta', () => {

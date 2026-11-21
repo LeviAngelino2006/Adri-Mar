@@ -111,7 +111,7 @@ Para cada documento reglamentario, el sistema calcula dinámicamente su estado:
 ### 4.3. Documentos de Choferes (`DocumentoChofer`)
 | Tipo de Documento | Requiere Vencimiento | Requiere Archivo PDF | Observaciones |
 | :--- | :---: | :---: | :--- |
-| **Licencia de conducir profesional** | Sí | Sí | Carnet habilitante profesional con categoría de pasajeros |
+| **Licencia de conducir profesional** | Sí | Sí | Carnet habilitante profesional con categoría de pasajeros. Cada versión lleva su **tipo de carnet** (obligatorio al cargarla): D2 Municipal, D2 Provincial o Carnet nacional (`documentos.tipo_licencia`, migración `20261121130000_documento_tipo_licencia`, SCRUM-255). Las licencias cargadas antes quedan "sin especificar" hasta la próxima versión |
 | **DNI del chofer** | Sí | Sí | Identificación oficial. Pasó a tener vencimiento en la migración `20261011120000_dni_chofer_con_vencimiento` |
 
 > El **Examen psicofísico** existió como tipo de documento y se eliminó en la migración `20261009044602_dias_aviso_tipos_documento`.
