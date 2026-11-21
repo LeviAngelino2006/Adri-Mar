@@ -266,6 +266,36 @@ function FlotaVehiculos() {
     }
   }
 
+  // Switch "Adquirido usado": ocupa una celda de la grilla, en par con el campo
+  // de al lado (SCRUM-253). Su lugar cambia entre el alta y la edición.
+  const campoAdquiridoUsado = (
+    <div className="form-field switch-field switch-field-par">
+      <div className="form-field-label-fila">
+        <label htmlFor="adquiridoUsado" className="switch-field-label">
+          <Switch
+            id="adquiridoUsado"
+            name="adquiridoUsado"
+            checked={form.adquiridoUsado}
+            onChange={handleFormChange}
+            aria-describedby={
+              erroresForm.adquiridoUsado ? 'adquiridoUsado-ayuda adquiridoUsado-error' : 'adquiridoUsado-ayuda'
+            }
+          />
+          Adquirido usado
+        </label>
+        <AyudaTooltip
+          id="adquiridoUsado-ayuda"
+          texto="Se compró usado: no se conoce su historial de mantenimiento anterior a la incorporación."
+        />
+      </div>
+      {erroresForm.adquiridoUsado && (
+        <p id="adquiridoUsado-error" className="form-field-error" role="alert">
+          {erroresForm.adquiridoUsado}
+        </p>
+      )}
+    </div>
+  );
+
   return (
     <Layout>
       {!mostrarForm && !seleccionado && (
@@ -349,6 +379,10 @@ function FlotaVehiculos() {
                   />
                 </FormField>
 
+                {/* Adquirido usado ocupa una celda de la grilla (SCRUM-253): al editar
+                    va al lado de Cantidad de asientos; al crear, al lado de Km del último service. */}
+                {editando && campoAdquiridoUsado}
+
                 {editando ? (
                   // Solo lectura: el kilometraje lo actualizan las lecturas del
                   // odómetro (al comenzar y finalizar cada viaje), no este formulario.
@@ -393,33 +427,7 @@ function FlotaVehiculos() {
                   </>
                 )}
 
-                {/* En par con el campo de al lado (Km del último service al crear),
-                    como los demás campos de la grilla (SCRUM-253). */}
-                <div className="form-field switch-field switch-field-par">
-                  <div className="form-field-label-fila">
-                    <label htmlFor="adquiridoUsado" className="switch-field-label">
-                      <Switch
-                        id="adquiridoUsado"
-                        name="adquiridoUsado"
-                        checked={form.adquiridoUsado}
-                        onChange={handleFormChange}
-                        aria-describedby={
-                          erroresForm.adquiridoUsado ? 'adquiridoUsado-ayuda adquiridoUsado-error' : 'adquiridoUsado-ayuda'
-                        }
-                      />
-                      Adquirido usado
-                    </label>
-                    <AyudaTooltip
-                      id="adquiridoUsado-ayuda"
-                      texto="Se compró usado: no se conoce su historial de mantenimiento anterior a la incorporación."
-                    />
-                  </div>
-                  {erroresForm.adquiridoUsado && (
-                    <p id="adquiridoUsado-error" className="form-field-error" role="alert">
-                      {erroresForm.adquiridoUsado}
-                    </p>
-                  )}
-                </div>
+                {!editando && campoAdquiridoUsado}
               </div>
 
               {erroresForm.general && <Alert variant="error">{erroresForm.general}</Alert>}
