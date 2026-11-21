@@ -28,6 +28,11 @@
   margin: 0;
 }
 
+/* Aviso del modal "Restablecer contraseña": queda provisoria. */
+.usuarios-restablecer-aviso {
+  margin: 0;
+}
+
 /* Aviso del modal de desactivar: la persona sigue en Personal. */
 .usuarios-aviso-persona {
   margin: var(--space-2) 0 0;

@@ -25,6 +25,8 @@ const { PersonaDadaDeBajaError } = personaService;
 
 const BLOQUEAR_PROPIA_CUENTA = 'No podés bloquear tu propia cuenta';
 const CREDENCIALES_DE_ENCARGADO = 'Solo un Administrador puede cambiar el usuario o la contraseña de un Encargado.';
+const CONTRASENA_POR_RESTABLECER = 'La contraseña se cambia con Restablecer contraseña';
+const RESTABLECER_LA_PROPIA = 'Para tu propia cuenta usá Cambiar mi contraseña.';
 
 const INCLUDE_USUARIO = {
   estadoUsuario: true,
@@ -62,6 +64,8 @@ function serializarUsuario(usuario) {
     activo: usuario.estadoUsuario?.descripcion === 'ACTIVO',
     // La contraseña actual la puso un gestor y todavía no la cambió su dueño.
     debeCambiarContrasena: Boolean(usuario.debeCambiarContrasena),
+    // Último login exitoso; null si no ingresó desde que se registra (SCRUM-257).
+    ultimoIngreso: usuario.ultimoIngreso ?? null,
     creadoEn: usuario.creadoEn,
     persona: {
       id: p.id,
@@ -216,25 +220,37 @@ async function crearUsuario(
   return serializarUsuario(usuario);
 }
 
+// Reglas de quién puede tocar las credenciales de una cuenta (nombre de usuario
+// o contraseña). Un Encargado no toca la cuenta de un Administrador, y tampoco
+// la de otro Encargado (H4: si pudiera, se quedaría con esa cuenta). La cuenta
+// de una persona dada de baja es de solo consulta (H10, H12).
+function verificarPermisoCredenciales(actual, perfilSolicitante, { cambiaCredenciales }) {
+  const perfilCuenta = actual.persona?.perfil?.descripcion;
+  if (perfilSolicitante === 'ENCARGADO' && perfilCuenta === 'ADMINISTRADOR') {
+    throw new PermisoDenegadoError();
+  }
+  if (perfilSolicitante === 'ENCARGADO' && perfilCuenta === 'ENCARGADO' && cambiaCredenciales) {
+    throw new PermisoDenegadoError(CREDENCIALES_DE_ENCARGADO);
+  }
+}
+
 async function actualizarUsuario(
   id,
   { nombreUsuario, contrasena, activo },
   { perfilSolicitante, personaIdSolicitante } = {}
 ) {
+  // La contraseña tiene su propia acción (SCRUM-258): un solo camino, con sus
+  // reglas (provisoria, nunca la propia).
+  if (contrasena !== undefined) {
+    throw new ValidacionError({ contrasena: CONTRASENA_POR_RESTABLECER });
+  }
+
   const actual = await obtenerUsuario(id);
 
-  if (perfilSolicitante === 'ENCARGADO' && actual.persona?.perfil?.descripcion === 'ADMINISTRADOR') {
-    throw new PermisoDenegadoError();
-  }
-  // Un Encargado no toma la cuenta de otro (H4): el nombre de usuario y la
-  // contraseña de una cuenta de Encargado solo los cambia un Administrador. El
-  // resto de lo que un Encargado puede hacer sobre otro queda como estaba.
-  if (perfilSolicitante === 'ENCARGADO' && actual.persona.perfil.descripcion === 'ENCARGADO') {
-    const cambiaNombreUsuario = nombreUsuario !== undefined && String(nombreUsuario).trim() !== actual.nombreUsuario;
-    if (cambiaNombreUsuario || contrasena !== undefined) {
-      throw new PermisoDenegadoError(CREDENCIALES_DE_ENCARGADO);
-    }
-  }
+  // El resto de lo que un Encargado puede hacer sobre otro Encargado queda como
+  // estaba: solo el nombre de usuario está protegido.
+  const cambiaNombreUsuario = nombreUsuario !== undefined && String(nombreUsuario).trim() !== actual.nombreUsuario;
+  verificarPermisoCredenciales(actual, perfilSolicitante, { cambiaCredenciales: cambiaNombreUsuario });
   if (activo === false && actual.personaId === personaIdSolicitante) {
     throw new personaService.AccionSobreSiMismoError(BLOQUEAR_PROPIA_CUENTA);
   }
@@ -245,19 +261,11 @@ async function actualizarUsuario(
     throw new PersonaDadaDeBajaError();
   }
 
-  const creds = validarCredenciales({ nombreUsuario, contrasena }, { requireContrasena: false });
+  const creds = validarCredenciales({ nombreUsuario }, { requireContrasena: false });
 
   const data = {
     nombreUsuario: creds.nombreUsuario,
   };
-
-  // Ya validada: si vino, se cambia. Si se la cambia un gestor a otra persona,
-  // es provisoria (H11): la sabe quien la escribió, así que su dueño la tiene
-  // que cambiar en su próximo pedido. La propia, no.
-  if (contrasena !== undefined) {
-    data.contrasenaHash = await bcrypt.hash(contrasena, SALT_ROUNDS);
-    data.debeCambiarContrasena = actual.personaId !== personaIdSolicitante;
-  }
 
   if (typeof activo === 'boolean') {
     const descEstado = activo ? 'ACTIVO' : 'INACTIVO';
@@ -284,6 +292,37 @@ async function actualizarUsuario(
     throw err;
   }
 
+  return serializarUsuario(usuario);
+}
+
+// Restablecer la contraseña de OTRA cuenta (SCRUM-258): un gestor escribe una
+// nueva, sin la actual y sin mail. Queda provisoria (H11): la sabe quien la
+// escribió, así que su dueño la tiene que cambiar al entrar; las sesiones que
+// ya tenga abiertas también quedan frenadas (middlewares/auth.js lee
+// debeCambiarContrasena de la base en cada pedido). La propia no se restablece:
+// para eso está "Cambiar mi contraseña" (PUT /auth/contrasena), que pide la actual.
+async function restablecerContrasena(id, { contrasenaNueva }, { perfilSolicitante, personaIdSolicitante } = {}) {
+  const actual = await obtenerUsuario(id);
+
+  verificarPermisoCredenciales(actual, perfilSolicitante, { cambiaCredenciales: true });
+  if (actual.personaId === personaIdSolicitante) {
+    throw new personaService.AccionSobreSiMismoError(RESTABLECER_LA_PROPIA);
+  }
+  if (!actual.persona.activo) {
+    throw new PersonaDadaDeBajaError();
+  }
+
+  const error =
+    contrasenaNueva === undefined || contrasenaNueva === null || contrasenaNueva === ''
+      ? 'La contraseña nueva es obligatoria'
+      : validarContrasena(contrasenaNueva);
+  if (error) throw new ValidacionError({ contrasenaNueva: error });
+
+  const usuario = await prisma.usuario.update({
+    where: { id: actual.id },
+    data: { contrasenaHash: await bcrypt.hash(contrasenaNueva, SALT_ROUNDS), debeCambiarContrasena: true },
+    include: INCLUDE_USUARIO,
+  });
   return serializarUsuario(usuario);
 }
 
@@ -383,6 +422,7 @@ module.exports = {
   crearUsuario,
   listarUsuarios,
   actualizarUsuario,
+  restablecerContrasena,
   darDeBajaUsuario,
   reactivarUsuario,
   obtenerUsuario,

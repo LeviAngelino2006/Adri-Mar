@@ -2,11 +2,12 @@
 // docs/auditoria-ux/personal-usuarios.md): nadie se da de baja, se bloquea la
 // cuenta ni se cambia el perfil a sí mismo. En la ficha propia no aparecen "Dar
 // de baja" ni "Desactivar acceso", y al editarse a sí mismo el perfil queda de
-// solo lectura con el motivo. Y un Encargado no ve "Modificar credenciales" en la
-// cuenta de un Encargado (H4). Al editar una cuenta, una contraseña de solo
-// espacios se manda y el error del backend sale en el campo (H12). Y al guardar
-// una persona, un 409 muestra el motivo que da el backend (H7, tanda 2). Se
-// corren con `npm test`.
+// solo lectura con el motivo. Y un Encargado no ve "Editar usuario" en la
+// cuenta de un Encargado (H4). La ficha de una cuenta muestra solo lo de acceso
+// (SCRUM-257) y "Restablecer contraseña" sigue las reglas de H4, nunca sobre la
+// propia (SCRUM-258); al editar ya no hay contraseña. Y al guardar una persona,
+// un 409 muestra el motivo que da el backend (H7, tanda 2). Se corren con
+// `npm test`.
 //
 // Se montan Personal y Usuarios con react-dom/client sobre jsdom; la API se
 // reemplaza por un doble.
@@ -80,6 +81,7 @@ const USUARIOS = PERSONAS.map((p) => ({
   habilitadoParaConducir: p.habilitadoParaConducir,
   activo: true,
   creadoEn: p.creadoEn,
+  ultimoIngreso: p.id === 14 ? '2026-11-21T20:40:00.000Z' : null,
 }));
 
 before(async () => {
@@ -112,6 +114,17 @@ before(async () => {
       throw err;
     }
     return { data: {} };
+  };
+  // Restablecer contraseña: devuelve la cuenta provisoria, como el backend.
+  api.patch = async (endpoint, datos) => {
+    enviados.push({ endpoint, datos });
+    if (datos.contrasenaNueva === 'RechazadaPorElBackend') {
+      const err = new Error('400');
+      err.response = { status: 400, data: { errores: { contrasenaNueva: 'Mensaje del backend' } } };
+      throw err;
+    }
+    const id = Number(endpoint.split('/')[2]);
+    return { data: { usuario: { ...USUARIOS.find((u) => u.id === id), debeCambiarContrasena: true } } };
   };
   ({ MemoryRouter } = await import('react-router-dom'));
   ({ AuthProvider } = await vite.ssrLoadModule('/src/context/AuthContext.jsx'));
@@ -235,58 +248,137 @@ describe('Usuarios: la cuenta propia', () => {
   });
 });
 
-describe('Usuarios: las credenciales de un Encargado (H4)', () => {
-  test('Diego (Encargado) no ve "Modificar credenciales" en la cuenta de Lucía (Encargada)', async () => {
+describe('Usuarios: la ficha muestra solo lo de acceso (SCRUM-257)', () => {
+  // Pares de la ficha: { "Nombre de usuario": "@racosta", … }.
+  const datos = () =>
+    Object.fromEntries(
+      [...contenedor.querySelectorAll('.detalle-grid .detalle-item')].map((item) => [
+        item.querySelector('dt').textContent,
+        item.querySelector('dd').textContent.trim(),
+      ])
+    );
+
+  test('usuario, perfil, estado, último ingreso y la persona vinculada; sin datos personales', async () => {
+    await montar(Usuarios, '/usuarios?id=14');
+    assert.deepEqual(datos(), {
+      'Nombre de usuario': '@racosta',
+      Perfil: 'Chofer',
+      Estado: 'Activo',
+      'Último ingreso': '21 nov 2026 17:40',
+      'Persona vinculada': 'Ramiro Acosta',
+    });
+    assert.equal(contenedor.querySelector('.detalle-grid a').getAttribute('href'), '/personal?id=14');
+    assert.doesNotMatch(contenedor.textContent, /DNI|Teléfono|Email|Habilitado para conducir/);
+  });
+
+  test('sin ingresos registrados: "Sin registro"', async () => {
     await montar(Usuarios, '/usuarios?id=3');
-    assert.ok(!botones().includes('Modificar credenciales'));
+    assert.equal(datos()['Último ingreso'], 'Sin registro');
+  });
+
+  test('las tarjetas del listado no muestran el DNI', async () => {
+    await montar(Usuarios, '/usuarios');
+    assert.doesNotMatch(contenedor.querySelector('.listado-cards').textContent, /DNI/);
+  });
+});
+
+describe('Usuarios: editar el nombre de usuario de un Encargado (H4)', () => {
+  test('Diego (Encargado) no ve "Editar usuario" en la cuenta de Lucía (Encargada)', async () => {
+    await montar(Usuarios, '/usuarios?id=3');
+    assert.ok(!botones().includes('Editar usuario'));
   });
 
   test('ni en la suya', async () => {
     await montar(Usuarios, '/usuarios?id=4');
-    assert.ok(!botones().includes('Modificar credenciales'));
+    assert.ok(!botones().includes('Editar usuario'));
   });
 
   test('sí en la cuenta de un Chofer', async () => {
     await montar(Usuarios, '/usuarios?id=14');
-    assert.ok(botones().includes('Modificar credenciales'));
+    assert.ok(botones().includes('Editar usuario'));
   });
 
   test('una Administradora sí la ve en la cuenta de un Encargado', async () => {
     logueado = ADRIANA;
     localStorage.setItem('adrimar_usuario', JSON.stringify(ADRIANA));
     await montar(Usuarios, '/usuarios?id=3');
-    assert.ok(botones().includes('Modificar credenciales'));
+    assert.ok(botones().includes('Editar usuario'));
   });
-});
 
-describe('Usuarios: la contraseña al editar (H12)', () => {
-  function escribir(input, texto) {
-    const asignarValue = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    act(() => {
-      asignarValue.call(input, texto);
-      input.dispatchEvent(new window.Event('input', { bubbles: true }));
-    });
-  }
-
-  async function editarCuentaDeRamiro(contrasena) {
+  test('al editar no hay contraseña: solo se manda el nombre de usuario', async () => {
     logueado = ADRIANA;
     localStorage.setItem('adrimar_usuario', JSON.stringify(ADRIANA));
     await montar(Usuarios, '/usuarios?id=14');
-    await act(async () => boton('Modificar credenciales').click());
-    if (contrasena !== undefined) escribir(contenedor.querySelector('input[name="contrasena"]'), contrasena);
+    await act(async () => boton('Editar usuario').click());
+    assert.equal(contenedor.querySelector('input[name="contrasena"]'), null);
+    assert.doesNotMatch(contenedor.textContent, /Dejar en blanco/);
     await act(async () => boton('Guardar cambios').click());
-  }
+    assert.deepEqual(enviados, [{ endpoint: '/usuarios/14', datos: { nombreUsuario: 'racosta' } }]);
+  });
+});
 
-  test('solo espacios se manda y el error del backend sale en el campo', async () => {
-    await editarCuentaDeRamiro('     ');
-    assert.equal(enviados.length, 1);
-    assert.equal(enviados[0].datos.contrasena, '     ');
-    assert.equal(contenedor.querySelector('#contrasena-error')?.textContent, 'La contraseña no puede tener solo espacios');
+describe('Usuarios: "Restablecer contraseña" (SCRUM-258)', () => {
+  test('un Encargado la ve en la cuenta de un Chofer, no en la de otro Encargado ni en la suya', async () => {
+    await montar(Usuarios, '/usuarios?id=14');
+    assert.ok(botones().includes('Restablecer contraseña'));
+    act(() => raiz.unmount());
+    raiz = createRoot(contenedor);
+    await montar(Usuarios, '/usuarios?id=3');
+    assert.ok(!botones().includes('Restablecer contraseña'));
+    act(() => raiz.unmount());
+    raiz = createRoot(contenedor);
+    await montar(Usuarios, '/usuarios?id=4');
+    assert.ok(!botones().includes('Restablecer contraseña'));
   });
 
-  test('vacía no se manda: es no cambiarla', async () => {
-    await editarCuentaDeRamiro();
-    assert.equal(enviados.length, 1);
-    assert.equal('contrasena' in enviados[0].datos, false);
+  test('una Administradora la ve en la cuenta de un Encargado', async () => {
+    logueado = ADRIANA;
+    localStorage.setItem('adrimar_usuario', JSON.stringify(ADRIANA));
+    await montar(Usuarios, '/usuarios?id=3');
+    assert.ok(botones().includes('Restablecer contraseña'));
+  });
+
+  test('abre el modal, valida, manda la nueva y avisa que queda provisoria', async () => {
+    await montar(Usuarios, '/usuarios?id=14');
+    await act(async () => boton('Restablecer contraseña').click());
+    const modal = contenedor.querySelector('[role="dialog"]');
+    assert.ok(modal);
+    assert.match(modal.textContent, /@racosta va a tener que cambiarla la próxima vez que ingrese/);
+
+    const escribir = (input, texto) =>
+      act(() => {
+        Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, texto);
+        input.dispatchEvent(new window.Event('input', { bubbles: true }));
+      });
+    const enviar = () =>
+      act(async () => modal.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })));
+
+    escribir(modal.querySelector('input[name="contrasenaNueva"]'), 'Provisoria1');
+    escribir(modal.querySelector('input[name="repetirContrasena"]'), 'Otra-cosa1');
+    await enviar();
+    assert.equal(enviados.length, 0);
+    assert.equal(contenedor.querySelector('#restablecer-contrasena-repetir-error')?.textContent, 'Las contraseñas no coinciden');
+
+    escribir(modal.querySelector('input[name="repetirContrasena"]'), 'Provisoria1');
+    await enviar();
+    assert.deepEqual(enviados, [{ endpoint: '/usuarios/14/contrasena', datos: { contrasenaNueva: 'Provisoria1' } }]);
+    assert.equal(contenedor.querySelector('[role="dialog"]'), null);
+    assert.match(contenedor.textContent, /Contraseña restablecida\. @racosta la va a cambiar al ingresar\./);
+  });
+
+  test('el error del backend sale en el campo y el modal sigue abierto', async () => {
+    await montar(Usuarios, '/usuarios?id=14');
+    await act(async () => boton('Restablecer contraseña').click());
+    const modal = contenedor.querySelector('[role="dialog"]');
+    for (const nombre of ['contrasenaNueva', 'repetirContrasena']) {
+      const input = modal.querySelector(`input[name="${nombre}"]`);
+      act(() => {
+        Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, 'RechazadaPorElBackend');
+        input.dispatchEvent(new window.Event('input', { bubbles: true }));
+      });
+    }
+    await act(async () => modal.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })));
+    assert.equal(contenedor.querySelector('#restablecer-contrasena-nueva-error')?.textContent, 'Mensaje del backend');
+    assert.ok(contenedor.querySelector('[role="dialog"]'));
   });
 });

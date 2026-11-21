@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
@@ -14,8 +14,9 @@ import ConfirmModal from '../components/ui/ConfirmModal';
 import { PERFILES, PERFIL_COLORS } from '../constants/perfiles';
 import EstadoBadge from '../components/ui/EstadoBadge';
 import { ListadoCard, ListadoHeader, ListadoToolbar } from '../components/Listado';
-import { formatearDni, formatearFechaCorta } from '../utils/viajeFormato';
+import { formatearDni, formatearFechaCorta, formatearHora } from '../utils/viajeFormato';
 import { useOrigenEdicion } from '../hooks/useOrigenEdicion';
+import ModalRestablecerContrasena from '../components/usuarios/ModalRestablecerContrasena';
 import './Usuarios.css';
 
 const ICONO_ALERTA = (
@@ -40,6 +41,27 @@ function perfilLabel(perfil) {
   return PERFILES.find((p) => p.value === perfil)?.label ?? perfil;
 }
 
+// "21 nov 2026 17:40" en hora de Córdoba; "Sin registro" si no ingresó desde
+// que se registra el último ingreso.
+function textoUltimoIngreso(valor) {
+  return valor ? `${formatearFechaCorta(valor)} ${formatearHora(valor)}` : 'Sin registro';
+}
+
+// El nombre de usuario de un Encargado solo lo cambia un Administrador (H4; el
+// backend lo rechaza).
+function puedeEditar(solicitante, cuenta) {
+  return !(solicitante.perfil === 'ENCARGADO' && cuenta.perfil === 'ENCARGADO');
+}
+
+// Restablecer la contraseña (SCRUM-258): nunca la propia (para eso está "Cambiar
+// mi contraseña"); un Administrador la de cualquiera y un Encargado solo la de
+// Personal de taller y Choferes (H4). Mismas reglas que el backend.
+function puedeRestablecer(solicitante, cuenta) {
+  if (cuenta.personaId === solicitante.personaId) return false;
+  if (solicitante.perfil === 'ADMINISTRADOR') return true;
+  return solicitante.perfil === 'ENCARGADO' && ['PERSONAL_TALLER', 'CHOFER'].includes(cuenta.perfil);
+}
+
 function ordenarPorPerfil(usuarios) {
   return [...usuarios].sort(
     (a, b) => PERFILES.findIndex((p) => p.value === a.perfil) - PERFILES.findIndex((p) => p.value === b.perfil)
@@ -47,7 +69,6 @@ function ordenarPorPerfil(usuarios) {
 }
 
 function Usuarios() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const idDesdeQuery = searchParams.get('id');
   const crearConPersonaId = searchParams.get('crearConPersonaId');
@@ -60,6 +81,7 @@ function Usuarios() {
   const [busqueda, setBusqueda] = useState('');
   const [seleccionado, setSeleccionado] = useState(null);
   const [confirmandoBaja, setConfirmandoBaja] = useState(false);
+  const [restableciendo, setRestableciendo] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [errorBaja, setErrorBaja] = useState('');
 
@@ -170,6 +192,7 @@ function Usuarios() {
     setForm({
       personaId: String(u.personaId || ''),
       nombreUsuario: u.nombreUsuario,
+      // La contraseña no se edita acá: tiene su propia acción (SCRUM-258).
       contrasena: '',
     });
     setErrores({});
@@ -194,19 +217,11 @@ function Usuarios() {
     setEnviando(true);
     try {
       if (editando) {
-        const payload = {
-          nombreUsuario: form.nombreUsuario,
-        };
-        // Vacío es "no cambiarla". Cualquier otra cosa se manda tal cual: si son
-        // solo espacios, el backend lo rechaza y el error sale en el campo (antes
-        // se descartaba en silencio y parecía guardada).
-        if (form.contrasena !== '') {
-          payload.contrasena = form.contrasena;
-        }
+        // Solo el nombre de usuario: la contraseña se restablece aparte.
         // PUT y POST devuelven el usuario serializado igual que el listado:
         // con eso se muestra la ficha actualizada (o la de la cuenta nueva).
-        const { data } = await api.put(`/usuarios/${editando.id}`, payload);
-        setMensaje('Credenciales actualizadas correctamente.');
+        const { data } = await api.put(`/usuarios/${editando.id}`, { nombreUsuario: form.nombreUsuario });
+        setMensaje('Usuario actualizado correctamente.');
         origen.guardado(data.usuario);
       } else {
         const { data } = await api.post('/usuarios', {
@@ -245,7 +260,7 @@ function Usuarios() {
           <button type="button" className="back-link" onClick={cerrarForm}>
             {origen.textoVolver}
           </button>
-          <h1>{editando ? 'Modificar credenciales de acceso' : 'Crear cuenta de acceso al sistema'}</h1>
+          <h1>{editando ? 'Editar usuario' : 'Crear cuenta de acceso al sistema'}</h1>
           <Card className="form-card">
             <form onSubmit={handleSubmit} noValidate>
               <div className="form-grid">
@@ -300,22 +315,24 @@ function Usuarios() {
                   />
                 </FormField>
 
-                <FormField
-                  id="contrasena"
-                  label={editando ? 'Nueva contraseña (opcional)' : 'Contraseña'}
-                  required={!editando}
-                  ayuda={editando ? 'Dejar en blanco para no modificar' : undefined}
-                  hint={editando ? undefined : 'Al menos 8 caracteres'}
-                  error={errores.contrasena}
-                >
-                  <input
-                    name="contrasena"
-                    type="password"
-                    value={form.contrasena}
-                    onChange={handleChange}
-                    autoComplete="new-password"
-                  />
-                </FormField>
+                {!editando && (
+                  <FormField
+                    id="contrasena"
+                    label="Contraseña"
+                    required
+                    hint="Al menos 8 caracteres"
+                    ayuda="Es provisoria: la persona la va a tener que cambiar la primera vez que ingrese."
+                    error={errores.contrasena}
+                  >
+                    <input
+                      name="contrasena"
+                      type="password"
+                      value={form.contrasena}
+                      onChange={handleChange}
+                      autoComplete="new-password"
+                    />
+                  </FormField>
+                )}
               </div>
 
               {errores.general && <Alert variant="error">{errores.general}</Alert>}
@@ -364,7 +381,7 @@ function Usuarios() {
                       </EstadoBadge>
                     }
                     sub={`${u.nombre} ${u.apellido}`}
-                    pie={[perfilLabel(u.perfil), u.dni ? `DNI ${formatearDni(u.dni)}` : ''].filter(Boolean)}
+                    pie={[perfilLabel(u.perfil)]}
                     onClick={() => seleccionar(u)}
                   />
                 );
@@ -392,18 +409,6 @@ function Usuarios() {
           <Card className="detalle-card usuarios-detalle" role="region" aria-label="Ficha del usuario">
             <dl className="detalle-grid">
               <div className="detalle-item">
-                <dt>DNI</dt>
-                <dd>{seleccionado.dni ? formatearDni(seleccionado.dni) : 'No registrado'}</dd>
-              </div>
-              <div className="detalle-item">
-                <dt>Teléfono</dt>
-                <dd>{seleccionado.telefono || 'No registrado'}</dd>
-              </div>
-              <div className="detalle-item detalle-item-ancho">
-                <dt>Email</dt>
-                <dd>{seleccionado.email || 'No registrado'}</dd>
-              </div>
-              <div className="detalle-item">
                 <dt>Nombre de usuario</dt>
                 <dd>@{seleccionado.nombreUsuario}</dd>
               </div>
@@ -412,41 +417,58 @@ function Usuarios() {
                 <dd>{perfilLabel(seleccionado.perfil)}</dd>
               </div>
               <div className="detalle-item">
-                <dt>Habilitado para conducir</dt>
-                <dd>{seleccionado.habilitadoParaConducir ? 'Sí' : 'No'}</dd>
+                <dt>Estado</dt>
+                <dd>{seleccionado.activo ? 'Activo' : 'Inactivo'}</dd>
               </div>
               <div className="detalle-item">
-                <dt>Registrado el</dt>
-                <dd>{formatearFechaCorta(seleccionado.creadoEn)}</dd>
+                <dt>Último ingreso</dt>
+                <dd>{textoUltimoIngreso(seleccionado.ultimoIngreso)}</dd>
+              </div>
+              <div className="detalle-item detalle-item-ancho">
+                <dt>Persona vinculada</dt>
+                <dd>
+                  {/* Los datos personales (DNI, teléfono, email) están en Personal. */}
+                  <Link to={`/personal?id=${seleccionado.personaId}`}>
+                    {seleccionado.nombre} {seleccionado.apellido}
+                  </Link>
+                </dd>
               </div>
             </dl>
 
-            <div className="detalle-acciones">
-              {seleccionado.personaId && (
-                <Button variant="secondary" onClick={() => navigate(`/personal?id=${seleccionado.personaId}`)}>
-                  Ver ficha de personal
-                </Button>
-              )}
-              {seleccionado.activo && (
-                <>
-                  {/* El usuario y la contraseña de un Encargado solo los cambia un
-                      Administrador (el backend lo rechaza). */}
-                  {!(usuarioActual.perfil === 'ENCARGADO' && seleccionado.perfil === 'ENCARGADO') && (
-                    <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
-                      Modificar credenciales
-                    </Button>
-                  )}
-                  {/* La cuenta propia no se bloquea (el backend lo rechaza). */}
-                  {seleccionado.personaId !== usuarioActual.personaId && (
-                    <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
-                      Desactivar acceso
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
+            {seleccionado.activo && (
+              <div className="detalle-acciones">
+                {puedeEditar(usuarioActual, seleccionado) && (
+                  <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>
+                    Editar usuario
+                  </Button>
+                )}
+                {puedeRestablecer(usuarioActual, seleccionado) && (
+                  <Button variant="secondary" onClick={() => setRestableciendo(true)}>
+                    Restablecer contraseña
+                  </Button>
+                )}
+                {/* La cuenta propia no se bloquea (el backend lo rechaza). */}
+                {seleccionado.personaId !== usuarioActual.personaId && (
+                  <Button variant="danger" onClick={() => setConfirmandoBaja(true)}>
+                    Desactivar acceso
+                  </Button>
+                )}
+              </div>
+            )}
           </Card>
         </>
+      )}
+
+      {restableciendo && seleccionado && (
+        <ModalRestablecerContrasena
+          usuario={seleccionado}
+          onClose={() => setRestableciendo(false)}
+          onSuccess={(actualizado) => {
+            setRestableciendo(false);
+            setSeleccionado(actualizado);
+            setMensaje(`Contraseña restablecida. @${actualizado.nombreUsuario} la va a cambiar al ingresar.`);
+          }}
+        />
       )}
 
       <ConfirmModal
