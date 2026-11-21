@@ -4,7 +4,8 @@ import FormField from '../ui/FormField';
 import Alert from '../ui/Alert';
 import ModalMarco from './ModalMarco';
 import api from '../../services/api';
-import { etiquetaTipoDocumento } from '../../constants/tiposDocumento';
+import OpcionVacia from '../ui/OpcionVacia';
+import { TIPO_LICENCIA_CONDUCIR, TIPOS_LICENCIA, etiquetaTipoDocumento } from '../../constants/tiposDocumento';
 import { diasHasta, formatearFechaCorta } from '../../utils/documentacion';
 import { hoyCordobaISO } from '../../utils/fechaCordoba';
 import { aInputFecha, hayCambiosEnActualizacion } from '../../utils/cambiosDocumento';
@@ -31,6 +32,10 @@ function ModalSubirDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, docum
   const [fechaEmision, setFechaEmision] = useState(aInputFecha(documentoActual?.fechaEmision));
   const [fechaVencimiento, setFechaVencimiento] = useState(aInputFecha(documentoActual?.fechaVencimiento));
   const [observaciones, setObservaciones] = useState(documentoActual?.observaciones ?? '');
+  // Solo la licencia: el tipo de carnet de esta versión (SCRUM-255). Al
+  // actualizar arranca con el de la vigente (vacío si es de antes).
+  const esLicencia = tipoDocumento.descripcion === TIPO_LICENCIA_CONDUCIR;
+  const [tipoLicencia, setTipoLicencia] = useState(documentoActual?.tipoLicencia ?? '');
   const [enviando, setEnviando] = useState(false);
   // Un mensaje por campo (archivo, fechaEmision, fechaVencimiento), igual que los
   // `errores` del backend; `error` es el mensaje general.
@@ -43,7 +48,7 @@ function ModalSubirDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, docum
     esActualizacion &&
     !hayCambiosEnActualizacion(
       documentoActual,
-      { archivo, fechaEmision, fechaVencimiento, observaciones },
+      { archivo, fechaEmision, fechaVencimiento, observaciones, tipoLicencia: esLicencia ? tipoLicencia : undefined },
       tipoDocumento.requiereVencimiento
     );
 
@@ -76,6 +81,7 @@ function ModalSubirDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, docum
     } else if (fechaEmision && fechaVencimiento && fechaVencimiento < fechaEmision) {
       nuevos.fechaVencimiento = 'La fecha de vencimiento no puede ser anterior a la fecha de emisión.';
     }
+    if (esLicencia && !tipoLicencia) nuevos.tipoLicencia = 'Elegí el tipo de carnet.';
     return nuevos;
   }
 
@@ -94,6 +100,7 @@ function ModalSubirDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, docum
       if (fechaEmision) formData.append('fechaEmision', fechaEmision);
       if (tipoDocumento.requiereVencimiento && fechaVencimiento) formData.append('fechaVencimiento', fechaVencimiento);
       if (observaciones) formData.append('observaciones', observaciones);
+      if (esLicencia) formData.append('tipoLicencia', tipoLicencia);
       if (archivo) formData.append('archivo', archivo);
 
       const endpoint = chofer ? `/documentos/choferes/${chofer.id}` : `/documentos/vehiculos/${vehiculo.id}`;
@@ -145,10 +152,31 @@ function ModalSubirDocumento({ subtitulo, vehiculo, chofer, tipoDocumento, docum
         {esActualizacion && <Alert variant="info">{avisoVersionActual(documentoActual)}</Alert>}
         {sinCambios && (
           <p id={idSinCambios} className="form-field-hint">
-            Para guardar una versión nueva, adjuntá un PDF o cambiá una fecha o las observaciones.
+            {esLicencia
+              ? 'Para guardar una versión nueva, adjuntá un PDF o cambiá una fecha, el tipo de carnet o las observaciones.'
+              : 'Para guardar una versión nueva, adjuntá un PDF o cambiá una fecha o las observaciones.'}
           </p>
         )}
         {error && <Alert variant="error">{error}</Alert>}
+
+        {esLicencia && (
+          <FormField id="documento-tipo-licencia" label="Tipo de carnet" required error={errores.tipoLicencia}>
+            <select
+              value={tipoLicencia}
+              onChange={(e) => {
+                setTipoLicencia(e.target.value);
+                setErrores((prev) => ({ ...prev, tipoLicencia: undefined }));
+              }}
+            >
+              <OpcionVacia obligatorio>Elegí el tipo de carnet</OpcionVacia>
+              {TIPOS_LICENCIA.map((opcion) => (
+                <option key={opcion.value} value={opcion.value}>
+                  {opcion.label}
+                </option>
+              ))}
+            </select>
+          </FormField>
+        )}
 
         {tipoDocumento.requiereArchivo && (
           <FormField id="documento-archivo" label="Archivo PDF" required={!esActualizacion} ayuda="Máximo 15 MB." hint={hintArchivo} error={errores.archivo}>

@@ -32,6 +32,11 @@ const ORDEN_RECIENTE = [{ creadoEn: 'desc' }, { id: 'desc' }];
 
 const INCLUDE_TIPO = { include: { categoriaDocumento: true } };
 
+// Tipo de carnet de la Licencia de Conducir (SCRUM-255): se elige en cada
+// versión. Mismos valores que el CHECK documentos_tipo_licencia_valido.
+const TIPO_LICENCIA_CONDUCIR = 'LICENCIA_CONDUCIR';
+const TIPOS_LICENCIA = ['D2_MUNICIPAL', 'D2_PROVINCIAL', 'CARNET_NACIONAL'];
+
 function errorHttp(status, mensaje) {
   const error = new Error(mensaje);
   error.status = status;
@@ -354,11 +359,12 @@ function mismoDia(a, b) {
 
 // ¿Los datos de una renovación (sin archivo nuevo) son los de la vigente?
 // Las observaciones se comparan como se guardan: sin espacios de más y vacías = null.
-function mismosDatosQueLaVigente(vigente, { parsedEmision, parsedVencimiento, observaciones }) {
+function mismosDatosQueLaVigente(vigente, { parsedEmision, parsedVencimiento, observaciones, tipoLicencia }) {
   return (
     mismoDia(vigente.fechaEmision, parsedEmision) &&
     mismoDia(vigente.fechaVencimiento, parsedVencimiento) &&
-    (vigente.observaciones?.trim() || null) === (observaciones?.trim() || null)
+    (vigente.observaciones?.trim() || null) === (observaciones?.trim() || null) &&
+    (vigente.tipoLicencia ?? null) === tipoLicencia
   );
 }
 
@@ -394,6 +400,8 @@ async function pathsSinUso(tx, eliminados) {
  */
 async function registrarDocumento(titular, datos, file, usuarioId) {
   const { tipoDocumentoId, fechaEmision, fechaVencimiento, observaciones } = datos;
+  // Solo la licencia lleva tipo de carnet; en los demás tipos se ignora.
+  let tipoLicencia = null;
   const { descriptor, entidad, id } = await buscarTitular(titular);
   descriptor.validarParaRegistro(entidad);
 
@@ -435,16 +443,23 @@ async function registrarDocumento(titular, datos, file, usuarioId) {
     if (tipo.requiereVencimiento && !fechaVencimiento) {
       errores.fechaVencimiento = 'La fecha de vencimiento es obligatoria para este tipo de documento.';
     }
+    if (tipo.descripcion === TIPO_LICENCIA_CONDUCIR) {
+      const valor = datos.tipoLicencia === undefined || datos.tipoLicencia === null ? '' : String(datos.tipoLicencia).trim();
+      if (!valor) errores.tipoLicencia = 'Elegí el tipo de carnet.';
+      else if (!TIPOS_LICENCIA.includes(valor)) errores.tipoLicencia = 'El tipo de carnet no es válido.';
+      else tipoLicencia = valor;
+    }
   }
 
   if (Object.keys(errores).length > 0) throw new ValidacionError(errores);
 
-  // Renovación sin cambios: sin PDF nuevo y con las mismas fechas y observaciones
+  // Renovación sin cambios: sin PDF nuevo y con las mismas fechas, observaciones
+  // y tipo de carnet
   // que la versión vigente. No hay nada nuevo que guardar, así que no se crea la
   // versión ni corre la purga: antes se guardaba una fila idéntica y, con el
   // historial lleno (vigente + MAX_HISTORICOS), la purga borraba la versión real
   // más vieja y, si ninguna otra la usaba, también su PDF del Storage.
-  if (docPrevio && !file && mismosDatosQueLaVigente(docPrevio, { parsedEmision, parsedVencimiento, observaciones })) {
+  if (docPrevio && !file && mismosDatosQueLaVigente(docPrevio, { parsedEmision, parsedVencimiento, observaciones, tipoLicencia })) {
     throw errorHttp(400, 'No hay cambios para guardar');
   }
 
@@ -478,6 +493,7 @@ async function registrarDocumento(titular, datos, file, usuarioId) {
           fechaEmision: parsedEmision,
           fechaVencimiento: parsedVencimiento,
           observaciones: observaciones?.trim() || null,
+          tipoLicencia,
           usuarioId,
         },
         include: { tipoDocumento: INCLUDE_TIPO, usuario: SELECT_USUARIO_CON_NOMBRE },

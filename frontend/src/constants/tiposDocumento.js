@@ -18,6 +18,21 @@ export const TIPOS_DOCUMENTO = {
 
 const CODIGOS = Object.keys(TIPOS_DOCUMENTO);
 
+// Tipo de carnet de la Licencia de Conducir (SCRUM-255): se elige al cargar
+// cada versión. Mismos códigos que valida el backend (documentoService).
+export const TIPO_LICENCIA_CONDUCIR = 'LICENCIA_CONDUCIR';
+export const TIPOS_LICENCIA = [
+  { value: 'D2_MUNICIPAL', label: 'D2 Municipal' },
+  { value: 'D2_PROVINCIAL', label: 'D2 Provincial' },
+  { value: 'CARNET_NACIONAL', label: 'Carnet nacional' },
+];
+
+// "D2 Provincial"; las licencias cargadas antes no tienen tipo.
+export function etiquetaTipoLicencia(codigo) {
+  if (!codigo) return 'Tipo de carnet sin especificar';
+  return TIPOS_LICENCIA.find((t) => t.value === codigo)?.label ?? codigo;
+}
+
 // Un tipo que todavía no está en la constante muestra su código.
 export function etiquetaTipoDocumento(codigo) {
   return TIPOS_DOCUMENTO[codigo] ?? codigo;

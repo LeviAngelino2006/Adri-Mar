@@ -16,7 +16,6 @@ import {
   iniciales,
   lineaDetalleListado,
   lineaFechasDocumento,
-  listaConY,
   textoDocumentosCargados,
 } from './documentacion.js';
 
@@ -53,14 +52,6 @@ describe('diasHasta', () => {
   });
 });
 
-describe('listaConY', () => {
-  test('une con comas y "y"', () => {
-    assert.equal(listaConY(['A']), 'A');
-    assert.equal(listaConY(['A', 'B']), 'A y B');
-    assert.equal(listaConY(['A', 'B', 'C']), 'A, B y C');
-  });
-});
-
 describe('lineaDetalleListado', () => {
   test('vencida: el documento más urgente y su fecha, sin año si es el actual', () => {
     const item = {
@@ -86,17 +77,14 @@ describe('lineaDetalleListado', () => {
     assert.match(lineaDetalleListado(item, AHORA), /venció el 30 dic 2025$/);
   });
 
-  test('incompleta: "Falta: X" con uno y "Faltan N: A, B y C" con varios', () => {
-    assert.equal(
-      lineaDetalleListado({ estadoDocumentacion: 'INCOMPLETA', faltantes: ['TITULO_VEHICULO'] }, AHORA),
-      'Falta: Título del automotor'
-    );
+  test('incompleta: sin línea de detalle, ni con uno ni con varios faltantes (SCRUM-256)', () => {
+    assert.equal(lineaDetalleListado({ estadoDocumentacion: 'INCOMPLETA', faltantes: ['TITULO_VEHICULO'] }, AHORA), null);
     assert.equal(
       lineaDetalleListado(
         { estadoDocumentacion: 'INCOMPLETA', faltantes: ['TITULO_VEHICULO', 'CEDULA_IDENTIFICACION', 'ALTA_TRANSPORTE'] },
         AHORA
       ),
-      'Faltan 3: Título del automotor, Cédula de identificación (Tarjeta Verde) y Certificado de alta de transporte'
+      null
     );
   });
 
@@ -110,8 +98,11 @@ describe('lineaDetalleListado', () => {
   });
 
   test('un tipo que no está en las constantes muestra su código', () => {
-    const item = { estadoDocumentacion: 'INCOMPLETA', faltantes: ['TIPO_NUEVO'] };
-    assert.equal(lineaDetalleListado(item, AHORA), 'Falta: TIPO_NUEVO');
+    const item = {
+      estadoDocumentacion: 'POR_VENCER',
+      documentoUrgente: { tipo: 'TIPO_NUEVO', fechaVencimiento: dia('2026-10-20'), estadoVigencia: 'POR_VENCER' },
+    };
+    assert.equal(lineaDetalleListado(item, AHORA), 'TIPO_NUEVO vence el 20 oct');
   });
 });
 
@@ -140,6 +131,15 @@ describe('lineaFechasDocumento', () => {
   test('vigente con vencimiento', () => {
     const r = lineaFechasDocumento(tipoConPdf, doc({ fechaVencimiento: dia('2026-12-22'), estadoVigencia: 'VIGENTE' }), AHORA);
     assert.deepEqual(r, { texto: 'Vence el 22 dic 2026', vencido: false });
+  });
+
+  test('la licencia antepone el tipo de carnet, o "sin especificar" si es de antes (SCRUM-255)', () => {
+    const licencia = { descripcion: 'LICENCIA_CONDUCIR', requiereArchivo: true };
+    const vence = { fechaVencimiento: dia('2026-12-22'), estadoVigencia: 'VIGENTE' };
+    assert.equal(lineaFechasDocumento(licencia, doc({ ...vence, tipoLicencia: 'D2_PROVINCIAL' }), AHORA).texto, 'D2 Provincial · Vence el 22 dic 2026');
+    assert.equal(lineaFechasDocumento(licencia, doc({ ...vence, tipoLicencia: null }), AHORA).texto, 'Tipo de carnet sin especificar · Vence el 22 dic 2026');
+    // Sin cargar no hay tipo que mostrar.
+    assert.equal(lineaFechasDocumento(licencia, null, AHORA).texto, 'Todavía no se cargó');
   });
 
   test('por vencer: con los días que faltan, y "hoy" el mismo día', () => {

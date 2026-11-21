@@ -1,4 +1,4 @@
-import { etiquetaTipoDocumento } from '../constants/tiposDocumento.js';
+import { TIPO_LICENCIA_CONDUCIR, etiquetaTipoDocumento, etiquetaTipoLicencia } from '../constants/tiposDocumento.js';
 import { fechaCordobaISO } from './fechaCordoba.js';
 
 // Textos de la pantalla de Documentación: fechas cortas en hora de Córdoba y las
@@ -27,12 +27,6 @@ export function diasHasta(valor, ahora = Date.now()) {
   return (Date.parse(fechaCordobaISO(valor)) - Date.parse(fechaCordobaISO(ahora))) / MS_POR_DIA;
 }
 
-// "A", "A y B", "A, B y C".
-export function listaConY(items) {
-  if (items.length <= 1) return items.join('');
-  return `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`;
-}
-
 const plural = (n, singular, pluralTexto) => (n === 1 ? singular : pluralTexto);
 
 // La línea del problema más urgente de una tarjeta del listado. `item` es un
@@ -50,12 +44,10 @@ export function lineaDetalleListado(item, ahora = Date.now()) {
       const { tipo, fechaVencimiento } = item.documentoUrgente;
       return `${etiquetaTipoDocumento(tipo)} vence el ${fecha(fechaVencimiento)}`;
     }
-    case 'INCOMPLETA': {
-      const etiquetas = item.faltantes.map(etiquetaTipoDocumento);
-      return etiquetas.length === 1
-        ? `Falta: ${etiquetas[0]}`
-        : `Faltan ${etiquetas.length}: ${listaConY(etiquetas)}`;
-    }
+    // Incompleta: sin línea (SCRUM-256). El badge ya lo dice, el pie cuenta los
+    // cargados ("7 de 8 documentos cargados") y cuáles faltan se ve en la ficha.
+    case 'INCOMPLETA':
+      return null;
     default:
       return item.proximoVencimiento
         ? `Próximo vencimiento: ${etiquetaTipoDocumento(item.proximoVencimiento.tipo)}, ${fecha(item.proximoVencimiento.fechaVencimiento)}`
@@ -108,6 +100,8 @@ export function lineaFechasDocumento(tipo, documento, ahora = Date.now()) {
   }
 
   if (!tipo.requiereArchivo) texto += ' · Solo se registra la vigencia';
+  // La licencia muestra el tipo de carnet de la versión vigente (SCRUM-255).
+  if (tipo.descripcion === TIPO_LICENCIA_CONDUCIR) texto = `${etiquetaTipoLicencia(documento.tipoLicencia)} · ${texto}`;
   return { texto, vencido };
 }
 
