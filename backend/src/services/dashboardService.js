@@ -2,7 +2,8 @@ const prisma = require('./prismaClient');
 const { CORDOBA_UTC_OFFSET, diaCordobaISO } = require('../utils/fechaCordoba');
 const { calcularEstadoService } = require('../utils/estadoService');
 const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../utils/marcaModeloVehiculo');
-const { semanaActualCordoba, resolverLecturasVigentesPorViaje } = require('./reporteService');
+const { semanaActualCordoba } = require('./reporteService');
+const { resolverVigentesPorViaje } = require('./lecturaOdometroService');
 
 const PERFILES_GESTORES = ['ADMINISTRADOR', 'ENCARGADO'];
 const PERIODOS_VALIDOS = new Set(['mes', 'semana']);
@@ -174,11 +175,10 @@ async function obtenerIndicadores({ periodo, perfilSolicitante, ahora = new Date
       ? await prisma.lecturaOdometro.findMany({
           where: { viajeId: { in: viajesFinalizados.map((v) => v.id) } },
           include: { origen: true },
-          orderBy: { creadoEn: 'asc' },
         })
       : [];
 
-  const lecturasPorViaje = resolverLecturasVigentesPorViaje(lecturas);
+  const lecturasPorViaje = resolverVigentesPorViaje(lecturas);
 
   let totalRecorridos = 0;
   let viajesConOdometro = 0;
@@ -186,7 +186,10 @@ async function obtenerIndicadores({ periodo, perfilSolicitante, ahora = new Date
 
   for (const viaje of viajesFinalizados) {
     const medicion = lecturasPorViaje.get(viaje.id);
-    const kmRealizados = medicion ? medicion.kmRealizados : null;
+    const kmRealizados =
+      medicion?.vigenteInicio && medicion?.vigenteFin
+        ? medicion.vigenteFin.valorKm - medicion.vigenteInicio.valorKm
+        : null;
     if (kmRealizados != null) {
       totalRecorridos += kmRealizados;
       viajesConOdometro += 1;
