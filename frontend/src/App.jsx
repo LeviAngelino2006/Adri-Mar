@@ -14,7 +14,8 @@ import Presupuestos from './pages/Presupuestos';
 import Reportes from './pages/Reportes';
 import Mantenimiento from './pages/Mantenimiento';
 import CambiarContrasena from './pages/CambiarContrasena';
-import { RUTA_CAMBIAR_CONTRASENA } from './utils/sesion';
+import MiPerfil from './pages/MiPerfil';
+import { RUTA_CAMBIAR_CONTRASENA, RUTA_MI_PERFIL } from './utils/sesion';
 import './App.css';
 
 function App() {
@@ -109,6 +110,14 @@ function App() {
             element={
               <ProtectedRoute permiteContrasenaProvisoria>
                 <CambiarContrasena />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={RUTA_MI_PERFIL}
+            element={
+              <ProtectedRoute>
+                <MiPerfil />
               </ProtectedRoute>
             }
           />

@@ -44,6 +44,7 @@ let rr;
 let AuthProvider;
 let ProtectedRoute;
 let CambiarContrasena;
+let MiPerfil;
 let contenedor;
 let raiz;
 
@@ -75,6 +76,9 @@ function adaptador(config) {
   }
   // Cualquier otro pedido: bloqueado mientras la contraseña sea provisoria.
   if (enBackend.usuario.debeCambiarContrasena) return responder(403, BLOQUEADA);
+  if (metodo === 'GET' && config.url === '/auth/perfil') {
+    return responder(200, { usuario: { ...enBackend.usuario, ultimoIngreso: null, creadoEn: '2026-03-02T12:00:00.000Z' } });
+  }
   return responder(200, {});
 }
 
@@ -86,6 +90,7 @@ before(async () => {
   ({ AuthProvider } = await vite.ssrLoadModule('/src/context/AuthContext.jsx'));
   ProtectedRoute = (await vite.ssrLoadModule('/src/components/ProtectedRoute.jsx')).default;
   CambiarContrasena = (await vite.ssrLoadModule('/src/pages/CambiarContrasena.jsx')).default;
+  MiPerfil = (await vite.ssrLoadModule('/src/pages/MiPerfil.jsx')).default;
 });
 
 after(() => vite.close());
@@ -131,6 +136,10 @@ async function montar(ruta) {
             h(Route, {
               path: '/cambiar-contrasena',
               element: h(ProtectedRoute, { permiteContrasenaProvisoria: true }, h(CambiarContrasena)),
+            }),
+            h(Route, {
+              path: '/mi-perfil',
+              element: h(ProtectedRoute, null, h(MiPerfil)),
             })
           )
         )
@@ -173,8 +182,10 @@ describe('Con la contraseña provisoria, la app lleva a cambiarla', () => {
     assert.ok(boton('Cerrar sesión'));
   });
 
-  test('cualquier otra ruta también', async () => {
+  test('cualquier otra ruta también (incluida /mi-perfil)', async () => {
     await montar('/mis-viajes');
+    assert.equal(titulo(), 'Cambiar contraseña');
+    await montar('/mi-perfil');
     assert.equal(titulo(), 'Cambiar contraseña');
   });
 
@@ -241,57 +252,12 @@ describe('Un gestor la define con la sesión abierta', () => {
   });
 });
 
-describe('Cambiar mi contraseña, por elección', () => {
+describe('Cambiar mi contraseña, por elección (SCRUM-259)', () => {
   beforeEach(() => sesion({ ...RAMIRO, debeCambiarContrasena: false }));
 
-  test('se abre desde el menú del usuario de la sidebar', async () => {
+  test('sin contraseña provisoria, /cambiar-contrasena redirige a /mi-perfil', async () => {
     await montar('/cambiar-contrasena');
-    const usuario = contenedor.querySelector('.layout-user');
-    assert.equal(usuario.getAttribute('aria-expanded'), 'false');
-    assert.equal(contenedor.querySelector('#layout-menu-usuario'), null);
-
-    await act(async () => usuario.click());
-
-    assert.equal(usuario.getAttribute('aria-expanded'), 'true');
-    const enlace = contenedor.querySelector('#layout-menu-usuario a');
-    assert.equal(enlace.textContent.trim(), 'Cambiar mi contraseña');
-    assert.equal(enlace.getAttribute('href'), '/cambiar-contrasena');
-  });
-
-  test('va dentro del Layout, con la navegación', async () => {
-    await montar('/cambiar-contrasena');
-    assert.equal(titulo(), 'Cambiar mi contraseña');
+    assert.equal(titulo(), 'Mi perfil');
     assert.ok(contenedor.querySelector('nav[aria-label="Principal"]'));
-    assert.ok(boton('Cancelar'));
-  });
-
-  test('valida todo junto antes de enviar, y no pide nada', async () => {
-    await montar('/cambiar-contrasena');
-    await act(async () => boton('Cambiar contraseña').click());
-
-    assert.equal(error('contrasenaActual'), 'Ingresá tu contraseña actual');
-    assert.equal(error('contrasenaNueva'), 'La contraseña nueva es obligatoria');
-    assert.equal(error('repetirContrasena'), 'Repetí la contraseña nueva');
-    assert.equal(pedidos.filter((p) => p.url === '/auth/contrasena').length, 0);
-  });
-
-  test('las reglas de la nueva y que las dos coincidan', async () => {
-    await montar('/cambiar-contrasena');
-    await completarYEnviar('provisoria-1', '        ', 'otra');
-    assert.equal(error('contrasenaNueva'), 'La contraseña no puede tener solo espacios');
-    assert.equal(error('repetirContrasena'), 'Las contraseñas no coinciden');
-
-    await completarYEnviar('provisoria-1', 'corta');
-    assert.equal(error('contrasenaNueva'), 'La contraseña debe tener al menos 8 caracteres');
-    assert.equal(pedidos.filter((p) => p.url === '/auth/contrasena').length, 0);
-  });
-
-  test('con la correcta: aviso, campos vacíos y sigue en la pantalla', async () => {
-    await montar('/cambiar-contrasena');
-    await completarYEnviar('provisoria-1', 'clave-nueva-1');
-
-    assert.equal(contenedor.querySelector('.toast')?.textContent, 'Contraseña cambiada correctamente.');
-    assert.equal(contenedor.querySelector('#contrasenaActual').value, '');
-    assert.equal(titulo(), 'Cambiar mi contraseña');
   });
 });

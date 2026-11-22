@@ -1,0 +1,50 @@
+.input-contrasena {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input-contrasena-campo {
+  padding-right: 48px;
+}
+
+/* Evita duplicar el ícono nativo de Edge/Windows junto al botón propio. */
+.input-contrasena-campo::-ms-reveal,
+.input-contrasena-campo::-ms-clear {
+  display: none;
+}
+
+.input-contrasena-toggle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Hover solo con mouse; :active da respuesta táctil sin quedar pegado. */
+@media (hover: hover) {
+  .input-contrasena-toggle:hover:not(:disabled) {
+    color: var(--color-text);
+    background: transparent;
+  }
+}
+
+.input-contrasena-toggle:active:not(:disabled) {
+  color: var(--color-text);
+  background: transparent;
+}
+
+.input-contrasena-toggle:focus-visible {
+  outline-offset: -2px;
+}

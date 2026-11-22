@@ -24,6 +24,11 @@ async function me(req, res) {
   res.json({ usuario });
 }
 
+async function perfil(req, res) {
+  const usuario = await authService.perfilPropio(req.usuario.id);
+  return res.json({ usuario });
+}
+
 async function cambiarContrasena(req, res) {
   const { contrasenaActual, contrasenaNueva } = req.body ?? {};
   try {
@@ -39,4 +44,4 @@ async function cambiarContrasena(req, res) {
   }
 }
 
-module.exports = { login, me, cambiarContrasena };
+module.exports = { login, me, perfil, cambiarContrasena };

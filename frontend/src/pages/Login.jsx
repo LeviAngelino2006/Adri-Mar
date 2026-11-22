@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/ui/Card';
 import FormField from '../components/ui/FormField';
+import InputContrasena from '../components/ui/InputContrasena';
 import Button from '../components/ui/Button';
 import Alert from '../components/ui/Alert';
 import { CargaColectivo } from '../components/ui/Cargando';
@@ -57,8 +58,7 @@ function Login() {
             </FormField>
 
             <FormField id="contrasena" label="Contraseña">
-              <input
-                type="password"
+              <InputContrasena
                 value={contrasena}
                 onChange={(e) => setContrasena(e.target.value)}
                 autoComplete="current-password"

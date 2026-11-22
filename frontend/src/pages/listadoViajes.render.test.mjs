@@ -117,6 +117,17 @@ before(async () => {
     if (endpoint === '/viajes/mis-viajes') return { data: { viajes: PROXIMOS } };
     if (endpoint === '/viajes/opciones-filtros') return { data: OPCIONES_FILTROS };
     if (endpoint === '/documentos/alertas') return { data: { totalAlertas: 0, vencidos: 0, porVencer: 0, documentos: [] } };
+    if (endpoint === '/dashboard/indicadores') {
+      return {
+        data: {
+          periodo: { tipo: 'mes', desde: '2026-11-01', hasta: '2026-11-30' },
+          flota: { totalActivos: 0, operativos: 0, enTaller: 0 },
+          mantenimiento: { vencidos: 0, proximos: 0, alDia: 0, sinPlan: 0, alertas: [] },
+          km: { totalRecorridos: 0, promedioPorViaje: null, viajesConOdometro: 0, viajesSinOdometro: 0 },
+          viajes: { finalizadosPeriodo: 0, enViajeAhora: 0, programadosProximos: 0, porConfirmarPendientes: 0 },
+        },
+      };
+    }
     if (endpoint !== '/viajes') throw new Error(`endpoint no previsto en el test: ${endpoint}`);
     if (responderViajes) return { data: { viajes: responderViajes(params) } };
     let lista = params.vista ? respuestas[params.vista] : [...respuestas.proximos, ...respuestas.anteriores];
@@ -512,18 +523,21 @@ describe('Dashboard de gestión: "Viajes de hoy" y el panel "Sin cerrar"', () =>
     assert.equal(panelHoy().querySelector('.dashboard-resumen').textContent, '3 viajes · 1 en viaje · 1 finalizado');
   });
 
-  test('panel "Sin cerrar" en la columna derecha, junto a Documentación, con la cantidad y del más viejo al más nuevo', async () => {
+  test('panel "Sin cerrar" en la columna izquierda, debajo de Viajes por confirmar, con la cantidad y del más viejo al más nuevo', async () => {
     responderViajes = comoElBackend;
     await montar('Dashboard', '/');
     const panel = panelSinCerrar();
     assert.ok(panel, 'aparece el panel');
     assert.equal(panel.querySelector('h2').textContent, 'Sin cerrar');
     assert.equal(panel.querySelector('.dashboard-resumen').textContent, '2 viajes');
-    // Misma columna que Documentación, arriba de ella; Viajes por confirmar va en la otra.
+    // Columna izquierda: Viajes por confirmar y Sin cerrar. Columna derecha: Mantenimiento y Documentación.
     const columna = panel.parentElement;
     assert.ok(columna.classList.contains('dashboard-columna'));
-    assert.deepEqual([...columna.querySelectorAll('h2')].map((t) => t.textContent), ['Sin cerrar', 'Documentación']);
+    assert.deepEqual([...columna.querySelectorAll('h2')].map((t) => t.textContent), ['Viajes por confirmar', 'Sin cerrar']);
     assert.ok(columna.parentElement.classList.contains('dashboard-columnas'));
+    const columnas = [...columna.parentElement.querySelectorAll('.dashboard-columna')];
+    assert.equal(columnas.length, 2);
+    assert.deepEqual([...columnas[1].querySelectorAll('h2')].map((t) => t.textContent), ['Mantenimiento', 'Documentación']);
     // El En viaje de ayer aparece una sola vez en el Dashboard, acá.
     assert.deepEqual(destinosEn(panel), ['Santa Rosa de Calamuchita', 'Villa General Belgrano']);
     // Sin color ni badge para el atraso: un solo badge por fila, el del estado.
@@ -543,7 +557,12 @@ describe('Dashboard de gestión: "Viajes de hoy" y el panel "Sin cerrar"', () =>
     responderViajes = (params) => comoElBackend(params, []);
     await montar('Dashboard', '/');
     assert.equal(panelSinCerrar(), null);
-    assert.deepEqual([...contenedor.querySelectorAll('.dashboard-columna h2')].map((t) => t.textContent), ['Documentación']);
+    assert.deepEqual(
+      [...contenedor.querySelectorAll('.dashboard-columna')].map((col) =>
+        [...col.querySelectorAll('h2')].map((t) => t.textContent)
+      ),
+      [['Viajes por confirmar'], ['Mantenimiento', 'Documentación']]
+    );
   });
 
   test('con más de 5: las 5 más viejas, el total en el encabezado y "Ver todos" lleva a Viajes (Próximos)', async () => {
