@@ -228,7 +228,7 @@ describe('PanelVehiculoMantenimiento', () => {
 
   test('con plan: el vehículo de título, su estado y barra, "Registrar service", "Registrar arreglo" e historial', () => {
     const html = panel(itemProximo);
-    assert.match(html, /<aside class="panel-lateral" role="dialog" aria-modal="true"/);
+    assert.match(html, /<aside class="panel-lateral panel-lateral-centrado" role="dialog" aria-modal="true"/);
     assert.match(html, /<h2[^>]*>12 - <span class="patente">AB123CD<\/span><\/h2>/);
     assert.match(texto(html), /Mercedes-Benz O500/);
     assert.match(texto(html), /Próximo service a los 340\.000 km · faltan 800 km/);

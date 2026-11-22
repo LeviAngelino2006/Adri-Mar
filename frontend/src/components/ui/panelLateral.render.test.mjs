@@ -101,4 +101,12 @@ describe('PanelLateral', () => {
     act(() => contenedor.querySelector('.panel-lateral-volver').click());
     assert.equal(volvio, true);
   });
+
+  test('centrado: ventana emergente en el medio en vez del drawer', () => {
+    montar();
+    assert.equal(panel().classList.contains('panel-lateral-centrado'), false);
+    montar({ centrado: true });
+    assert.equal(panel().classList.contains('panel-lateral-centrado'), true);
+    assert.equal(contenedor.querySelector('.panel-lateral-overlay').classList.contains('panel-lateral-overlay-centrado'), true);
+  });
 });
