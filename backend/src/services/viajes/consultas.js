@@ -1,7 +1,7 @@
 // Lectura de viajes desde la base con lo que necesita serializarViaje: sus
 // relaciones y las lecturas de odómetro vigentes.
 const prisma = require('../prismaClient');
-const { serializarLectura } = require('../lecturaOdometroService');
+const { serializarLectura, resolverVigentesPorViaje } = require('../lecturaOdometroService');
 const { INCLUDE_MODELO_Y_MARCA } = require('../../utils/marcaModeloVehiculo');
 const { NoEncontradoError } = require('./errores');
 const { serializarViaje } = require('./serializacion');
@@ -39,67 +39,27 @@ async function obtenerViaje(id) {
   return viaje;
 }
 
-// Lecturas vigentes de INICIO_VIAJE y FIN_VIAJE de cada viaje, como
-// Map viajeId -> { vigenteInicio, vigenteFin } (null si el viaje no tiene esa
-// lectura). Misma regla que lecturaOdometroService.obtenerLecturaVigente (de
-// las correcciones de una lectura vale la más reciente por creadoEn, y se
-// sigue la cadena), pero por niveles: una consulta por eslabón de la cadena
-// más larga (normalmente 0 o 1) en vez de una por lectura, así el listado no
-// hace consultas proporcionales a la cantidad de viajes.
+// Lecturas vigentes de INICIO_VIAJE y FIN_VIAJE de cada viaje, serializadas,
+// como Map viajeId -> { vigenteInicio, vigenteFin } (null si el viaje no
+// tiene esa lectura). Una sola consulta trae todas las lecturas de los viajes,
+// correcciones incluidas (llevan el viajeId de la corregida), y la regla la
+// aplica lecturaOdometroService.resolverVigentesPorViaje: así el listado no
+// hace consultas proporcionales a la cantidad de viajes ni al largo de las
+// cadenas de correcciones.
 async function obtenerKmDeViajes(viajeIds) {
   const resultado = new Map(viajeIds.map((id) => [id, { vigenteInicio: null, vigenteFin: null }]));
   if (viajeIds.length === 0) return resultado;
 
-  const bases = await prisma.lecturaOdometro.findMany({
-    where: { viajeId: { in: viajeIds }, origen: { descripcion: { in: ['INICIO_VIAJE', 'FIN_VIAJE'] } } },
-    orderBy: { id: 'asc' },
+  const lecturas = await prisma.lecturaOdometro.findMany({
+    where: { viajeId: { in: viajeIds } },
     include: { origen: true },
   });
 
-  // Lectura vigente hasta ahora de cada lectura base, por id de la base. Un
-  // viaje tiene una sola de cada origen; si hubiera más, vale la primera.
-  const vigentePorBase = new Map();
-  const basePorViajeYOrigen = new Map();
-  for (const lectura of bases) {
-    const clave = `${lectura.viajeId}:${lectura.origen.descripcion}`;
-    if (basePorViajeYOrigen.has(clave)) continue;
-    basePorViajeYOrigen.set(clave, lectura.id);
-    vigentePorBase.set(lectura.id, lectura);
-  }
-
-  // `visitadas` corta la vuelta si una cadena tuviera un ciclo (no debería).
-  const visitadas = new Set(vigentePorBase.keys());
-  let nivel = [...vigentePorBase.values()];
-  while (nivel.length > 0) {
-    // eslint-disable-next-line no-await-in-loop
-    const correcciones = await prisma.lecturaOdometro.findMany({
-      where: { lecturaCorregidaId: { in: nivel.map((l) => l.id) } },
-      orderBy: { creadoEn: 'desc' },
-      include: { origen: true },
-    });
-    const masRecientePorCorregida = new Map();
-    for (const correccion of correcciones) {
-      if (!masRecientePorCorregida.has(correccion.lecturaCorregidaId)) {
-        masRecientePorCorregida.set(correccion.lecturaCorregidaId, correccion);
-      }
-    }
-
-    nivel = [];
-    for (const [baseId, actual] of vigentePorBase) {
-      const siguiente = masRecientePorCorregida.get(actual.id);
-      if (!siguiente || visitadas.has(siguiente.id)) continue;
-      visitadas.add(siguiente.id);
-      vigentePorBase.set(baseId, siguiente);
-      nivel.push(siguiente);
-    }
-  }
-
-  for (const [clave, baseId] of basePorViajeYOrigen) {
-    const [viajeId, origen] = clave.split(':');
-    const km = resultado.get(Number(viajeId));
-    const vigente = serializarLectura(vigentePorBase.get(baseId));
-    if (origen === 'INICIO_VIAJE') km.vigenteInicio = vigente;
-    else km.vigenteFin = vigente;
+  for (const [viajeId, { vigenteInicio, vigenteFin }] of resolverVigentesPorViaje(lecturas)) {
+    const km = resultado.get(viajeId);
+    if (!km) continue;
+    km.vigenteInicio = vigenteInicio ? serializarLectura(vigenteInicio) : null;
+    km.vigenteFin = vigenteFin ? serializarLectura(vigenteFin) : null;
   }
   return resultado;
 }
