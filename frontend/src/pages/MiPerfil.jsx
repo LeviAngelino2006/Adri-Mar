@@ -1,15 +1,26 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
+import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import EstadoCarga from '../components/ui/EstadoCarga';
 import Toast from '../components/ui/Toast';
-import FormularioCambiarContrasena from '../components/auth/FormularioCambiarContrasena';
+import ModalCambiarContrasena from '../components/auth/ModalCambiarContrasena';
 import { PERFILES, PERFIL_COLORS } from '../constants/perfiles';
 import { DURACION_TOAST_MS } from '../constants/toast';
 import { useCarga } from '../hooks/useCarga';
-import { formatearFechaCorta, formatearHora } from '../utils/viajeFormato';
 import './MiPerfil.css';
+
+const ICONO_LOGOUT = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <path d="M16 17l5-5-5-5" />
+    <path d="M21 12H9" />
+  </svg>
+);
 
 function initials(nombre, apellido) {
   return `${(nombre || '').charAt(0)}${(apellido || '').charAt(0)}`.toUpperCase();
@@ -19,14 +30,18 @@ function perfilLabel(perfil) {
   return PERFILES.find((p) => p.value === perfil)?.label ?? perfil;
 }
 
-// "21 nov 2026 17:40" en hora de Córdoba; "Sin registro" si no ingresó desde
-// que se registra el último ingreso.
-function textoUltimoIngreso(valor) {
-  return valor ? `${formatearFechaCorta(valor)} ${formatearHora(valor)}` : 'Sin registro';
-}
-
 function MiPerfil() {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
   const [mensaje, setMensaje] = useState('');
+  const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
+  const [confirmandoLogout, setConfirmandoLogout] = useState(false);
+
+  function handleLogout() {
+    setConfirmandoLogout(false);
+    logout();
+    navigate('/login', { replace: true });
+  }
 
   const pedirPerfil = useCallback(async () => {
     const { data } = await api.get('/auth/perfil');
@@ -90,24 +105,40 @@ function MiPerfil() {
                   <dt>Perfil</dt>
                   <dd>{perfilLabel(datos.perfil)}</dd>
                 </div>
-                <div className="detalle-item">
-                  <dt>Último ingreso</dt>
-                  <dd>{textoUltimoIngreso(datos.ultimoIngreso)}</dd>
-                </div>
               </dl>
             </Card>
           )}
         </EstadoCarga>
 
-        <Card role="region" aria-labelledby="mi-perfil-contrasena-titulo">
-          <h2 id="mi-perfil-contrasena-titulo" className="mi-perfil-titulo-seccion">
+        <div className="mi-perfil-acciones">
+          <Button variant="secondary" onClick={() => setCambiandoContrasena(true)}>
             Cambiar mi contraseña
-          </h2>
-          <FormularioCambiarContrasena
-            disposicion="grilla"
-            onExito={() => setMensaje('Contraseña cambiada correctamente.')}
+          </Button>
+          <Button variant="danger" onClick={() => setConfirmandoLogout(true)}>
+            Cerrar sesión
+          </Button>
+        </div>
+
+        {cambiandoContrasena && (
+          <ModalCambiarContrasena
+            onClose={() => setCambiandoContrasena(false)}
+            onExito={() => {
+              setMensaje('Contraseña cambiada correctamente.');
+              setCambiandoContrasena(false);
+            }}
           />
-        </Card>
+        )}
+
+        <ConfirmModal
+          open={confirmandoLogout}
+          tone="danger"
+          icon={ICONO_LOGOUT}
+          title="Cerrar sesión"
+          description="¿Seguro que querés cerrar tu sesión?"
+          confirmLabel="Cerrar sesión"
+          onConfirm={handleLogout}
+          onCancel={() => setConfirmandoLogout(false)}
+        />
       </div>
     </Layout>
   );

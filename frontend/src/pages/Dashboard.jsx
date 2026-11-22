@@ -16,7 +16,6 @@ import BotonComenzarViaje from '../components/BotonComenzarViaje';
 import PanelViajesPorConfirmar from '../components/PanelViajesPorConfirmar';
 import PanelViajesDeHoy from '../components/PanelViajesDeHoy';
 import PanelViajesSinCerrar from '../components/PanelViajesSinCerrar';
-import IndicadoresDashboard from '../components/dashboard/IndicadoresDashboard';
 import PanelMantenimientoDashboard from '../components/dashboard/PanelMantenimientoDashboard';
 import FechaTile from '../components/FechaTile';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
@@ -332,23 +331,14 @@ function SeccionDocumentacion() {
 }
 
 function SeccionOperacion({ esGestor }) {
-  const [periodo, setPeriodo] = useState('mes');
-
   const pedirIndicadores = useCallback(
-    () => obtenerIndicadoresDashboard({ periodo }).then(({ data }) => data),
-    [periodo]
+    () => obtenerIndicadoresDashboard().then(({ data }) => data),
+    []
   );
   const cargaIndicadores = useCarga(pedirIndicadores);
 
   return (
     <>
-      <IndicadoresDashboard
-        carga={cargaIndicadores}
-        periodo={periodo}
-        onCambiarPeriodo={setPeriodo}
-        esGestor={esGestor}
-      />
-
       {esGestor ? (
         <>
           <PanelViajesDeHoy />

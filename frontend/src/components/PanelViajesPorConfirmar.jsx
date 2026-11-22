@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../services/api';
 import Card from './ui/Card';
 import Button from './ui/Button';
+import AyudaTooltip from './ui/AyudaTooltip';
 import EstadoCarga from './ui/EstadoCarga';
 import Toast from './ui/Toast';
 import RutaViaje from './RutaViaje';
@@ -106,7 +107,12 @@ function PanelViajesPorConfirmar() {
   return (
     <>
       <Card className="dashboard-panel por-confirmar" role="region" aria-label="Viajes por confirmar">
-        <h2>Viajes por confirmar</h2>
+        <div className="dashboard-panel-header">
+          <div className="dashboard-panel-titulo">
+            <h2>Viajes por confirmar</h2>
+            <AyudaTooltip texto="Falta asignar chofer y vehículo para confirmarlos" />
+          </div>
+        </div>
 
         <ContenidoPorConfirmar
           carga={carga}

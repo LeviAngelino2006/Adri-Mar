@@ -571,6 +571,12 @@ function FlotaVehiculos() {
                 >
                   Ver documentación
                 </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => navigate(`/mantenimiento?vehiculoId=${seleccionado.id}`)}
+                >
+                  Ver mantenimiento
+                </Button>
                 {seleccionado.estado !== 'DADO_DE_BAJA' && (
                   <>
                     <Button variant="secondary" onClick={() => abrirEditar(seleccionado)}>

@@ -232,6 +232,12 @@
   margin: 0;
 }
 
+.dashboard-panel-titulo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 .dashboard-resumen {
   font-size: 0.875rem;
   color: var(--color-text-secondary);

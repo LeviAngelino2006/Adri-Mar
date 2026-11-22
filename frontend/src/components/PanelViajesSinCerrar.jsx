@@ -4,6 +4,7 @@ import api from '../services/api';
 import Button from './ui/Button';
 import Card from './ui/Card';
 import EstadoBadge from './ui/EstadoBadge';
+import AyudaTooltip from './ui/AyudaTooltip';
 import EstadoCarga from './ui/EstadoCarga';
 import RutaViaje from './RutaViaje';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
@@ -79,7 +80,10 @@ function PanelViajesSinCerrar() {
   return (
     <Card className="dashboard-panel" role="region" aria-label="Sin cerrar">
       <div className="dashboard-panel-header">
-        <h2>Sin cerrar</h2>
+        <div className="dashboard-panel-titulo">
+          <h2>Sin cerrar</h2>
+          <AyudaTooltip texto="De días anteriores que todavía no se finalizaron ni cancelaron" />
+        </div>
         {!carga.cargando && !carga.error && <span className="dashboard-resumen">{textoCantidadSinCerrar(viajes.length)}</span>}
       </div>
       <ContenidoSinCerrar

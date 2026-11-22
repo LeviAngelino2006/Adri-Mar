@@ -154,44 +154,7 @@ const kpis = () =>
     el,
   }));
 
-describe('Dashboard de gestión: indicadores útiles (SCRUM-262)', () => {
-  test('muestra los 4 KPIs con formato argentino y permite alternar Este mes | Esta semana', async () => {
-    await montar('ADMINISTRADOR');
-
-    const lista = kpis();
-    assert.equal(lista.length, 4);
-    assert.equal(lista[0].etiqueta, 'Km recorridos');
-    assert.equal(lista[0].valor, '12.450 km');
-    assert.match(lista[0].detalle, /Promedio 623 km\/viaje/);
-    assert.equal(lista[1].etiqueta, 'Viajes realizados');
-    assert.equal(lista[1].valor, '20');
-    assert.equal(lista[1].detalle, '1 en viaje · 2 por confirmar');
-    assert.equal(lista[2].etiqueta, 'Flota operativa');
-    assert.equal(lista[2].valor, '7 / 8');
-    assert.equal(lista[2].detalle, '1 en taller');
-    assert.equal(lista[3].etiqueta, 'Próximos al service');
-    assert.equal(lista[3].valor, '2');
-    assert.equal(lista[3].detalle, '1 vencido · 1 próximo');
-
-    const btnSemana = [...contenedor.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Esta semana');
-    await act(async () => btnSemana.click());
-
-    assert.ok(pedidos.some((p) => p.endpoint === '/dashboard/indicadores' && p.params.periodo === 'semana'));
-    assert.equal(kpis()[0].valor, '3.100 km');
-    assert.equal(kpis()[1].valor, '4');
-  });
-
-  test('tocar cada KPI navega a su módulo correspondiente', async () => {
-    const destinos = ['/reportes', '/viajes', '/vehiculos', '/mantenimiento'];
-    for (let i = 0; i < destinos.length; i += 1) {
-      await montar('ADMINISTRADOR');
-      await act(async () => kpis()[i].el.click());
-      assert.equal(ubicacionActual.valor.pathname, destinos[i]);
-      act(() => raiz.unmount());
-      raiz = createRoot(contenedor);
-    }
-  });
-
+describe('Dashboard de gestión: panel de Mantenimiento', () => {
   test('panel de Mantenimiento: lista hasta 5, expande con "Ver N más" y abre el panel del vehículo', async () => {
     respuestasIndicadores = () => ({
       ...INDICADORES_MES,
@@ -213,6 +176,7 @@ describe('Dashboard de gestión: indicadores útiles (SCRUM-262)', () => {
     });
 
     await montar('ADMINISTRADOR');
+    assert.equal(kpis().length, 0);
     const panel = contenedor.querySelector('[role="region"][aria-label="Mantenimiento"]');
     assert.ok(panel);
     assert.equal(panel.querySelector('.dashboard-resumen')?.textContent, '2 vencidos · 5 próximos');
@@ -230,14 +194,10 @@ describe('Dashboard de gestión: indicadores útiles (SCRUM-262)', () => {
 });
 
 describe('Dashboard por perfil y errores', () => {
-  test('PERSONAL_TALLER ve solo Flota operativa, Próximos al service y Mantenimiento', async () => {
+  test('PERSONAL_TALLER ve solo el panel de Mantenimiento', async () => {
     await montar('PERSONAL_TALLER');
 
-    const lista = kpis();
-    assert.deepEqual(
-      lista.map((k) => k.etiqueta),
-      ['Flota operativa', 'Próximos al service']
-    );
+    assert.equal(kpis().length, 0);
     assert.ok(contenedor.querySelector('[role="region"][aria-label="Mantenimiento"]'));
     assert.equal(contenedor.querySelector('[aria-label="Viajes de hoy"]'), null);
     assert.equal(contenedor.querySelector('[aria-label="Viajes por confirmar"]'), null);
@@ -260,7 +220,7 @@ describe('Dashboard por perfil y errores', () => {
     respuestasIndicadores = null;
     await act(async () => reintentar.click());
 
-    assert.equal(kpis().length, 2);
-    assert.equal(kpis()[0].valor, '7 / 8');
+    const panel = contenedor.querySelector('[role="region"][aria-label="Mantenimiento"]');
+    assert.equal(panel.querySelectorAll('.dashboard-fila').length, 2);
   });
 });

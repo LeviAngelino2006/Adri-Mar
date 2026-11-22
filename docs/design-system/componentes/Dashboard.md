@@ -6,13 +6,9 @@ Pantalla de inicio. Muestra lo que cada perfil tiene que mirar hoy: el chofer, s
 
 ## Orden de secciones
 1. **Lo del chofer** (si `usuario.habilitadoParaConducir`): `ViajeEnCurso` (uno por viaje En viaje) y `ProximosViajes`.
-2. **Resumen de la flota** (Administrador, Encargado y Personal de Taller), franja de indicadores (`IndicadoresDashboard`, desde `GET /api/dashboard/indicadores`):
-   - Cabecera con `h2` "Resumen de la flota" y, para Administrador y Encargado, `ControlSegmentado` ("Este mes" | "Esta semana", arranca en "Este mes").
-   - Grilla `.dashboard-kpis` (1 columna en mobile, 2 desde 480px y 4 desde 1024px; `.dashboard-kpis-taller` queda en 2): tarjetas clickeables (`.dashboard-kpi`) sobre `color-surface`, cifras `.num` y hover/active en `brand-50`.
-   - Gestores ven **Km recorridos** (`→ /reportes`), **Viajes realizados** (`→ /viajes`), **Flota operativa** (`→ /vehiculos`) y **Próximos al service** (`→ /mantenimiento`). Personal de Taller ve solo **Flota operativa** y **Próximos al service**.
-3. **Viajes de hoy** (Administrador y Encargado), a todo el ancho y solo con lo de hoy: ver `ViajesDeHoy`.
-4. **`<div class="dashboard-columnas">`** (Administrador y Encargado): dos `<div class="dashboard-columna">` equilibradas, apiladas con gap `space-5`. A la izquierda los pendientes de viaje (`PanelViajesPorConfirmar` y **Sin cerrar**, este último solo si hay alguno, ver `ViajesDeHoy`); a la derecha las alertas de flota (**Mantenimiento** con `PanelMantenimientoDashboard` y **Documentación**). Una columna en mobile y dos iguales desde 1024px, con gap `space-5` y alineadas arriba.
-   - **Personal de Taller** ve **Mantenimiento** a todo el ancho debajo de sus 2 indicadores (sin Viajes de hoy, Por confirmar ni Documentación).
+2. **Viajes de hoy** (Administrador y Encargado), a todo el ancho y solo con lo de hoy: ver `ViajesDeHoy`.
+3. **`<div class="dashboard-columnas">`** (Administrador y Encargado): dos `<div class="dashboard-columna">` equilibradas, apiladas con gap `space-5`. A la izquierda los pendientes de viaje (`PanelViajesPorConfirmar` y **Sin cerrar**, este último solo si hay alguno, ver `ViajesDeHoy`); a la derecha las alertas de flota (**Mantenimiento** con `PanelMantenimientoDashboard` y **Documentación**). Una columna en mobile y dos iguales desde 1024px, con gap `space-5` y alineadas arriba.
+   - **Personal de Taller** ve **Mantenimiento** a todo el ancho (sin Viajes de hoy, Por confirmar ni Documentación).
 
 Un Encargado habilitado para conducir ve la parte de chofer arriba y la operación debajo, en ese orden.
 

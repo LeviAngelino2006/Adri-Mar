@@ -176,18 +176,25 @@ function escribir(id, texto) {
   });
 }
 
+async function abrirCambioContrasena() {
+  await act(async () => boton('Cambiar mi contraseña').click());
+}
+
 async function completarYEnviar(actual, nueva, repetir = nueva) {
   escribir('contrasenaActual', actual);
   escribir('contrasenaNueva', nueva);
   escribir('repetirContrasena', repetir);
   await act(async () => boton('Cambiar contraseña').click());
+  const confirmar = boton('Sí, cambiar');
+  if (confirmar) await act(async () => confirmar.click());
 }
 
 describe('Mi perfil: acceso desde el pie de la sidebar (SCRUM-259)', () => {
-  test('el bloque del usuario al pie de la sidebar navega directo a /mi-perfil', async () => {
+  test('el bloque del usuario al pie de la sidebar navega directo a /mi-perfil y no muestra botón de cerrar sesión', async () => {
     await montar('/');
     assert.equal(titulo(), 'Dashboard');
     assert.equal(contenedor.querySelector('#layout-menu-usuario'), null);
+    assert.equal(contenedor.querySelector('.layout-logout'), null);
 
     const bloqueUsuario = contenedor.querySelector('a.layout-user');
     assert.ok(bloqueUsuario);
@@ -206,7 +213,7 @@ describe('Mi perfil: acceso desde el pie de la sidebar (SCRUM-259)', () => {
 });
 
 describe('Mi perfil: datos propios y estados de carga', () => {
-  test('muestra nombre, usuario, perfil y último ingreso desde GET /auth/perfil', async () => {
+  test('muestra nombre, usuario y perfil desde GET /auth/perfil', async () => {
     await montar('/mi-perfil');
 
     assert.ok(pedidos.some((p) => p.metodo === 'GET' && p.url === '/auth/perfil'));
@@ -216,11 +223,10 @@ describe('Mi perfil: datos propios y estados de carga', () => {
       'Nombre y apellido': 'Ramiro Acosta',
       'Nombre de usuario': '@racosta',
       Perfil: 'Chofer',
-      'Último ingreso': '21 nov 2026 17:40',
     });
   });
 
-  test('sin último ingreso registrado muestra "Sin registro" y traduce otros perfiles', async () => {
+  test('traduce otros perfiles correctamente', async () => {
     enBackend.usuario = {
       ...RAMIRO,
       nombre: 'Adriana',
@@ -236,7 +242,6 @@ describe('Mi perfil: datos propios y estados de carga', () => {
       'Nombre y apellido': 'Adriana Martínez',
       'Nombre de usuario': '@amartinez',
       Perfil: 'Administrador',
-      'Último ingreso': 'Sin registro',
     });
   });
 
@@ -254,8 +259,44 @@ describe('Mi perfil: datos propios y estados de carga', () => {
 });
 
 describe('Mi perfil: cambio de contraseña propia', () => {
+  test('el formulario arranca cerrado y se abre en una ventana modal al tocar "Cambiar mi contraseña"', async () => {
+    await montar('/mi-perfil');
+    assert.equal(contenedor.querySelector('[role="dialog"]'), null);
+    assert.equal(contenedor.querySelector('#contrasenaActual'), null);
+    assert.ok(boton('Cambiar mi contraseña'));
+
+    await abrirCambioContrasena();
+    assert.ok(contenedor.querySelector('[role="dialog"]'));
+    assert.ok(contenedor.querySelector('#contrasenaActual'));
+
+    await act(async () => boton('Cancelar').click());
+    assert.equal(contenedor.querySelector('[role="dialog"]'), null);
+    assert.equal(contenedor.querySelector('#contrasenaActual'), null);
+  });
+
+  test('pide confirmación antes de cambiarla y permite volver sin enviar', async () => {
+    await montar('/mi-perfil');
+    await abrirCambioContrasena();
+
+    escribir('contrasenaActual', 'clave-actual-1');
+    escribir('contrasenaNueva', 'nueva-clave-1');
+    escribir('repetirContrasena', 'nueva-clave-1');
+    await act(async () => boton('Cambiar contraseña').click());
+
+    const confirmacion = contenedor.querySelector('[role="alertdialog"]');
+    assert.ok(confirmacion);
+    assert.match(confirmacion.textContent, /¿Cambiar contraseña\?/);
+    assert.equal(pedidos.filter((p) => p.url === '/auth/contrasena').length, 0);
+
+    await act(async () => boton('Volver').click());
+    assert.equal(contenedor.querySelector('[role="alertdialog"]'), null);
+    assert.ok(contenedor.querySelector('[role="dialog"]'));
+    assert.equal(pedidos.filter((p) => p.url === '/auth/contrasena').length, 0);
+  });
+
   test('valida los 3 campos en cliente sin llamar al backend', async () => {
     await montar('/mi-perfil');
+    await abrirCambioContrasena();
     await act(async () => boton('Cambiar contraseña').click());
 
     assert.equal(error('contrasenaActual'), 'Ingresá tu contraseña actual');
@@ -266,6 +307,7 @@ describe('Mi perfil: cambio de contraseña propia', () => {
 
   test('valida longitud, solo espacios, distinta de actual y coincidencia', async () => {
     await montar('/mi-perfil');
+    await abrirCambioContrasena();
 
     await completarYEnviar('clave-actual-1', '        ', 'otra');
     assert.equal(error('contrasenaNueva'), 'La contraseña no puede tener solo espacios');
@@ -278,6 +320,7 @@ describe('Mi perfil: cambio de contraseña propia', () => {
 
   test('muestra el error del backend si la contraseña actual es incorrecta o hay 429', async () => {
     await montar('/mi-perfil');
+    await abrirCambioContrasena();
 
     await completarYEnviar('no-es-esta', 'nueva-clave-1');
     assert.equal(error('contrasenaActual'), 'La contraseña actual no es correcta');
@@ -288,16 +331,32 @@ describe('Mi perfil: cambio de contraseña propia', () => {
     assert.match(alerta?.textContent ?? '', /Demasiados intentos\. Probá de nuevo en unos minutos\./);
   });
 
-  test('con la contraseña actual correcta guarda, limpia los campos y muestra Toast', async () => {
+  test('con la contraseña actual correcta guarda, cierra el formulario y muestra Toast', async () => {
     await montar('/mi-perfil');
+    await abrirCambioContrasena();
     await completarYEnviar('clave-actual-1', 'nueva-clave-1');
 
     const cambio = pedidos.find((p) => p.metodo === 'PUT' && p.url === '/auth/contrasena');
     assert.deepEqual(cambio?.datos, { contrasenaActual: 'clave-actual-1', contrasenaNueva: 'nueva-clave-1' });
     assert.equal(contenedor.querySelector('.toast')?.textContent, 'Contraseña cambiada correctamente.');
-    assert.equal(contenedor.querySelector('#contrasenaActual').value, '');
-    assert.equal(contenedor.querySelector('#contrasenaNueva').value, '');
-    assert.equal(contenedor.querySelector('#repetirContrasena').value, '');
+    assert.equal(contenedor.querySelector('#contrasenaActual'), null);
+    assert.ok(boton('Cambiar mi contraseña'));
     assert.equal(titulo(), 'Mi perfil');
+  });
+
+  test('el botón rojo "Cerrar sesión" pide confirmación y cierra la sesión', async () => {
+    await montar('/mi-perfil');
+    const btnCerrar = boton('Cerrar sesión');
+    assert.ok(btnCerrar);
+    assert.ok(btnCerrar.classList.contains('btn-danger'));
+
+    await act(async () => btnCerrar.click());
+    const confirmacion = contenedor.querySelector('[role="alertdialog"]');
+    assert.ok(confirmacion);
+    assert.match(confirmacion.textContent, /¿Seguro que querés cerrar tu sesión\?/);
+
+    const botonesConfirmar = [...confirmacion.querySelectorAll('button')];
+    await act(async () => botonesConfirmar.find((b) => b.textContent.trim() === 'Cerrar sesión').click());
+    assert.equal(localStorage.getItem('adrimar_token'), null);
   });
 });

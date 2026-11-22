@@ -229,7 +229,6 @@ describe('mensaje de error según la causa', () => {
 // muestra su error con "Reintentar" en lugar del estado vacío.
 describe('Dashboard de gestión: los paneles con el backend cortado', () => {
   const ERRORES = [
-    'No pudimos cargar los indicadores de la flota. Revisá tu conexión.',
     'No pudimos cargar los viajes de hoy. Revisá tu conexión.',
     'No pudimos cargar los viajes por confirmar. Revisá tu conexión.',
     'No pudimos cargar los viajes sin cerrar. Revisá tu conexión.',
@@ -244,7 +243,7 @@ describe('Dashboard de gestión: los paneles con el backend cortado', () => {
     await montar('Dashboard', 'ADMINISTRADOR', '/');
     const alertas = [...contenedor.querySelectorAll('.alert-error[role="alert"]')].map((a) => a.textContent);
     for (const error of ERRORES) assert.ok(alertas.some((a) => a.includes(error)), `falta: ${error}`);
-    assert.equal(botonesReintentar().length, 6);
+    assert.equal(botonesReintentar().length, 5);
     for (const vacio of VACIOS) assert.ok(!texto().includes(vacio), vacio);
   });
 
@@ -253,18 +252,11 @@ describe('Dashboard de gestión: los paneles con el backend cortado', () => {
     await montar('Dashboard', 'ADMINISTRADOR', '/');
     modo = 'datos';
 
-    // Indicadores y Mantenimiento comparten GET /dashboard/indicadores: un reintento resuelve los dos.
-    const pedidosIndicadores = pedidos.filter((e) => e === '/dashboard/indicadores').length;
-    await act(async () => botonesReintentar()[0].click());
-    assert.equal(pedidos.filter((e) => e === '/dashboard/indicadores').length, pedidosIndicadores + 1);
-    assert.ok(texto().includes('Flota al día'));
-    assert.equal(botonesReintentar().length, 4);
-
     const pedidosViajes = pedidos.filter((e) => e === '/viajes').length;
     await act(async () => botonesReintentar()[0].click());
     assert.equal(pedidos.filter((e) => e === '/viajes').length, pedidosViajes + 2, 'Viajes de hoy hace dos consultas');
     assert.ok(texto().includes('Mendoza'));
-    assert.equal(botonesReintentar().length, 3);
+    assert.equal(botonesReintentar().length, 4);
 
     await act(async () => botonesReintentar()[0].click());
     assert.ok(texto().includes('Nada pendiente para hoy ni mañana'));
@@ -274,6 +266,12 @@ describe('Dashboard de gestión: los paneles con el backend cortado', () => {
     await act(async () => botonesReintentar()[0].click());
     assert.equal(pedidos.filter((e) => e === '/viajes').length, pedidosSinCerrar + 1);
     assert.equal(contenedor.querySelector('[role="region"][aria-label="Sin cerrar"]'), null);
+    assert.equal(botonesReintentar().length, 2);
+
+    const pedidosIndicadores = pedidos.filter((e) => e === '/dashboard/indicadores').length;
+    await act(async () => botonesReintentar()[0].click());
+    assert.equal(pedidos.filter((e) => e === '/dashboard/indicadores').length, pedidosIndicadores + 1);
+    assert.ok(texto().includes('Flota al día'));
     assert.equal(botonesReintentar().length, 1);
 
     const pedidosAlertas = pedidos.filter((e) => e === '/documentos/alertas').length;

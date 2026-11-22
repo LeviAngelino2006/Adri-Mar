@@ -1,9 +1,8 @@
 import { useCallback, useMemo, useReducer, useState } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { PERFILES } from '../constants/perfiles';
 import { getNavItemsHabilitados } from '../constants/navegacion';
-import ConfirmModal from './ui/ConfirmModal';
 import { CargaColectivo } from './ui/Cargando';
 import { CargaLentaContext } from './ui/CargaLentaContext';
 import IconoPresupuesto from './IconoPresupuesto';
@@ -11,14 +10,6 @@ import { contarCargasLentas } from '../utils/etapaCarga';
 import { RUTA_MI_PERFIL } from '../utils/sesion';
 import Logo from './ui/Logo';
 import './Layout.css';
-
-const ICONO_LOGOUT = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-    <path d="M16 17l5-5-5-5" />
-    <path d="M21 12H9" />
-  </svg>
-);
 
 const ICONS = {
   dashboard: (
@@ -93,11 +84,9 @@ function itemDeRuta(navItems, pathname) {
 }
 
 function Layout({ children }) {
-  const { usuario, logout } = useAuth();
-  const navigate = useNavigate();
+  const { usuario } = useAuth();
   const { pathname } = useLocation();
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const [confirmandoLogout, setConfirmandoLogout] = useState(false);
   // Cargas de la pantalla que pasaron los 3s: mientras haya alguna se muestra un
   // solo colectivo arriba (ver Cargando).
   const [cargasLentas, cambiarCargasLentas] = useReducer(contarCargasLentas, 0);
@@ -116,13 +105,6 @@ function Layout({ children }) {
 
   function cerrarMenu() {
     setMenuAbierto(false);
-  }
-
-  function handleLogout() {
-    setConfirmandoLogout(false);
-    cerrarMenu();
-    logout();
-    navigate('/login', { replace: true });
   }
 
   return (
@@ -183,14 +165,6 @@ function Layout({ children }) {
             </span>
             <span className="sr-only"> — Mi perfil</span>
           </NavLink>
-          <button
-            type="button"
-            className="layout-logout"
-            onClick={() => setConfirmandoLogout(true)}
-            aria-label="Cerrar sesión"
-          >
-            {ICONO_LOGOUT}
-          </button>
         </div>
       </aside>
 
@@ -200,17 +174,6 @@ function Layout({ children }) {
         </div>
         <CargaLentaContext.Provider value={cargaLenta}>{children}</CargaLentaContext.Provider>
       </main>
-
-      <ConfirmModal
-        open={confirmandoLogout}
-        tone="brand"
-        icon={ICONO_LOGOUT}
-        title="Cerrar sesión"
-        description="¿Seguro que querés cerrar tu sesión?"
-        confirmLabel="Cerrar sesión"
-        onConfirm={handleLogout}
-        onCancel={() => setConfirmandoLogout(false)}
-      />
     </div>
   );
 }
