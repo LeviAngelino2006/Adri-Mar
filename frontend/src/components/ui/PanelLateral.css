@@ -135,9 +135,10 @@
 .panel-lateral.panel-lateral-centrado {
   width: 100%;
   max-width: 640px;
-  height: auto;
-  /* Nunca más alta que la pantalla: si el contenido no entra, scrollea el cuerpo. */
-  max-height: 100%;
+  /* Alto fijo: cuando llega lo que se carga adentro (el historial), la ventana
+     no crece ni se vuelve a centrar. Nunca más alta que la pantalla: si el
+     contenido no entra, scrollea el cuerpo. */
+  height: min(720px, 100%);
   padding: 0;
   border: 0;
   border-radius: var(--radius-lg);
