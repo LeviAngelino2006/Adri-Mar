@@ -1,4 +1,4 @@
-Pantalla de inicio. Muestra lo que cada perfil tiene que mirar hoy: el chofer, sus viajes; Administrador y Encargado, la operación del día, lo que falta confirmar, lo que quedó sin cerrar de días anteriores y la documentación por vencer. Patrón de página (`Dashboard.jsx`).
+Pantalla de inicio. Muestra lo que cada perfil tiene que mirar hoy: el chofer, sus viajes; Personal de Taller, los indicadores de flota y el estado del service; Administrador y Encargado, los indicadores de flota del período, la operación del día, lo que falta confirmar, lo que quedó sin cerrar de días anteriores y las alertas de mantenimiento y documentación. Patrón de página (`Dashboard.jsx`).
 
 ## Encabezado
 - `h1` "Hola, {nombre}": solo el nombre, sin apellido.
@@ -6,10 +6,15 @@ Pantalla de inicio. Muestra lo que cada perfil tiene que mirar hoy: el chofer, s
 
 ## Orden de secciones
 1. **Lo del chofer** (si `usuario.habilitadoParaConducir`): `ViajeEnCurso` (uno por viaje En viaje) y `ProximosViajes`.
-2. **Viajes de hoy** (Administrador y Encargado), a todo el ancho y solo con lo de hoy: ver `ViajesDeHoy`.
-3. **`<div class="dashboard-columnas">`** (Administrador y Encargado): a la izquierda `PanelViajesPorConfirmar` y a la derecha `<div class="dashboard-columna">` con **Sin cerrar** (solo si hay alguno, ver `ViajesDeHoy`) y, debajo, Documentación, apilados con gap `space-6`. Una columna en mobile (Viajes por confirmar, Sin cerrar, Documentación) y dos iguales desde 1024px, con gap `space-6` y alineadas arriba.
+2. **Resumen de la flota** (Administrador, Encargado y Personal de Taller), franja de indicadores (`IndicadoresDashboard`, desde `GET /api/dashboard/indicadores`):
+   - Cabecera con `h2` "Resumen de la flota" y, para Administrador y Encargado, `ControlSegmentado` ("Este mes" | "Esta semana", arranca en "Este mes").
+   - Grilla `.dashboard-kpis` (1 columna en mobile, 2 desde 480px y 4 desde 1024px; `.dashboard-kpis-taller` queda en 2): tarjetas clickeables (`.dashboard-kpi`) sobre `color-surface`, cifras `.num` y hover/active en `brand-50`.
+   - Gestores ven **Km recorridos** (`→ /reportes`), **Viajes realizados** (`→ /viajes`), **Flota operativa** (`→ /vehiculos`) y **Próximos al service** (`→ /mantenimiento`). Personal de Taller ve solo **Flota operativa** y **Próximos al service**.
+3. **Viajes de hoy** (Administrador y Encargado), a todo el ancho y solo con lo de hoy: ver `ViajesDeHoy`.
+4. **`<div class="dashboard-columnas">`** (Administrador y Encargado): dos `<div class="dashboard-columna">` equilibradas, apiladas con gap `space-5`. A la izquierda los pendientes de viaje (`PanelViajesPorConfirmar` y **Sin cerrar**, este último solo si hay alguno, ver `ViajesDeHoy`); a la derecha las alertas de flota (**Mantenimiento** con `PanelMantenimientoDashboard` y **Documentación**). Una columna en mobile y dos iguales desde 1024px, con gap `space-5` y alineadas arriba.
+   - **Personal de Taller** ve **Mantenimiento** a todo el ancho debajo de sus 2 indicadores (sin Viajes de hoy, Por confirmar ni Documentación).
 
-Un Encargado habilitado para conducir ve las tres partes, en ese orden.
+Un Encargado habilitado para conducir ve la parte de chofer arriba y la operación debajo, en ese orden.
 
 ## Paneles
 - Cada panel es una `Card` con `.dashboard-panel` (margen inferior `space-6`; dentro de `.dashboard-columnas` o de `.dashboard-columna`, sin margen).
@@ -26,6 +31,16 @@ Un Encargado habilitado para conducir ve las tres partes, en ese orden.
 - Hover (solo con mouse, dentro de `@media (hover: hover)`) y `:active` en `brand-50`. Foco: outline 2px `brand-600`, offset 2px.
 - Subtítulos de grupo dentro de un panel: `<h3 class="dashboard-grupo-dia">` (13px, 600, mayúsculas, `color-text-secondary`).
 - Debajo de 480px: la fila pasa a `48px | contenido` y el badge baja a la segunda columna, alineado a la izquierda; en `.sin-hora`, a una sola columna.
+
+## Mantenimiento
+- Encabezado: `h2` "Mantenimiento" y `.dashboard-resumen` con `textoAlertas` ("1 vencido · 2 próximos", se omite si está en cero).
+- Lista: un `<button class="dashboard-fila sin-hora">` por vehículo con service `VENCIDO` o `PROXIMO`, ordenado por urgencia (vencidos primero, luego próximos):
+  - `.dashboard-fila-titulo`: `{numeroInterno} - {dominio}` (dominio con `.patente`).
+  - `.dashboard-fila-meta`: `detalleEstadoService` ("Próximo service a los … km · pasado por … km" / "faltan … km").
+  - `EstadoBadge` sm: Vencido (error) o Próximo (warning).
+- Tope de 5. Si hay más, `Button` secondary `.dashboard-ver-mas` "Ver N más" / "Ver menos".
+- Click: lleva a `/mantenimiento?vehiculoId={id}` (abre su `PanelLateral`).
+- Sin alertas: `.dashboard-empty` "Flota al día" con la pista "Ningún vehículo tiene el service vencido ni próximo".
 
 ## Documentación
 - Encabezado: `h2` "Documentación" y `.dashboard-resumen` "2 vencidos · 3 por vencer" (se omite la parte en cero; singular "1 vencido"). Sin badges en el encabezado.

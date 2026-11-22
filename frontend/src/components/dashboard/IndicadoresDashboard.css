@@ -1,0 +1,92 @@
+.dashboard-kpis-seccion {
+  margin-bottom: var(--space-5);
+}
+
+.dashboard-kpis-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.dashboard-kpis-header h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.dashboard-kpis {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+@media (min-width: 480px) {
+  .dashboard-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .dashboard-kpis-taller {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.dashboard-kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-4) var(--space-5);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+/* Hover solo con mouse; :active da respuesta táctil sin quedar pegado. */
+@media (hover: hover) {
+  .dashboard-kpi:hover {
+    background-color: var(--brand-50);
+    border-color: var(--brand-200);
+  }
+}
+
+.dashboard-kpi:active {
+  background-color: var(--brand-50);
+  border-color: var(--brand-200);
+}
+
+.dashboard-kpi:focus-visible {
+  outline: 2px solid var(--brand-600);
+  outline-offset: 2px;
+}
+
+.dashboard-kpi-etiqueta {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.dashboard-kpi-valor {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-text);
+}
+
+.dashboard-kpi-detalle {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}

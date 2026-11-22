@@ -79,8 +79,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-6) var(--space-2);
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-2);
   text-align: center;
   color: var(--color-text-secondary);
 }
@@ -212,11 +212,11 @@
 }
 
 /* Paneles del Dashboard de Administrador y Encargado: Viajes de hoy a todo el
-   ancho y, debajo, dos columnas desde 1024px: a la izquierda Viajes por
-   confirmar y a la derecha Sin cerrar (si hay) y Documentación. Comparten la
-   lista de filas clickeables (.dashboard-fila). */
+   ancho y, debajo, dos columnas equilibradas desde 1024px: a la izquierda
+   Viajes por confirmar y Sin cerrar (si hay), y a la derecha Mantenimiento y
+   Documentación. Comparten la lista de filas clickeables (.dashboard-fila). */
 .dashboard-panel {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
 }
 
 .dashboard-panel-header {
@@ -241,7 +241,7 @@
 .dashboard-columnas {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-6);
+  gap: var(--space-5);
   align-items: start;
 }
 
@@ -249,12 +249,11 @@
   margin-bottom: 0;
 }
 
-/* Columna derecha: sus paneles apilados, con la misma separación que las
-   columnas. */
+/* Cada columna de paneles apilados, con la misma separación que el grid. */
 .dashboard-columna {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-5);
   min-width: 0;
 }
 

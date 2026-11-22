@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { obtenerAlertasVencimientos } from '../services/documentosApi';
+import { obtenerIndicadoresDashboard } from '../services/dashboardApi';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
@@ -15,6 +16,8 @@ import BotonComenzarViaje from '../components/BotonComenzarViaje';
 import PanelViajesPorConfirmar from '../components/PanelViajesPorConfirmar';
 import PanelViajesDeHoy from '../components/PanelViajesDeHoy';
 import PanelViajesSinCerrar from '../components/PanelViajesSinCerrar';
+import IndicadoresDashboard from '../components/dashboard/IndicadoresDashboard';
+import PanelMantenimientoDashboard from '../components/dashboard/PanelMantenimientoDashboard';
 import FechaTile from '../components/FechaTile';
 import { ESTADOS_VIAJE } from '../constants/estadosViaje';
 import { formatearDiaYHora, formatearHorarioViaje, nombreVehiculo } from '../utils/viajeFormato';
@@ -25,8 +28,10 @@ import { lineaAlertaDocumento, ordenarAlertas, resumenAlertas } from '../utils/d
 import { useCarga } from '../hooks/useCarga';
 import './Dashboard.css';
 
-// Los que gestionan viajes (ver el panel de viajes por confirmar).
+// Los que gestionan viajes (indicadores completos, viajes y documentación).
 const PERFILES_GESTORES = ['ADMINISTRADOR', 'ENCARGADO'];
+// Los que ven indicadores de flota y mantenimiento (gestión + taller).
+const PERFILES_OPERACION = ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'];
 
 const MAX_VIAJES_INICIAL = 3;
 const MAX_DOCUMENTOS_INICIAL = 5;
@@ -326,10 +331,52 @@ function SeccionDocumentacion() {
   );
 }
 
+function SeccionOperacion({ esGestor }) {
+  const [periodo, setPeriodo] = useState('mes');
+
+  const pedirIndicadores = useCallback(
+    () => obtenerIndicadoresDashboard({ periodo }).then(({ data }) => data),
+    [periodo]
+  );
+  const cargaIndicadores = useCarga(pedirIndicadores);
+
+  return (
+    <>
+      <IndicadoresDashboard
+        carga={cargaIndicadores}
+        periodo={periodo}
+        onCambiarPeriodo={setPeriodo}
+        esGestor={esGestor}
+      />
+
+      {esGestor ? (
+        <>
+          <PanelViajesDeHoy />
+          <div className="dashboard-columnas">
+            {/* Columna izquierda: pendientes de viaje (Viajes por confirmar y Sin cerrar). */}
+            <div className="dashboard-columna">
+              <PanelViajesPorConfirmar />
+              <PanelViajesSinCerrar />
+            </div>
+            {/* Columna derecha: alertas de flota (Mantenimiento y Documentación). */}
+            <div className="dashboard-columna">
+              <PanelMantenimientoDashboard carga={cargaIndicadores} />
+              <SeccionDocumentacion />
+            </div>
+          </div>
+        </>
+      ) : (
+        <PanelMantenimientoDashboard carga={cargaIndicadores} />
+      )}
+    </>
+  );
+}
+
 function Dashboard() {
   const { usuario } = useAuth();
 
   const esGestor = PERFILES_GESTORES.includes(usuario.perfil);
+  const veOperacion = PERFILES_OPERACION.includes(usuario.perfil);
 
   return (
     <Layout>
@@ -337,19 +384,7 @@ function Dashboard() {
 
       {usuario.habilitadoParaConducir && <ViajesDelChofer />}
 
-      {esGestor && (
-        <>
-          <PanelViajesDeHoy />
-          <div className="dashboard-columnas">
-            <PanelViajesPorConfirmar />
-            {/* Columna derecha: Sin cerrar (solo si hay alguno) y Documentación. */}
-            <div className="dashboard-columna">
-              <PanelViajesSinCerrar />
-              <SeccionDocumentacion />
-            </div>
-          </div>
-        </>
-      )}
+      {veOperacion && <SeccionOperacion esGestor={esGestor} />}
     </Layout>
   );
 }
