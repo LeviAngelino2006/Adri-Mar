@@ -4,6 +4,7 @@
 // mantenimientoService: vive en utils para no importar un service desde otro.
 const CORDOBA_UTC_OFFSET = '-03:00';
 const CORDOBA_OFFSET_MS = 3 * 60 * 60 * 1000;
+const MS_POR_DIA = 24 * 60 * 60 * 1000;
 const TIENE_OFFSET_REGEX = /(Z|[+-]\d{2}:\d{2})$/;
 const SOLO_DIA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -39,4 +40,21 @@ function aDiaCordoba(valor) {
   return SOLO_DIA_REGEX.test(texto) ? new Date(`${texto}T12:00:00${CORDOBA_UTC_OFFSET}`) : aFechaCordoba(texto);
 }
 
-module.exports = { CORDOBA_UTC_OFFSET, CORDOBA_OFFSET_MS, aFechaCordoba, aDiaCordoba, diaCordobaISO, SOLO_DIA_REGEX };
+// Día completo de Córdoba (00:00 a 24:00) que contiene a fecha. Lo usa la
+// disponibilidad cuando un viaje todavía no tiene fechaFin.
+function rangoDelDiaCordoba(fecha) {
+  const diaCordoba = new Date(fecha.getTime() - CORDOBA_OFFSET_MS).toISOString().slice(0, 10);
+  const inicio = aFechaCordoba(`${diaCordoba}T00:00`);
+  return { inicio, fin: new Date(inicio.getTime() + MS_POR_DIA) };
+}
+
+module.exports = {
+  CORDOBA_UTC_OFFSET,
+  CORDOBA_OFFSET_MS,
+  MS_POR_DIA,
+  aFechaCordoba,
+  aDiaCordoba,
+  diaCordobaISO,
+  rangoDelDiaCordoba,
+  SOLO_DIA_REGEX,
+};

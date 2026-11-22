@@ -22,7 +22,6 @@ Este directorio centraliza la documentación técnica, funcional y de diseño de
 
 ## 3. Especificaciones Técnicas y Flujos Operativos
 
-- [docs/handoff-flujo-viajes.md](./handoff-flujo-viajes.md): Especificación técnica del nuevo flujo de creación y confirmación de viajes en 4 fases (candidatos, paradas intermedias, disponibilidad operativa y avisos por WhatsApp).
 
 ---
 

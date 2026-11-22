@@ -143,6 +143,5 @@ El índice completo está en [docs/README.md](docs/README.md). Lo más consultad
 
 - [docs/dominio.md](docs/dominio.md): reglas de negocio.
 - [docs/INFORMACION_ADICIONAL.md](docs/INFORMACION_ADICIONAL.md): relevamiento operativo de la empresa.
-- [docs/handoff-flujo-viajes.md](docs/handoff-flujo-viajes.md): flujo de creación y confirmación de viajes.
 - [docs/design-system/README.md](docs/design-system/README.md): design system de la interfaz.
 - [CLAUDE.md](CLAUDE.md): contexto y convenciones para trabajar con Claude Code.
