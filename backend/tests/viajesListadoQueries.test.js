@@ -1,7 +1,8 @@
 // Tests de la cantidad de consultas del listado de viajes: las lecturas de
 // odómetro (odometroInicial/odometroFinal/kmRealizados) se resuelven en lote
 // para todos los viajes, así que el listado hace las mismas consultas de
-// lecturas con 1 viaje que con 10.
+// lecturas con 1 viaje que con 10. También GET /viajes/opciones-filtros, que
+// arma los filtros de chofer y vehículo sin traer el listado entero.
 //
 // Levantan la app real de Express con un JWT real y el doble con estado de
 // helpers/prismaFalsoConEstado.js. NO tocan la base ni leen el .env.
@@ -104,11 +105,16 @@ function agregarViajeConCadena() {
   return viaje;
 }
 
+async function pedir(ruta, perfil = 'ADMINISTRADOR') {
+  const token = generarToken({ id: 10, personaId: 10, nombreUsuario: 'test', perfil, habilitadoParaConducir: true });
+  const respuesta = await fetch(`${base}${ruta}`, { headers: { Authorization: `Bearer ${token}` } });
+  return { status: respuesta.status, json: await respuesta.json() };
+}
+
 async function listar() {
-  const token = generarToken({ id: 10, personaId: 10, nombreUsuario: 'test', perfil: 'ADMINISTRADOR', habilitadoParaConducir: true });
-  const respuesta = await fetch(`${base}/viajes`, { headers: { Authorization: `Bearer ${token}` } });
-  assert.equal(respuesta.status, 200);
-  return (await respuesta.json()).viajes;
+  const { status, json } = await pedir('/viajes');
+  assert.equal(status, 200);
+  return json.viajes;
 }
 
 describe('GET /viajes: consultas de lecturas de odómetro', () => {
@@ -154,5 +160,41 @@ describe('GET /viajes: consultas de lecturas de odómetro', () => {
     const viajes = await listar();
     assert.deepEqual(viajes, []);
     assert.equal(consultasLecturas, 0);
+  });
+});
+
+describe('GET /viajes/opciones-filtros', () => {
+  test('devuelve solo los choferes y vehículos que aparecen en algún viaje, sin repetir', async () => {
+    agregarViaje({ estado: 'PROGRAMADO', choferId: 5, vehiculoId: 7 });
+    agregarViaje({ estado: 'FINALIZADO', choferId: 5, vehiculoId: 9 });
+    agregarViaje({ estado: 'CANCELADO', choferId: 6, vehiculoId: 7 });
+    // A_CONFIRMAR sin chofer ni vehículo: no suma opciones.
+    agregarViaje({ estado: 'A_CONFIRMAR' });
+
+    const { status, json } = await pedir('/viajes/opciones-filtros');
+
+    assert.equal(status, 200);
+    assert.deepEqual(json, {
+      choferes: [
+        { id: 5, nombre: 'Ana', apellido: 'Pérez' },
+        { id: 6, nombre: 'Beto', apellido: 'Gómez' },
+      ],
+      vehiculos: [
+        { id: 7, dominio: 'AE452KD', numeroInterno: '12' },
+        { id: 9, dominio: 'AE454KD', numeroInterno: '14' },
+      ],
+    });
+  });
+
+  test('Personal de Taller y Encargado pueden usarlo, como el listado', async () => {
+    for (const perfil of ['PERSONAL_TALLER', 'ENCARGADO']) {
+      const { status } = await pedir('/viajes/opciones-filtros', perfil);
+      assert.equal(status, 200, perfil);
+    }
+  });
+
+  test('un Chofer recibe 403, como en el listado', async () => {
+    const { status } = await pedir('/viajes/opciones-filtros', 'CHOFER');
+    assert.equal(status, 403);
   });
 });

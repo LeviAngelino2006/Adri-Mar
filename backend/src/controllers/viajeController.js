@@ -73,6 +73,10 @@ async function listar(req, res) {
   }
 }
 
+async function opcionesFiltros(req, res) {
+  return res.json(await viajeService.opcionesFiltrosViajes());
+}
+
 // Viajes del usuario autenticado como chofer. El choferId SIEMPRE sale del
 // JWT, nunca de la query string: un usuario no puede pedir los viajes de otro
 // cambiando un parámetro. Es el personaId (Viaje.choferId es id de persona),
@@ -313,6 +317,7 @@ async function finalizar(req, res) {
 module.exports = {
   crear,
   listar,
+  opcionesFiltros,
   misViajes,
   actualizar,
   actualizarDatosAdministrativos,

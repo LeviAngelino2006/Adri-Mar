@@ -238,7 +238,29 @@ async function listarViajes(
   }));
 }
 
+// Opciones de los filtros de chofer y vehículo del listado: los que aparecen
+// en al menos un viaje, de cualquier estado. Salen de acá y no de /usuarios o
+// /vehiculos porque Personal de Taller ve el listado pero no tiene acceso a
+// esos endpoints. Solo los campos con los que el front arma y ordena las
+// opciones; el orden final lo pone el front.
+async function opcionesFiltrosViajes() {
+  const [choferes, vehiculos] = await Promise.all([
+    prisma.persona.findMany({
+      where: { viajes: { some: {} } },
+      select: { id: true, nombre: true, apellido: true },
+      orderBy: { id: 'asc' },
+    }),
+    prisma.vehiculo.findMany({
+      where: { viajes: { some: {} } },
+      select: { id: true, dominio: true, numeroInterno: true },
+      orderBy: { id: 'asc' },
+    }),
+  ]);
+  return { choferes, vehiculos };
+}
+
 module.exports = {
   ESTADOS_VIAJE_VALIDOS,
   listarViajes,
+  opcionesFiltrosViajes,
 };

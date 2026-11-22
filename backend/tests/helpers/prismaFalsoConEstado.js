@@ -34,6 +34,12 @@ function reemplazar(array, nuevoContenido) {
   array.splice(0, array.length, ...nuevoContenido);
 }
 
+// El `select` de Prisma (solo campos escalares): sin select, la fila entera.
+function elegirCampos(fila, select) {
+  if (!select) return { ...fila };
+  return Object.fromEntries(Object.keys(select).filter((k) => select[k]).map((k) => [k, fila[k]]));
+}
+
 function aplicarCambios(fila, data) {
   for (const [clave, valor] of Object.entries(data)) {
     if (valor !== undefined) fila[clave] = valor;
@@ -722,8 +728,13 @@ function crearEntorno() {
           }) ?? null
         );
       },
-      findMany: async ({ where = {}, include } = {}) => {
+      findMany: async ({ where = {}, include, select } = {}) => {
         let filtradas = [...db.personas];
+        // Opciones de filtros del listado: las personas que manejan algún viaje.
+        if (where.viajes?.some) {
+          filtradas = filtradas.filter((p) => db.viajes.some((v) => v.choferId === p.id));
+          return filtradas.map((p) => elegirCampos(p, select));
+        }
         if (where.activo !== undefined) {
           filtradas = filtradas.filter((p) => p.activo === where.activo);
         }
@@ -924,7 +935,13 @@ function crearEntorno() {
         if (!v) return null;
         return include?.planMantenimiento ? armarVehiculoMantenimiento(v) : v;
       },
-      findMany: async ({ where, include }) => {
+      findMany: async ({ where, include, select }) => {
+        // Opciones de filtros del listado: los vehículos que hacen algún viaje.
+        if (where.viajes?.some) {
+          return db.vehiculos
+            .filter((v) => db.viajes.some((viaje) => viaje.vehiculoId === v.id))
+            .map((v) => elegirCampos(v, select));
+        }
         const filas = where.id?.in
           ? db.vehiculos.filter((v) => where.id.in.includes(v.id))
           : db.vehiculos.filter((v) => v.estadoVehiculo.descripcion !== where.estadoVehiculo.descripcion.not);
