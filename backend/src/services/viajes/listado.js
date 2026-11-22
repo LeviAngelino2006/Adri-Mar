@@ -1,13 +1,12 @@
 // Listado de viajes: vistas, filtros, búsqueda y orden.
 const prisma = require('../prismaClient');
 // Fechas sin offset = hora de Córdoba (UTC-3 todo el año): ver utils/fechaCordoba.
-const { aFechaCordoba } = require('../../utils/fechaCordoba');
+const { aFechaCordoba, rangoDelDiaCordoba } = require('../../utils/fechaCordoba');
 const { normalizarNombre } = require('../../utils/normalizarNombre');
 const { PermisoDenegadoError, ValidacionError } = require('./errores');
 const { puedeVerDatosAdministrativos } = require('./permisos');
 const { INCLUDE_RELACIONES_VIAJE } = require('./consultas');
 const { FILTRO_ADMINISTRATIVO_PENDIENTE, serializarViaje } = require('./serializacion');
-const { rangoDelDiaCordoba } = require('./disponibilidad');
 
 const ESTADOS_VIAJE_VALIDOS = ['A_CONFIRMAR', 'PROGRAMADO', 'EN_VIAJE', 'FINALIZADO', 'CANCELADO'];
 const SOLO_FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;

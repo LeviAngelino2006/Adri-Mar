@@ -3,7 +3,7 @@ const prisma = require('../prismaClient');
 const documentoService = require('../documentoService');
 const { campoAusente } = require('../../utils/recorridoViaje');
 // Fechas sin offset = hora de Córdoba (UTC-3 todo el año): ver utils/fechaCordoba.
-const { aFechaCordoba } = require('../../utils/fechaCordoba');
+const { aFechaCordoba, rangoDelDiaCordoba } = require('../../utils/fechaCordoba');
 const { ValidacionError } = require('./errores');
 const {
   aFechaCordobaOInstancia,
@@ -25,22 +25,12 @@ const { obtenerViaje } = require('./consultas');
 // la habilitación y buscarSolapamiento para el horario — así que las reglas
 // no se duplican.
 
-const MS_POR_DIA = 24 * 60 * 60 * 1000;
-const CORDOBA_OFFSET_MS = 3 * 60 * 60 * 1000;
 const FORMATO_HORA_CORDOBA = new Intl.DateTimeFormat('es-AR', {
   timeZone: 'America/Argentina/Cordoba',
   hour: '2-digit',
   minute: '2-digit',
   hourCycle: 'h23',
 });
-
-// Sin fechaFin (todavía no se sabe cuándo termina) se chequea contra el día
-// completo de fechaInicio, de 00:00 a 24:00 hora de Córdoba.
-function rangoDelDiaCordoba(fecha) {
-  const diaCordoba = new Date(fecha.getTime() - CORDOBA_OFFSET_MS).toISOString().slice(0, 10);
-  const inicio = aFechaCordoba(`${diaCordoba}T00:00`);
-  return { inicio, fin: new Date(inicio.getTime() + MS_POR_DIA) };
-}
 
 function motivoDeChofer(chofer) {
   const problema = problemaDeChofer(chofer);
@@ -231,7 +221,6 @@ async function disponibilidadParaAlta({ fechaInicio, fechaFin, choferIds, vehicu
 }
 
 module.exports = {
-  rangoDelDiaCordoba,
   disponibilidadDeViaje,
   disponibilidadParaAlta,
 };
