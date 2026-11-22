@@ -1,0 +1,648 @@
+/* Reportes: km recorridos y viajes por vehículo. Solo tokens del design system. */
+
+.reporte-encabezado-impresion {
+  display: none;
+}
+
+.reporte-controles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.reporte-controles-fila {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@media (min-width: 900px) {
+  .reporte-controles-fila {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.reporte-controles-izq {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.reporte-periodo-rango {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.reporte-periodo-rango svg {
+  flex-shrink: 0;
+}
+
+.reporte-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@media (max-width: 639px) {
+  .reporte-controles .control-segmentado {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    width: 100%;
+  }
+
+  .reporte-controles .control-segmentado-opcion {
+    padding: 0 var(--space-2);
+    font-size: 0.875rem;
+  }
+
+  .reporte-controles .control-segmentado-opcion:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .reporte-controles .control-segmentado-opcion:nth-child(n + 3) {
+    border-top: 1px solid var(--color-border);
+  }
+
+  .reporte-acciones .btn {
+    flex: 1 1 auto;
+  }
+}
+
+.reporte-fechas-grid .form-field {
+  margin-bottom: 0;
+}
+
+.reporte-rango-error {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--state-error-text);
+}
+
+/* --- Tarjeta de indicadores del período ------------------------------------ */
+
+.reporte-kpis-card {
+  margin-bottom: var(--space-5);
+}
+
+.reporte-kpis {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 480px) {
+  .reporte-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .reporte-kpis {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.reporte-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.reporte-kpi-etiqueta {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.reporte-kpi-etiqueta-fila {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.reporte-kpi-valor {
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--color-text);
+}
+
+.reporte-kpi-sub {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.reporte-nota-odometro {
+  margin: var(--space-4) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+/* --- Resumen numérico ------------------------------------------------------ */
+
+.reporte-resumen {
+  margin: 0 0 var(--space-3);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Gráficos operativos del reporte --------------------------------------- */
+
+.reporte-graficos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.reporte-graficos-fila {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
+}
+
+@media (min-width: 900px) {
+  .reporte-graficos-fila {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.reporte-grafico-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.reporte-grafico-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.reporte-grafico-header h2 {
+  margin: 0;
+  font-size: 1.0625rem;
+}
+
+.reporte-actividad-detalle {
+  margin: var(--space-1) 0 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.reporte-barra-track {
+  width: 100%;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-border);
+  overflow: hidden;
+}
+
+.reporte-barra-fill-brand {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background-color: var(--brand-600);
+}
+
+/* Gráfico por tipo de vehículo */
+
+.reporte-tipo-lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reporte-tipo-fila {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.reporte-tipo-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.reporte-tipo-nombre {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: 0.9375rem;
+}
+
+.reporte-tipo-sub {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.reporte-tipo-valor {
+  font-size: 0.875rem;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+/* Gráfico de actividad por día / semana / mes */
+
+.reporte-actividad-cuerpo {
+  --grafico-alto-zona: 120px;
+  --grafico-pad-top: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.reporte-eje-y {
+  position: relative;
+  height: var(--grafico-alto-zona);
+  margin-top: var(--grafico-pad-top);
+  min-width: 36px;
+  flex-shrink: 0;
+}
+
+.reporte-eje-y-etiqueta {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.reporte-columnas-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: var(--space-1);
+}
+
+.reporte-columnas-area {
+  position: relative;
+  min-width: 100%;
+  width: max-content;
+}
+
+.reporte-guias {
+  position: absolute;
+  top: var(--grafico-pad-top);
+  left: 0;
+  right: 0;
+  height: var(--grafico-alto-zona);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.reporte-guia-linea {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--color-border);
+}
+
+.reporte-guia-linea.is-base {
+  border-top-style: solid;
+}
+
+.reporte-columnas {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.reporte-columna-btn {
+  flex: 1 0 26px;
+  min-width: 26px;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--grafico-pad-top) 2px var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .reporte-columna-btn:hover {
+    background-color: var(--brand-50);
+  }
+
+  .reporte-columna-btn:hover .reporte-columna-barra:not(.is-cero) {
+    background-color: var(--brand-700);
+  }
+}
+
+.reporte-columna-btn:active {
+  background-color: var(--brand-50);
+}
+
+.reporte-columna-btn.is-activa {
+  background-color: var(--brand-50);
+}
+
+.reporte-columna-zona {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: var(--grafico-alto-zona);
+}
+
+.reporte-columna-barra {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  max-width: 28px;
+  min-height: 2px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background-color: var(--brand-600);
+  transition: background-color 0.15s ease;
+}
+
+.reporte-columna-barra.is-cero {
+  height: 2px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-border);
+}
+
+.reporte-columna-btn.is-activa .reporte-columna-barra:not(.is-cero) {
+  background-color: var(--brand-700);
+}
+
+.reporte-columna-etiqueta {
+  font-size: 0.75rem;
+  line-height: 1.2;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  min-height: 1em;
+}
+
+.reportes-filtro-switch .switch-field-label {
+  min-height: 44px;
+}
+
+.reporte-vacio-accion {
+  margin-top: var(--space-3);
+}
+
+/* --- Vista de detalle centrada del vehículo (patrón FichaDetalle) --------- */
+
+.reporte-detalle-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+
+.reporte-detalle-header h1 {
+  margin: 0 0 var(--space-1);
+}
+
+.reporte-detalle-subtitulo {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+}
+
+.reporte-detalle-card {
+  margin-bottom: var(--space-5);
+}
+
+.reporte-detalle-viajes-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.reporte-detalle-viajes-header h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.reporte-detalle-viajes-total {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.reporte-detalle-vacio {
+  margin: var(--space-4) 0;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.reporte-viajes-lista {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.reporte-viaje-item {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.reporte-viaje-boton {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .reporte-viaje-boton:hover {
+    background-color: var(--brand-50);
+  }
+
+  .reporte-viaje-boton:hover .reporte-viaje-ruta,
+  .reporte-viaje-boton:hover .reporte-viaje-flecha {
+    color: var(--brand-700);
+  }
+}
+
+.reporte-viaje-boton:active {
+  background-color: var(--brand-50);
+}
+
+.reporte-viaje-boton:active .reporte-viaje-ruta,
+.reporte-viaje-boton:active .reporte-viaje-flecha {
+  color: var(--brand-700);
+}
+
+.reporte-viaje-derecha {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.reporte-viaje-flecha {
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.reporte-viaje-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.reporte-viaje-fecha {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.reporte-viaje-ruta {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.reporte-viaje-meta {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.reporte-viaje-km {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.reporte-viaje-km-real {
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.reporte-viaje-km-est {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* --- Impresión A4 limpia --------------------------------------------------- */
+
+@media print {
+  .layout-sidebar,
+  .layout-topbar,
+  .layout-backdrop,
+  .reporte-controles,
+  .listado-toolbar,
+  .listado-filtros,
+  .panel-lateral-overlay,
+  .back-link,
+  .toast,
+  .ayuda-tooltip,
+  .reporte-viaje-flecha,
+  .reporte-vacio-accion {
+    display: none !important;
+  }
+
+  .layout {
+    display: block;
+    background-color: var(--color-surface);
+  }
+
+  .layout-content {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .reporte-encabezado-impresion {
+    display: block;
+    padding-bottom: var(--space-3);
+    margin-bottom: var(--space-4);
+    border-bottom: 2px solid var(--brand-600);
+  }
+
+  .reporte-encabezado-impresion-marca {
+    margin: 0 0 var(--space-1);
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--brand-600);
+  }
+
+  .reporte-encabezado-impresion h2 {
+    margin: 0 0 var(--space-1);
+    font-size: 1.25rem;
+    color: var(--color-text);
+  }
+
+  .reporte-encabezado-impresion-meta {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+  }
+
+  .reporte-kpis-card,
+  .reporte-grafico-card,
+  .listado-card {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .reporte-barra-fill-brand,
+  .reporte-columna-barra {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .reporte-graficos-fila {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .reporte-kpis {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
