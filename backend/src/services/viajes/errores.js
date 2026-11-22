@@ -2,14 +2,11 @@
 
 class PermisoDenegadoError extends Error {}
 
-// Se dispara al intentar Comenzar un viaje cuando el vehículo o el chofer ya
-// tienen otro viaje En viaje en curso. El chequeo de acá adentro es best
-// effort para dar un mensaje claro en el camino feliz; la garantía dura
-// contra la carrera entre dos requests simultáneos es el índice único
-// parcial de la base (Paso 1) — si esta validación pasa pero el INSERT/UPDATE
-// igual choca contra ese índice, se captura el código 23505 (P2002 en
-// Prisma) y se relanza como este mismo error, nunca como un error crudo de
-// Postgres.
+// Comenzar un viaje cuando el vehículo o el chofer ya tienen otro En viaje.
+// comenzarViaje (ciclo.js) lo chequea antes para dar un mensaje claro, pero la
+// garantía dura contra dos requests simultáneos es el índice único parcial de
+// la base: si igual choca, el código 23505 (P2002 en Prisma) se relanza como
+// este error, nunca como un error crudo de Postgres.
 class ViajeEnCursoError extends Error {}
 
 class ValidacionError extends Error {
@@ -22,7 +19,7 @@ class ValidacionError extends Error {
 class NoEncontradoError extends Error {}
 
 // Estado distinto de PROGRAMADO: no se puede ni editar ni cancelar (salvo el
-// caso de "ya cancelado", que tiene su propio error más específico abajo).
+// caso de "ya cancelado", que tiene su propio error: YaCanceladoError).
 class EstadoNoEditableError extends Error {
   constructor(estadoActual) {
     super(`El viaje está en estado ${estadoActual}`);

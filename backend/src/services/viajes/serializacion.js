@@ -16,14 +16,6 @@ const serializarPunto = (u) => ({
   longitud: u.longitud ?? null,
 });
 
-// Las 12 claves de datos administrativos de un viaje. Se OMITEN por completo
-// (en vez de devolverse en null) para quien no puede verlas: un null diría
-// "no se cargó nada" sobre un viaje que sí tiene precio cargado, que es un dato
-// falso; ausente dice "esto no te corresponde". Los ids de las relaciones
-// (estadoPagoClienteId, etc.) van en el mismo grupo porque también revelan el
-// dato. precio/pagoChofer vienen de Prisma como Decimal (objeto), se convierten
-// a number para que la API devuelva un número plano; las que no se cargaron
-// van en null, nunca se omite la clave para un Administrador/Encargado.
 // Qué le falta cargar a un viaje en lo administrativo, para el badge del
 // listado y el filtro "Administrativo pendiente". Un viaje CANCELADO nunca
 // queda pendiente. SIN_PRECIO tiene prioridad sobre COBRO_PENDIENTE: sin precio
@@ -65,6 +57,11 @@ const FILTRO_ADMINISTRATIVO_PENDIENTE = {
   ],
 };
 
+// Datos administrativos de un viaje. Para quien no puede verlos se OMITEN (ver
+// serializarViaje), no van en null: un null diría "no se cargó nada" sobre un
+// viaje que sí tiene precio, que es falso. Los ids de las relaciones van en el
+// mismo grupo porque también revelan el dato. precio/pagoChofer vienen como
+// Decimal de Prisma y se convierten a number; lo no cargado va en null.
 function serializarDatosAdministrativos(viaje) {
   return {
     pendienteAdministrativo: pendienteAdministrativo(viaje),
@@ -106,16 +103,12 @@ function serializarCandidatos(viaje) {
   };
 }
 
-// kmRealizados ya no sale de columnas propias del viaje (odometroInicial/
-// odometroFinal quedaron deprecadas en el Paso 1): se busca la lectura
-// INICIO_VIAJE y la FIN_VIAJE asociadas a este viaje y se resuelve cada una
-// con obtenerLecturaVigente, por si alguna fue corregida después (todavía no
-// hay forma de corregir desde HTTP, pero la función ya existe y el cálculo
-// tiene que estar bien desde ya). Si falta cualquiera de las dos, null.
-//
-// Esas mismas lecturas vigentes se devuelven como odometroInicial y
-// odometroFinal (solo lectura, mismo criterio de visibilidad que kmRealizados):
-// un viaje En viaje tiene solo el inicial; uno sin comenzar, ninguno (null).
+// kmRealizados sale de las lecturas INICIO_VIAJE y FIN_VIAJE del viaje (las
+// columnas odometroInicial/odometroFinal de Viaje están deprecadas), resueltas
+// con obtenerLecturaVigente por si alguna fue corregida. Si falta una, null.
+// Esas lecturas vigentes también se devuelven como odometroInicial y
+// odometroFinal: un viaje En viaje tiene solo el inicial; uno sin comenzar,
+// ninguno.
 async function serializarViaje(viaje, usuarioSolicitante) {
   const [lecturaInicio, lecturaFin] = await Promise.all([
     prisma.lecturaOdometro.findFirst({
@@ -137,10 +130,8 @@ async function serializarViaje(viaje, usuarioSolicitante) {
 
   return {
     id: viaje.id,
-    // choferId/vehiculoId pueden ser null en un viaje A_CONFIRMAR todavía sin
-    // completar — mismo criterio que origen/destino: null, nunca se omite la
-    // clave (antes de esta tarea eran siempre no-nulos, así que esto no
-    // rompe nada existente, solo agrega el caso nuevo).
+    // choferId/vehiculoId van en null en un viaje A_CONFIRMAR; nunca se omite
+    // la clave.
     choferId: viaje.choferId,
     chofer: viaje.chofer
       ? {
@@ -164,9 +155,8 @@ async function serializarViaje(viaje, usuarioSolicitante) {
           kilometraje: viaje.vehiculo.kilometraje,
         }
       : null,
-    // origenId/destinoId y sus objetos resueltos van en null para viajes
-    // históricos que no los tienen (no se inventa ni se omite la clave, ver
-    // tarea de Origen/Destino).
+    // origenId/destinoId van en null en viajes históricos que no los tienen
+    // (no se inventa ni se omite la clave).
     origenId: viaje.origenId,
     origen: viaje.origen ? serializarPunto(viaje.origen) : null,
     destinoId: viaje.destinoId,
@@ -180,10 +170,8 @@ async function serializarViaje(viaje, usuarioSolicitante) {
     // Cliente es un dato core del viaje, visible para todos los perfiles.
     clienteId: viaje.clienteId,
     cliente: viaje.cliente ? { id: viaje.cliente.id, nombre: viaje.cliente.nombre } : null,
-    // Datos administrativos: para Administrador/Encargado van las 12 claves
-    // (los 8 campos más los id de las 4 relaciones); para el resto de los
-    // perfiles NO viaja ninguna (se omiten, no se devuelven en null — ver
-    // serializarDatosAdministrativos).
+    // Datos administrativos: solo Administrador/Encargado; para el resto se
+    // omiten las claves (ver serializarDatosAdministrativos).
     ...(puedeVerDatosAdministrativos(usuarioSolicitante) ? serializarDatosAdministrativos(viaje) : {}),
     // Candidatos: mismo criterio que los datos administrativos (solo
     // Administrador/Encargado; para el resto las claves se omiten, no van en

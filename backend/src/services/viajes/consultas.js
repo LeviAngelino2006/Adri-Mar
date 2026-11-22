@@ -3,12 +3,10 @@ const prisma = require('../prismaClient');
 const { INCLUDE_MODELO_Y_MARCA } = require('../../utils/marcaModeloVehiculo');
 const { NoEncontradoError } = require('./errores');
 
-// Usado por cualquier lectura de viaje que vaya a pasar por serializarViaje
-// (necesita las 10 relaciones resueltas: las 5 operativas de siempre más las
-// 5 de datos administrativos agregadas en la tarea de Precio/Cliente/pagos,
-// y los candidatos). Los candidatos se cargan siempre, aunque
-// serializarViaje los omita para quien no es gestor: son tablas chicas y así
-// ninguna lectura puede olvidarse de incluirlos.
+// Para cualquier lectura de viaje que vaya a pasar por serializarViaje. Los
+// candidatos se cargan siempre, aunque serializarViaje los omita para quien no
+// es gestor: son tablas chicas y así ninguna lectura puede olvidarse de
+// incluirlos.
 const INCLUDE_RELACIONES_VIAJE = {
   choferesCandidatos: { include: { persona: true } },
   vehiculosCandidatos: { include: { vehiculo: true } },

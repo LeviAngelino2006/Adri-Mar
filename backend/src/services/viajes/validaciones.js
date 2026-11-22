@@ -10,12 +10,10 @@ const { ValidacionError } = require('./errores');
 
 const ESTADO_VEHICULO_HABILITADO = 'OPERATIVO';
 
-// Igual que aFechaCordoba, pero tolera recibir un Date ya parseado tal cual
-// (lo devuelve sin tocar). Hace falta en `confirmarViaje`, que combina valores
-// ya guardados en la base (que llegan como Date, vía Prisma) con los que
-// puedan venir nuevos en el payload (que llegan como string crudo de HTTP) —
-// sin esto, pasar un Date por aFechaCordoba lo convertiría a texto con
-// `String(date)` y lo volvería a parsear mal.
+// Igual que aFechaCordoba, pero devuelve sin tocar un Date ya parseado. Hace
+// falta en confirmarViaje (ciclo.js), que combina valores guardados (Date, vía
+// Prisma) con los del payload (string de HTTP): pasar un Date por
+// aFechaCordoba lo convertiría a texto con `String(date)` y lo parsearía mal.
 function aFechaCordobaOInstancia(valor) {
   if (valor instanceof Date) return valor;
   return aFechaCordoba(valor);
@@ -23,10 +21,8 @@ function aFechaCordobaOInstancia(valor) {
 
 // clienteId/origenId/destinoId: dato "core" del viaje (quién lo pidió y
 // adónde), no operativo — siempre obligatorios, en cualquier estado, tanto al
-// crear como al editar (a diferencia de los 5 campos operativos de abajo, que
-// dependen de si el viaje es A_CONFIRMAR o no). clienteId se sumó acá en esta
-// tarea; antes vivía (por error de alcance) como uno de los 9 campos
-// opcionales de datos-administrativos.
+// crear como al editar (a diferencia de los campos operativos de
+// validarCamposOperativos, que dependen de si el viaje es A_CONFIRMAR o no).
 //
 // Origen y destino se validan con validarExtremosRecorrido (utils/recorridoViaje),
 // la misma regla que usa el cálculo de km: origen == destino solo es un error si
@@ -53,8 +49,7 @@ function validarCamposCore({ clienteId, origenId, destinoId }, { hayParadas = fa
 
 // Los 5 campos operativos (quién maneja, qué vehículo, cuándo, cuántos km).
 // `obligatorios` decide el modo:
-//  - true: los 5 son obligatorios, mismos mensajes de error de siempre (usado
-//    al editar un viaje PROGRAMADO y al confirmar).
+//  - true: los 5 son obligatorios (al editar un viaje PROGRAMADO y al confirmar).
 //  - false: un campo ausente no es error, simplemente resuelve a `null`
 //    explícito (nunca `undefined` — actualizarViaje/crearViaje son reemplazo
 //    completo, no actualización parcial, así que un campo que no vino tiene
@@ -232,11 +227,9 @@ async function validarVehiculo(vehiculoId) {
   return vehiculo;
 }
 
-// Existencia pura, sin elegibilidad de negocio (ACTIVO/habilitadoParaConducir
-// para chofer, OPERATIVO para vehículo) — la versión liviana que usa el
-// alta/edición de un viaje A_CONFIRMAR para los campos operativos que sí
-// vengan presentes ("un vehiculoId dado tiene que ser un vehículo real", nada
-// más, todavía no importa si está disponible).
+// Existencia pura, sin elegibilidad de negocio (ACTIVO/habilitadoParaConducir,
+// OPERATIVO): la usa el alta/edición de un viaje A_CONFIRMAR, donde todavía no
+// importa si el chofer o el vehículo están disponibles.
 async function validarExistenciaPersona(id, campo) {
   const persona = await prisma.persona.findUnique({ where: { id } });
   if (!persona) {
@@ -294,14 +287,11 @@ async function existeSolapamiento(parametros) {
   return Boolean(await buscarSolapamiento(parametros));
 }
 
-// Validación de negocio completa de los 5 campos operativos, YA bien
-// formados y YA todos presentes (ver validarCamposOperativos con
-// obligatorios:true antes de esto): chofer y vehículo habilitados, y sin
-// solapamiento. La usan actualizarViaje (edición de un viaje PROGRAMADO) y
-// confirmarViaje — crearViaje ya NO: todo viaje nace A_CONFIRMAR, así que
-// esta validación recién corre al confirmar. Hay que excluir el propio viaje
-// de la búsqueda de solapamiento (si no, siempre "chocaría" contra su propio
-// horario actual).
+// Validación de negocio completa de los 5 campos operativos, ya bien formados
+// y presentes: chofer y vehículo habilitados, documentación vigente y sin
+// solapamiento. La usan actualizarViaje (viaje PROGRAMADO) y confirmarViaje;
+// crearViaje no, porque todo viaje nace A_CONFIRMAR. Hay que excluir el propio
+// viaje del solapamiento (si no, siempre chocaría contra su propio horario).
 async function validarDisponibilidadOperativa({ choferId, vehiculoId, fechaInicio, fechaFin }, { excluirViajeId } = {}) {
   await validarChofer(choferId);
   await validarVehiculo(vehiculoId);
@@ -350,8 +340,7 @@ async function validarDisponibilidadOperativa({ choferId, vehiculoId, fechaInici
   }
 }
 
-// Valida clienteId/origenId/destinoId (siempre obligatorios, existencia en
-// BD) — compartido por crearViaje y actualizarViaje, en cualquier estado.
+// Formato y existencia en BD; lo comparten crearViaje y actualizarViaje.
 async function validarYArmarCore({ clienteId, origenId, destinoId }, { hayParadas = false } = {}) {
   const core = validarCamposCore({ clienteId, origenId, destinoId }, { hayParadas });
 
@@ -362,17 +351,11 @@ async function validarYArmarCore({ clienteId, origenId, destinoId }, { hayParada
   return core;
 }
 
-// Valida los 5 campos operativos en el modo que corresponda:
-//  - `obligatorios: true` → los 5 tienen que estar y pasar la validación de
-//    negocio completa (habilitación + solapamiento).
-//  - `obligatorios: false` → los que vengan presentes solo se validan por
-//    existencia (sin elegibilidad de negocio); los ausentes quedan en null
-//    (salvo fechaInicio, que es obligatoria siempre).
-// `excluirViajeId` solo importa en modo obligatorio (solapamiento).
-// `erroresPrevios` son errores de formato de otros campos del mismo payload
-// (hoy, cantidadPasajeros) que ya se detectaron: se juntan con los de formato
-// de los operativos para que un único 400 los traiga a todos. Las validaciones
-// contra la base (existencia, disponibilidad) solo corren si el formato de
+// Con `obligatorios: true` corre la validación de negocio completa
+// (validarDisponibilidadOperativa); con false, los presentes solo se validan
+// por existencia. `erroresPrevios` son errores de formato de otros campos del
+// mismo payload (p. ej. cantidadPasajeros): se juntan para que un único 400
+// los traiga a todos. Las consultas a la base solo corren si el formato de
 // todo está bien.
 async function validarYArmarOperativos(campos, { obligatorios, excluirViajeId, erroresPrevios = {} } = {}) {
   let datos;
@@ -504,8 +487,8 @@ async function validarExistenciaCandidatos({ choferes, vehiculos }) {
   }
 }
 
-// Errores previos de un viaje A_CONFIRMAR (create/edit): asignado suelto o
-// candidatos con mal formato. Se juntan con los de los campos operativos.
+// Errores de formato de un viaje A_CONFIRMAR: asignado suelto o candidatos mal
+// formados. Se juntan con los de los campos operativos.
 function erroresCandidatosAConfirmar({ choferId, vehiculoId }, candidatos) {
   const errores = { ...candidatos.errores };
   if (!campoAusente(choferId)) errores.choferId = ERROR_ASIGNADO_EN_A_CONFIRMAR;

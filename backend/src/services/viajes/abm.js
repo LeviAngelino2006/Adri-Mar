@@ -26,9 +26,9 @@ const { serializarViaje } = require('./serializacion');
 // obligatorios.
 //
 // El alta es solo operativa: los datos administrativos (precio, pagos) se
-// cargan después, únicamente por PATCH /:id/datos-administrativos. Si un
-// cliente todavía manda `datosAdministrativos` se rechaza con 400 en vez de
-// ignorarlo, para que lo tipeado no se pierda en silencio.
+// cargan después, únicamente por PATCH /:id/datos-administrativos. Si vienen
+// `datosAdministrativos` se rechaza con 400 en vez de ignorarlos, para que lo
+// tipeado no se pierda en silencio.
 async function crearViaje(
   {
     choferId,
@@ -101,19 +101,14 @@ async function crearViaje(
   return await serializarViaje(viaje, usuarioSolicitante);
 }
 
-// Sigue siendo reemplazo completo (no parcial, a diferencia de
-// datos-administrativos): un campo operativo que no venga en el payload se
-// BORRA (null), no se conserva el valor anterior — eso es justamente lo que
-// hace validarYArmarOperativos en modo no-obligatorio.
+// Reemplazo completo (a diferencia de datos-administrativos, que es parcial):
+// un campo operativo que no venga en el payload se BORRA (null).
 //
-// La obligatoriedad de los 5 depende del ESTADO ACTUAL del viaje, no de
-// cuántos vengan en el payload (a diferencia de crearViaje): un viaje
-// PROGRAMADO siempre tiene los 5, así que editarlo exige los 5 de nuevo
-// (igual que siempre); un viaje A_CONFIRMAR los tiene opcionales. Esta
-// función nunca cambia el estado — ni siquiera si el payload termina
-// completando los 5 campos de un A_CONFIRMAR; esa transición es exclusiva de
-// `confirmarViaje`, a propósito, para no tener dos caminos que promuevan un
-// viaje.
+// La obligatoriedad de los 5 campos operativos depende del ESTADO ACTUAL: un
+// PROGRAMADO exige los 5; un A_CONFIRMAR los tiene opcionales. Esta función
+// nunca cambia el estado, aunque el payload complete los 5 de un A_CONFIRMAR:
+// esa transición es exclusiva de confirmarViaje (ciclo.js), para no tener dos
+// caminos que promuevan un viaje.
 //
 // Según el estado actual el viaje se asigna de una de dos maneras:
 //  - PROGRAMADO: 1 chofer y 1 vehículo, validación completa. Los candidatos no
@@ -125,7 +120,7 @@ async function crearViaje(
 // Las paradas se editan en los dos estados, también como reemplazo completo en
 // la misma transacción que el update (un PUT sin `paradas` las borra, como
 // cualquier otro campo ausente). En EN_VIAJE, FINALIZADO o CANCELADO no se
-// puede editar nada (EstadoNoEditableError, más arriba).
+// puede editar nada (EstadoNoEditableError).
 async function actualizarViaje(
   id,
   {

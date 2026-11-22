@@ -31,15 +31,6 @@ function parsearFechaHasta(valor) {
   return Number.isNaN(fecha.getTime()) ? null : fecha;
 }
 
-// `excluirAConfirmar` lo usa /mis-viajes: tiene que excluir A_CONFIRMAR
-// SIEMPRE, incluso si alguien pide explícitamente estado=A_CONFIRMAR contra
-// ese endpoint puntual — en ese caso la combinación `equals: 'A_CONFIRMAR'` +
-// `not: 'A_CONFIRMAR'` en el mismo filtro es deliberadamente contradictoria:
-// Postgres nunca encuentra una fila que sea igual Y distinta de lo mismo, así
-// que da una lista vacía en vez de un error o de ignorar el filtro. El
-// listado general (GET /viajes) nunca pasa esta opción, así que ve
-// A_CONFIRMAR con total normalidad.
-//
 // --- Vistas del listado (GET /viajes?vista=...) -------------------------------
 //
 // Mismo corte que Mis viajes (frontend/src/utils/misViajes.js): por estado.
@@ -147,10 +138,15 @@ function filtroBusqueda(texto) {
 // `vista` ('proximos' | 'anteriores', ver VISTAS_LISTADO) corta y ordena el
 // listado; los demás filtros se aplican dentro de la vista (un estado que no es
 // de la vista da una lista vacía). En Próximos cada viaje trae además
-// `sinCerrar`. Sin `vista`, todo sigue como antes: todos los estados, del más
-// futuro al más viejo y sin `sinCerrar` (lo usan el Dashboard y otras pantallas).
+// `sinCerrar`. Sin `vista`: todos los estados, del más futuro al más viejo y
+// sin `sinCerrar` (lo usan el Dashboard y otras pantallas).
 //
 // `q` busca por cliente o lugar (ver filtroBusqueda), también dentro de la vista.
+//
+// `excluirAConfirmar` lo usa /mis-viajes: excluye A_CONFIRMAR SIEMPRE. Si
+// además se pide estado=A_CONFIRMAR, `equals` + `not` sobre el mismo valor es
+// deliberadamente contradictorio: da una lista vacía en vez de un error o de
+// ignorar el filtro.
 async function listarViajes(
   {
     estado,
@@ -220,11 +216,9 @@ async function listarViajes(
   const viajes = await prisma.viaje.findMany({
     where,
     include: INCLUDE_RELACIONES_VIAJE,
-    // nulls: 'last' — los A_CONFIRMAR sin fechaInicio todavía van al final
-    // del listado en vez de reventar la query o aparecer primero/mezclados
-    // (Postgres por defecto pone los NULL primero en DESC, que sería peor:
-    // los viajes sin programar todavía tapando los reales arriba de todo).
-    // Con vista, el id desempata para que el orden no cambie entre pedidos.
+    // nulls: 'last': los viajes sin fechaInicio van al final (Postgres por
+    // defecto pone los NULL primero en DESC, tapando los reales). Con vista,
+    // el id desempata para que el orden no cambie entre pedidos.
     orderBy: vistaValida ? ORDEN_VISTA[vistaValida] : { fechaInicio: { sort: 'desc', nulls: 'last' } },
   });
 

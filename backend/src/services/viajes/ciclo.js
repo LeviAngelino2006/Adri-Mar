@@ -29,16 +29,11 @@ const MENSAJES_VIAJE_EN_CURSO = {
   carrera: 'El vehículo o el chofer ya están en otro viaje en curso.',
 };
 
-// Solo tiene sentido sobre un viaje A_CONFIRMAR (si no, 409). Combina lo que
-// el viaje ya tenía guardado con lo que venga en el payload (el payload gana
-// campo por campo, si está presente) y exige que el resultado tenga los 5
-// completos — si no, 400 nombrando cuáles faltan, mismos mensajes que
-// editar en modo obligatorio. Como un A_CONFIRMAR no tiene asignado,
-// choferId/vehiculoId tienen que venir en el payload: pueden ser o no
-// candidatos ("elegir otro" está permitido). Con los 5 completos corre la
-// MISMA validación de negocio que actualizarViaje sobre un PROGRAMADO
-// (validarDisponibilidadOperativa — no se duplica) y, si pasa, pasa a
-// PROGRAMADO y borra los candidatos, todo en una transacción.
+// Solo sobre un viaje A_CONFIRMAR (si no, 409). Combina lo guardado con el
+// payload (el payload gana campo por campo) y exige los 5 campos operativos
+// completos. Como un A_CONFIRMAR no tiene asignado, choferId/vehiculoId vienen
+// en el payload y pueden no ser candidatos ("elegir otro" está permitido).
+// Corre la misma validación de negocio que editar un PROGRAMADO.
 async function confirmarViaje(id, payload = {}, usuarioSolicitante) {
   const actual = await obtenerViaje(id);
 
@@ -67,10 +62,9 @@ async function confirmarViaje(id, payload = {}, usuarioSolicitante) {
   // viaje PROGRAMADO que conserva candidatos (o uno A_CONFIRMAR sin ellos) sería
   // un estado inconsistente.
   await prisma.$transaction(async (tx) => {
-    // updateMany condicional contra el estado de origen (mismo patrón que
-    // comenzarViaje): si dos confirmaciones del MISMO viaje llegan a la vez, el
-    // chequeo de estado de arriba pudo leer A_CONFIRMAR en las dos. El WHERE
-    // por estado es la garantía dura — la segunda encuentra count 0.
+    // updateMany condicional contra el estado de origen: si dos confirmaciones
+    // del MISMO viaje llegan a la vez, las dos pudieron leer A_CONFIRMAR. El
+    // WHERE por estado es la garantía dura: la segunda encuentra count 0.
     const actualizados = await tx.viaje.updateMany({
       where: { id: actual.id, estadoViajeId: estadoAConfirmar.id },
       data: {
@@ -82,9 +76,8 @@ async function confirmarViaje(id, payload = {}, usuarioSolicitante) {
         estadoViajeId: estadoProgramado.id,
       },
     });
-    // El error se lanza ACÁ, antes de los deleteMany: la confirmación perdedora
-    // no tiene que borrar los candidatos (ya los borró la ganadora) ni dejar
-    // nada hecho a medias.
+    // Se lanza antes de los deleteMany: la confirmación perdedora no tiene que
+    // borrar nada ni dejar cambios a medias.
     if (actualizados.count === 0) {
       const viajeActual = await tx.viaje.findUnique({
         where: { id: actual.id },
@@ -107,9 +100,7 @@ async function cancelarViaje(id, usuarioSolicitante) {
   if (actual.estadoViaje.descripcion === 'CANCELADO') {
     throw new YaCanceladoError();
   }
-  // Mismo criterio que actualizarViaje: un viaje A_CONFIRMAR todavía es una
-  // etapa de planificación, así que también se puede cancelar sin haber
-  // llegado a completarse.
+  // Un A_CONFIRMAR todavía es planificación: también se puede cancelar.
   if (!['PROGRAMADO', 'A_CONFIRMAR'].includes(actual.estadoViaje.descripcion)) {
     throw new EstadoNoEditableError(actual.estadoViaje.descripcion);
   }
@@ -125,11 +116,9 @@ async function cancelarViaje(id, usuarioSolicitante) {
   return await serializarViaje(viaje, usuarioSolicitante);
 }
 
-// Si crearLectura (dentro de la transacción) rechaza el valor, llega acá como
-// lecturaOdometroService.ValidacionError — se relanza como
-// viajeService.ValidacionError para que el controller tenga un solo tipo de
-// error de validación que reconocer, sin tener que importar el service de
-// lecturas solo para ese instanceof.
+// Si crearLectura rechaza el valor, su ValidacionError se relanza como la de
+// viajes: así el controller reconoce un solo tipo de error de validación sin
+// importar el service de lecturas.
 function relanzarComoValidacionDeViaje(err) {
   if (err instanceof lecturaOdometroService.ValidacionError) {
     throw new ValidacionError(err.errores);
@@ -147,21 +136,17 @@ async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
     throw new EstadoNoEditableError(actual.estadoViaje.descripcion);
   }
 
-  // Revalida habilitación de chofer/vehículo con las mismas funciones que ya
-  // usa el alta (validarChofer/validarVehiculo más arriba en este archivo) —
-  // nada nuevo, solo se reusan tal cual, sin duplicar sus reglas.
+  // Revalida la habilitación: pudo cambiar desde que se programó el viaje.
   await validarChofer(actual.choferId);
   await validarVehiculo(actual.vehiculoId);
 
   const estadoProgramado = await obtenerEstadoViajePorDescripcion('PROGRAMADO');
   const estadoEnViaje = await obtenerEstadoViajePorDescripcion('EN_VIAJE');
 
-  // Chequeo explícito para un mensaje claro en el camino feliz. La garantía
-  // dura contra la carrera entre dos requests simultáneos para el MISMO
-  // vehículo/chofer en DOS VIAJES DISTINTOS es el índice único parcial de la
-  // base (ver catch de P2002 más abajo). Para la carrera de dos requests
-  // sobre el MISMO viaje (dos comenzar simultáneos), la garantía dura es el
-  // updateMany condicional de más abajo.
+  // Chequeo para un mensaje claro en el camino feliz. La garantía dura contra
+  // dos requests simultáneos para el MISMO vehículo/chofer en DOS viajes es el
+  // índice único parcial de la base (catch de P2002). Para dos comenzar sobre
+  // el MISMO viaje, es el updateMany condicional de la transacción.
   const vehiculoEnViaje = await prisma.viaje.findFirst({
     where: { vehiculoId: actual.vehiculoId, estadoViajeId: estadoEnViaje.id },
   });
@@ -181,13 +166,9 @@ async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
 
   try {
     await prisma.$transaction(async (tx) => {
-      // updateMany condicional contra el estado de origen esperado, en vez de
-      // un update ciego: si dos requests llegan a comenzar ESTE MISMO viaje a
-      // la vez, el chequeo de arriba (`actual.estadoViaje.descripcion`) pudo
-      // haber leído PROGRAMADO en ambas, antes de que ninguna escribiera
-      // todavía. Este WHERE con el estado de origen es la garantía dura: la
-      // segunda transacción en llegar ya no va a encontrar el viaje en
-      // PROGRAMADO (la primera ya lo cambió) y count da 0.
+      // updateMany condicional contra el estado de origen, no un update ciego:
+      // si dos requests comienzan ESTE viaje a la vez, las dos pudieron leer
+      // PROGRAMADO. Con este WHERE la segunda encuentra count 0.
       const actualizados = await tx.viaje.updateMany({
         where: { id: actual.id, estadoViajeId: estadoProgramado.id },
         data: { estadoViajeId: estadoEnViaje.id, horaInicioReal: new Date() },
@@ -200,10 +181,9 @@ async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
         throw new EstadoNoEditableError(viajeActual.estadoViaje.descripcion);
       }
 
-      // { cliente: tx }: crearLectura NO debe abrir su propia transacción acá
-      // (abriría una segunda, con el `prisma` global, y quedaría esperando el
-      // lock de fila que esta misma transacción ya tiene tomado — el
-      // auto-deadlock documentado en el Paso 3).
+      // { cliente: tx }: crearLectura no debe abrir su propia transacción con el
+      // `prisma` global: quedaría esperando el lock de fila que esta misma
+      // transacción ya tiene tomado (auto-deadlock).
       await lecturaOdometroService.crearLectura(
         {
           vehiculoId: actual.vehiculoId,
@@ -226,27 +206,6 @@ async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
   return await serializarViaje(viajeFinal, usuarioSolicitante);
 }
 
-// PASO 6 — la equivalencia documentada acá se rompió, y esta función ya
-// valida explícitamente contra la lectura INICIO_VIAJE vigente de este
-// viaje, además de lo que ya valida crearLectura. El motivo concreto:
-// crearLectura determina "la última lectura del vehículo" con un
-// findFirst(orderBy fechaHora desc) crudo sobre TODA la tabla, no contra
-// vehiculo.kilometraje (el caché, que sí se mantiene de forma confiable).
-// Una corrección (Paso 6) siempre se inserta con fechaHora = now(), que es
-// mayor a la fechaHora de CUALQUIER lectura previa — incluida la propia
-// INICIO_VIAJE de un viaje que sigue EN_VIAJE. Si un Administrador corrige
-// una lectura VIEJA del vehículo (no la INICIO_VIAJE de este viaje, sino una
-// anterior, p.ej. el ALTA_VEHICULO) con un valor menor al de la propia
-// INICIO_VIAJE, esa corrección pasa a ser, por fechaHora cruda, "la lectura
-// más reciente" — aunque el caché (vehiculo.kilometraje) no cambió, porque
-// esa lectura corregida SÍ tenía una posterior (la INICIO_VIAJE) y por regla
-// de corregirLectura el caché no se toca en ese caso. Resultado: crearLectura
-// validaría el odómetro final contra ese valor viejo y más chico, no contra
-// el valor real de inicio de este viaje — dejando pasar un odómetro final
-// menor al de inicio. Por eso se agrega acá el chequeo explícito contra
-// obtenerLecturaVigente(lecturaInicio), que sí resuelve correctamente el
-// valor vigente de ESTE viaje puntual sin importar qué más se haya corregido
-// en el medio.
 // ~150-200 palabras: de sobra para una nota sobre cómo fue el viaje (un
 // comportamiento a destacar, una incidencia), y suficientemente acotado para
 // que no sirva para volcar texto arbitrario. Cuenta caracteres (no unidades
@@ -289,6 +248,13 @@ async function finalizarViaje(id, { odometroFinal, observacion }, usuarioSolicit
 
   const observacionFinal = validarObservacionFinal(observacion);
 
+  // Chequeo explícito contra la lectura INICIO_VIAJE vigente, además del de
+  // crearLectura: crearLectura compara contra la lectura con fechaHora más
+  // reciente del vehículo, y una corrección se inserta con fechaHora = now().
+  // Si un Administrador corrige una lectura anterior (p. ej. ALTA_VEHICULO)
+  // con un valor menor al de inicio, esa corrección pasa a ser "la última" y
+  // crearLectura dejaría pasar un odómetro final menor al de inicio.
+  // obtenerLecturaVigente resuelve el valor de inicio de ESTE viaje.
   const lecturaInicio = await prisma.lecturaOdometro.findFirst({
     where: { viajeId: actual.id, origen: { descripcion: 'INICIO_VIAJE' } },
   });
@@ -307,10 +273,9 @@ async function finalizarViaje(id, { odometroFinal, observacion }, usuarioSolicit
 
   try {
     await prisma.$transaction(async (tx) => {
-      // Mismo patrón que comenzarViaje: updateMany condicional contra el
-      // estado de origen esperado (EN_VIAJE), para que dos finalizar
-      // simultáneos sobre el MISMO viaje no generen dos lecturas FIN_VIAJE —
-      // el segundo en llegar encuentra count=0 y aborta sin crear nada.
+      // updateMany condicional contra EN_VIAJE: dos finalizar simultáneos
+      // sobre el MISMO viaje no generan dos lecturas FIN_VIAJE (el segundo
+      // encuentra count 0 y aborta sin crear nada).
       const actualizados = await tx.viaje.updateMany({
         where: { id: actual.id, estadoViajeId: estadoEnViajeOrigen.id },
         data: { estadoViajeId: estadoFinalizado.id, horaFinReal: new Date(), observacionFinal },

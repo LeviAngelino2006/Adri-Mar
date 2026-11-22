@@ -85,10 +85,8 @@ function validarFormatoIdPositivo(mensajeError) {
 }
 
 // Valida y arma los campos administrativos de un payload (parcial: un campo
-// ausente no entra en `data`; `null` explícito sí, para borrar el dato). La usa
-// actualizarDatosAdministrativos (PATCH), la única vía para cargar estos datos
-// (el alta ya no los acepta). Lanza ValidacionError con los errores por campo;
-// no toca la base.
+// ausente no entra en `data`; `null` explícito sí, para borrar el dato). Lanza
+// ValidacionError con los errores por campo.
 async function validarYArmarDatosAdministrativos(payload) {
   const data = {};
   const errores = {};
@@ -97,10 +95,8 @@ async function validarYArmarDatosAdministrativos(payload) {
   procesarCampoSimple(payload, 'pagoChofer', data, errores, validarFormatoMonto('El pago al chofer'));
   procesarCampoSimple(payload, 'fechaPagoCliente', data, errores, validarFormatoFecha('La fecha de pago al cliente'));
   procesarCampoSimple(payload, 'fechaPagoChofer', data, errores, validarFormatoFecha('La fecha de pago al chofer'));
-  // clienteId NO se procesa acá: es un dato core del viaje (mismo nivel que
-  // origenId/destinoId), se movió a crearViaje/actualizarViaje. Si llega en
-  // este payload, se ignora en silencio — mismo criterio que cualquier otra
-  // clave no reconocida en esta acción (ver el no-op de más abajo).
+  // clienteId no se procesa acá: es un dato core del viaje (abm.js). Si llega,
+  // se ignora como cualquier otra clave no reconocida.
   procesarCampoSimple(
     payload,
     'estadoPagoClienteId',
@@ -134,9 +130,7 @@ async function validarYArmarDatosAdministrativos(payload) {
     throw new ValidacionError(errores);
   }
 
-  // Existencia en BD — solo para los que quedaron con un id numérico
-  // (si vino `null`, ya se resolvió arriba como "borrar", no hay nada que
-  // validar contra la base).
+  // Existencia en BD, solo para los ids numéricos (`null` es "borrar").
   if (typeof data.estadoPagoClienteId === 'number') {
     await validarEstadoPago(data.estadoPagoClienteId, 'estadoPagoClienteId');
   }
@@ -206,14 +200,10 @@ async function validarPagosPendientesSinFecha(actual, data) {
   }
 }
 
-// Acción administrativa/financiera, separada por completo del ciclo de vida
-// operativo del viaje: no valida nada contra el estado (funciona igual en
-// Programado, En viaje, Finalizado o Cancelado) y es actualización PARCIAL,
-// no reemplazo — a diferencia de actualizarViaje/validarYArmarDatos de
-// arriba, acá un campo ausente del payload nunca se toca, y solo se pisa el
-// que vino explícitamente (incluido `null`, para poder "deshacer" una carga
-// anterior). Por eso no reusa validarDatos/validarYArmarDatos: esas dos
-// funciones asumen que todos los campos siempre vienen y son obligatorios.
+// Acción administrativa, separada del ciclo de vida operativo: no valida nada
+// contra el estado del viaje (funciona igual en cualquiera) y es actualización
+// PARCIAL, a diferencia de actualizarViaje (abm.js): un campo ausente nunca se
+// toca y solo se pisa el que vino (incluido `null`, para deshacer una carga).
 async function actualizarDatosAdministrativos(id, payload = {}, usuarioSolicitante) {
   const actual = await obtenerViaje(id);
 

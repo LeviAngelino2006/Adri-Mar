@@ -2,11 +2,10 @@
 
 // Gestores: pueden Comenzar/Finalizar cualquier viaje. El chofer asignado
 // también puede, sobre SU PROPIO viaje, sin importar su perfil (cualquier
-// usuario habilitado para conducir puede ser chofer, SCRUM-27) — por eso no
-// alcanza con el `autorizar(...)` de rol que usan el resto de las rutas de
-// gestión; este chequeo necesita el viaje cargado (conocer el choferId), así
-// que vive acá en el service en vez de a nivel de ruta. Editar/Cancelar NO
-// usan este helper: siguen siendo exclusivos de gestor.
+// usuario habilitado para conducir puede ser chofer, SCRUM-27). Por eso no
+// alcanza con el `autorizar(...)` de rol de las rutas: el chequeo necesita el
+// viaje cargado (su choferId) y se hace en el service. Editar/Cancelar no usan
+// este helper: son exclusivos de gestor.
 const PERFILES_GESTORES_VIAJE = ['ADMINISTRADOR', 'ENCARGADO'];
 
 // Viaje.choferId es id de PERSONA: se compara SOLO con el personaId del token.
