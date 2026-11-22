@@ -18,7 +18,9 @@ const ICONO_CERRAR = (
 //  - `onVolver`: muestra "← Volver" arriba del título (un paso adentro del panel).
 //  - `vista`: cuando cambia (por ejemplo, de un resumen a un formulario), el
 //    cuerpo vuelve arriba y el foco va al título nuevo.
-function PanelLateral({ titulo, subtitulo, onClose, onVolver, vista, children }) {
+//  - `centrado`: en vez del drawer, una ventana emergente centrada (hasta 640px
+//    de ancho y nunca más alta que la pantalla), con el mismo comportamiento.
+function PanelLateral({ titulo, subtitulo, onClose, onVolver, vista, centrado = false, children }) {
   const tituloId = useId();
   const refTitulo = useRef(null);
   const refCuerpo = useRef(null);
@@ -48,9 +50,9 @@ function PanelLateral({ titulo, subtitulo, onClose, onVolver, vista, children })
   }, [vista]);
 
   return (
-    <div className="panel-lateral-overlay" onClick={onClose}>
+    <div className={centrado ? 'panel-lateral-overlay panel-lateral-overlay-centrado' : 'panel-lateral-overlay'} onClick={onClose}>
       <aside
-        className="panel-lateral"
+        className={centrado ? 'panel-lateral panel-lateral-centrado' : 'panel-lateral'}
         role="dialog"
         aria-modal="true"
         aria-labelledby={tituloId}

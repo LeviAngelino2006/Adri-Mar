@@ -80,6 +80,7 @@ function PanelVehiculoMantenimiento({ item, onClose, onGuardado }) {
       onClose={onClose}
       onVolver={enResumen ? undefined : volverAlResumen}
       vista={vista}
+      centrado
     >
       {enResumen && (
         <div className="mantenimiento-panel-resumen">
