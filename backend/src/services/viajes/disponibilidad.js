@@ -2,8 +2,7 @@
 const prisma = require('../prismaClient');
 const documentoService = require('../documentoService');
 const { campoAusente } = require('../../utils/recorridoViaje');
-// Fechas sin offset = hora de Córdoba (UTC-3 todo el año): ver utils/fechaCordoba.
-const { aFechaCordoba, rangoDelDiaCordoba } = require('../../utils/fechaCordoba');
+const { rangoDelDiaCordoba } = require('../../utils/fechaCordoba');
 const { ValidacionError } = require('./errores');
 const {
   aFechaCordobaOInstancia,
