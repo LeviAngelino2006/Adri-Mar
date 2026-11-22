@@ -79,6 +79,14 @@ const ICONS = {
     </svg>
   ),
   presupuestos: <IconoPresupuesto />,
+  reportes: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3v18h18" />
+      <path d="M8 17v-5" />
+      <path d="M13 17V8" />
+      <path d="M18 17v-9" />
+    </svg>
+  ),
 };
 
 function initials(nombre, apellido) {

@@ -11,6 +11,7 @@ import MisViajes from './pages/MisViajes';
 import ScrollAlTope from './components/ScrollAlTope';
 import Documentacion from './pages/Documentacion';
 import Presupuestos from './pages/Presupuestos';
+import Reportes from './pages/Reportes';
 import Mantenimiento from './pages/Mantenimiento';
 import CambiarContrasena from './pages/CambiarContrasena';
 import { RUTA_CAMBIAR_CONTRASENA } from './utils/sesion';
@@ -84,6 +85,14 @@ function App() {
             element={
               <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO']}>
                 <Presupuestos />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reportes"
+            element={
+              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO']}>
+                <Reportes />
               </ProtectedRoute>
             }
           />
