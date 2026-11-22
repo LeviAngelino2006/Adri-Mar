@@ -14,7 +14,8 @@ const {
   validarExistenciaCandidatos,
   erroresCandidatosAConfirmar,
 } = require('./validaciones');
-const { INCLUDE_RELACIONES_VIAJE, serializarViaje, obtenerViaje } = require('./serializacion');
+const { INCLUDE_RELACIONES_VIAJE, obtenerViaje } = require('./consultas');
+const { serializarViaje } = require('./serializacion');
 
 // Todo viaje nace A_CONFIRMAR, vengan o no los 5 campos operativos: el
 // encargado primero anota el viaje y recién después lo confirma. El único

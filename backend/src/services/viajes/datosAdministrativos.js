@@ -4,7 +4,8 @@ const prisma = require('../prismaClient');
 const { aFechaCordoba } = require('../../utils/fechaCordoba');
 const { ValidacionError } = require('./errores');
 const { presente } = require('./validaciones');
-const { INCLUDE_RELACIONES_VIAJE, serializarViaje, obtenerViaje } = require('./serializacion');
+const { INCLUDE_RELACIONES_VIAJE, obtenerViaje } = require('./consultas');
+const { serializarViaje } = require('./serializacion');
 
 async function validarEstadoPago(id, campo) {
   const estadoPago = await prisma.estadoPago.findUnique({ where: { id } });

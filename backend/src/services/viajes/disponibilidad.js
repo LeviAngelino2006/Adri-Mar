@@ -14,7 +14,7 @@ const {
   buscarSolapamiento,
   validarFormatoListaIds,
 } = require('./validaciones');
-const { obtenerViaje } = require('./serializacion');
+const { obtenerViaje } = require('./consultas');
 
 // --- Disponibilidad ---------------------------------------------------------
 //

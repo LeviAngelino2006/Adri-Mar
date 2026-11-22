@@ -1,8 +1,7 @@
-// Lectura de un viaje (include y obtenerViaje) y su forma de respuesta para el front.
+// Forma de respuesta de un viaje para el front.
 const prisma = require('../prismaClient');
 const lecturaOdometroService = require('../lecturaOdometroService');
-const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../../utils/marcaModeloVehiculo');
-const { NoEncontradoError } = require('./errores');
+const { nombresMarcaModelo } = require('../../utils/marcaModeloVehiculo');
 const { puedeVerDatosAdministrativos } = require('./permisos');
 
 // Un punto del recorrido (origen, destino o parada) como lo ve el front: con el
@@ -16,30 +15,6 @@ const serializarPunto = (u) => ({
   latitud: u.latitud ?? null,
   longitud: u.longitud ?? null,
 });
-
-// Usado por cualquier lectura de viaje que vaya a pasar por serializarViaje
-// (necesita las 10 relaciones resueltas: las 5 operativas de siempre más las
-// 5 de datos administrativos agregadas en la tarea de Precio/Cliente/pagos,
-// y los candidatos). Los candidatos se cargan siempre, aunque
-// serializarViaje los omita para quien no es gestor: son tablas chicas y así
-// ninguna lectura puede olvidarse de incluirlos.
-const INCLUDE_RELACIONES_VIAJE = {
-  choferesCandidatos: { include: { persona: true } },
-  vehiculosCandidatos: { include: { vehiculo: true } },
-  // Siempre ordenadas: serializarViaje las devuelve tal cual vienen.
-  paradas: { include: { ubicacion: true }, orderBy: { orden: 'asc' } },
-  chofer: true,
-  // Con modelo y marca: el vehículo ya no tiene esas columnas (ver Vehiculo).
-  vehiculo: { include: INCLUDE_MODELO_Y_MARCA },
-  estadoViaje: true,
-  origen: true,
-  destino: true,
-  cliente: true,
-  estadoPagoCliente: true,
-  metodoPagoCliente: true,
-  estadoPagoChofer: true,
-  metodoPagoChofer: true,
-};
 
 // Las 12 claves de datos administrativos de un viaje. Se OMITEN por completo
 // (en vez de devolverse en null) para quien no puede verlas: un null diría
@@ -234,21 +209,8 @@ async function serializarViaje(viaje, usuarioSolicitante) {
   };
 }
 
-async function obtenerViaje(id) {
-  const viaje = await prisma.viaje.findUnique({
-    where: { id: Number(id) },
-    include: INCLUDE_RELACIONES_VIAJE,
-  });
-  if (!viaje) {
-    throw new NoEncontradoError();
-  }
-  return viaje;
-}
-
 module.exports = {
-  INCLUDE_RELACIONES_VIAJE,
   pendienteAdministrativo,
   FILTRO_ADMINISTRATIVO_PENDIENTE,
   serializarViaje,
-  obtenerViaje,
 };

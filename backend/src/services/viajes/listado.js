@@ -5,7 +5,8 @@ const { aFechaCordoba } = require('../../utils/fechaCordoba');
 const { normalizarNombre } = require('../../utils/normalizarNombre');
 const { PermisoDenegadoError, ValidacionError } = require('./errores');
 const { puedeVerDatosAdministrativos } = require('./permisos');
-const { INCLUDE_RELACIONES_VIAJE, FILTRO_ADMINISTRATIVO_PENDIENTE, serializarViaje } = require('./serializacion');
+const { INCLUDE_RELACIONES_VIAJE } = require('./consultas');
+const { FILTRO_ADMINISTRATIVO_PENDIENTE, serializarViaje } = require('./serializacion');
 const { rangoDelDiaCordoba } = require('./disponibilidad');
 
 const ESTADOS_VIAJE_VALIDOS = ['A_CONFIRMAR', 'PROGRAMADO', 'EN_VIAJE', 'FINALIZADO', 'CANCELADO'];
