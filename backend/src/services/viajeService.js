@@ -20,6 +20,7 @@ const {
   YaCanceladoError,
   EstadoNoConfirmableError,
 } = require('./viajes/errores');
+const { esElChoferDelViaje, puedeOperarViaje, puedeVerDatosAdministrativos } = require('./viajes/permisos');
 
 // Un punto del recorrido (origen, destino o parada) como lo ve el front: con el
 // placeId de Google y las coordenadas (null si no tiene), para que el link
@@ -60,42 +61,6 @@ const INCLUDE_RELACIONES_VIAJE = {
   estadoPagoChofer: true,
   metodoPagoChofer: true,
 };
-
-// Gestores: pueden Comenzar/Finalizar cualquier viaje. El chofer asignado
-// también puede, sobre SU PROPIO viaje, sin importar su perfil (cualquier
-// usuario habilitado para conducir puede ser chofer, SCRUM-27) — por eso no
-// alcanza con el `autorizar(...)` de rol que usan el resto de las rutas de
-// gestión; este chequeo necesita el viaje cargado (conocer el choferId), así
-// que vive acá en el service en vez de a nivel de ruta. Editar/Cancelar NO
-// usan este helper: siguen siendo exclusivos de gestor.
-const PERFILES_GESTORES_VIAJE = ['ADMINISTRADOR', 'ENCARGADO'];
-
-// Viaje.choferId es id de PERSONA: se compara SOLO con el personaId del token.
-// El id de usuario es de otra tabla, con otra secuencia; que coincidan es
-// casualidad (y deja de pasar apenas se da de alta una persona sin cuenta).
-// autenticar ya rechaza los tokens sin personaId.
-function esElChoferDelViaje(usuarioSolicitante, viaje) {
-  return viaje.choferId != null && viaje.choferId === usuarioSolicitante.personaId;
-}
-
-function puedeOperarViaje(usuarioSolicitante, viaje) {
-  return (
-    PERFILES_GESTORES_VIAJE.includes(usuarioSolicitante.perfil) || esElChoferDelViaje(usuarioSolicitante, viaje)
-  );
-}
-
-// Los datos administrativos/financieros (precio, pagos al cliente y al chofer)
-// solo los ven los gestores. Es una restricción de la RESPUESTA, no de la
-// acción: se aplica en serializarViaje, así que cubre por igual cualquier
-// endpoint que devuelva un viaje (listados, comenzar/finalizar de un chofer
-// dueño del viaje, etc.).
-const PERFILES_CON_DATOS_ADMINISTRATIVOS = ['ADMINISTRADOR', 'ENCARGADO'];
-
-// Falla cerrado: si por un descuido un call site no pasa al solicitante, los
-// datos se ocultan en vez de filtrarse.
-function puedeVerDatosAdministrativos(usuarioSolicitante) {
-  return Boolean(usuarioSolicitante) && PERFILES_CON_DATOS_ADMINISTRATIVOS.includes(usuarioSolicitante.perfil);
-}
 
 // Textos del 409 de comenzar. `carrera` es el del índice único: no se sabe
 // cuál de los dos chocó.
