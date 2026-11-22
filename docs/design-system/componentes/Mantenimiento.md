@@ -22,7 +22,7 @@ Primero se elige el vehículo y después qué hacer. La pantalla es la lista de 
 - Vacío: "No hay vehículos con esos filtros." (o "No hay vehículos en la flota.").
 
 ## Panel del vehículo (`PanelVehiculoMantenimiento`)
-- `PanelLateral` con `centrado` (ventana emergente en el medio, hasta 640px de ancho). El panel abierto va en la URL (`?vehiculoId=7`): se puede compartir y Atrás lo cierra. Abrir desde la lista suma una entrada al historial del navegador; cerrar vuelve atrás. Si se entró directo con `?vehiculoId=`, cerrar quita el parámetro. Un `?vehiculoId=` de un vehículo que no está en la lista (dado de baja o inexistente) no abre nada.
+- `PanelLateral` con `centrado` (ventana emergente en el medio, hasta 640px de ancho). Los tipos de arreglo se piden una vez por sesión, apenas se abre el panel (`tiposArregloCache.js`): el formulario de arreglo ya los tiene al entrar. El historial entra con un fundido de 0,2 s (sin animación con `prefers-reduced-motion`). El panel abierto va en la URL (`?vehiculoId=7`): se puede compartir y Atrás lo cierra. Abrir desde la lista suma una entrada al historial del navegador; cerrar vuelve atrás. Si se entró directo con `?vehiculoId=`, cerrar quita el parámetro. Un `?vehiculoId=` de un vehículo que no está en la lista (dado de baja o inexistente) no abre nada.
 - Tiene cuatro vistas, una a la vez, dentro del mismo panel (nunca un modal encima):
   - **Resumen** (la del principio):
     - Título "12 - AB123CD" y subtítulo marca y modelo.

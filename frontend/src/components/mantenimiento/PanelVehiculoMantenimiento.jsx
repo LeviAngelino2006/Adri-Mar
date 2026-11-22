@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Button from '../ui/Button';
 import EstadoBadge from '../ui/EstadoBadge';
 import PanelLateral from '../ui/PanelLateral';
@@ -9,6 +9,7 @@ import FormularioAsignarPlan from './FormularioAsignarPlan';
 import FormularioService from './FormularioService';
 import HistorialVehiculo from './HistorialVehiculo';
 import { BarraService } from './ListaService';
+import { pedirTiposArreglo } from './tiposArregloCache';
 
 const TITULOS = {
   service: 'Registrar service',
@@ -54,6 +55,12 @@ function PanelVehiculoMantenimiento({ item, onClose, onGuardado }) {
   // Cada guardado vuelve a montar el historial (lo pide de nuevo).
   const [versionHistorial, setVersionHistorial] = useState(0);
   const [registroNuevo, setRegistroNuevo] = useState(null);
+
+  // Los tipos de arreglo se piden apenas se abre el panel, así el formulario
+  // de arreglo ya los tiene. Si falla, el formulario lo reintenta y lo muestra.
+  useEffect(() => {
+    pedirTiposArreglo().catch(() => {});
+  }, []);
 
   const volverAlResumen = () => setVista('resumen');
 

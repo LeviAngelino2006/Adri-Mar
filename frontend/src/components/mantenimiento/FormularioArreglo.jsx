@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 import FormField from '../ui/FormField';
@@ -7,7 +7,8 @@ import SelectorBuscarOCrear from '../ui/SelectorBuscarOCrear';
 import Switch from '../ui/Switch';
 import { useCarga } from '../../hooks/useCarga';
 import { useFocoEnPrimerError } from '../../hooks/useFocoEnPrimerError';
-import { listarTiposArreglo, registrarArreglo } from '../../services/mantenimientoApi';
+import { registrarArreglo } from '../../services/mantenimientoApi';
+import { pedirTiposArreglo, tiposArregloEnMemoria } from './tiposArregloCache';
 import { DEMORA_KM_MS, MAX_DETALLE_TIPO, MAX_TEXTO_MANTENIMIENTO } from '../../constants/mantenimiento';
 import { mensajeErrorCarga } from '../../utils/errorCarga';
 import { hoyCordobaISO } from '../../utils/fechaCordoba';
@@ -44,7 +45,7 @@ function Contador({ texto, maximo }) {
 // ni genera alertas) del vehículo del panel. Se monta solo mientras se ve, así
 // arranca siempre limpio.
 function FormularioArreglo({ vehiculo, onCancel, onSuccess }) {
-  const cargaTipos = useCarga(useCallback(() => listarTiposArreglo().then(({ data }) => data.tiposArreglo), []));
+  const cargaTipos = useCarga(pedirTiposArreglo);
   const [form, setForm] = useState(formVacio);
   const [errores, setErrores] = useState({});
   const [error, setError] = useState('');
@@ -52,7 +53,8 @@ function FormularioArreglo({ vehiculo, onCancel, onSuccess }) {
   const [refForm, enfocarPrimerError] = useFocoEnPrimerError();
 
   const hoy = hoyCordobaISO();
-  const tipos = cargaTipos.datos ?? [];
+  // Si el panel ya los trajo, se dibujan desde el primer render.
+  const tipos = cargaTipos.datos ?? tiposArregloEnMemoria() ?? [];
   const tiposElegidos = tipos.filter((t) => form.tiposArregloIds.includes(t.id));
   // El switch "arreglo anterior" solo aparece (y solo se manda) si el km es
   // menor al odómetro del vehículo.
