@@ -13,6 +13,7 @@ export const MENSAJE_SESION_VENCIDA = 'Tu sesión venció. Iniciá sesión de nu
 // /auth/me y el cambio de contraseña; el front lleva a "Cambiar contraseña".
 export const CODIGO_DEBE_CAMBIAR_CONTRASENA = 'DEBE_CAMBIAR_CONTRASENA';
 export const RUTA_CAMBIAR_CONTRASENA = '/cambiar-contrasena';
+export const RUTA_MI_PERFIL = '/mi-perfil';
 
 // El payload de un JWT, sin verificar la firma (eso lo hace el backend): acá
 // solo se lee qué perfil trae. null si el token no tiene la forma esperada.

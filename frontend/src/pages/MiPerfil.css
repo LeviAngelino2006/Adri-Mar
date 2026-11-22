@@ -1,0 +1,66 @@
+.mi-perfil {
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.mi-perfil-titulo {
+  margin: 0;
+}
+
+.mi-perfil-cabecera {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mi-perfil-avatar {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mi-perfil-identidad {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mi-perfil-nombre {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.mi-perfil-usuario {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+}
+
+.mi-perfil-titulo-seccion {
+  margin: 0 0 var(--space-4);
+}
+
+.mi-perfil .alert {
+  margin-top: var(--space-4);
+  margin-bottom: 0;
+}
+
+.mi-perfil .form-actions {
+  margin-top: var(--space-4);
+}
+
+.mi-perfil-vacio {
+  margin: 0;
+  color: var(--color-text-secondary);
+}

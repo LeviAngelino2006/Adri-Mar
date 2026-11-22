@@ -8,7 +8,7 @@ import { CargaColectivo } from './ui/Cargando';
 import { CargaLentaContext } from './ui/CargaLentaContext';
 import IconoPresupuesto from './IconoPresupuesto';
 import { contarCargasLentas } from '../utils/etapaCarga';
-import { RUTA_CAMBIAR_CONTRASENA } from '../utils/sesion';
+import { RUTA_MI_PERFIL } from '../utils/sesion';
 import Logo from './ui/Logo';
 import './Layout.css';
 
@@ -17,15 +17,6 @@ const ICONO_LOGOUT = (
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
     <path d="M16 17l5-5-5-5" />
     <path d="M21 12H9" />
-  </svg>
-);
-
-const ICONO_LLAVE = (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="7.5" cy="15.5" r="4.5" />
-    <path d="M10.7 12.3 21 2" />
-    <path d="M16 7l3 3" />
-    <path d="M18.5 4.5l2.5 2.5" />
   </svg>
 );
 
@@ -107,8 +98,6 @@ function Layout({ children }) {
   const { pathname } = useLocation();
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [confirmandoLogout, setConfirmandoLogout] = useState(false);
-  // El menú del usuario (pie de la sidebar): por ahora, "Cambiar mi contraseña".
-  const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
   // Cargas de la pantalla que pasaron los 3s: mientras haya alguna se muestra un
   // solo colectivo arriba (ver Cargando).
   const [cargasLentas, cambiarCargasLentas] = useReducer(contarCargasLentas, 0);
@@ -122,11 +111,11 @@ function Layout({ children }) {
   const perfilLabel = PERFILES.find((p) => p.value === usuario.perfil)?.label ?? usuario.perfil;
   // Sin título visible en los listados, la topbar mobile dice en qué sección
   // estás. Las fichas y los formularios están en la misma ruta que su listado.
-  const seccionActual = itemDeRuta(navItems, pathname)?.label;
+  const seccionActual =
+    itemDeRuta(navItems, pathname)?.label ?? (pathname === RUTA_MI_PERFIL ? 'Mi perfil' : undefined);
 
   function cerrarMenu() {
     setMenuAbierto(false);
-    setMenuUsuarioAbierto(false);
   }
 
   function handleLogout() {
@@ -177,26 +166,11 @@ function Layout({ children }) {
           ))}
         </nav>
 
-        {menuUsuarioAbierto && (
-          <div id="layout-menu-usuario" className="layout-user-menu">
-            <NavLink
-              to={RUTA_CAMBIAR_CONTRASENA}
-              onClick={cerrarMenu}
-              className={({ isActive }) => `layout-nav-link${isActive ? ' is-active' : ''}`}
-            >
-              {ICONO_LLAVE}
-              Cambiar mi contraseña
-            </NavLink>
-          </div>
-        )}
-
         <div className="layout-sidebar-footer">
-          <button
-            type="button"
-            className="layout-user"
-            aria-expanded={menuUsuarioAbierto}
-            aria-controls="layout-menu-usuario"
-            onClick={() => setMenuUsuarioAbierto((abierto) => !abierto)}
+          <NavLink
+            to={RUTA_MI_PERFIL}
+            onClick={cerrarMenu}
+            className={({ isActive }) => `layout-user${isActive ? ' is-active' : ''}`}
           >
             <span className="layout-user-avatar" aria-hidden="true">
               {initials(usuario.nombre, usuario.apellido)}
@@ -207,8 +181,8 @@ function Layout({ children }) {
               </span>
               <span className="layout-user-perfil">{perfilLabel}</span>
             </span>
-            <span className="sr-only">: opciones de tu cuenta</span>
-          </button>
+            <span className="sr-only"> — Mi perfil</span>
+          </NavLink>
           <button
             type="button"
             className="layout-logout"
