@@ -353,6 +353,8 @@ async function corregirLectura({ lecturaCorregidaId, valorKm, motivo, usuarioId 
 
 // Sigue la cadena de correcciones hacia adelante (quién corrige a quién)
 // hasta encontrar la que no tiene, a su vez, ninguna corrección posterior.
+// viajes/consultas.obtenerKmDeViajes aplica la misma regla en lote: si cambia
+// una, cambiar la otra.
 async function obtenerLecturaVigente(lecturaId) {
   const lecturaIdNumero = Number(lecturaId);
 
@@ -389,6 +391,7 @@ module.exports = {
   listarLecturas,
   corregirLectura,
   obtenerLecturaVigente,
+  serializarLectura,
   ValidacionError,
   NoEncontradoError,
 };

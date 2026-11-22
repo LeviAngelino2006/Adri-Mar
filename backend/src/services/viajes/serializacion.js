@@ -1,6 +1,4 @@
 // Forma de respuesta de un viaje para el front.
-const prisma = require('../prismaClient');
-const lecturaOdometroService = require('../lecturaOdometroService');
 const { nombresMarcaModelo } = require('../../utils/marcaModeloVehiculo');
 const { puedeVerDatosAdministrativos } = require('./permisos');
 
@@ -103,27 +101,14 @@ function serializarCandidatos(viaje) {
   };
 }
 
-// kmRealizados sale de las lecturas INICIO_VIAJE y FIN_VIAJE del viaje (las
-// columnas odometroInicial/odometroFinal de Viaje están deprecadas), resueltas
-// con obtenerLecturaVigente por si alguna fue corregida. Si falta una, null.
-// Esas lecturas vigentes también se devuelven como odometroInicial y
-// odometroFinal: un viaje En viaje tiene solo el inicial; uno sin comenzar,
-// ninguno.
-async function serializarViaje(viaje, usuarioSolicitante) {
-  const [lecturaInicio, lecturaFin] = await Promise.all([
-    prisma.lecturaOdometro.findFirst({
-      where: { viajeId: viaje.id, origen: { descripcion: 'INICIO_VIAJE' } },
-    }),
-    prisma.lecturaOdometro.findFirst({
-      where: { viajeId: viaje.id, origen: { descripcion: 'FIN_VIAJE' } },
-    }),
-  ]);
-
-  const [vigenteInicio, vigenteFin] = await Promise.all([
-    lecturaInicio ? lecturaOdometroService.obtenerLecturaVigente(lecturaInicio.id) : null,
-    lecturaFin ? lecturaOdometroService.obtenerLecturaVigente(lecturaFin.id) : null,
-  ]);
-
+// `km` son las lecturas vigentes INICIO_VIAJE y FIN_VIAJE del viaje, ya
+// resueltas por consultas.obtenerKmDeViajes (las columnas
+// odometroInicial/odometroFinal de Viaje están deprecadas). Llegan hechas para
+// que serializar no consulte la base: el listado las resuelve en lote, sin una
+// consulta por viaje. Se devuelven como odometroInicial y odometroFinal (un
+// viaje En viaje tiene solo el inicial; uno sin comenzar, ninguno) y
+// kmRealizados es null si falta alguna.
+function serializarViaje(viaje, usuarioSolicitante, { vigenteInicio = null, vigenteFin = null } = {}) {
   const kmRealizados = vigenteInicio && vigenteFin ? vigenteFin.valorKm - vigenteInicio.valorKm : null;
 
   const estado = viaje.estadoViaje.descripcion;

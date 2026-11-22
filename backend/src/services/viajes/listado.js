@@ -5,7 +5,7 @@ const { aFechaCordoba, rangoDelDiaCordoba } = require('../../utils/fechaCordoba'
 const { normalizarNombre } = require('../../utils/normalizarNombre');
 const { PermisoDenegadoError, ValidacionError } = require('./errores');
 const { puedeVerDatosAdministrativos } = require('./permisos');
-const { INCLUDE_RELACIONES_VIAJE } = require('./consultas');
+const { INCLUDE_RELACIONES_VIAJE, obtenerKmDeViajes } = require('./consultas');
 const { FILTRO_ADMINISTRATIVO_PENDIENTE, serializarViaje } = require('./serializacion');
 
 const ESTADOS_VIAJE_VALIDOS = ['A_CONFIRMAR', 'PROGRAMADO', 'EN_VIAJE', 'FINALIZADO', 'CANCELADO'];
@@ -222,21 +222,45 @@ async function listarViajes(
     orderBy: vistaValida ? ORDEN_VISTA[vistaValida] : { fechaInicio: { sort: 'desc', nulls: 'last' } },
   });
 
+  // Las lecturas de odómetro de todos los viajes juntas: una cantidad de
+  // consultas que no crece con el listado.
+  const kmPorViaje = await obtenerKmDeViajes(viajes.map((viaje) => viaje.id));
+
   if (vistaValida !== 'proximos') {
-    return Promise.all(viajes.map((viaje) => serializarViaje(viaje, usuarioSolicitante)));
+    return viajes.map((viaje) => serializarViaje(viaje, usuarioSolicitante, kmPorViaje.get(viaje.id)));
   }
 
   // "Hoy" es el día de Córdoba: su inicio es las 00:00 de Córdoba.
   const { inicio: inicioDeHoy } = rangoDelDiaCordoba(new Date());
-  return Promise.all(
-    ordenarProximos(viajes, inicioDeHoy).map(async ({ viaje, sinCerrar }) => ({
-      ...(await serializarViaje(viaje, usuarioSolicitante)),
-      sinCerrar,
-    }))
-  );
+  return ordenarProximos(viajes, inicioDeHoy).map(({ viaje, sinCerrar }) => ({
+    ...serializarViaje(viaje, usuarioSolicitante, kmPorViaje.get(viaje.id)),
+    sinCerrar,
+  }));
+}
+
+// Opciones de los filtros de chofer y vehículo del listado: los que aparecen
+// en al menos un viaje, de cualquier estado. Salen de acá y no de /usuarios o
+// /vehiculos porque Personal de Taller ve el listado pero no tiene acceso a
+// esos endpoints. Solo los campos con los que el front arma y ordena las
+// opciones; el orden final lo pone el front.
+async function opcionesFiltrosViajes() {
+  const [choferes, vehiculos] = await Promise.all([
+    prisma.persona.findMany({
+      where: { viajes: { some: {} } },
+      select: { id: true, nombre: true, apellido: true },
+      orderBy: { id: 'asc' },
+    }),
+    prisma.vehiculo.findMany({
+      where: { viajes: { some: {} } },
+      select: { id: true, dominio: true, numeroInterno: true },
+      orderBy: { id: 'asc' },
+    }),
+  ]);
+  return { choferes, vehiculos };
 }
 
 module.exports = {
   ESTADOS_VIAJE_VALIDOS,
   listarViajes,
+  opcionesFiltrosViajes,
 };

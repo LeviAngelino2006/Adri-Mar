@@ -84,6 +84,19 @@ const FINALIZADO = viaje(6, 'FINALIZADO', 'Villa Carlos Paz', -8 * DIA);
 const CANCELADO = viaje(7, 'CANCELADO', 'Embalse', -15 * DIA);
 const ANTERIORES = [FINALIZADO, CANCELADO];
 
+// Lo que devuelve GET /viajes/opciones-filtros, desordenado a propósito: el
+// orden lo pone la pantalla.
+const OPCIONES_FILTROS = {
+  choferes: [
+    { id: 8, nombre: 'Rosa', apellido: 'Luna' },
+    { id: 5, nombre: 'Martín', apellido: 'Sosa' },
+  ],
+  vehiculos: [
+    { id: 9, dominio: 'AB123CD', numeroInterno: '10' },
+    { id: 4, dominio: 'AE452KD', numeroInterno: '2' },
+  ],
+};
+
 let respuestas;
 // Si está, responde GET /viajes en lugar de `respuestas` (el Dashboard).
 let responderViajes = null;
@@ -102,6 +115,7 @@ before(async () => {
     const params = config.params ?? {};
     pedidos.push({ endpoint, params });
     if (endpoint === '/viajes/mis-viajes') return { data: { viajes: PROXIMOS } };
+    if (endpoint === '/viajes/opciones-filtros') return { data: OPCIONES_FILTROS };
     if (endpoint === '/documentos/alertas') return { data: { totalAlertas: 0, vencidos: 0, porVencer: 0, documentos: [] } };
     if (endpoint !== '/viajes') throw new Error(`endpoint no previsto en el test: ${endpoint}`);
     if (responderViajes) return { data: { viajes: responderViajes(params) } };
@@ -172,7 +186,7 @@ const grupos = () =>
   ]);
 const destinos = () => grupos().flatMap(([, lista]) => lista);
 
-// Los pedidos del listado (el de las opciones de chofer y vehículo va sin vista).
+// Los pedidos del listado (siempre llevan vista).
 const pedidosDelListado = () => pedidos.filter((p) => p.params.vista);
 const ultimoPedido = () => pedidosDelListado().at(-1).params;
 
@@ -243,6 +257,17 @@ describe('Viajes: Próximos | Anteriores', () => {
     await act(async () => boton('Próximos').click());
     assert.equal(router.ubicacion.search, '');
     assert.equal(ultimoPedido().vista, 'proximos');
+  });
+
+  test('los filtros de chofer y vehículo salen de /viajes/opciones-filtros, ordenados, sin pedir el listado entero', async () => {
+    await montar('Viajes', '/viajes');
+    await abrirFiltros();
+    const opciones = (nombre) => [...contenedor.querySelector(`select[name="${nombre}"]`).options].map((o) => o.textContent);
+
+    assert.deepEqual(opciones('choferId'), ['Todos', 'Martín Sosa', 'Rosa Luna']);
+    assert.deepEqual(opciones('vehiculoId'), ['Todos', '2 - AE452KD', '10 - AB123CD']);
+    assert.ok(pedidos.some((p) => p.endpoint === '/viajes/opciones-filtros'));
+    assert.ok(pedidos.filter((p) => p.endpoint === '/viajes').every((p) => p.params.vista));
   });
 
   test('el filtro de estado ofrece los estados de la vista y se limpia si no es de la nueva', async () => {

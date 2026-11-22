@@ -76,14 +76,6 @@ const VACIO_SIN_FILTROS = {
   anteriores: 'No hay viajes anteriores.',
 };
 
-function dedupePorId(lista) {
-  const vistos = new Map();
-  for (const item of lista) {
-    if (!vistos.has(item.id)) vistos.set(item.id, item);
-  }
-  return [...vistos.values()];
-}
-
 const MARGEN_SCROLL_PX = 16;
 
 // La búsqueda se pide al dejar de escribir, no en cada tecla. El máximo es el
@@ -182,20 +174,14 @@ function Viajes() {
   const datosAdministrativosRef = useRef(null);
   const irADatosAdministrativos = useRef(false);
 
-  // Las opciones de los selects de chofer/vehículo salen de los viajes ya
-  // programados (se cargan una sola vez, sin filtros) en vez de pedirle la
-  // lista completa a /usuarios o /vehiculos, porque Personal de Taller puede
-  // ver este listado pero no tiene acceso a esos otros endpoints.
+  // Las opciones de los selects de chofer/vehículo son los que aparecen en
+  // algún viaje (se cargan una sola vez), en vez de la lista completa de
+  // /usuarios o /vehiculos, porque Personal de Taller puede ver este listado
+  // pero no tiene acceso a esos otros endpoints.
   useEffect(() => {
-    // .filter(Boolean) porque un viaje A_CONFIRMAR puede no tener todavía
-    // chofer/vehículo asignado (son null hasta que se complete o confirme).
-    api.get('/viajes').then(({ data }) => {
-      setOpcionesChofer(
-        dedupePorId(data.viajes.map((v) => v.chofer).filter(Boolean)).sort((a, b) =>
-          nombreChofer(a).localeCompare(nombreChofer(b))
-        )
-      );
-      setOpcionesVehiculo(ordenarPorInterno(dedupePorId(data.viajes.map((v) => v.vehiculo).filter(Boolean))));
+    api.get('/viajes/opciones-filtros').then(({ data }) => {
+      setOpcionesChofer([...data.choferes].sort((a, b) => nombreChofer(a).localeCompare(nombreChofer(b))));
+      setOpcionesVehiculo(ordenarPorInterno(data.vehiculos));
     })
       // Sin red, los filtros de chofer y vehículo quedan solo con "Todos"; el
       // error ya lo muestra el listado, con "Reintentar".

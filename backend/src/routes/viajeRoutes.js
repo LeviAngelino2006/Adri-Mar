@@ -12,6 +12,15 @@ router.get(
   autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
   viajeController.listar
 );
+// Opciones de los filtros de chofer y vehículo del listado: mismos perfiles que
+// el listado. Declarada antes que cualquier /:id para que "opciones-filtros" no
+// se tome como un id.
+router.get(
+  '/opciones-filtros',
+  autenticar,
+  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
+  viajeController.opcionesFiltros
+);
 // Sin autorizar(...) a propósito: cualquier usuario autenticado puede
 // consultar SUS PROPIOS viajes como chofer, sin importar su perfil (ver
 // nota de diseño de SCRUM-30 en el reporte).

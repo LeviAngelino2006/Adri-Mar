@@ -98,7 +98,7 @@ const prismaFalso = {
       return args.where ? filas.filter((f) => cumple(f, args.where)) : filas;
     },
   },
-  lecturaOdometro: { findFirst: async () => null },
+  lecturaOdometro: { findFirst: async () => null, findMany: async () => [] },
 };
 
 const rutaPrisma = require.resolve(path.join(SRC, 'services', 'prismaClient.js'));

@@ -11,6 +11,7 @@ process.env.JWT_SECRET = 'secreto-solo-para-tests';
 const { test, describe, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const { cumple, ordenar } = require('./helpers/whereEnMemoria');
 
 const SRC = path.join(__dirname, '..', 'src');
 
@@ -41,6 +42,24 @@ const lecturaFalsa = (id, valorKm, origen) => ({
   fechaHora: new Date('2026-01-01T00:00:00Z'),
   creadoEn: new Date('2026-01-01T00:00:00Z'),
 });
+
+// Todas las lecturas que describen lecturasPorViaje y correcciones, como filas
+// de la tabla: para el findMany de obtenerKmDeViajes.
+function todasLasLecturas() {
+  const filas = [];
+  for (const [viajeId, lecturas] of Object.entries(lecturasPorViaje)) {
+    for (const [origen, km] of Object.entries(lecturas)) {
+      filas.push({ ...lecturaFalsa(idLectura(Number(viajeId), origen), km, origen), viajeId: Number(viajeId) });
+    }
+  }
+  for (const [corregidaId, km] of Object.entries(correcciones)) {
+    filas.push({
+      ...lecturaFalsa(Number(corregidaId) + 1000, km, 'CORRECCION'),
+      lecturaCorregidaId: Number(corregidaId),
+    });
+  }
+  return filas;
+}
 
 function viajeBase(sobrescribir = {}) {
   return {
@@ -113,6 +132,7 @@ const prismaFalso = {
         ? null
         : lecturaFalsa(where.lecturaCorregidaId + 1000, kmCorregido, 'CORRECCION');
     },
+    findMany: async ({ where, orderBy }) => ordenar(todasLasLecturas().filter((l) => cumple(l, where)), orderBy),
     findUnique: async ({ where }) => {
       for (const [viajeId, lecturas] of Object.entries(lecturasPorViaje)) {
         for (const [origen, km] of Object.entries(lecturas)) {

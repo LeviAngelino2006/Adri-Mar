@@ -18,12 +18,13 @@ const {
   actualizarDatosAdministrativos,
 } = require('./viajes/datosAdministrativos');
 const { confirmarViaje, cancelarViaje, comenzarViaje, finalizarViaje } = require('./viajes/ciclo');
-const { ESTADOS_VIAJE_VALIDOS, listarViajes } = require('./viajes/listado');
+const { ESTADOS_VIAJE_VALIDOS, listarViajes, opcionesFiltrosViajes } = require('./viajes/listado');
 const { crearViaje, actualizarViaje } = require('./viajes/abm');
 
 module.exports = {
   crearViaje,
   listarViajes,
+  opcionesFiltrosViajes,
   actualizarViaje,
   actualizarDatosAdministrativos,
   listarEstadosPago,

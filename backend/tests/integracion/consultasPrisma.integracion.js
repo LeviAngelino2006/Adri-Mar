@@ -411,6 +411,12 @@ describe('Viajes', () => {
     ['ubicaciones', () => '/ubicaciones'],
   ]);
 
+  test('opciones de los filtros de chofer y vehículo', async () => {
+    const { choferes, vehiculos } = await esperar('GET', '/viajes/opciones-filtros');
+    assert.ok(choferes.some((c) => c.id === ids.chofer));
+    assert.ok(vehiculos.some((v) => v.id === ids.vehiculo));
+  });
+
   test('disponibilidad para un viaje nuevo', async () => {
     await esperar('POST', '/viajes/disponibilidad', {
       body: {
