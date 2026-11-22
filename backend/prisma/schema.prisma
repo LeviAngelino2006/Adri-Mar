@@ -355,6 +355,8 @@ model LecturaOdometro {
   creadoEn           DateTime          @default(now()) @map("creado_en")
 
   @@index([vehiculoId, fechaHora])
+  @@index([viajeId])
+  @@index([lecturaCorregidaId])
   @@map("lecturas_odometro")
 }
 
