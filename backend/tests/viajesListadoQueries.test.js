@@ -81,24 +81,28 @@ function agregarViajeFinalizado(kmInicio, kmFin) {
 
 // Un viaje cuya lectura de fin se corrigió dos veces en cadena (fin -> c1 -> c2),
 // y además con una corrección más vieja de fin que perdió contra c1: la vigente
-// es c2 (57300).
+// es c2 (57300). Las correcciones llevan el viajeId del viaje, como las crea
+// corregirLectura.
 function agregarViajeConCadena() {
   const { viaje, fin } = agregarViajeFinalizado(57110, 57400);
   agregarLectura({
     valorKm: 57999,
     origen: 'CORRECCION',
+    viajeId: viaje.id,
     lecturaCorregidaId: fin.id,
     creadoEn: new Date('2026-10-21T10:00:00Z'),
   });
   const c1 = agregarLectura({
     valorKm: 57350,
     origen: 'CORRECCION',
+    viajeId: viaje.id,
     lecturaCorregidaId: fin.id,
     creadoEn: new Date('2026-10-21T11:00:00Z'),
   });
   agregarLectura({
     valorKm: 57300,
     origen: 'CORRECCION',
+    viajeId: viaje.id,
     lecturaCorregidaId: c1.id,
     creadoEn: new Date('2026-10-21T12:00:00Z'),
   });
@@ -131,12 +135,12 @@ describe('GET /viajes: consultas de lecturas de odómetro', () => {
 
     assert.equal(viajes.length, 10);
     assert.equal(consultasLecturas, conUnViaje);
-    // Las lecturas base y un nivel por eslabón de la cadena más larga (2), más
-    // el nivel que confirma que no hay más correcciones.
-    assert.equal(conUnViaje, 4);
+    // Una sola consulta trae todas las lecturas de los viajes, correcciones
+    // incluidas: no depende de la cantidad de viajes ni del largo de la cadena.
+    assert.equal(conUnViaje, 1);
   });
 
-  test('resuelve la cadena de correcciones con la más reciente de cada nivel', async () => {
+  test('resuelve la cadena de correcciones con la más reciente de cada eslabón', async () => {
     const conCadena = agregarViajeConCadena();
     const { viaje: comun } = agregarViajeFinalizado(80000, 80150);
     const sinLecturas = agregarViaje({ estado: 'PROGRAMADO', choferId: 5, vehiculoId: 7 });

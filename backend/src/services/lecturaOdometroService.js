@@ -351,10 +351,78 @@ async function corregirLectura({ lecturaCorregidaId, valorKm, motivo, usuarioId 
   return prisma.$transaction(ejecutar);
 }
 
+// La corrección que vale entre varias de una misma lectura: la de creadoEn más
+// reciente y, si empatan, la de mayor id. Se compara explícitamente para no
+// depender del orden en que lleguen las lecturas.
+function esMasReciente(a, b) {
+  const diferencia = new Date(a.creadoEn).getTime() - new Date(b.creadoEn).getTime();
+  return diferencia > 0 || (diferencia === 0 && a.id > b.id);
+}
+
+// Lecturas vigentes de INICIO_VIAJE y FIN_VIAJE de cada viaje, como
+// Map viajeId -> { vigenteInicio, vigenteFin } (lecturas sin serializar, o
+// null si el viaje no tiene esa lectura). Regla: de las correcciones de una
+// lectura (lecturaCorregidaId) vale la más reciente (ver esMasReciente), y se
+// sigue la cadena hasta el final.
+//
+// Recibe las lecturas con `origen` incluido y en cualquier orden. Alcanza con
+// traer todas las de los viajes por viajeId, porque corregirLectura copia el
+// viajeId de la corregida a la corrección: la cadena entera viene en la misma
+// consulta. Si un viaje tuviera más de una lectura del mismo origen, vale la
+// de menor id.
+function resolverVigentesPorViaje(lecturas) {
+  const correccionPorCorregida = new Map();
+  const basesPorViaje = new Map();
+
+  for (const lectura of lecturas) {
+    if (lectura.lecturaCorregidaId != null) {
+      const actual = correccionPorCorregida.get(lectura.lecturaCorregidaId);
+      if (!actual || esMasReciente(lectura, actual)) {
+        correccionPorCorregida.set(lectura.lecturaCorregidaId, lectura);
+      }
+    }
+
+    if (lectura.viajeId == null) continue;
+    const origen = lectura.origen?.descripcion;
+    if (origen !== 'INICIO_VIAJE' && origen !== 'FIN_VIAJE') continue;
+
+    let bases = basesPorViaje.get(lectura.viajeId);
+    if (!bases) {
+      bases = { inicio: null, fin: null };
+      basesPorViaje.set(lectura.viajeId, bases);
+    }
+    const campo = origen === 'INICIO_VIAJE' ? 'inicio' : 'fin';
+    if (!bases[campo] || lectura.id < bases[campo].id) bases[campo] = lectura;
+  }
+
+  // `visitadas` corta la vuelta si una cadena tuviera un ciclo (no debería).
+  const seguirCadena = (base) => {
+    if (!base) return null;
+    let actual = base;
+    const visitadas = new Set([actual.id]);
+    let siguiente = correccionPorCorregida.get(actual.id);
+    while (siguiente && !visitadas.has(siguiente.id)) {
+      visitadas.add(siguiente.id);
+      actual = siguiente;
+      siguiente = correccionPorCorregida.get(actual.id);
+    }
+    return actual;
+  };
+
+  const resultado = new Map();
+  for (const [viajeId, bases] of basesPorViaje) {
+    resultado.set(viajeId, {
+      vigenteInicio: seguirCadena(bases.inicio),
+      vigenteFin: seguirCadena(bases.fin),
+    });
+  }
+  return resultado;
+}
+
 // Sigue la cadena de correcciones hacia adelante (quién corrige a quién)
 // hasta encontrar la que no tiene, a su vez, ninguna corrección posterior.
-// viajes/consultas.obtenerKmDeViajes aplica la misma regla en lote: si cambia
-// una, cambiar la otra.
+// Aplica la misma regla que resolverVigentesPorViaje, pero desde una lectura
+// cualquiera en vez de desde un viaje: si cambia una, cambiar la otra.
 async function obtenerLecturaVigente(lecturaId) {
   const lecturaIdNumero = Number(lecturaId);
 
@@ -391,6 +459,7 @@ module.exports = {
   listarLecturas,
   corregirLectura,
   obtenerLecturaVigente,
+  resolverVigentesPorViaje,
   serializarLectura,
   ValidacionError,
   NoEncontradoError,

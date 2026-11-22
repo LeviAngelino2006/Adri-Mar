@@ -1,6 +1,7 @@
 const prisma = require('./prismaClient');
 const { CORDOBA_UTC_OFFSET, SOLO_DIA_REGEX, diaCordobaISO } = require('../utils/fechaCordoba');
 const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../utils/marcaModeloVehiculo');
+const { resolverVigentesPorViaje } = require('./lecturaOdometroService');
 
 const MS_POR_DIA = 24 * 60 * 60 * 1000;
 const MAX_DIAS_PERIODO = 366;
@@ -207,53 +208,16 @@ function validarYResolverPeriodo({ desde, hasta }, ahora = new Date()) {
   return { desde: desdeTexto, hasta: hastaTexto };
 }
 
-// Resuelve en memoria el odómetro inicial, final y km realizados de cada viaje
-// siguiendo la cadena de correcciones (`lecturaCorregidaId`), igual que
-// lecturaOdometroService.obtenerLecturaVigente pero en lote sin consultas N+1.
-function resolverLecturasVigentesPorViaje(lecturas) {
-  const corregidaPorId = new Map();
-  const basePorViaje = new Map();
-
-  for (const lectura of lecturas) {
-    if (lectura.lecturaCorregidaId != null) {
-      corregidaPorId.set(lectura.lecturaCorregidaId, lectura);
-    }
-    if (lectura.viajeId == null) continue;
-    const origen = lectura.origen?.descripcion;
-    if (origen !== 'INICIO_VIAJE' && origen !== 'FIN_VIAJE') continue;
-
-    let entry = basePorViaje.get(lectura.viajeId);
-    if (!entry) {
-      entry = { inicio: null, fin: null };
-      basePorViaje.set(lectura.viajeId, entry);
-    }
-    if (origen === 'INICIO_VIAJE' && !entry.inicio) entry.inicio = lectura;
-    if (origen === 'FIN_VIAJE' && !entry.fin) entry.fin = lectura;
-  }
-
-  const seguirCadena = (lectura) => {
-    if (!lectura) return null;
-    let actual = lectura;
-    const visitados = new Set([actual.id]);
-    while (corregidaPorId.has(actual.id)) {
-      const siguiente = corregidaPorId.get(actual.id);
-      if (!siguiente || visitados.has(siguiente.id)) break;
-      visitados.add(siguiente.id);
-      actual = siguiente;
-    }
-    return actual;
-  };
-
+// Odómetro inicial, final y km realizados de cada viaje, a partir de sus
+// lecturas vigentes (lecturaOdometroService.resolverVigentesPorViaje).
+function medicionesPorViaje(lecturas) {
   const resultado = new Map();
-  for (const [viajeId, entry] of basePorViaje.entries()) {
-    const vigenteInicio = seguirCadena(entry.inicio);
-    const vigenteFin = seguirCadena(entry.fin);
+  for (const [viajeId, { vigenteInicio, vigenteFin }] of resolverVigentesPorViaje(lecturas)) {
     const odometroInicial = vigenteInicio ? vigenteInicio.valorKm : null;
     const odometroFinal = vigenteFin ? vigenteFin.valorKm : null;
     const kmRealizados = vigenteInicio && vigenteFin ? vigenteFin.valorKm - vigenteInicio.valorKm : null;
     resultado.set(viajeId, { odometroInicial, odometroFinal, kmRealizados });
   }
-
   return resultado;
 }
 
@@ -328,11 +292,10 @@ async function obtenerReporteKmPorVehiculo({ desde, hasta, ahora = new Date() } 
       ? await prisma.lecturaOdometro.findMany({
           where: { viajeId: { in: viajes.map((v) => v.id) } },
           include: { origen: true },
-          orderBy: { creadoEn: 'asc' },
         })
       : [];
 
-  const lecturasPorViaje = resolverLecturasVigentesPorViaje(lecturas);
+  const lecturasPorViaje = medicionesPorViaje(lecturas);
 
   const porVehiculo = new Map();
   let vehiculosActivos = 0;
@@ -460,6 +423,5 @@ async function obtenerReporteKmPorVehiculo({ desde, hasta, ahora = new Date() } 
 module.exports = {
   obtenerReporteKmPorVehiculo,
   semanaActualCordoba,
-  resolverLecturasVigentesPorViaje,
   ValidacionError,
 };
