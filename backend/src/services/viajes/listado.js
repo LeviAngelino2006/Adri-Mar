@@ -5,7 +5,7 @@ const { aFechaCordoba, rangoDelDiaCordoba } = require('../../utils/fechaCordoba'
 const { normalizarNombre } = require('../../utils/normalizarNombre');
 const { PermisoDenegadoError, ValidacionError } = require('./errores');
 const { puedeVerDatosAdministrativos } = require('./permisos');
-const { INCLUDE_RELACIONES_VIAJE } = require('./consultas');
+const { INCLUDE_RELACIONES_VIAJE, obtenerKmDeViajes } = require('./consultas');
 const { FILTRO_ADMINISTRATIVO_PENDIENTE, serializarViaje } = require('./serializacion');
 
 const ESTADOS_VIAJE_VALIDOS = ['A_CONFIRMAR', 'PROGRAMADO', 'EN_VIAJE', 'FINALIZADO', 'CANCELADO'];
@@ -222,18 +222,20 @@ async function listarViajes(
     orderBy: vistaValida ? ORDEN_VISTA[vistaValida] : { fechaInicio: { sort: 'desc', nulls: 'last' } },
   });
 
+  // Las lecturas de odómetro de todos los viajes juntas: una cantidad de
+  // consultas que no crece con el listado.
+  const kmPorViaje = await obtenerKmDeViajes(viajes.map((viaje) => viaje.id));
+
   if (vistaValida !== 'proximos') {
-    return Promise.all(viajes.map((viaje) => serializarViaje(viaje, usuarioSolicitante)));
+    return viajes.map((viaje) => serializarViaje(viaje, usuarioSolicitante, kmPorViaje.get(viaje.id)));
   }
 
   // "Hoy" es el día de Córdoba: su inicio es las 00:00 de Córdoba.
   const { inicio: inicioDeHoy } = rangoDelDiaCordoba(new Date());
-  return Promise.all(
-    ordenarProximos(viajes, inicioDeHoy).map(async ({ viaje, sinCerrar }) => ({
-      ...(await serializarViaje(viaje, usuarioSolicitante)),
-      sinCerrar,
-    }))
-  );
+  return ordenarProximos(viajes, inicioDeHoy).map(({ viaje, sinCerrar }) => ({
+    ...serializarViaje(viaje, usuarioSolicitante, kmPorViaje.get(viaje.id)),
+    sinCerrar,
+  }));
 }
 
 module.exports = {

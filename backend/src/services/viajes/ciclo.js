@@ -17,8 +17,7 @@ const {
   validarYArmarOperativos,
   presente,
 } = require('./validaciones');
-const { INCLUDE_RELACIONES_VIAJE, obtenerViaje } = require('./consultas');
-const { serializarViaje } = require('./serializacion');
+const { INCLUDE_RELACIONES_VIAJE, obtenerViaje, serializarViajeConKm } = require('./consultas');
 
 // Textos del 409 de comenzar. `carrera` es el del índice único: no se sabe
 // cuál de los dos chocó.
@@ -91,7 +90,7 @@ async function confirmarViaje(id, payload = {}, usuarioSolicitante) {
   });
 
   const viaje = await obtenerViaje(actual.id);
-  return await serializarViaje(viaje, usuarioSolicitante);
+  return await serializarViajeConKm(viaje, usuarioSolicitante);
 }
 
 async function cancelarViaje(id, usuarioSolicitante) {
@@ -113,7 +112,7 @@ async function cancelarViaje(id, usuarioSolicitante) {
     include: INCLUDE_RELACIONES_VIAJE,
   });
 
-  return await serializarViaje(viaje, usuarioSolicitante);
+  return await serializarViajeConKm(viaje, usuarioSolicitante);
 }
 
 // Si crearLectura rechaza el valor, su ValidacionError se relanza como la de
@@ -203,7 +202,7 @@ async function comenzarViaje(id, { odometroInicial }, usuarioSolicitante) {
   }
 
   const viajeFinal = await obtenerViaje(actual.id);
-  return await serializarViaje(viajeFinal, usuarioSolicitante);
+  return await serializarViajeConKm(viajeFinal, usuarioSolicitante);
 }
 
 // ~150-200 palabras: de sobra para una nota sobre cómo fue el viaje (un
@@ -304,7 +303,7 @@ async function finalizarViaje(id, { odometroFinal, observacion }, usuarioSolicit
   }
 
   const viajeFinal = await obtenerViaje(actual.id);
-  return await serializarViaje(viajeFinal, usuarioSolicitante);
+  return await serializarViajeConKm(viajeFinal, usuarioSolicitante);
 }
 
 module.exports = {

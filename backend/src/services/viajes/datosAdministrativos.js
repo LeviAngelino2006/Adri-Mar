@@ -4,8 +4,7 @@ const prisma = require('../prismaClient');
 const { aFechaCordoba } = require('../../utils/fechaCordoba');
 const { ValidacionError } = require('./errores');
 const { presente } = require('./validaciones');
-const { INCLUDE_RELACIONES_VIAJE, obtenerViaje } = require('./consultas');
-const { serializarViaje } = require('./serializacion');
+const { INCLUDE_RELACIONES_VIAJE, obtenerViaje, serializarViajeConKm } = require('./consultas');
 
 async function validarEstadoPago(id, campo) {
   const estadoPago = await prisma.estadoPago.findUnique({ where: { id } });
@@ -212,7 +211,7 @@ async function actualizarDatosAdministrativos(id, payload = {}, usuarioSolicitan
   // Ningún campo reconocido en el payload: no-op válido, no se toca la fila
   // (ni siquiera actualizadoEn).
   if (Object.keys(data).length === 0) {
-    return serializarViaje(actual, usuarioSolicitante);
+    return serializarViajeConKm(actual, usuarioSolicitante);
   }
 
   await validarPagosPendientesSinFecha(actual, data);
@@ -223,7 +222,7 @@ async function actualizarDatosAdministrativos(id, payload = {}, usuarioSolicitan
     include: INCLUDE_RELACIONES_VIAJE,
   });
 
-  return serializarViaje(viaje, usuarioSolicitante);
+  return serializarViajeConKm(viaje, usuarioSolicitante);
 }
 
 module.exports = {

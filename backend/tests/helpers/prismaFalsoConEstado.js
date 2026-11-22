@@ -17,6 +17,7 @@
 // estado vigente. NO toca la base ni lee el .env.
 
 const path = require('node:path');
+const { cumple, ordenar } = require('./whereEnMemoria');
 
 const ESTADOS = { A_CONFIRMAR: 1, PROGRAMADO: 2, EN_VIAJE: 3, FINALIZADO: 4, CANCELADO: 5 };
 const nombreEstado = (id) => Object.keys(ESTADOS).find((k) => ESTADOS[k] === id);
@@ -807,7 +808,18 @@ function crearEntorno() {
     estadoViaje: {
       findUnique: async ({ where: { descripcion } }) => ({ id: ESTADOS[descripcion], descripcion }),
     },
-    lecturaOdometro: { findFirst: async () => null },
+    // Fuera de la transacción: findMany es lo que usa consultas.obtenerKmDeViajes
+    // para serializar viajes (lecturas de un viaje y cadenas de correcciones).
+    lecturaOdometro: {
+      findFirst: async () => null,
+      findMany: async ({ where, orderBy }) =>
+        ordenar(
+          db.lecturas
+            .map((l) => ({ ...l, origen: { id: l.origenId, descripcion: db.origenes[l.origenId] } }))
+            .filter((l) => cumple(l, where)),
+          orderBy
+        ),
+    },
     planMantenimiento: modeloPlanMantenimiento,
     mantenimientoRealizado: modeloMantenimientoRealizado,
     tipoArreglo: modeloTipoArreglo,

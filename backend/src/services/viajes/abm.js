@@ -14,8 +14,7 @@ const {
   validarExistenciaCandidatos,
   erroresCandidatosAConfirmar,
 } = require('./validaciones');
-const { INCLUDE_RELACIONES_VIAJE, obtenerViaje } = require('./consultas');
-const { serializarViaje } = require('./serializacion');
+const { INCLUDE_RELACIONES_VIAJE, obtenerViaje, serializarViajeConKm } = require('./consultas');
 
 // Todo viaje nace A_CONFIRMAR, vengan o no los 5 campos operativos: el
 // encargado primero anota el viaje y recién después lo confirma. El único
@@ -98,7 +97,7 @@ async function crearViaje(
     include: INCLUDE_RELACIONES_VIAJE,
   });
 
-  return await serializarViaje(viaje, usuarioSolicitante);
+  return await serializarViajeConKm(viaje, usuarioSolicitante);
 }
 
 // Reemplazo completo (a diferencia de datos-administrativos, que es parcial):
@@ -185,7 +184,7 @@ async function actualizarViaje(
       });
     });
 
-    return await serializarViaje(viaje, usuarioSolicitante);
+    return await serializarViajeConKm(viaje, usuarioSolicitante);
   }
 
   const operativos = await validarYArmarOperativos(
@@ -227,7 +226,7 @@ async function actualizarViaje(
     });
   });
 
-  return await serializarViaje(viaje, usuarioSolicitante);
+  return await serializarViajeConKm(viaje, usuarioSolicitante);
 }
 
 module.exports = {

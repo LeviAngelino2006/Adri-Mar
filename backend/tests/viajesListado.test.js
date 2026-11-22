@@ -122,7 +122,7 @@ const prismaFalso = {
       return ordenar(filtradas, args.orderBy);
     },
   },
-  lecturaOdometro: { findFirst: async () => null },
+  lecturaOdometro: { findFirst: async () => null, findMany: async () => [] },
 };
 
 const rutaPrisma = require.resolve(path.join(SRC, 'services', 'prismaClient.js'));
