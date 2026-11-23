@@ -524,8 +524,8 @@ describe('visibilidad de los candidatos', () => {
     assert.deepEqual(json.viajes[0].vehiculosCandidatos, []);
   });
 
-  test('PERSONAL_TALLER ve el listado pero SIN las claves de candidatos', async () => {
-    agregarViaje({ choferesCandidatos: [5], vehiculosCandidatos: [7] });
+  test('PERSONAL_TALLER (habilitado) ve sus viajes del listado SIN las claves de candidatos', async () => {
+    agregarViaje({ estado: 'PROGRAMADO', choferId: 10, vehiculoId: 7, choferesCandidatos: [5], vehiculosCandidatos: [7] });
 
     const { status, json } = await pedir('GET', '/viajes', { perfil: 'PERSONAL_TALLER' });
 

@@ -269,11 +269,7 @@ describe('GET /viajes?vista=proximos', () => {
     assert.deepEqual(json.viajes, []);
   });
 
-  test('Personal de Taller también puede usar la vista', async () => {
-    const { status, json } = await pedir('/viajes?vista=proximos', 'PERSONAL_TALLER');
-    assert.equal(status, 200);
-    assert.equal(json.viajes.length, 9);
-  });
+  // Personal de Taller ya no ve el listado completo: ver viajesPermisosTaller.test.js.
 });
 
 describe('GET /viajes?vista=anteriores', () => {

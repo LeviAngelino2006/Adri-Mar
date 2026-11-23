@@ -1,5 +1,6 @@
 const { verificarToken, generarToken } = require('../services/tokenService');
 const { buscarSesion } = require('../services/sesionService');
+const { ALCANCE_VIAJES, alcanceDeViajes } = require('../services/viajes/permisos');
 
 const SESION_NO_VALIDA = 'Tu sesión ya no es válida. Iniciá sesión de nuevo.';
 
@@ -72,4 +73,17 @@ function autorizar(...perfilesPermitidos) {
   };
 }
 
-module.exports = { autenticar, autorizar, SESION_NO_VALIDA, DEBE_CAMBIAR_CONTRASENA, PERMITIDAS_CON_CONTRASENA_PROVISORIA };
+// Corta con 403 a quien no puede ver ningún viaje (Personal de Taller sin
+// habilitación para conducir). Va después de autenticar en toda ruta que
+// devuelva viajes o dependa de uno; la regla vive en alcanceDeViajes, no acá.
+// Lo que sí puede ver cada perfil (todos o solo los propios) lo resuelven los
+// services con el mismo helper.
+function exigirAccesoAViajes(req, res, next) {
+  if (alcanceDeViajes(req.usuario) === ALCANCE_VIAJES.NINGUNO) {
+    return res.status(403).json({ error: 'No tiene permisos para ver viajes' });
+  }
+
+  next();
+}
+
+module.exports = { autenticar, autorizar, exigirAccesoAViajes, SESION_NO_VALIDA, DEBE_CAMBIAR_CONTRASENA, PERMITIDAS_CON_CONTRASENA_PROVISORIA };

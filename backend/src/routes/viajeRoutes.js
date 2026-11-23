@@ -1,30 +1,34 @@
 const { Router } = require('express');
 const viajeController = require('../controllers/viajeController');
 const estimacionRecorridoController = require('../controllers/estimacionRecorridoController');
-const { autenticar, autorizar } = require('../middlewares/auth');
+const { autenticar, autorizar, exigirAccesoAViajes } = require('../middlewares/auth');
 
 const router = Router();
 
 router.post('/', autenticar, autorizar('ADMINISTRADOR', 'ENCARGADO'), viajeController.crear);
+// Personal de Taller entra por el permiso de rol pero el service lo acota: sin
+// habilitación para conducir es un 403 y con habilitación ve solo sus viajes.
 router.get(
   '/',
   autenticar,
   autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
+  exigirAccesoAViajes,
   viajeController.listar
 );
-// Opciones de los filtros de chofer y vehículo del listado: mismos perfiles que
-// el listado. Declarada antes que cualquier /:id para que "opciones-filtros" no
-// se tome como un id.
+// Opciones de los filtros de chofer y vehículo del listado: lista a TODOS los
+// choferes con viajes, así que es solo de gestores (quien ve solo los propios no
+// tiene filtros que armar). Declarada antes que cualquier /:id para que
+// "opciones-filtros" no se tome como un id.
 router.get(
   '/opciones-filtros',
   autenticar,
-  autorizar('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
+  autorizar('ADMINISTRADOR', 'ENCARGADO'),
   viajeController.opcionesFiltros
 );
-// Sin autorizar(...) a propósito: cualquier usuario autenticado puede
-// consultar SUS PROPIOS viajes como chofer, sin importar su perfil (ver
-// nota de diseño de SCRUM-30 en el reporte).
-router.get('/mis-viajes', autenticar, viajeController.misViajes);
+// Sin autorizar(...) de rol a propósito: cualquier usuario autenticado puede
+// consultar SUS PROPIOS viajes como chofer (ver nota de diseño de SCRUM-30),
+// salvo Personal de Taller sin habilitación para conducir (exigirAccesoAViajes).
+router.get('/mis-viajes', autenticar, exigirAccesoAViajes, viajeController.misViajes);
 router.put('/:id', autenticar, autorizar('ADMINISTRADOR', 'ENCARGADO'), viajeController.actualizar);
 router.patch(
   '/:id/cancelar',
@@ -36,8 +40,8 @@ router.patch(
 // asignado a ESE viaje (cualquiera sea su perfil) o Administrador/Encargado
 // sobre cualquier viaje — ese chequeo depende del viaje cargado (conocer el
 // choferId), así que vive en viajeService.puedeOperarViaje, no acá.
-router.patch('/:id/comenzar', autenticar, viajeController.comenzar);
-router.patch('/:id/finalizar', autenticar, viajeController.finalizar);
+router.patch('/:id/comenzar', autenticar, exigirAccesoAViajes, viajeController.comenzar);
+router.patch('/:id/finalizar', autenticar, exigirAccesoAViajes, viajeController.finalizar);
 // Puramente administrativo/financiero: a diferencia de comenzar/finalizar, acá
 // NO hay bypass de "dueño del viaje" — el chofer nunca puede tocar esto, sin
 // importar si es su propio viaje. Funciona en cualquier estado del viaje a

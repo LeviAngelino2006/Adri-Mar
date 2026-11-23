@@ -43,13 +43,13 @@ beforeEach(() => {
   sembrar();
 });
 
-function tokenDe(perfil) {
-  return generarToken({ id: 10, personaId: 10, nombreUsuario: `test-${perfil}`, perfil, habilitadoParaConducir: true });
+function tokenDe(perfil, personaId = 10) {
+  return generarToken({ id: 10, personaId, nombreUsuario: `test-${perfil}`, perfil, habilitadoParaConducir: true });
 }
 
-async function pedir(metodo, ruta, { perfil, body } = {}) {
+async function pedir(metodo, ruta, { perfil, body, personaId } = {}) {
   const headers = { 'Content-Type': 'application/json' };
-  if (perfil) headers.Authorization = `Bearer ${tokenDe(perfil)}`;
+  if (perfil) headers.Authorization = `Bearer ${tokenDe(perfil, personaId)}`;
   const respuesta = await fetch(`${base}${ruta}`, {
     method: metodo,
     headers,
@@ -83,10 +83,10 @@ describe('chofer.telefono en la respuesta del viaje', () => {
     assert.equal(json.viajes[0].chofer.telefono, null);
   });
 
-  test('PERSONAL_TALLER ve el chofer pero SIN la clave telefono', async () => {
+  test('PERSONAL_TALLER ve el chofer (él mismo, persona 5) pero SIN la clave telefono', async () => {
     agregarViaje({ estado: 'PROGRAMADO', choferId: 5, vehiculoId: 7 });
 
-    const { status, json } = await pedir('GET', '/viajes', { perfil: 'PERSONAL_TALLER' });
+    const { status, json } = await pedir('GET', '/viajes', { perfil: 'PERSONAL_TALLER', personaId: 5 });
 
     assert.equal(status, 200);
     assert.deepEqual(json.viajes[0].chofer, { id: 5, nombre: 'Ana', apellido: 'Pérez' });

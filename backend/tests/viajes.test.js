@@ -496,7 +496,7 @@ describe('cantidadPasajeros', () => {
   });
 
   test('los pasajeros se ven en el listado para cualquier perfil que ve el viaje', async () => {
-    viajesParaListar = [viajeBase({ cantidadPasajeros: 12 })];
+    viajesParaListar = [viajeBase({ cantidadPasajeros: 12, choferId: 10 })];
 
     const { json } = await pedir('GET', '/viajes', { perfil: 'PERSONAL_TALLER' });
 

@@ -186,11 +186,9 @@ describe('GET /viajes/opciones-filtros', () => {
     });
   });
 
-  test('Personal de Taller y Encargado pueden usarlo, como el listado', async () => {
-    for (const perfil of ['PERSONAL_TALLER', 'ENCARGADO']) {
-      const { status } = await pedir('/viajes/opciones-filtros', perfil);
-      assert.equal(status, 200, perfil);
-    }
+  test('Encargado puede usarlo; Personal de Taller no (lista a todos los choferes)', async () => {
+    assert.equal((await pedir('/viajes/opciones-filtros', 'ENCARGADO')).status, 200);
+    assert.equal((await pedir('/viajes/opciones-filtros', 'PERSONAL_TALLER')).status, 403);
   });
 
   test('un Chofer recibe 403, como en el listado', async () => {

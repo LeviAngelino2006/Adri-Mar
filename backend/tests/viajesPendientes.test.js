@@ -205,6 +205,7 @@ describe('pendienteAdministrativo en la respuesta', () => {
   });
 
   test('PERSONAL_TALLER no recibe la clave (ni precio ni estado de pago)', async () => {
+    filas = CASOS.map(([, v]) => ({ ...v, choferId: 10 }));
     const { status, json } = await pedir('/viajes', 'PERSONAL_TALLER');
     assert.equal(status, 200);
     assert.ok(json.viajes.length > 0);
