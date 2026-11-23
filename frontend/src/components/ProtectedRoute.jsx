@@ -5,7 +5,9 @@ import { RUTA_CAMBIAR_CONTRASENA } from '../utils/sesion';
 // `permiteContrasenaProvisoria`: solo la ruta de "Cambiar contraseña". Con una
 // contraseña provisoria, cualquier otra ruta lleva ahí (el backend, además,
 // rechaza todo lo demás).
-function ProtectedRoute({ children, perfiles, permiteContrasenaProvisoria = false }) {
+// `permite`: condición extra sobre el usuario (ej. puedeVerViajes) para lo que no
+// se decide solo por perfil; si no se cumple, redirige igual que `perfiles`.
+function ProtectedRoute({ children, perfiles, permite, permiteContrasenaProvisoria = false }) {
   const { usuario } = useAuth();
 
   if (!usuario) {
@@ -16,7 +18,7 @@ function ProtectedRoute({ children, perfiles, permiteContrasenaProvisoria = fals
     return <Navigate to={RUTA_CAMBIAR_CONTRASENA} replace />;
   }
 
-  if (perfiles && !perfiles.includes(usuario.perfil)) {
+  if ((perfiles && !perfiles.includes(usuario.perfil)) || (permite && !permite(usuario))) {
     return <Navigate to="/" replace />;
   }
 

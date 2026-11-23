@@ -4,7 +4,7 @@ const prisma = require('../prismaClient');
 const { aFechaCordoba, rangoDelDiaCordoba } = require('../../utils/fechaCordoba');
 const { normalizarNombre } = require('../../utils/normalizarNombre');
 const { PermisoDenegadoError, ValidacionError } = require('./errores');
-const { puedeVerDatosAdministrativos } = require('./permisos');
+const { ALCANCE_VIAJES, alcanceDeViajes, puedeVerDatosAdministrativos } = require('./permisos');
 const { INCLUDE_RELACIONES_VIAJE, obtenerKmDeViajes } = require('./consultas');
 const { FILTRO_ADMINISTRATIVO_PENDIENTE, serializarViaje } = require('./serializacion');
 
@@ -161,6 +161,19 @@ async function listarViajes(
   } = {},
   usuarioSolicitante
 ) {
+  const alcance = alcanceDeViajes(usuarioSolicitante);
+  if (alcance === ALCANCE_VIAJES.NINGUNO) {
+    throw new PermisoDenegadoError('No tiene permisos para ver viajes');
+  }
+  // Quien ve solo los propios queda atado a su persona: el choferId de la query
+  // se ignora (no puede pedir los de otro) y, como a Mis viajes, no le llegan
+  // los A confirmar (etapa de planificación).
+  const soloPropios = alcance === ALCANCE_VIAJES.PROPIOS;
+  if (soloPropios) {
+    choferId = usuarioSolicitante.personaId;
+    excluirAConfirmar = true;
+  }
+
   const vistaValida = validarVista(vista);
   const busqueda = validarBusqueda(q);
   const where = {};

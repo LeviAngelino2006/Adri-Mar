@@ -19,6 +19,7 @@ const db = {
   vehiculos: [],
   viajes: [],
   lecturas: [],
+  consultasViaje: 0,
 };
 
 const prismaFalso = {
@@ -29,8 +30,9 @@ const prismaFalso = {
     },
   },
   viaje: {
-    findMany: async ({ where } = {}) =>
-      db.viajes.filter((v) => {
+    findMany: async ({ where } = {}) => {
+      db.consultasViaje += 1;
+      return db.viajes.filter((v) => {
         if (where?.estadoViaje?.descripcion && v.estadoViaje?.descripcion !== where.estadoViaje.descripcion) {
           return false;
         }
@@ -40,9 +42,12 @@ const prismaFalso = {
           if (where.fechaInicio.lte && v.fechaInicio > where.fechaInicio.lte) return false;
         }
         return true;
-      }),
-    count: async ({ where } = {}) =>
-      db.viajes.filter((v) => !where?.estadoViaje?.descripcion || v.estadoViaje?.descripcion === where.estadoViaje.descripcion).length,
+      });
+    },
+    count: async ({ where } = {}) => {
+      db.consultasViaje += 1;
+      return db.viajes.filter((v) => !where?.estadoViaje?.descripcion || v.estadoViaje?.descripcion === where.estadoViaje.descripcion).length;
+    },
   },
   lecturaOdometro: {
     findMany: async ({ where } = {}) => {
@@ -66,12 +71,12 @@ const { generarToken } = require(path.join(SRC, 'services', 'tokenService.js'));
 let servidor;
 let base;
 
-const tokenDe = (perfil) =>
-  generarToken({ id: 10, personaId: 10, nombreUsuario: `test-${perfil}`, perfil, habilitadoParaConducir: false });
+const tokenDe = (perfil, habilitadoParaConducir = false) =>
+  generarToken({ id: 10, personaId: 10, nombreUsuario: `test-${perfil}`, perfil, habilitadoParaConducir });
 
-async function pedir(ruta, { perfil = 'ADMINISTRADOR', token } = {}) {
+async function pedir(ruta, { perfil = 'ADMINISTRADOR', habilitado = false, token } = {}) {
   const headers = {};
-  if (token !== null) headers.Authorization = `Bearer ${token ?? tokenDe(perfil)}`;
+  if (token !== null) headers.Authorization = `Bearer ${token ?? tokenDe(perfil, habilitado)}`;
   const res = await fetch(`${base}${ruta}`, { headers });
   const body = await res.json();
   return { status: res.status, body };
@@ -142,6 +147,7 @@ beforeEach(() => {
   db.vehiculos = [];
   db.viajes = [];
   db.lecturas = [];
+  db.consultasViaje = 0;
 });
 
 describe('GET /api/dashboard/indicadores (SCRUM-262, SCRUM-281)', () => {
@@ -247,6 +253,30 @@ describe('GET /api/dashboard/indicadores (SCRUM-262, SCRUM-281)', () => {
     assert.equal(body.mantenimiento.vencidos, 1);
     assert.equal('km' in body, false);
     assert.equal('viajes' in body, false);
+  });
+
+  // Con o sin habilitación para conducir, el Taller no recibe ningún dato de viajes
+  // (conteos ni km) y la respuesta es la misma. Sus viajes propios salen de
+  // /viajes/mis-viajes.
+  for (const habilitado of [false, true]) {
+    test(`PERSONAL_TALLER ${habilitado ? 'habilitado' : 'sin habilitación'}: sin km ni viajes y sin consultar viajes`, async () => {
+      db.vehiculos = [vehiculoFixture({ id: 1, numeroInterno: '12', dominio: 'AE452KD', estado: 'OPERATIVO', kilometraje: 1000, kmUltimoService: 900 })];
+
+      const { status, body } = await pedir('/indicadores', { perfil: 'PERSONAL_TALLER', habilitado });
+
+      assert.equal(status, 200);
+      assert.deepEqual(Object.keys(body).sort(), ['flota', 'mantenimiento', 'periodo']);
+      assert.equal(JSON.stringify(body).includes('enViajeAhora'), false);
+      assert.equal(db.consultasViaje, 0, 'no debe consultar viajes');
+    });
+  }
+
+  test('ENCARGADO y ADMINISTRADOR siguen recibiendo km y viajes', async () => {
+    for (const perfil of ['ENCARGADO', 'ADMINISTRADOR']) {
+      const { status, body } = await pedir('/indicadores', { perfil });
+      assert.equal(status, 200, perfil);
+      assert.ok(body.km && body.viajes, perfil);
+    }
   });
 
   test('CHOFER recibe 403, sin token recibe 401 y período inválido recibe 400', async () => {

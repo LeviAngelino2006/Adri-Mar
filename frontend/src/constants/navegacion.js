@@ -21,7 +21,9 @@ export const NAV_ITEMS = [
     label: 'Viajes',
     to: '/viajes',
     icon: 'viajes',
-    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'),
+    // Personal de Taller no ve el listado de gestión: con habilitación para
+    // conducir ve sus viajes en "Mis viajes"; sin ella, ninguno.
+    visible: porPerfil('ADMINISTRADOR', 'ENCARGADO'),
   },
   {
     label: 'Flota de vehículos',

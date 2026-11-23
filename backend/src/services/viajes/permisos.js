@@ -35,7 +35,31 @@ function puedeVerDatosAdministrativos(usuarioSolicitante) {
   return Boolean(usuarioSolicitante) && PERFILES_CON_DATOS_ADMINISTRATIVOS.includes(usuarioSolicitante.perfil);
 }
 
+// Qué viajes puede ver quien pide. ÚNICO lugar donde se decide: el listado, los
+// endpoints de un viaje puntual y el middleware `exigirAccesoAViajes` lo usan, y
+// cualquier lectura nueva de viajes tiene que pasar por acá.
+//   TODOS:   Administrador y Encargado.
+//   PROPIOS: solo donde la persona es el chofer asignado. Es el Chofer y el
+//            Personal de Taller habilitado para conducir.
+//   NINGUNO: Personal de Taller sin habilitación para conducir. No es un
+//            permiso que se pueda recuperar con un filtro: no ve ningún viaje.
+// Falla cerrado: sin solicitante, o con un perfil que no se conoce, no ve nada.
+const ALCANCE_VIAJES = Object.freeze({ TODOS: 'TODOS', PROPIOS: 'PROPIOS', NINGUNO: 'NINGUNO' });
+
+function alcanceDeViajes(usuarioSolicitante) {
+  if (!usuarioSolicitante) return ALCANCE_VIAJES.NINGUNO;
+  const { perfil, habilitadoParaConducir } = usuarioSolicitante;
+  if (PERFILES_GESTORES_VIAJE.includes(perfil)) return ALCANCE_VIAJES.TODOS;
+  if (perfil === 'CHOFER') return ALCANCE_VIAJES.PROPIOS;
+  if (perfil === 'PERSONAL_TALLER') {
+    return habilitadoParaConducir === true ? ALCANCE_VIAJES.PROPIOS : ALCANCE_VIAJES.NINGUNO;
+  }
+  return ALCANCE_VIAJES.NINGUNO;
+}
+
 module.exports = {
+  ALCANCE_VIAJES,
+  alcanceDeViajes,
   esElChoferDelViaje,
   puedeOperarViaje,
   puedeVerDatosAdministrativos,

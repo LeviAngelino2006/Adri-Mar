@@ -25,10 +25,10 @@ import { agruparViajesPorDia } from '../utils/viajesPorDia';
 import { ordenarPorInicio } from '../utils/misViajes';
 import { lineaAlertaDocumento, ordenarAlertas, resumenAlertas } from '../utils/documentacion';
 import { useCarga } from '../hooks/useCarga';
+import { alcanceDeViajes } from '../utils/permisosViajes';
 import './Dashboard.css';
 
 // Los que gestionan viajes (indicadores completos, viajes y documentación).
-const PERFILES_GESTORES = ['ADMINISTRADOR', 'ENCARGADO'];
 // Los que ven indicadores de flota y mantenimiento (gestión + taller).
 const PERFILES_OPERACION = ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER'];
 
@@ -365,7 +365,8 @@ function SeccionOperacion({ esGestor }) {
 function Dashboard() {
   const { usuario } = useAuth();
 
-  const esGestor = PERFILES_GESTORES.includes(usuario.perfil);
+  // Los paneles de viajes son solo de quien ve TODOS los viajes (ver permisosViajes).
+  const esGestor = alcanceDeViajes(usuario) === 'TODOS';
   const veOperacion = PERFILES_OPERACION.includes(usuario.perfil);
 
   return (

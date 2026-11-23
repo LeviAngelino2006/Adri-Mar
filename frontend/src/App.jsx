@@ -16,6 +16,7 @@ import Mantenimiento from './pages/Mantenimiento';
 import CambiarContrasena from './pages/CambiarContrasena';
 import MiPerfil from './pages/MiPerfil';
 import { RUTA_CAMBIAR_CONTRASENA, RUTA_MI_PERFIL } from './utils/sesion';
+import { puedeVerViajes } from './utils/permisosViajes';
 import './App.css';
 
 function App() {
@@ -68,7 +69,7 @@ function App() {
           <Route
             path="/viajes"
             element={
-              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER']}>
+              <ProtectedRoute perfiles={['ADMINISTRADOR', 'ENCARGADO']}>
                 <Viajes />
               </ProtectedRoute>
             }
@@ -100,7 +101,7 @@ function App() {
           <Route
             path="/mis-viajes"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute permite={puedeVerViajes}>
                 <MisViajes />
               </ProtectedRoute>
             }

@@ -485,7 +485,8 @@ describe('PATCH /viajes/:id/confirmar no toca las paradas', () => {
 describe('visibilidad de las paradas', () => {
   for (const perfil of ['ADMINISTRADOR', 'ENCARGADO', 'PERSONAL_TALLER']) {
     test(`${perfil} ve las paradas, ordenadas, en el listado`, async () => {
-      agregarViaje({ paradas: [4, 3, 5] });
+      // choferId 10 = la persona del token: el Taller solo ve sus propios viajes.
+      agregarViaje({ estado: 'PROGRAMADO', choferId: 10, vehiculoId: 7, paradas: [4, 3, 5] });
 
       const { status, json } = await pedir('GET', '/viajes', { perfil });
 
