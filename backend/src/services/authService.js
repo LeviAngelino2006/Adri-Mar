@@ -65,6 +65,24 @@ async function usuarioActual(id) {
   return usuario ? usuarioDeSesion(usuario) : null;
 }
 
+// Perfil de la cuenta autenticada (GET /auth/perfil, SCRUM-259). Devuelve los
+// datos propios sin exponer contrasenaHash.
+async function perfilPropio(usuarioId) {
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: usuarioId },
+    include: {
+      estadoUsuario: true,
+      persona: { include: { perfil: true } },
+    },
+  });
+  if (!usuario) return null;
+  return {
+    ...usuarioDeSesion(usuario),
+    ultimoIngreso: usuario.ultimoIngreso ?? null,
+    creadoEn: usuario.creadoEn ?? null,
+  };
+}
+
 // Cambiar la propia contraseña (H11), para todos los perfiles: pide la actual y
 // la nueva, con las mismas reglas que el alta. Deja la contraseña como definitiva
 // (debeCambiarContrasena=false). `intentoFallido` del error marca que la actual
@@ -111,4 +129,4 @@ async function cambiarContrasenaPropia(usuarioId, { contrasenaActual, contrasena
   return usuarioDeSesion(actualizado);
 }
 
-module.exports = { login, usuarioActual, cambiarContrasenaPropia, CredencialesInvalidasError, ValidacionError };
+module.exports = { login, usuarioActual, perfilPropio, cambiarContrasenaPropia, CredencialesInvalidasError, ValidacionError };

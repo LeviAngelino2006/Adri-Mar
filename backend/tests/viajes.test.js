@@ -53,8 +53,10 @@ function todasLasLecturas() {
     }
   }
   for (const [corregidaId, km] of Object.entries(correcciones)) {
+    // Como corregirLectura: la corrección lleva el viajeId de la corregida.
     filas.push({
       ...lecturaFalsa(Number(corregidaId) + 1000, km, 'CORRECCION'),
+      viajeId: filas.find((f) => f.id === Number(corregidaId))?.viajeId ?? null,
       lecturaCorregidaId: Number(corregidaId),
     });
   }

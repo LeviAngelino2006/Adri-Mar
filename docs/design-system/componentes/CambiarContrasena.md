@@ -1,17 +1,17 @@
-Pantalla para cambiar la propia contraseña, en `/cambiar-contrasena`. Patrón de página (`CambiarContrasena.jsx`), para todos los perfiles. Tiene dos formas, según si la contraseña es provisoria.
+Pantalla para cambiar la propia contraseña obligatoria en `/cambiar-contrasena` (`CambiarContrasena.jsx`) y formulario reutilizable (`FormularioCambiarContrasena.jsx`), para todos los perfiles. Cuando la contraseña ya no es provisoria, `/cambiar-contrasena` redirige a `/mi-perfil`, donde vive el cambio voluntario.
 
 ## Obligatoria (contraseña provisoria)
 Cuando un gestor crea la cuenta o le cambia la contraseña a otro, la contraseña es provisoria (`debeCambiarContrasena`). Hasta cambiarla, `ProtectedRoute` lleva todas las rutas acá y el backend responde 403 (`DEBE_CAMBIAR_CONTRASENA`) a todo salvo `/auth/me` y el cambio.
 - Sin la navegación: la estructura de `Login` (`.login-page`, `.login-brand` con el panel de marca y `Card.login-card` con el logo).
-- `h1` visible "Cambiá tu contraseña" (`.cambiar-contrasena-titulo`, centrado) y un texto de apoyo en `color-text-secondary` (`.cambiar-contrasena-texto`): "Hola, {nombre}. Tu contraseña es provisoria: la definió quien te dio el acceso. Elegí una nueva para seguir."
+- `h1` visible "Cambiar contraseña" (`.cambiar-contrasena-titulo`, centrado) y un texto de apoyo en `color-text-secondary` (`.cambiar-contrasena-texto`): "Hola, {nombre}. Tu contraseña es provisoria: la definió quien te dio el acceso. Elegí una nueva para seguir."
 - Los tres campos uno debajo del otro, el `Button` primary de ancho completo (`.login-submit`) y, debajo, "Cerrar sesión" en `ghost`, también de ancho completo. Es la única salida.
 - Al cambiarla, entra al Dashboard.
 
-## Por elección
-"Cambiar mi contraseña", en el menú del usuario de la sidebar (ver `Navegacion`).
-- Dentro del `Layout`, como un formulario: `h1` "Cambiar mi contraseña" y una `Card.form-card` con un `.form-grid`.
+## Por elección (en Mi perfil)
+Se accede desde el bloque del usuario al pie de la sidebar (`/mi-perfil`, `MiPerfil.jsx`), dentro del `Layout`:
+- Sección "Cambiar mi contraseña" dentro de su propia `Card`, usando `FormularioCambiarContrasena` con `.form-grid` (2 columnas desde 640px).
 - Pares: Contraseña actual (sola en su fila, con `.form-hueco`) y Contraseña nueva | Repetí la contraseña nueva.
-- `.form-actions`: "Cancelar" (secondary, vuelve a donde estaba) y "Cambiar contraseña" (primary).
+- `.form-actions`: "Cambiar contraseña" (primary).
 - Al cambiarla, `Toast` "Contraseña cambiada correctamente.", los campos se vacían y sigue en la pantalla.
 
 ## Campos y errores

@@ -3,6 +3,7 @@ import api from '../../services/api';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 import FormField from '../ui/FormField';
+import InputContrasena from '../ui/InputContrasena';
 import ModalMarco from '../documentacion/ModalMarco';
 import { useFocoEnPrimerError } from '../../hooks/useFocoEnPrimerError';
 
@@ -82,18 +83,16 @@ function ModalRestablecerContrasena({ usuario, onClose, onSuccess }) {
           hint="Al menos 8 caracteres. Es provisoria: la va a cambiar al ingresar."
           error={errores.contrasenaNueva}
         >
-          <input
+          <InputContrasena
             name="contrasenaNueva"
-            type="password"
             value={form.contrasenaNueva}
             onChange={cambiar}
             autoComplete="new-password"
           />
         </FormField>
         <FormField id="restablecer-contrasena-repetir" label="Repetí la contraseña" required error={errores.repetirContrasena}>
-          <input
+          <InputContrasena
             name="repetirContrasena"
-            type="password"
             value={form.repetirContrasena}
             onChange={cambiar}
             autoComplete="new-password"

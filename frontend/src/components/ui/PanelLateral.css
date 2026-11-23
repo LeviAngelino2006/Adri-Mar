@@ -122,3 +122,25 @@
     padding: var(--space-5) var(--space-6) var(--space-6);
   }
 }
+
+/* Variante `centrado`: ventana emergente en el medio de la pantalla, como los
+   modales de Documentación (fondo con padding y safe area en cada lado). */
+.panel-lateral-overlay-centrado {
+  align-items: center;
+  justify-content: center;
+  padding: max(var(--space-4), env(safe-area-inset-top)) max(var(--space-4), env(safe-area-inset-right))
+    max(var(--space-4), env(safe-area-inset-bottom)) max(var(--space-4), env(safe-area-inset-left));
+}
+
+.panel-lateral.panel-lateral-centrado {
+  width: 100%;
+  max-width: 640px;
+  /* Alto fijo: cuando llega lo que se carga adentro (el historial), la ventana
+     no crece ni se vuelve a centrar. Nunca más alta que la pantalla: si el
+     contenido no entra, scrollea el cuerpo. */
+  height: min(720px, 100%);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}

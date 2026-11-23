@@ -73,6 +73,17 @@ function respuestaListado(endpoint) {
   if (endpoint === '/vehiculos') return { data: { vehiculos: lista(VEHICULO) } };
   if (endpoint === '/viajes' || endpoint === '/viajes/mis-viajes') return { data: { viajes: lista(VIAJE) } };
   if (endpoint === '/documentos/alertas') return { data: { totalAlertas: 0, vencidos: 0, porVencer: 0, documentos: [] } };
+  if (endpoint === '/dashboard/indicadores') {
+    return {
+      data: {
+        periodo: { tipo: 'mes', desde: '2026-11-01', hasta: '2026-11-30' },
+        flota: { totalActivos: 1, operativos: 1, enTaller: 0 },
+        mantenimiento: { vencidos: 0, proximos: 0, alDia: 1, sinPlan: 0, alertas: [] },
+        km: { totalRecorridos: 0, promedioPorViaje: null, viajesConOdometro: 0, viajesSinOdometro: 0 },
+        viajes: { finalizadosPeriodo: 0, enViajeAhora: 0, programadosProximos: 0, porConfirmarPendientes: 0 },
+      },
+    };
+  }
   throw new Error(`endpoint no previsto en el test: ${endpoint}`);
 }
 
@@ -214,17 +225,17 @@ describe('mensaje de error según la causa', () => {
   });
 });
 
-// Los cuatro paneles del Dashboard de gestión: antes mostraban el error, pero
-// sin "Reintentar" (había que recargar la página entera). "Sin cerrar" solo
-// aparece si hay alguno, pero ante un error se ve igual: no se sabe si los hay.
-describe('Dashboard de gestión: los cuatro paneles con el backend cortado', () => {
+// Los paneles del Dashboard de gestión: si falla el backend, cada sección
+// muestra su error con "Reintentar" en lugar del estado vacío.
+describe('Dashboard de gestión: los paneles con el backend cortado', () => {
   const ERRORES = [
     'No pudimos cargar los viajes de hoy. Revisá tu conexión.',
     'No pudimos cargar los viajes por confirmar. Revisá tu conexión.',
     'No pudimos cargar los viajes sin cerrar. Revisá tu conexión.',
+    'No pudimos cargar las alertas de mantenimiento. Revisá tu conexión.',
     'No pudimos cargar las alertas de documentación. Revisá tu conexión.',
   ];
-  const VACIOS = ['No hay viajes para hoy', 'Nada pendiente para hoy ni mañana', 'Sin alertas por ahora'];
+  const VACIOS = ['No hay viajes para hoy', 'Nada pendiente para hoy ni mañana', 'Flota al día', 'Sin alertas por ahora'];
   const botonesReintentar = () => [...contenedor.querySelectorAll('button')].filter((b) => b.textContent === 'Reintentar');
 
   test('cada panel muestra su error con "Reintentar", nunca el vacío', async () => {
@@ -232,7 +243,7 @@ describe('Dashboard de gestión: los cuatro paneles con el backend cortado', () 
     await montar('Dashboard', 'ADMINISTRADOR', '/');
     const alertas = [...contenedor.querySelectorAll('.alert-error[role="alert"]')].map((a) => a.textContent);
     for (const error of ERRORES) assert.ok(alertas.some((a) => a.includes(error)), `falta: ${error}`);
-    assert.equal(botonesReintentar().length, 4);
+    assert.equal(botonesReintentar().length, 5);
     for (const vacio of VACIOS) assert.ok(!texto().includes(vacio), vacio);
   });
 
@@ -245,7 +256,7 @@ describe('Dashboard de gestión: los cuatro paneles con el backend cortado', () 
     await act(async () => botonesReintentar()[0].click());
     assert.equal(pedidos.filter((e) => e === '/viajes').length, pedidosViajes + 2, 'Viajes de hoy hace dos consultas');
     assert.ok(texto().includes('Mendoza'));
-    assert.equal(botonesReintentar().length, 3);
+    assert.equal(botonesReintentar().length, 4);
 
     await act(async () => botonesReintentar()[0].click());
     assert.ok(texto().includes('Nada pendiente para hoy ni mañana'));
@@ -255,6 +266,12 @@ describe('Dashboard de gestión: los cuatro paneles con el backend cortado', () 
     await act(async () => botonesReintentar()[0].click());
     assert.equal(pedidos.filter((e) => e === '/viajes').length, pedidosSinCerrar + 1);
     assert.equal(contenedor.querySelector('[role="region"][aria-label="Sin cerrar"]'), null);
+    assert.equal(botonesReintentar().length, 2);
+
+    const pedidosIndicadores = pedidos.filter((e) => e === '/dashboard/indicadores').length;
+    await act(async () => botonesReintentar()[0].click());
+    assert.equal(pedidos.filter((e) => e === '/dashboard/indicadores').length, pedidosIndicadores + 1);
+    assert.ok(texto().includes('Flota al día'));
     assert.equal(botonesReintentar().length, 1);
 
     const pedidosAlertas = pedidos.filter((e) => e === '/documentos/alertas').length;

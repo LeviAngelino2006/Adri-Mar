@@ -108,18 +108,20 @@ function HistorialVehiculo({ vehiculoId, abiertoInicial = null }) {
         que="el historial"
         vacio={items.length === 0 && <p className="historial-vacio">Todavía no hay services ni arreglos de este vehículo.</p>}
       >
-        <p className="mantenimiento-resumen">{total === 1 ? '1 registro' : `${total} registros`}</p>
-        <ul className="historial-lista">
-          {items.map((registro) => (
-            <ItemHistorial key={registro.id} registro={registro} abierto={abiertos.has(registro.id)} onAlternar={alternar} />
-          ))}
-        </ul>
-        {mas.error && <ErrorCarga mensaje={mensajeErrorCarga(mas.error, 'más registros')} onReintentar={cargarMas} />}
-        {quedan > 0 && !mas.error && (
-          <Button variant="secondary" className="historial-ver-mas" onClick={cargarMas} loading={mas.cargando}>
-            {mas.cargando ? 'Cargando…' : 'Ver más'}
-          </Button>
-        )}
+        <div className="historial-contenido">
+          <p className="mantenimiento-resumen">{total === 1 ? '1 registro' : `${total} registros`}</p>
+          <ul className="historial-lista">
+            {items.map((registro) => (
+              <ItemHistorial key={registro.id} registro={registro} abierto={abiertos.has(registro.id)} onAlternar={alternar} />
+            ))}
+          </ul>
+          {mas.error && <ErrorCarga mensaje={mensajeErrorCarga(mas.error, 'más registros')} onReintentar={cargarMas} />}
+          {quedan > 0 && !mas.error && (
+            <Button variant="secondary" className="historial-ver-mas" onClick={cargarMas} loading={mas.cargando}>
+              {mas.cargando ? 'Cargando…' : 'Ver más'}
+            </Button>
+          )}
+        </div>
       </EstadoCarga>
     </section>
   );

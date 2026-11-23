@@ -29,7 +29,7 @@ Este documento sintetiza las reglas de negocio, flujos y políticas operativas d
 
 ## 2. Mantenimiento Preventivo y Taller
 
-La pantalla es la lista de vehículos con el estado de su service (aviso y barra de km). Primero se elige el vehículo y después qué hacer: al tocarlo se abre su panel lateral con **Registrar service** (o **Asignar plan de service** si no tiene plan), **Registrar arreglo** y su **historial** (services y arreglos juntos). Los perfiles ADMINISTRADOR, ENCARGADO y PERSONAL_TALLER la usan; el CHOFER no.
+La pantalla es la lista de vehículos con el estado de su service (aviso y barra de km). Primero se elige el vehículo y después qué hacer: al tocarlo se abre su panel (una ventana emergente centrada) con **Registrar service** (o **Asignar plan de service** si no tiene plan), **Registrar arreglo** y su **historial** (services y arreglos juntos). Los perfiles ADMINISTRADOR, ENCARGADO y PERSONAL_TALLER la usan; el CHOFER no.
 
 ### 2.1. Frecuencia y Disparadores de Service
 - **Intervalo por tipo de vehículo** (tabla `plantillas_mantenimiento`, una por tipo):

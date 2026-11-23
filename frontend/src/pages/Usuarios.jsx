@@ -6,6 +6,7 @@ import Layout from '../components/Layout';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import FormField from '../components/ui/FormField';
+import InputContrasena from '../components/ui/InputContrasena';
 import OpcionVacia from '../components/ui/OpcionVacia';
 import Alert from '../components/ui/Alert';
 import Cargando from '../components/ui/Cargando';
@@ -324,9 +325,8 @@ function Usuarios() {
                     ayuda="Es provisoria: la persona la va a tener que cambiar la primera vez que ingrese."
                     error={errores.contrasena}
                   >
-                    <input
+                    <InputContrasena
                       name="contrasena"
-                      type="password"
                       value={form.contrasena}
                       onChange={handleChange}
                       autoComplete="new-password"

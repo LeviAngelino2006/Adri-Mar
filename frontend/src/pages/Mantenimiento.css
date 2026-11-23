@@ -200,3 +200,23 @@
   white-space: nowrap;
   vertical-align: bottom;
 }
+
+/* El historial entra con un fundido corto cuando llega, en vez de aparecer de golpe. */
+.historial-contenido {
+  animation: historial-aparecer 0.2s ease-out;
+}
+
+@keyframes historial-aparecer {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .historial-contenido {
+    animation: none;
+  }
+}

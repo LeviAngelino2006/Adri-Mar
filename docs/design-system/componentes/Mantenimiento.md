@@ -1,7 +1,7 @@
 Pantalla de Mantenimiento (`pages/Mantenimiento.jsx` y `components/mantenimiento/`). Patrón de página armado con `Listado`, `Filtros`, `PanelLateral`, `FormField`, `EstadoBadge`, `EstadoCarga` y `Toast`. Sin CSS propio salvo lo de `Mantenimiento.css`, solo con tokens.
 
 ## Idea
-Primero se elige el vehículo y después qué hacer. La pantalla es la lista de vehículos con el estado de su service; al tocar uno se abre su panel lateral con las acciones ("Registrar service", "Registrar arreglo" o "Asignar plan de service") y su historial. No hay pestañas Service | Arreglos | Historial ni un historial de toda la flota.
+Primero se elige el vehículo y después qué hacer. La pantalla es la lista de vehículos con el estado de su service; al tocar uno se abre su panel (ventana emergente centrada) con las acciones ("Registrar service", "Registrar arreglo" o "Asignar plan de service") y su historial. No hay pestañas Service | Arreglos | Historial ni un historial de toda la flota.
 
 ## Lista (`ListaService`)
 - Sin título visible: `ListadoHeader` con "Mantenimiento" en `.sr-only`, como los listados.
@@ -22,7 +22,7 @@ Primero se elige el vehículo y después qué hacer. La pantalla es la lista de 
 - Vacío: "No hay vehículos con esos filtros." (o "No hay vehículos en la flota.").
 
 ## Panel del vehículo (`PanelVehiculoMantenimiento`)
-- `PanelLateral`. El panel abierto va en la URL (`?vehiculoId=7`): se puede compartir y Atrás lo cierra. Abrir desde la lista suma una entrada al historial del navegador; cerrar vuelve atrás. Si se entró directo con `?vehiculoId=`, cerrar quita el parámetro. Un `?vehiculoId=` de un vehículo que no está en la lista (dado de baja o inexistente) no abre nada.
+- `PanelLateral` con `centrado` (ventana emergente en el medio, hasta 640px de ancho). Los tipos de arreglo se piden una vez por sesión, apenas se abre el panel (`tiposArregloCache.js`): el formulario de arreglo ya los tiene al entrar. El historial entra con un fundido de 0,2 s (sin animación con `prefers-reduced-motion`). El panel abierto va en la URL (`?vehiculoId=7`): se puede compartir y Atrás lo cierra. Abrir desde la lista suma una entrada al historial del navegador; cerrar vuelve atrás. Si se entró directo con `?vehiculoId=`, cerrar quita el parámetro. Un `?vehiculoId=` de un vehículo que no está en la lista (dado de baja o inexistente) no abre nada.
 - Tiene cuatro vistas, una a la vez, dentro del mismo panel (nunca un modal encima):
   - **Resumen** (la del principio):
     - Título "12 - AB123CD" y subtítulo marca y modelo.
@@ -31,7 +31,7 @@ Primero se elige el vehículo y después qué hacer. La pantalla es la lista de 
     - Historial (ver abajo).
   - **Registrar service**, **Registrar arreglo** y **Asignar plan de service**: título con la acción y subtítulo "12 - AB123CD · Mercedes-Benz O500"; "← Volver" arriba del título; el formulario con "Registrar …" (primary) y "Cancelar" (secondary), que vuelven al resumen.
 - Al guardar: vuelve al resumen, el historial se vuelve a pedir y el registro nuevo queda primero y expandido; toast "Service registrado.", "Arreglo registrado." o "Plan de service asignado."; la lista se recarga (puede cambiar el odómetro o el estado).
-- Los formularios usan la grilla de dos columnas desde 640px de pantalla (en el panel de 480px entran los pares Fecha | Km).
+- Los formularios usan la grilla de dos columnas desde 640px de pantalla (en el panel de hasta 640px entran los pares Fecha | Km).
 
 ## Historial del vehículo (`HistorialVehiculo`)
 - Título de sección "Historial" y, en gris, "N registros".

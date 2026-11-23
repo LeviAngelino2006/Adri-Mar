@@ -389,13 +389,14 @@ function Personal() {
                 <dt>DNI</dt>
                 <dd>{seleccionado.dni ? formatearDni(seleccionado.dni) : NO_REGISTRADO}</dd>
               </div>
+              <div className="detalle-hueco" aria-hidden="true" />
+              <div className="detalle-item">
+                <dt>Email</dt>
+                <dd>{seleccionado.email || NO_REGISTRADO}</dd>
+              </div>
               <div className="detalle-item">
                 <dt>Teléfono</dt>
                 <dd>{seleccionado.telefono || NO_REGISTRADO}</dd>
-              </div>
-              <div className="detalle-item detalle-item-ancho">
-                <dt>Email</dt>
-                <dd>{seleccionado.email || NO_REGISTRADO}</dd>
               </div>
               <div className="detalle-item">
                 <dt>Puesto / Perfil</dt>
