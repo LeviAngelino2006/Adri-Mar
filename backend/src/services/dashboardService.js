@@ -4,8 +4,8 @@ const { calcularEstadoService } = require('../utils/estadoService');
 const { INCLUDE_MODELO_Y_MARCA, nombresMarcaModelo } = require('../utils/marcaModeloVehiculo');
 const { semanaActualCordoba } = require('./reporteService');
 const { resolverVigentesPorViaje } = require('./lecturaOdometroService');
+const { ALCANCE_VIAJES, alcanceDeViajes } = require('./viajes/permisos');
 
-const PERFILES_GESTORES = ['ADMINISTRADOR', 'ENCARGADO'];
 const PERIODOS_VALIDOS = new Set(['mes', 'semana']);
 const ESTADO_DADO_DE_BAJA = 'DADO_DE_BAJA';
 
@@ -125,7 +125,10 @@ function resumirFlotaYMantenimiento(vehiculos) {
 
 async function obtenerIndicadores({ periodo, perfilSolicitante, ahora = new Date() } = {}) {
   const rango = resolverPeriodo(periodo, ahora);
-  const esGestor = PERFILES_GESTORES.includes(perfilSolicitante);
+  // Conteos y km de viajes solo para quien ve TODOS los viajes (alcanceDeViajes,
+  // única fuente de la regla). Personal de Taller, con o sin habilitación, recibe
+  // solo flota y mantenimiento: sus viajes propios salen de /viajes/mis-viajes.
+  const esGestor = alcanceDeViajes({ perfil: perfilSolicitante }) === ALCANCE_VIAJES.TODOS;
 
   const inicioRango = new Date(`${rango.desde}T00:00:00.000${CORDOBA_UTC_OFFSET}`);
   const finRango = new Date(`${rango.hasta}T23:59:59.999${CORDOBA_UTC_OFFSET}`);

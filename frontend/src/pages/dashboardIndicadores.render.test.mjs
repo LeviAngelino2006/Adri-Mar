@@ -34,6 +34,7 @@ const h = React.createElement;
 const USUARIOS = {
   ADMINISTRADOR: { id: 1, personaId: 1, nombre: 'Adriana', apellido: 'Martínez', nombreUsuario: 'amartinez', perfil: 'ADMINISTRADOR', habilitadoParaConducir: false },
   PERSONAL_TALLER: { id: 7, personaId: 7, nombre: 'Hugo', apellido: 'Paz', nombreUsuario: 'hpaz', perfil: 'PERSONAL_TALLER', habilitadoParaConducir: false },
+  PERSONAL_TALLER_HABILITADO: { id: 8, personaId: 8, nombre: 'Raúl', apellido: 'Quiroga', nombreUsuario: 'rquiroga', perfil: 'PERSONAL_TALLER', habilitadoParaConducir: true },
   CHOFER: { id: 11, personaId: 14, nombre: 'Ramiro', apellido: 'Acosta', nombreUsuario: 'racosta', perfil: 'CHOFER', habilitadoParaConducir: true },
 };
 
@@ -202,6 +203,25 @@ describe('Dashboard por perfil y errores', () => {
     assert.equal(contenedor.querySelector('[aria-label="Viajes de hoy"]'), null);
     assert.equal(contenedor.querySelector('[aria-label="Viajes por confirmar"]'), null);
     assert.equal(pedidos.some((p) => p.endpoint === '/viajes' || p.endpoint === '/documentos/alertas'), false);
+  });
+
+  test('PERSONAL_TALLER sin habilitación no pide ni muestra nada de viajes', async () => {
+    await montar('PERSONAL_TALLER');
+
+    assert.equal(pedidos.some((p) => p.endpoint.startsWith('/viajes')), false);
+    assert.doesNotMatch(contenedor.textContent, /viajes pendientes|Viajes realizados|Km recorridos/i);
+    assert.equal(contenedor.querySelector('.dashboard-kpi'), null);
+  });
+
+  test('PERSONAL_TALLER habilitado ve solo lo suyo (Mis viajes) y ninguna tarjeta de viajes de gestión', async () => {
+    await montar('PERSONAL_TALLER_HABILITADO');
+
+    assert.equal(pedidos.some((p) => p.endpoint === '/viajes'), false);
+    assert.ok(pedidos.some((p) => p.endpoint === '/viajes/mis-viajes'));
+    assert.equal(kpis().length, 0);
+    assert.ok(contenedor.querySelector('[role="region"][aria-label="Mantenimiento"]'));
+    assert.equal(contenedor.querySelector('[aria-label="Viajes de hoy"]'), null);
+    assert.equal(contenedor.querySelector('[aria-label="Viajes por confirmar"]'), null);
   });
 
   test('CHOFER sigue viendo solo lo del chofer y no pide /dashboard/indicadores', async () => {
